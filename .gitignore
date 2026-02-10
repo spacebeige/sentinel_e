@@ -1,0 +1,42 @@
+dist/
+########################################
+# General
+########################################
+.DS_Store
+.vscode/
+__pycache__/
+
+########################################
+# Backend (Python)
+########################################
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/.env
+.env
+backend/venv/
+backend/.pytest_cache/
+*.log
+
+########################################
+# Backend User Data & Models
+########################################
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/data/vectors/*
+!backend/data/vectors/.gitkeep
+backend/data/knowledge_base.json
+backend/models/*.gguf
+backend/models/*.bin
+
+########################################
+# Frontend (Node / React)
+########################################
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*

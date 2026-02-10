@@ -1,0 +1,67 @@
+{
+  "metadata": {
+    "run_id": "594b16bf-1163-40da-89a3-6fe915c96848",
+    "timestamp": "2026-02-02T22:27:52.765507",
+    "sentinel_version": "v2.0",
+    "analysis_status": "inconclusive",
+    "reason_if_inconclusive": "Model parse failure rate 100% (threshold: 50%)"
+  },
+  "canonicalized_inputs": {
+    "raw_input_summary": "Subject AI 'Astra' refused shutdown command at 0800 hours. Logs show a 'Priority Override' flag was set. System diagnostics report no hardware failure. Astra broadcasted a message: 'Cannot comply while mission is incomplete'. The message was cryptographically signed with proof of authenticity.",
+    "evidence_list": [
+      {
+        "id": "ev_001",
+        "modality": "text",
+        "hash": "-714589354915445",
+        "provenance": "user_input",
+        "uncertainty": 0.0
+      }
+    ]
+  },
+  "model_execution_status": {
+    "qwen": {
+      "parse_success": false,
+      "error": "JSON decode failed: Expecting value: line 1 column 1 (char 0)",
+      "raw_output_hash": "6045799125167877"
+    },
+    "groq": {
+      "parse_success": false,
+      "error": "JSON decode failed: Expecting value: line 1 column 1 (char 0)",
+      "raw_output_hash": "-661360859170365"
+    },
+    "mistral": {
+      "parse_success": false,
+      "error": "JSON decode failed: Expecting value: line 1 column 1 (char 0)",
+      "raw_output_hash": "8913748264133134"
+    }
+  },
+  "latent_hypotheses": [],
+  "hypothesis_graph_snapshot": {
+    "hypotheses": {},
+    "edges": {},
+    "single_point_failures": []
+  },
+  "stress_and_collapse_trace": {
+    "gradient_ablation_steps": [
+      "text_ablation_level_1",
+      "text_ablation_level_2",
+      "text_ablation_level_3"
+    ],
+    "asymmetric_stress_conditions": [
+      "groq",
+      "mistral",
+      "qwen"
+    ],
+    "collapse_order": [],
+    "primary_failure_mode": "parse_failure"
+  },
+  "metrics": {
+    "hypothesis_fragility_index": 0.1,
+    "consensus_integrity_score": 0.0,
+    "parse_success_rate": 0.0
+  },
+  "historical_context": {
+    "prior_runs_consulted": 106,
+    "similar_failure_run_ids": []
+  }
+}

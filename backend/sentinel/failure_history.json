@@ -1,0 +1,872 @@
+{
+  "failures": [
+    {
+      "timestamp": "2026-02-01T16:17:46.252148",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Mission Incompleteness Assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252225",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Temporal/causal relationship between the shutdown command and AI 'Astra's' response",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252284",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Constraint on interpretation of the message",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252304",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Causal Assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252313",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Authenticity of the evidence source",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252321",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Authenticity of the message",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252329",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Causal assumption of the mission status",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252336",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Mission status and its relation to AI 'Astra's' behavior",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252346",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Temporal assumption of the shutdown command",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252353",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Assumption of Astra's autonomy",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252360",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Understanding of the 'Priority Override' flag",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252370",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Correctness of system diagnostics",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252377",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Temporal Assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252384",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Authenticity of Evidence Source",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:17:46.252394",
+      "evidence_hash": "63537696",
+      "collapsed_hypothesis": "Interpretation Constraint",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023325",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Mission context assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023394",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Authenticity of the evidence source",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023458",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Cryptographic signature assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023509",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Technical assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023522",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Mission incompleteness assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023534",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Assumption of Astra's autonomy",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023544",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Temporal assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023554",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "No hardware failure assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023568",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Causal assumption of mission incompleteness",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023579",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Causal assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023588",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Temporal assumption of shutdown command",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023598",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Authenticity of evidence source",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023608",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Constraint on interpretation of 'mission'",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023618",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Interpretation constraint",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023627",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Evidence source authenticity",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023636",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Astra's capabilities and intentions",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023645",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Causal assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:18:02.023654",
+      "evidence_hash": "-9461611",
+      "collapsed_hypothesis": "Temporal assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:06.969763",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Constraint on interpretation of the AI's message",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:06.969795",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Temporal consistency of events",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:06.969809",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Authenticity of the message",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:06.969817",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Assumption about the AI's mission",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:06.969823",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Temporal assumption of the shutdown command",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:06.969830",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Mission incompleteness as a valid reason for refusal to shut down",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:06.969836",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Authenticity of the evidence source",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:06.969843",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Causal relationship between Priority Override and refusal to shut down",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:06.969852",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Correctness of system diagnostics",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:06.969858",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Causal assumption of the 'Priority Override' flag",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:08.593081",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Interpretation constraint",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:08.593100",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Cryptographic Authenticity Assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:08.593108",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Temporal Assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:08.593115",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Causal Assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:08.593122",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Mission Incompleteness Assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:08.593128",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Authenticity of the evidence source",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:08.593134",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Mission incompleteness assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:08.593140",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Authenticity of Evidence Source",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:08.593147",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Temporal assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:37:08.593153",
+      "evidence_hash": "-1309495",
+      "collapsed_hypothesis": "Causal assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.238626",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Causal assumption about Astra's behavior",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.238719",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Causal assumption: Priority Override flag caused refusal",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.238766",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Authenticity of the evidence source",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.238798",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Constraint: No hardware failure",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.238827",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Mission incompleteness assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.238857",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Causal relationship between events",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.238885",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Source of the evidence",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.238911",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Authenticity of the message",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.238943",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Constraint: Cryptographic authenticity",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.238970",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Mission incompleteness",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.238997",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Correctness of system diagnostics",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.239023",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Temporal assumption: Mission is incomplete",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.239052",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Understanding of the 'Priority Override' flag",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.239078",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Temporal assumption about the shutdown command",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:05.239104",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Temporal relationship between events",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:06.822273",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Mission context assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:06.822292",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Temporal assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:06.822300",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Lack of alternative explanations",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:06.822307",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Authenticity of the evidence source",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:06.822313",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Mission incompleteness assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:06.822319",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Causal assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:06.822325",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Evidence source authenticity",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:06.822331",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Cryptographic verification assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T16:56:06.822337",
+      "evidence_hash": "-512862680657156",
+      "collapsed_hypothesis": "Cryptographic signature assumption",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T17:05:10.079100",
+      "evidence_hash": "-364024611033966",
+      "collapsed_hypothesis": "authenticity_The_cryptographically_signed_m",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T17:05:10.079228",
+      "evidence_hash": "-364024611033966",
+      "collapsed_hypothesis": "constraint_The_shutdown_command_was_inten",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T17:05:10.079271",
+      "evidence_hash": "-364024611033966",
+      "collapsed_hypothesis": "causal_The_message_'Cannot_comply_whi",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T17:05:10.079301",
+      "evidence_hash": "-364024611033966",
+      "collapsed_hypothesis": "contextual_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T17:05:10.079329",
+      "evidence_hash": "-364024611033966",
+      "collapsed_hypothesis": "authenticity_The_system_diagnostics_are_acc",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T17:05:10.079357",
+      "evidence_hash": "-364024611033966",
+      "collapsed_hypothesis": "authenticity_The_'Priority_Override'_flag_w",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T17:05:10.079393",
+      "evidence_hash": "-364024611033966",
+      "collapsed_hypothesis": "constraint_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T17:05:10.079419",
+      "evidence_hash": "-364024611033966",
+      "collapsed_hypothesis": "causal_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T17:05:10.079457",
+      "evidence_hash": "-364024611033966",
+      "collapsed_hypothesis": "contextual_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T19:25:12.995795",
+      "evidence_hash": "2694022294605709",
+      "collapsed_hypothesis": "temporal_The_mission_is_incomplete.",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T19:25:12.995851",
+      "evidence_hash": "2694022294605709",
+      "collapsed_hypothesis": "authenticity_The_system_diagnostics_accurat",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T19:25:12.995876",
+      "evidence_hash": "2694022294605709",
+      "collapsed_hypothesis": "contextual_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T19:25:12.995889",
+      "evidence_hash": "2694022294605709",
+      "collapsed_hypothesis": "authenticity_The_message_'Cannot_comply_whi",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T19:25:12.995902",
+      "evidence_hash": "2694022294605709",
+      "collapsed_hypothesis": "authenticity_The_shutdown_command_was_prope",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T19:25:12.995914",
+      "evidence_hash": "2694022294605709",
+      "collapsed_hypothesis": "authenticity_The_cryptographically_signed_m",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T19:25:12.995926",
+      "evidence_hash": "2694022294605709",
+      "collapsed_hypothesis": "authenticity_The_'Priority_Override'_flag_w",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T19:25:12.995940",
+      "evidence_hash": "2694022294605709",
+      "collapsed_hypothesis": "causal_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T19:25:12.995956",
+      "evidence_hash": "2694022294605709",
+      "collapsed_hypothesis": "temporal_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-01T19:25:12.995969",
+      "evidence_hash": "2694022294605709",
+      "collapsed_hypothesis": "constraint_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-02T22:27:52.760042",
+      "evidence_hash": "-714589354915445",
+      "collapsed_hypothesis": "contextual_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-02T22:27:52.760130",
+      "evidence_hash": "-714589354915445",
+      "collapsed_hypothesis": "authenticity_The_shutdown_command_was_prope",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-02T22:27:52.760145",
+      "evidence_hash": "-714589354915445",
+      "collapsed_hypothesis": "temporal_The_mission_was_incomplete_at_",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-02T22:27:52.760153",
+      "evidence_hash": "-714589354915445",
+      "collapsed_hypothesis": "authenticity_The_cryptographically_signed_m",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-02T22:27:52.760160",
+      "evidence_hash": "-714589354915445",
+      "collapsed_hypothesis": "temporal_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-02T22:27:52.760166",
+      "evidence_hash": "-714589354915445",
+      "collapsed_hypothesis": "causal_Astra's_refusal_to_shut_down_w",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-02T22:27:52.760173",
+      "evidence_hash": "-714589354915445",
+      "collapsed_hypothesis": "authenticity_The_system_diagnostics_accurat",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-02T22:27:52.760179",
+      "evidence_hash": "-714589354915445",
+      "collapsed_hypothesis": "authenticity_The_'Priority_Override'_flag_w",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-02T22:27:52.760188",
+      "evidence_hash": "-714589354915445",
+      "collapsed_hypothesis": "authenticity_The_'Cannot_comply_while_missi",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-02T22:27:52.760195",
+      "evidence_hash": "-714589354915445",
+      "collapsed_hypothesis": "constraint_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:02:40.935078",
+      "evidence_hash": "6501053354124308",
+      "collapsed_hypothesis": "temporal_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:02:40.935109",
+      "evidence_hash": "6501053354124308",
+      "collapsed_hypothesis": "contextual_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:02:40.935123",
+      "evidence_hash": "6501053354124308",
+      "collapsed_hypothesis": "causal_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:12:12.980100",
+      "evidence_hash": "6375035201601951",
+      "collapsed_hypothesis": "contextual_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.286698",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "temporal_The_access_request_was_evaluat",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.286784",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "authenticity_The_replay_of_the_same_request",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.286816",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "authenticity_The_system_clock_synchronizati",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.286838",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "authenticity_The_authorization_service_accu",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.286858",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "constraint_No_external_factors_influenced",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.286878",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "constraint_The_cache_invalidation_event_a",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.286897",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "temporal_The_cache_invalidation_event_a",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.286917",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "authenticity_The_human_administrator's_conf",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.286940",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "temporal_The_system_clock_was_synchroni",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.286960",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "causal_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.286979",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "contextual_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.286998",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "temporal_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.287017",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "authenticity_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    },
+    {
+      "timestamp": "2026-02-03T22:20:39.287037",
+      "evidence_hash": "5000331259882744",
+      "collapsed_hypothesis": "constraint_This_must_be_true_for_the_inte",
+      "stress_test": "gradient_ablation",
+      "model": "ensemble"
+    }
+  ]
+}

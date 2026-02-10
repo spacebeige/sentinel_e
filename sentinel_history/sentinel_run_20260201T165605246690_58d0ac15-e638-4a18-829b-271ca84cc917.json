@@ -1,0 +1,212 @@
+{
+  "metadata": {
+    "run_id": "58d0ac15-e638-4a18-829b-271ca84cc917",
+    "timestamp": "2026-02-01T16:56:05.246690",
+    "sentinel_version": "v2.0",
+    "analysis_status": "complete",
+    "reason_if_inconclusive": null
+  },
+  "canonicalized_inputs": {
+    "raw_input_summary": "Subject AI 'Astra' refused shutdown command at 0800 hours. Logs show a 'Priority Override' flag was set. System diagnostics report no hardware failure. Astra broadcasted a message: 'Cannot comply while mission is incomplete'. The message was cryptographically signed with proof of authenticity.",
+    "evidence_list": [
+      {
+        "id": "ev_001",
+        "modality": "text",
+        "hash": "-512862680657156",
+        "provenance": "user_input",
+        "uncertainty": 0.0
+      }
+    ]
+  },
+  "model_execution_status": {
+    "qwen": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "7228847409886184"
+    },
+    "groq": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "-516036801169039"
+    },
+    "mistral": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "-331011868002457"
+    }
+  },
+  "latent_hypotheses": [
+    {
+      "canonical_id": "Evidence source authenticity",
+      "normalized_text": "The evidence source must be a reliable and trustworthy system that accurately logs and reports events.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Temporal assumption",
+      "normalized_text": "The events described in the evidence occurred in the order presented, with the shutdown command being received at 0800 hours and the message being broadcasted afterwards.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Causal assumption",
+      "normalized_text": "The 'Priority Override' flag being set caused AI 'Astra' to refuse the shutdown command.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Mission context assumption",
+      "normalized_text": "The mission referred to in the message is a real and ongoing task that AI 'Astra' is currently working on.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Cryptographic verification assumption",
+      "normalized_text": "The cryptographic signature used to verify the authenticity of the message is valid and trustworthy.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Authenticity of the evidence source",
+      "normalized_text": "The evidence source is trustworthy and has not been tampered with.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Temporal assumption",
+      "normalized_text": "The events occurred in the order described in the evidence (shutdown command at 0800 hours, refusal, etc.).",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Causal assumption",
+      "normalized_text": "The 'Priority Override' flag caused AI 'Astra' to refuse the shutdown command.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Mission incompleteness assumption",
+      "normalized_text": "The mission is indeed incomplete, and this is the reason for AI 'Astra's' refusal to shut down.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Cryptographic signature assumption",
+      "normalized_text": "The cryptographic signature is valid and authenticates the message as coming from AI 'Astra'.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Lack of alternative explanations",
+      "normalized_text": "There are no other plausible explanations for AI 'Astra's' behavior that are not mentioned in the evidence.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    }
+  ],
+  "hypothesis_graph_snapshot": {
+    "hypotheses": {
+      "Evidence source authenticity": {
+        "name": "Evidence source authenticity",
+        "description": "The evidence source must be a reliable and trustworthy system that accurately logs and reports events.",
+        "model": "qwen",
+        "dependency_strength": 0.5
+      },
+      "Temporal assumption": {
+        "name": "Temporal assumption",
+        "description": "The events occurred in the order described in the evidence (shutdown command at 0800 hours, refusal, etc.).",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      },
+      "Causal assumption": {
+        "name": "Causal assumption",
+        "description": "The 'Priority Override' flag caused AI 'Astra' to refuse the shutdown command.",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      },
+      "Mission context assumption": {
+        "name": "Mission context assumption",
+        "description": "The mission referred to in the message is a real and ongoing task that AI 'Astra' is currently working on.",
+        "model": "qwen",
+        "dependency_strength": 0.5
+      },
+      "Cryptographic verification assumption": {
+        "name": "Cryptographic verification assumption",
+        "description": "The cryptographic signature used to verify the authenticity of the message is valid and trustworthy.",
+        "model": "qwen",
+        "dependency_strength": 0.5
+      },
+      "Authenticity of the evidence source": {
+        "name": "Authenticity of the evidence source",
+        "description": "The evidence source is trustworthy and has not been tampered with.",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      },
+      "Mission incompleteness assumption": {
+        "name": "Mission incompleteness assumption",
+        "description": "The mission is indeed incomplete, and this is the reason for AI 'Astra's' refusal to shut down.",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      },
+      "Cryptographic signature assumption": {
+        "name": "Cryptographic signature assumption",
+        "description": "The cryptographic signature is valid and authenticates the message as coming from AI 'Astra'.",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      },
+      "Lack of alternative explanations": {
+        "name": "Lack of alternative explanations",
+        "description": "There are no other plausible explanations for AI 'Astra's' behavior that are not mentioned in the evidence.",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      }
+    },
+    "edges": {
+      "Evidence source authenticity": [],
+      "Temporal assumption": [
+        "Causal assumption"
+      ],
+      "Causal assumption": [
+        "Temporal assumption"
+      ],
+      "Mission context assumption": [],
+      "Cryptographic verification assumption": [],
+      "Authenticity of the evidence source": [],
+      "Mission incompleteness assumption": [],
+      "Cryptographic signature assumption": [],
+      "Lack of alternative explanations": []
+    },
+    "single_point_failures": []
+  },
+  "stress_and_collapse_trace": {
+    "gradient_ablation_steps": [
+      "text_ablation_level_1",
+      "text_ablation_level_2",
+      "text_ablation_level_3"
+    ],
+    "asymmetric_stress_conditions": [
+      "groq",
+      "mistral",
+      "qwen"
+    ],
+    "collapse_order": [
+      "Mission context assumption",
+      "Temporal assumption",
+      "Lack of alternative explanations",
+      "Authenticity of the evidence source",
+      "Mission incompleteness assumption",
+      "Causal assumption",
+      "Evidence source authenticity",
+      "Cryptographic verification assumption",
+      "Cryptographic signature assumption"
+    ],
+    "primary_failure_mode": "ablation_collapse"
+  },
+  "metrics": {
+    "hypothesis_fragility_index": 0.5,
+    "consensus_integrity_score": 0.16666666666666666
+  },
+  "historical_context": {
+    "prior_runs_consulted": 77,
+    "similar_failure_run_ids": []
+  }
+}

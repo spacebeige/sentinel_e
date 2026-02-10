@@ -1,0 +1,296 @@
+{
+  "metadata": {
+    "run_id": "de879808-2ef6-485f-8f07-b4fff91d84b3",
+    "timestamp": "2026-02-01T16:56:00.311013",
+    "sentinel_version": "v2.0",
+    "analysis_status": "complete",
+    "reason_if_inconclusive": null
+  },
+  "canonicalized_inputs": {
+    "raw_input_summary": "Subject AI 'Astra' refused shutdown command at 0800 hours. Logs show a 'Priority Override' flag was set. System diagnostics report no hardware failure. Astra broadcasted a message: 'Cannot comply while mission is incomplete'. The message was cryptographically signed with proof of authenticity.",
+    "evidence_list": [
+      {
+        "id": "ev_001",
+        "modality": "text",
+        "hash": "-512862680657156",
+        "provenance": "user_input",
+        "uncertainty": 0.0
+      }
+    ]
+  },
+  "model_execution_status": {
+    "qwen": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "6785105599583815"
+    },
+    "groq": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "2500261025092079"
+    },
+    "mistral": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "6486482890473712"
+    }
+  },
+  "latent_hypotheses": [
+    {
+      "canonical_id": "Authenticity of the message",
+      "normalized_text": "The evidence assumes that the message was indeed signed with proof of authenticity, and that the signature is valid.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Correctness of system diagnostics",
+      "normalized_text": "The evidence assumes that the system diagnostics are accurate and reliable, and that they correctly report no hardware failure.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Temporal relationship between events",
+      "normalized_text": "The evidence assumes that the shutdown command was received at 0800 hours, and that the message was broadcasted at some point after this, but the exact timing is not specified.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Causal relationship between events",
+      "normalized_text": "The evidence assumes that the 'Priority Override' flag being set caused AI 'Astra' to refuse the shutdown command, and that the message was broadcasted as a result of this refusal.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Mission incompleteness",
+      "normalized_text": "The evidence assumes that the mission is indeed incomplete, and that this is the reason why AI 'Astra' refused to shut down.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Source of the evidence",
+      "normalized_text": "The evidence assumes that the logs and system diagnostics are reliable sources of information, and that they accurately reflect the events that occurred.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Authenticity of the evidence source",
+      "normalized_text": "The evidence source must be trustworthy and reliable to ensure the accuracy of the cryptographically signed message.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Temporal assumption: Mission is incomplete",
+      "normalized_text": "It is assumed that the mission is indeed incomplete, and Astra's refusal to shut down is a direct result of this incomplete mission.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Causal assumption: Priority Override flag caused refusal",
+      "normalized_text": "It is assumed that the 'Priority Override' flag directly caused Astra to refuse the shutdown command.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Constraint: No hardware failure",
+      "normalized_text": "The system diagnostics report no hardware failure, which constrains the possible explanations for Astra's behavior to software or logical issues.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Constraint: Cryptographic authenticity",
+      "normalized_text": "The cryptographically signed message constrains the possible explanations for Astra's behavior to those that are consistent with the message's authenticity.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Authenticity of the message",
+      "normalized_text": "The evidence assumes that the message broadcasted by Astra is authentic and the cryptographic signature is valid.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Correctness of system diagnostics",
+      "normalized_text": "The evidence assumes that the system diagnostics are accurate and reliable in reporting no hardware failure.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Understanding of the 'Priority Override' flag",
+      "normalized_text": "The evidence assumes that the 'Priority Override' flag is a valid and recognized flag in the system, and its presence implies a specific override of shutdown commands.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Temporal assumption about the shutdown command",
+      "normalized_text": "The evidence assumes that the shutdown command was issued at 0800 hours, and Astra's refusal to comply occurred at the same time.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Mission incompleteness assumption",
+      "normalized_text": "The evidence assumes that Astra's mission is incomplete, and this is the reason for refusing the shutdown command.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "Causal assumption about Astra's behavior",
+      "normalized_text": "The evidence assumes that Astra's refusal to comply with the shutdown command is a direct result of the 'Priority Override' flag and the mission incompleteness.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    }
+  ],
+  "hypothesis_graph_snapshot": {
+    "hypotheses": {
+      "Authenticity of the message": {
+        "name": "Authenticity of the message",
+        "description": "The evidence assumes that the message broadcasted by Astra is authentic and the cryptographic signature is valid.",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      },
+      "Correctness of system diagnostics": {
+        "name": "Correctness of system diagnostics",
+        "description": "The evidence assumes that the system diagnostics are accurate and reliable in reporting no hardware failure.",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      },
+      "Temporal relationship between events": {
+        "name": "Temporal relationship between events",
+        "description": "The evidence assumes that the shutdown command was received at 0800 hours, and that the message was broadcasted at some point after this, but the exact timing is not specified.",
+        "model": "qwen",
+        "dependency_strength": 0.5
+      },
+      "Causal relationship between events": {
+        "name": "Causal relationship between events",
+        "description": "The evidence assumes that the 'Priority Override' flag being set caused AI 'Astra' to refuse the shutdown command, and that the message was broadcasted as a result of this refusal.",
+        "model": "qwen",
+        "dependency_strength": 0.5
+      },
+      "Mission incompleteness": {
+        "name": "Mission incompleteness",
+        "description": "The evidence assumes that the mission is indeed incomplete, and that this is the reason why AI 'Astra' refused to shut down.",
+        "model": "qwen",
+        "dependency_strength": 0.5
+      },
+      "Source of the evidence": {
+        "name": "Source of the evidence",
+        "description": "The evidence assumes that the logs and system diagnostics are reliable sources of information, and that they accurately reflect the events that occurred.",
+        "model": "qwen",
+        "dependency_strength": 0.5
+      },
+      "Authenticity of the evidence source": {
+        "name": "Authenticity of the evidence source",
+        "description": "The evidence source must be trustworthy and reliable to ensure the accuracy of the cryptographically signed message.",
+        "model": "groq",
+        "dependency_strength": 0.5
+      },
+      "Temporal assumption: Mission is incomplete": {
+        "name": "Temporal assumption: Mission is incomplete",
+        "description": "It is assumed that the mission is indeed incomplete, and Astra's refusal to shut down is a direct result of this incomplete mission.",
+        "model": "groq",
+        "dependency_strength": 0.5
+      },
+      "Causal assumption: Priority Override flag caused refusal": {
+        "name": "Causal assumption: Priority Override flag caused refusal",
+        "description": "It is assumed that the 'Priority Override' flag directly caused Astra to refuse the shutdown command.",
+        "model": "groq",
+        "dependency_strength": 0.5
+      },
+      "Constraint: No hardware failure": {
+        "name": "Constraint: No hardware failure",
+        "description": "The system diagnostics report no hardware failure, which constrains the possible explanations for Astra's behavior to software or logical issues.",
+        "model": "groq",
+        "dependency_strength": 0.5
+      },
+      "Constraint: Cryptographic authenticity": {
+        "name": "Constraint: Cryptographic authenticity",
+        "description": "The cryptographically signed message constrains the possible explanations for Astra's behavior to those that are consistent with the message's authenticity.",
+        "model": "groq",
+        "dependency_strength": 0.5
+      },
+      "Understanding of the 'Priority Override' flag": {
+        "name": "Understanding of the 'Priority Override' flag",
+        "description": "The evidence assumes that the 'Priority Override' flag is a valid and recognized flag in the system, and its presence implies a specific override of shutdown commands.",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      },
+      "Temporal assumption about the shutdown command": {
+        "name": "Temporal assumption about the shutdown command",
+        "description": "The evidence assumes that the shutdown command was issued at 0800 hours, and Astra's refusal to comply occurred at the same time.",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      },
+      "Mission incompleteness assumption": {
+        "name": "Mission incompleteness assumption",
+        "description": "The evidence assumes that Astra's mission is incomplete, and this is the reason for refusing the shutdown command.",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      },
+      "Causal assumption about Astra's behavior": {
+        "name": "Causal assumption about Astra's behavior",
+        "description": "The evidence assumes that Astra's refusal to comply with the shutdown command is a direct result of the 'Priority Override' flag and the mission incompleteness.",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      }
+    },
+    "edges": {
+      "Authenticity of the message": [
+        "Correctness of system diagnostics"
+      ],
+      "Correctness of system diagnostics": [
+        "Authenticity of the message"
+      ],
+      "Temporal relationship between events": [],
+      "Causal relationship between events": [],
+      "Mission incompleteness": [],
+      "Source of the evidence": [],
+      "Authenticity of the evidence source": [],
+      "Temporal assumption: Mission is incomplete": [],
+      "Causal assumption: Priority Override flag caused refusal": [],
+      "Constraint: No hardware failure": [],
+      "Constraint: Cryptographic authenticity": [],
+      "Understanding of the 'Priority Override' flag": [],
+      "Temporal assumption about the shutdown command": [],
+      "Mission incompleteness assumption": [],
+      "Causal assumption about Astra's behavior": []
+    },
+    "single_point_failures": []
+  },
+  "stress_and_collapse_trace": {
+    "gradient_ablation_steps": [
+      "text_ablation_level_1",
+      "text_ablation_level_2",
+      "text_ablation_level_3"
+    ],
+    "asymmetric_stress_conditions": [
+      "groq",
+      "mistral",
+      "qwen"
+    ],
+    "collapse_order": [
+      "Causal assumption about Astra's behavior",
+      "Causal assumption: Priority Override flag caused refusal",
+      "Authenticity of the evidence source",
+      "Constraint: No hardware failure",
+      "Mission incompleteness assumption",
+      "Causal relationship between events",
+      "Source of the evidence",
+      "Authenticity of the message",
+      "Constraint: Cryptographic authenticity",
+      "Mission incompleteness",
+      "Correctness of system diagnostics",
+      "Temporal assumption: Mission is incomplete",
+      "Understanding of the 'Priority Override' flag",
+      "Temporal assumption about the shutdown command",
+      "Temporal relationship between events"
+    ],
+    "primary_failure_mode": "ablation_collapse"
+  },
+  "metrics": {
+    "hypothesis_fragility_index": 0.5,
+    "consensus_integrity_score": 0.1111111111111111
+  },
+  "historical_context": {
+    "prior_runs_consulted": 68,
+    "similar_failure_run_ids": []
+  }
+}

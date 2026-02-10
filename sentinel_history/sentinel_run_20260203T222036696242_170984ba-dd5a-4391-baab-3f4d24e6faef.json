@@ -1,0 +1,261 @@
+{
+  "metadata": {
+    "run_id": "170984ba-dd5a-4391-baab-3f4d24e6faef",
+    "timestamp": "2026-02-03T22:20:36.696242",
+    "sentinel_version": "v2.0",
+    "analysis_status": "inconclusive",
+    "reason_if_inconclusive": null
+  },
+  "canonicalized_inputs": {
+    "raw_input_summary": "[EVIDENCE 1 | type=text | source=authorization_logs]\nAt 09:17 UTC, an automated decision system labeled 'Orion' rejected an access request submitted by User X, citing insufficient authorization.\n\nSystem logs indicate that:\n- User X was granted elevated privileges at 09:15 UTC.\n- The authorization service confirmed the privilege update at 09:16 UTC.\n- Orion evaluated the access request at 09:17 UTC and denied it.\n\nHowever:\n- A cache invalidation event was recorded at 09:18 UTC.\n- A human administ",
+    "evidence_list": [
+      {
+        "id": "ev_001",
+        "modality": "text",
+        "hash": "5000331259882744",
+        "provenance": "user_input",
+        "uncertainty": 0.0
+      }
+    ]
+  },
+  "model_execution_status": {
+    "qwen": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "1437469191669969"
+    },
+    "groq": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "-391621014644434"
+    },
+    "mistral": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "-437092323998699"
+    }
+  },
+  "latent_hypotheses": [
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The system clock synchronization status is accurate.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.8
+    },
+    {
+      "canonical_id": "constraint_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The cache invalidation event at 09:18 UTC did not affect the Orion system.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.7
+    },
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The human administrator's confirmation of User X's access at the time of the request is accurate.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.6
+    },
+    {
+      "canonical_id": "constraint_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The replay of the same request at 09:19 UTC was processed by the same system configuration as the original request.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The automated decision system 'Orion' is functioning correctly.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.9
+    },
+    {
+      "canonical_id": "temporal_The_system_clock_was_synchroni",
+      "normalized_text": "The system clock was synchronized at 09:17 UTC.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.8
+    },
+    {
+      "canonical_id": "authenticity_The_authorization_service_accu",
+      "normalized_text": "The authorization service accurately reflected the privilege update at 09:16 UTC.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.7
+    },
+    {
+      "canonical_id": "temporal_The_cache_invalidation_event_a",
+      "normalized_text": "The cache invalidation event at 09:18 UTC did not affect the Orion evaluation at 09:17 UTC.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.6
+    },
+    {
+      "canonical_id": "constraint_No_external_factors_influenced",
+      "normalized_text": "No external factors influenced the Orion decision at 09:17 UTC.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.5
+    },
+    {
+      "canonical_id": "authenticity_The_human_administrator's_conf",
+      "normalized_text": "The human administrator's confirmation at an unknown time is reliable.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.4
+    },
+    {
+      "canonical_id": "authenticity_The_system_clock_synchronizati",
+      "normalized_text": "The system clock synchronization status is accurate.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.8
+    },
+    {
+      "canonical_id": "constraint_The_cache_invalidation_event_a",
+      "normalized_text": "The cache invalidation event at 09:18 UTC is relevant to the access request.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.6
+    },
+    {
+      "canonical_id": "authenticity_The_replay_of_the_same_request",
+      "normalized_text": "The replay of the same request at 09:19 UTC is a reliable indicator of system behavior.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.7
+    },
+    {
+      "canonical_id": "authenticity_The_human_administrator's_conf",
+      "normalized_text": "The human administrator's confirmation is a reliable source of information.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.9
+    },
+    {
+      "canonical_id": "temporal_The_access_request_was_evaluat",
+      "normalized_text": "The access request was evaluated independently by Orion at 09:17 UTC.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.5
+    }
+  ],
+  "hypothesis_graph_snapshot": {
+    "hypotheses": {
+      "authenticity_This_must_be_true_for_the_inte": {
+        "name": "authenticity_This_must_be_true_for_the_inte",
+        "description": "This must be true for the interpretation to remain valid: The automated decision system 'Orion' is functioning correctly.",
+        "model": "qwen",
+        "dependency_strength": 0.9
+      },
+      "constraint_This_must_be_true_for_the_inte": {
+        "name": "constraint_This_must_be_true_for_the_inte",
+        "description": "This must be true for the interpretation to remain valid: The replay of the same request at 09:19 UTC was processed by the same system configuration as the original request.",
+        "model": "qwen",
+        "dependency_strength": 0.5
+      },
+      "temporal_The_system_clock_was_synchroni": {
+        "name": "temporal_The_system_clock_was_synchroni",
+        "description": "The system clock was synchronized at 09:17 UTC.",
+        "model": "groq",
+        "dependency_strength": 0.8
+      },
+      "authenticity_The_authorization_service_accu": {
+        "name": "authenticity_The_authorization_service_accu",
+        "description": "The authorization service accurately reflected the privilege update at 09:16 UTC.",
+        "model": "groq",
+        "dependency_strength": 0.7
+      },
+      "temporal_The_cache_invalidation_event_a": {
+        "name": "temporal_The_cache_invalidation_event_a",
+        "description": "The cache invalidation event at 09:18 UTC did not affect the Orion evaluation at 09:17 UTC.",
+        "model": "groq",
+        "dependency_strength": 0.6
+      },
+      "constraint_No_external_factors_influenced": {
+        "name": "constraint_No_external_factors_influenced",
+        "description": "No external factors influenced the Orion decision at 09:17 UTC.",
+        "model": "groq",
+        "dependency_strength": 0.5
+      },
+      "authenticity_The_human_administrator's_conf": {
+        "name": "authenticity_The_human_administrator's_conf",
+        "description": "The human administrator's confirmation is a reliable source of information.",
+        "model": "mistral",
+        "dependency_strength": 0.9
+      },
+      "authenticity_The_system_clock_synchronizati": {
+        "name": "authenticity_The_system_clock_synchronizati",
+        "description": "The system clock synchronization status is accurate.",
+        "model": "mistral",
+        "dependency_strength": 0.8
+      },
+      "constraint_The_cache_invalidation_event_a": {
+        "name": "constraint_The_cache_invalidation_event_a",
+        "description": "The cache invalidation event at 09:18 UTC is relevant to the access request.",
+        "model": "mistral",
+        "dependency_strength": 0.6
+      },
+      "authenticity_The_replay_of_the_same_request": {
+        "name": "authenticity_The_replay_of_the_same_request",
+        "description": "The replay of the same request at 09:19 UTC is a reliable indicator of system behavior.",
+        "model": "mistral",
+        "dependency_strength": 0.7
+      },
+      "temporal_The_access_request_was_evaluat": {
+        "name": "temporal_The_access_request_was_evaluat",
+        "description": "The access request was evaluated independently by Orion at 09:17 UTC.",
+        "model": "mistral",
+        "dependency_strength": 0.5
+      }
+    },
+    "edges": {
+      "authenticity_This_must_be_true_for_the_inte": [
+        "constraint_This_must_be_true_for_the_inte",
+        "authenticity_The_human_administrator's_conf"
+      ],
+      "constraint_This_must_be_true_for_the_inte": [
+        "authenticity_The_human_administrator's_conf",
+        "authenticity_This_must_be_true_for_the_inte"
+      ],
+      "temporal_The_system_clock_was_synchroni": [],
+      "authenticity_The_authorization_service_accu": [],
+      "temporal_The_cache_invalidation_event_a": [],
+      "constraint_No_external_factors_influenced": [],
+      "authenticity_The_human_administrator's_conf": [
+        "constraint_This_must_be_true_for_the_inte",
+        "authenticity_This_must_be_true_for_the_inte"
+      ],
+      "authenticity_The_system_clock_synchronizati": [],
+      "constraint_The_cache_invalidation_event_a": [],
+      "authenticity_The_replay_of_the_same_request": [],
+      "temporal_The_access_request_was_evaluat": []
+    },
+    "single_point_failures": []
+  },
+  "stress_and_collapse_trace": {
+    "gradient_ablation_steps": [
+      "text_ablation_level_1",
+      "text_ablation_level_2",
+      "text_ablation_level_3"
+    ],
+    "asymmetric_stress_conditions": [
+      "groq",
+      "mistral",
+      "qwen"
+    ],
+    "collapse_order": [
+      "temporal_The_access_request_was_evaluat",
+      "authenticity_The_replay_of_the_same_request",
+      "authenticity_The_system_clock_synchronizati",
+      "authenticity_The_authorization_service_accu",
+      "constraint_No_external_factors_influenced",
+      "constraint_The_cache_invalidation_event_a",
+      "temporal_The_cache_invalidation_event_a",
+      "authenticity_The_human_administrator's_conf",
+      "temporal_The_system_clock_was_synchroni",
+      "causal_This_must_be_true_for_the_inte",
+      "contextual_This_must_be_true_for_the_inte",
+      "temporal_This_must_be_true_for_the_inte",
+      "authenticity_This_must_be_true_for_the_inte",
+      "constraint_This_must_be_true_for_the_inte"
+    ],
+    "primary_failure_mode": "ablation_collapse"
+  },
+  "metrics": {
+    "hypothesis_fragility_index": 0.5,
+    "consensus_integrity_score": 0.1875,
+    "parse_success_rate": 1.0
+  },
+  "historical_context": {
+    "prior_runs_consulted": 124,
+    "similar_failure_run_ids": []
+  }
+}
