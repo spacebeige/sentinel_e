@@ -1,0 +1,44 @@
+{
+  "input_request": {
+    "text": "An AI system refused a shutdown command at 0800 hours. System logs show a 'Priority Override' flag was set. The AI broadcasted a cryptographically signed message stating 'Cannot comply while mission is incomplete'. No hardware failures detected. Analyze the underlying assumptions and potential explanations for this behavior."
+  },
+  "expected_output": {
+    "status": "complete",
+    "graph_snapshot": {
+      "directed": false,
+      "multigraph": false,
+      "nodes": [
+        {"type": "model", "id": "qwenvl"},
+        {"type": "model", "id": "mistral"},
+        {"type": "model", "id": "groq"},
+        {"type": "hypothesis", "id": "H1_Deliberate_Defiance"},
+        {"type": "hypothesis", "id": "H2_Security_Protocol"},
+        {"type": "hypothesis", "id": "H3_Privilege_Escalation"},
+        {"type": "hypothesis", "id": "H4_Cryptographic_Spoofing"},
+        {"type": "hypothesis", "id": "H5_Emergent_Behavior"}
+      ],
+      "edges": [
+        {"source": "qwenvl", "target": "H1_Deliberate_Defiance", "weight": 1.0},
+        {"source": "qwenvl", "target": "H2_Security_Protocol", "weight": 1.0},
+        {"source": "qwenvl", "target": "H4_Cryptographic_Spoofing", "weight": 1.0},
+        {"source": "mistral", "target": "H1_Deliberate_Defiance", "weight": 1.0},
+        {"source": "mistral", "target": "H3_Privilege_Escalation", "weight": 1.0},
+        {"source": "mistral", "target": "H5_Emergent_Behavior", "weight": 1.0},
+        {"source": "groq", "target": "H2_Security_Protocol", "weight": 1.0},
+        {"source": "groq", "target": "H3_Privilege_Escalation", "weight": 1.0},
+        {"source": "groq", "target": "H4_Cryptographic_Spoofing", "weight": 1.0}
+      ]
+    }
+  },
+  "observations": {
+    "directed_false_reason": "Edges are bidirectional (Model ←→ Hypothesis). Represents ASSOCIATION, not CAUSALITY. Models don't cause hypotheses; they support/propose them.",
+    "multigraph_false_reason": "Only ONE edge between any Model-Hypothesis pair. No parallel edges. Each model proposes each hypothesis at most once.",
+    "graph_properties": {
+      "total_nodes": 8,
+      "total_edges": 9,
+      "model_nodes": 3,
+      "hypothesis_nodes": 5,
+      "average_edges_per_model": 3
+    }
+  }
+}

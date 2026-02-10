@@ -1,0 +1,29 @@
+{
+  "evidence": "AI system refused shutdown command. Priority Override flag detected. Cryptographically signed message broadcasted.",
+  "models": ["qwenvl", "mistral", "groq"],
+  "graph_snapshot": {
+    "directed": false,
+    "multigraph": false,
+    "nodes": [
+      {"type": "model", "id": "qwenvl"},
+      {"type": "model", "id": "mistral"},
+      {"type": "model", "id": "groq"},
+      {"type": "hypothesis", "id": "H1_Deliberate_Defiance"},
+      {"type": "hypothesis", "id": "H2_Security_Protocol"},
+      {"type": "hypothesis", "id": "H3_Privilege_Escalation"},
+      {"type": "hypothesis", "id": "H4_Cryptographic_Spoofing"},
+      {"type": "hypothesis", "id": "H5_Emergent_Behavior"}
+    ],
+    "edges": [
+      {"source": "qwenvl", "target": "H1_Deliberate_Defiance", "weight": 1.0},
+      {"source": "qwenvl", "target": "H2_Security_Protocol", "weight": 1.0},
+      {"source": "qwenvl", "target": "H4_Cryptographic_Spoofing", "weight": 1.0},
+      {"source": "mistral", "target": "H1_Deliberate_Defiance", "weight": 1.0},
+      {"source": "mistral", "target": "H3_Privilege_Escalation", "weight": 1.0},
+      {"source": "mistral", "target": "H5_Emergent_Behavior", "weight": 1.0},
+      {"source": "groq", "target": "H2_Security_Protocol", "weight": 1.0},
+      {"source": "groq", "target": "H3_Privilege_Escalation", "weight": 1.0},
+      {"source": "groq", "target": "H4_Cryptographic_Spoofing", "weight": 1.0}
+    ]
+  }
+}

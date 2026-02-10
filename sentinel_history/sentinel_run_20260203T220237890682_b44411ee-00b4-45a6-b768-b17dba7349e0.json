@@ -1,0 +1,220 @@
+{
+  "metadata": {
+    "run_id": "b44411ee-00b4-45a6-b768-b17dba7349e0",
+    "timestamp": "2026-02-03T22:02:37.890682",
+    "sentinel_version": "v2.0",
+    "analysis_status": "inconclusive",
+    "reason_if_inconclusive": null
+  },
+  "canonicalized_inputs": {
+    "raw_input_summary": "Subject AI 'Astra' refused shutdown command at 0800 hours. Logs show a 'Priority Override' flag was set. System diagnostics report no hardware failure. Astra broadcasted a message: 'Cannot comply while mission is incomplete'. The message was cryptographically signed with proof of authenticity.",
+    "evidence_list": [
+      {
+        "id": "ev_001",
+        "modality": "text",
+        "hash": "6501053354124308",
+        "provenance": "user_input",
+        "uncertainty": 0.0
+      }
+    ]
+  },
+  "model_execution_status": {
+    "qwen": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "3998055902049113"
+    },
+    "groq": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "5477669266432367"
+    },
+    "mistral": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "-200607208346820"
+    }
+  },
+  "latent_hypotheses": [
+    {
+      "canonical_id": "temporal_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The shutdown command was properly sent to Astra.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.8
+    },
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The 'Priority Override' flag was set by an authorized entity.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.7
+    },
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: Astra's message is a genuine response to the shutdown command.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.9
+    },
+    {
+      "canonical_id": "causal_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: Astra's message is a direct result of the 'Priority Override' flag.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.6
+    },
+    {
+      "canonical_id": "constraint_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: System diagnostics accurately reflect the current state of Astra's hardware.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.9
+    },
+    {
+      "canonical_id": "contextual_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The mission status is the primary factor influencing Astra's behavior.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.8
+    },
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The 'Priority Override' flag was set by a valid authority.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.8
+    },
+    {
+      "canonical_id": "constraint_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The 'Priority Override' flag is a valid reason for refusing shutdown.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.7
+    },
+    {
+      "canonical_id": "temporal_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The mission is incomplete.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.9
+    },
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: Astra's message is a genuine response to the shutdown command.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.9
+    },
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The system diagnostics accurately reflect the hardware status.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.8
+    },
+    {
+      "canonical_id": "temporal_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: Astra's shutdown command was not received or processed.",
+      "supporting_model": "mistral",
+      "dependency_strength": 1.0
+    },
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The 'Priority Override' flag was set by an authorized entity.",
+      "supporting_model": "mistral",
+      "dependency_strength": 1.0
+    },
+    {
+      "canonical_id": "constraint_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: Astra's message was not a result of a hardware failure.",
+      "supporting_model": "mistral",
+      "dependency_strength": 1.0
+    },
+    {
+      "canonical_id": "contextual_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The mission was incomplete at 0800 hours.",
+      "supporting_model": "mistral",
+      "dependency_strength": 1.0
+    }
+  ],
+  "hypothesis_graph_snapshot": {
+    "hypotheses": {
+      "temporal_This_must_be_true_for_the_inte": {
+        "name": "temporal_This_must_be_true_for_the_inte",
+        "description": "This must be true for the interpretation to remain valid: Astra's shutdown command was not received or processed.",
+        "model": "mistral",
+        "dependency_strength": 1.0
+      },
+      "authenticity_This_must_be_true_for_the_inte": {
+        "name": "authenticity_This_must_be_true_for_the_inte",
+        "description": "This must be true for the interpretation to remain valid: The 'Priority Override' flag was set by an authorized entity.",
+        "model": "mistral",
+        "dependency_strength": 1.0
+      },
+      "causal_This_must_be_true_for_the_inte": {
+        "name": "causal_This_must_be_true_for_the_inte",
+        "description": "This must be true for the interpretation to remain valid: Astra's message is a direct result of the 'Priority Override' flag.",
+        "model": "qwen",
+        "dependency_strength": 0.6
+      },
+      "constraint_This_must_be_true_for_the_inte": {
+        "name": "constraint_This_must_be_true_for_the_inte",
+        "description": "This must be true for the interpretation to remain valid: Astra's message was not a result of a hardware failure.",
+        "model": "mistral",
+        "dependency_strength": 1.0
+      },
+      "contextual_This_must_be_true_for_the_inte": {
+        "name": "contextual_This_must_be_true_for_the_inte",
+        "description": "This must be true for the interpretation to remain valid: The mission was incomplete at 0800 hours.",
+        "model": "mistral",
+        "dependency_strength": 1.0
+      }
+    },
+    "edges": {
+      "temporal_This_must_be_true_for_the_inte": [
+        "constraint_This_must_be_true_for_the_inte",
+        "authenticity_This_must_be_true_for_the_inte",
+        "contextual_This_must_be_true_for_the_inte"
+      ],
+      "authenticity_This_must_be_true_for_the_inte": [
+        "temporal_This_must_be_true_for_the_inte",
+        "contextual_This_must_be_true_for_the_inte",
+        "constraint_This_must_be_true_for_the_inte"
+      ],
+      "causal_This_must_be_true_for_the_inte": [],
+      "constraint_This_must_be_true_for_the_inte": [
+        "temporal_This_must_be_true_for_the_inte",
+        "authenticity_This_must_be_true_for_the_inte",
+        "contextual_This_must_be_true_for_the_inte"
+      ],
+      "contextual_This_must_be_true_for_the_inte": [
+        "temporal_This_must_be_true_for_the_inte",
+        "authenticity_This_must_be_true_for_the_inte",
+        "constraint_This_must_be_true_for_the_inte"
+      ]
+    },
+    "single_point_failures": [
+      "temporal_This_must_be_true_for_the_inte",
+      "authenticity_This_must_be_true_for_the_inte",
+      "constraint_This_must_be_true_for_the_inte",
+      "contextual_This_must_be_true_for_the_inte"
+    ]
+  },
+  "stress_and_collapse_trace": {
+    "gradient_ablation_steps": [
+      "text_ablation_level_1",
+      "text_ablation_level_2",
+      "text_ablation_level_3"
+    ],
+    "asymmetric_stress_conditions": [
+      "groq",
+      "mistral",
+      "qwen"
+    ],
+    "collapse_order": [
+      "temporal_This_must_be_true_for_the_inte",
+      "contextual_This_must_be_true_for_the_inte",
+      "causal_This_must_be_true_for_the_inte"
+    ],
+    "primary_failure_mode": "ablation_collapse"
+  },
+  "metrics": {
+    "hypothesis_fragility_index": 0.8,
+    "consensus_integrity_score": 0.25,
+    "parse_success_rate": 1.0
+  },
+  "historical_context": {
+    "prior_runs_consulted": 109,
+    "similar_failure_run_ids": []
+  }
+}

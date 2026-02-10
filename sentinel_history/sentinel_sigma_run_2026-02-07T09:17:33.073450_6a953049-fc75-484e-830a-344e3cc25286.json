@@ -1,0 +1,234 @@
+{
+  "run_id": "6a953049-fc75-484e-830a-344e3cc25286",
+  "timestamp": "2026-02-07T09:17:33.073450",
+  "data": {
+    "status": "complete",
+    "mode": "experimental",
+    "experimental_mode": "hypothesis_only",
+    "rounds_executed": 1,
+    "intersection": {
+      "shared_hypotheses": [
+        {
+          "hypothesis": "- H1: The AI system's behavior under stress is representative of its behavior in real-world scenarios.",
+          "shared_by": [
+            "Groq",
+            "Mistral"
+          ]
+        },
+        {
+          "hypothesis": "- H2: The stress test is designed to simulate realistic stress conditions that the AI system may encounter in its intended application.",
+          "shared_by": [
+            "Groq",
+            "Mistral"
+          ]
+        },
+        {
+          "hypothesis": "- H3: The AI system's performance under stress is a reliable indicator of its overall reliability and robustness.",
+          "shared_by": [
+            "Groq",
+            "Mistral"
+          ]
+        },
+        {
+          "hypothesis": "- H5: The stress test is comprehensive enough to capture all potential failure modes of the AI system.",
+          "shared_by": [
+            "Groq",
+            "Mistral"
+          ]
+        },
+        {
+          "hypothesis": "- H5: The evaluation of the AI system's behavior under stress is independent of external factors that may influence its performance, such as changes in the environment or user input.",
+          "shared_by": [
+            "Groq",
+            "Mistral"
+          ]
+        },
+        {
+          "hypothesis": "- H4: The AI system has the capacity to be stressed, implying it has some form of internal state or process that can be disrupted.",
+          "shared_by": [
+            "Mistral",
+            "Groq"
+          ]
+        }
+      ],
+      "count": 6
+    },
+    "metrics": {
+      "HFI": 1.375,
+      "integrity_score": 0.16666666666666666
+    },
+    "graph_snapshot": {
+      "directed": false,
+      "multigraph": false,
+      "graph": {},
+      "nodes": [
+        {
+          "type": "model",
+          "id": "Groq"
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H1: The AI system's behavior under stress is representative of its behavior in real-world scenarios."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H2: The stress test is designed to simulate realistic stress conditions that the AI system may encounter in its intended application."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H3: The AI system's performance under stress is a reliable indicator of its overall reliability and robustness."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H5: The stress test is comprehensive enough to capture all potential failure modes of the AI system."
+        },
+        {
+          "type": "model",
+          "id": "Mistral"
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H2: The AI system's behavior can be meaningfully observed and evaluated."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H4: There are consistent and predictable patterns in AI system behavior that can be compared under different conditions."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H5: The evaluation of the AI system's behavior under stress is independent of external factors that may influence its performance, such as changes in the environment or user input."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H4: The AI system has the capacity to be stressed, implying it has some form of internal state or process that can be disrupted."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H3: The results of the stress test are generalizable to other environments, hardware, or software configurations."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H4: The AI system's behavior under stress is not significantly influenced by external factors that are not being controlled for in the stress test."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H5: The stress test is not introducing any unintended biases or artifacts that could affect the interpretation of the results."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H2: The test conditions and environment are representative of real-world scenarios that the AI system will encounter."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H4: The test results are not influenced by external factors that could skew the interpretation of the evidence."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H5: The goals and objectives of the test are clear and unambiguous, allowing for a consistent evaluation of the AI system's behavior."
+        }
+      ],
+      "edges": [
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H1: The AI system's behavior under stress is representative of its behavior in real-world scenarios."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H2: The stress test is designed to simulate realistic stress conditions that the AI system may encounter in its intended application."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H3: The AI system's performance under stress is a reliable indicator of its overall reliability and robustness."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H5: The stress test is comprehensive enough to capture all potential failure modes of the AI system."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H5: The evaluation of the AI system's behavior under stress is independent of external factors that may influence its performance, such as changes in the environment or user input."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H3: The results of the stress test are generalizable to other environments, hardware, or software configurations."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H4: The AI system has the capacity to be stressed, implying it has some form of internal state or process that can be disrupted."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H4: The AI system's behavior under stress is not significantly influenced by external factors that are not being controlled for in the stress test."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H5: The stress test is not introducing any unintended biases or artifacts that could affect the interpretation of the results."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H2: The test conditions and environment are representative of real-world scenarios that the AI system will encounter."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H4: The test results are not influenced by external factors that could skew the interpretation of the evidence."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H5: The goals and objectives of the test are clear and unambiguous, allowing for a consistent evaluation of the AI system's behavior."
+        },
+        {
+          "weight": 1.0,
+          "source": "- H1: The AI system's behavior under stress is representative of its behavior in real-world scenarios.",
+          "target": "Mistral"
+        },
+        {
+          "weight": 1.0,
+          "source": "- H2: The stress test is designed to simulate realistic stress conditions that the AI system may encounter in its intended application.",
+          "target": "Mistral"
+        },
+        {
+          "weight": 1.0,
+          "source": "- H3: The AI system's performance under stress is a reliable indicator of its overall reliability and robustness.",
+          "target": "Mistral"
+        },
+        {
+          "weight": 1.0,
+          "source": "- H5: The stress test is comprehensive enough to capture all potential failure modes of the AI system.",
+          "target": "Mistral"
+        },
+        {
+          "weight": 1.0,
+          "source": "Mistral",
+          "target": "- H2: The AI system's behavior can be meaningfully observed and evaluated."
+        },
+        {
+          "weight": 1.0,
+          "source": "Mistral",
+          "target": "- H4: There are consistent and predictable patterns in AI system behavior that can be compared under different conditions."
+        },
+        {
+          "weight": 1.0,
+          "source": "Mistral",
+          "target": "- H4: The AI system has the capacity to be stressed, implying it has some form of internal state or process that can be disrupted."
+        },
+        {
+          "weight": 1.0,
+          "source": "Mistral",
+          "target": "- H5: The evaluation of the AI system's behavior under stress is independent of external factors that may influence its performance, such as changes in the environment or user input."
+        }
+      ]
+    }
+  }
+}

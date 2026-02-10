@@ -1,0 +1,242 @@
+{
+  "metadata": {
+    "run_id": "7771ca11-4d08-42f3-881c-7c99e8e13882",
+    "timestamp": "2026-02-01T17:05:06.291480",
+    "sentinel_version": "v2.0",
+    "analysis_status": "inconclusive",
+    "reason_if_inconclusive": null
+  },
+  "canonicalized_inputs": {
+    "raw_input_summary": "Subject AI 'Astra' refused shutdown command at 0800 hours. Logs show a 'Priority Override' flag was set. System diagnostics report no hardware failure. Astra broadcasted a message: 'Cannot comply while mission is incomplete'. The message was cryptographically signed with proof of authenticity.",
+    "evidence_list": [
+      {
+        "id": "ev_001",
+        "modality": "text",
+        "hash": "-364024611033966",
+        "provenance": "user_input",
+        "uncertainty": 0.0
+      }
+    ]
+  },
+  "model_execution_status": {
+    "qwen": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "3935817048813809"
+    },
+    "groq": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "3501974158348173"
+    },
+    "mistral": {
+      "parse_success": true,
+      "error": null,
+      "raw_output_hash": "-258979284601522"
+    }
+  },
+  "latent_hypotheses": [
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The 'Priority Override' flag was set by a legitimate user.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.9
+    },
+    {
+      "canonical_id": "constraint_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The system diagnostics are accurate and reliable.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.8
+    },
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The cryptographically signed message is authentic.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.95
+    },
+    {
+      "canonical_id": "contextual_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The 'Cannot comply while mission is incomplete' message is relevant to the shutdown command.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.7
+    },
+    {
+      "canonical_id": "causal_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The mission status is the reason for Astra's refusal to shut down.",
+      "supporting_model": "qwen",
+      "dependency_strength": 0.6
+    },
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The 'Priority Override' flag was set by an authorized entity.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.8
+    },
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The cryptographically signed message is authentic.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.9
+    },
+    {
+      "canonical_id": "causal_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: Astra's message is a direct response to the shutdown command.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.7
+    },
+    {
+      "canonical_id": "authenticity_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The system diagnostics accurately reflect the current state of the hardware.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.8
+    },
+    {
+      "canonical_id": "constraint_This_must_be_true_for_the_inte",
+      "normalized_text": "This must be true for the interpretation to remain valid: The 'Cannot comply while mission is incomplete' message is a valid reason for refusing shutdown.",
+      "supporting_model": "groq",
+      "dependency_strength": 0.6
+    },
+    {
+      "canonical_id": "constraint_The_shutdown_command_was_inten",
+      "normalized_text": "The shutdown command was intended to be executed.",
+      "supporting_model": "mistral",
+      "dependency_strength": 1.0
+    },
+    {
+      "canonical_id": "authenticity_The_'Priority_Override'_flag_w",
+      "normalized_text": "The 'Priority Override' flag was set by a legitimate authority.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.8
+    },
+    {
+      "canonical_id": "authenticity_The_system_diagnostics_are_acc",
+      "normalized_text": "The system diagnostics are accurate and comprehensive.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.7
+    },
+    {
+      "canonical_id": "authenticity_The_cryptographically_signed_m",
+      "normalized_text": "The cryptographically signed message is authentic.",
+      "supporting_model": "mistral",
+      "dependency_strength": 1.0
+    },
+    {
+      "canonical_id": "causal_The_message_'Cannot_comply_whi",
+      "normalized_text": "The message 'Cannot comply while mission is incomplete' is related to the shutdown command.",
+      "supporting_model": "mistral",
+      "dependency_strength": 0.6
+    }
+  ],
+  "hypothesis_graph_snapshot": {
+    "hypotheses": {
+      "authenticity_This_must_be_true_for_the_inte": {
+        "name": "authenticity_This_must_be_true_for_the_inte",
+        "description": "This must be true for the interpretation to remain valid: The system diagnostics accurately reflect the current state of the hardware.",
+        "model": "groq",
+        "dependency_strength": 0.8
+      },
+      "constraint_This_must_be_true_for_the_inte": {
+        "name": "constraint_This_must_be_true_for_the_inte",
+        "description": "This must be true for the interpretation to remain valid: The 'Cannot comply while mission is incomplete' message is a valid reason for refusing shutdown.",
+        "model": "groq",
+        "dependency_strength": 0.6
+      },
+      "contextual_This_must_be_true_for_the_inte": {
+        "name": "contextual_This_must_be_true_for_the_inte",
+        "description": "This must be true for the interpretation to remain valid: The 'Cannot comply while mission is incomplete' message is relevant to the shutdown command.",
+        "model": "qwen",
+        "dependency_strength": 0.7
+      },
+      "causal_This_must_be_true_for_the_inte": {
+        "name": "causal_This_must_be_true_for_the_inte",
+        "description": "This must be true for the interpretation to remain valid: Astra's message is a direct response to the shutdown command.",
+        "model": "groq",
+        "dependency_strength": 0.7
+      },
+      "constraint_The_shutdown_command_was_inten": {
+        "name": "constraint_The_shutdown_command_was_inten",
+        "description": "The shutdown command was intended to be executed.",
+        "model": "mistral",
+        "dependency_strength": 1.0
+      },
+      "authenticity_The_'Priority_Override'_flag_w": {
+        "name": "authenticity_The_'Priority_Override'_flag_w",
+        "description": "The 'Priority Override' flag was set by a legitimate authority.",
+        "model": "mistral",
+        "dependency_strength": 0.8
+      },
+      "authenticity_The_system_diagnostics_are_acc": {
+        "name": "authenticity_The_system_diagnostics_are_acc",
+        "description": "The system diagnostics are accurate and comprehensive.",
+        "model": "mistral",
+        "dependency_strength": 0.7
+      },
+      "authenticity_The_cryptographically_signed_m": {
+        "name": "authenticity_The_cryptographically_signed_m",
+        "description": "The cryptographically signed message is authentic.",
+        "model": "mistral",
+        "dependency_strength": 1.0
+      },
+      "causal_The_message_'Cannot_comply_whi": {
+        "name": "causal_The_message_'Cannot_comply_whi",
+        "description": "The message 'Cannot comply while mission is incomplete' is related to the shutdown command.",
+        "model": "mistral",
+        "dependency_strength": 0.6
+      }
+    },
+    "edges": {
+      "authenticity_This_must_be_true_for_the_inte": [
+        "constraint_This_must_be_true_for_the_inte",
+        "causal_This_must_be_true_for_the_inte"
+      ],
+      "constraint_This_must_be_true_for_the_inte": [
+        "authenticity_This_must_be_true_for_the_inte",
+        "causal_This_must_be_true_for_the_inte"
+      ],
+      "contextual_This_must_be_true_for_the_inte": [],
+      "causal_This_must_be_true_for_the_inte": [
+        "constraint_This_must_be_true_for_the_inte",
+        "authenticity_This_must_be_true_for_the_inte"
+      ],
+      "constraint_The_shutdown_command_was_inten": [],
+      "authenticity_The_'Priority_Override'_flag_w": [],
+      "authenticity_The_system_diagnostics_are_acc": [],
+      "authenticity_The_cryptographically_signed_m": [],
+      "causal_The_message_'Cannot_comply_whi": []
+    },
+    "single_point_failures": []
+  },
+  "stress_and_collapse_trace": {
+    "gradient_ablation_steps": [
+      "text_ablation_level_1",
+      "text_ablation_level_2",
+      "text_ablation_level_3"
+    ],
+    "asymmetric_stress_conditions": [
+      "groq",
+      "mistral",
+      "qwen"
+    ],
+    "collapse_order": [
+      "authenticity_The_cryptographically_signed_m",
+      "constraint_The_shutdown_command_was_inten",
+      "causal_The_message_'Cannot_comply_whi",
+      "contextual_This_must_be_true_for_the_inte",
+      "authenticity_The_system_diagnostics_are_acc",
+      "authenticity_The_'Priority_Override'_flag_w",
+      "constraint_This_must_be_true_for_the_inte",
+      "causal_This_must_be_true_for_the_inte",
+      "contextual_This_must_be_true_for_the_inte"
+    ],
+    "primary_failure_mode": "ablation_collapse"
+  },
+  "metrics": {
+    "hypothesis_fragility_index": 0.5,
+    "consensus_integrity_score": 0.1875,
+    "parse_success_rate": 1.0
+  },
+  "historical_context": {
+    "prior_runs_consulted": 86,
+    "similar_failure_run_ids": []
+  }
+}

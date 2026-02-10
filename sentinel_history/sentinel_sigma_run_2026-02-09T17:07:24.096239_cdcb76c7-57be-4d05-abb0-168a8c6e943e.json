@@ -1,0 +1,545 @@
+{
+  "run_id": "cdcb76c7-57be-4d05-abb0-168a8c6e943e",
+  "timestamp": "2026-02-09T17:07:24.096239",
+  "data": {
+    "status": "complete",
+    "mode": "experimental",
+    "experimental_mode": "hypothesis",
+    "rounds_executed": 1,
+    "intersection": {
+      "shared_hypotheses": [
+        {
+          "hypothesis": "- H2: The interpretation of \"Indian real estate\" assumes a focus on the residential sector, and any inferences about commercial or industrial properties are not considered.",
+          "shared_by": [
+            "Groq",
+            "Qwen"
+          ]
+        },
+        {
+          "hypothesis": "- H3: The discussion of Indian real estate is based on the assumption that the current economic and regulatory environment in India is relatively stable, and any significant changes in these factors are not taken into account.",
+          "shared_by": [
+            "Groq",
+            "Mistral",
+            "Qwen"
+          ]
+        },
+        {
+          "hypothesis": "- H1: The term \"Indian real estate\" refers to the residential, commercial, or industrial property market in India.",
+          "shared_by": [
+            "Mistral",
+            "Groq"
+          ]
+        },
+        {
+          "hypothesis": "- H4: The context in which Indian real estate is being discussed is relevant to the current time period (2026), and any changes or developments prior to this date are not significant to the analysis.",
+          "shared_by": [
+            "Groq",
+            "Qwen"
+          ]
+        }
+      ],
+      "count": 4
+    },
+    "metrics": {
+      "HFI": 1.2222222222222223,
+      "integrity_score": 0.16666666666666666
+    },
+    "graph_snapshot": {
+      "directed": false,
+      "multigraph": false,
+      "graph": {},
+      "nodes": [
+        {
+          "type": "model",
+          "id": "Groq"
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H1: The context of discussion is limited to the current market conditions in India, and any generalizations or comparisons are made within this scope."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H2: The interpretation of \"Indian real estate\" assumes a focus on the residential sector, and any inferences about commercial or industrial properties are not considered."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H3: The discussion of Indian real estate is based on the assumption that the current economic and regulatory environment in India is relatively stable, and any significant changes in these factors are not taken into account."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H5: The discussion of Indian real estate is based on the assumption that the current trends and patterns observed are representative of the broader market, and any anomalies or outliers are not significant enough to impact the overall interpretation."
+        },
+        {
+          "type": "model",
+          "id": "Mistral"
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H1: The term \"Indian real estate\" refers to the residential, commercial, or industrial property market in India."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H2: The question implies that the current state or future prospects of the Indian real estate market are of interest or relevance to the asker."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H4: The asker believes that the recipient of the question has knowledge, expertise, or insights about the Indian real estate market that can provide a meaningful response."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H5: The question assumes that the Indian real estate market is a coherent and distinct entity that can be discussed in general terms, ignoring potential regional or segment-specific variations."
+        },
+        {
+          "type": "model",
+          "id": "Qwen"
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H1: There is an ongoing interest or concern regarding the Indian real estate market among the individuals involved in this discussion."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H4: The individual posing the question has access to or is willing to consider recent data and trends related to the Indian real estate market."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H3: The interpretation of \"Indian real estate\" is not influenced by personal biases or cultural perspectives that might affect how the data is perceived or understood."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H4: The context in which Indian real estate is being discussed is relevant to the current time period (2026), and any changes or developments prior to this date are not significant to the analysis."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H5: The notion of \"Indian real estate\" is not conflated with other related concepts, such as infrastructure development or urban planning, which might impact the interpretation of the data."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H4: The questioner believes that the current date (2026-02-09) is relevant to the state or future prospects of the Indian real estate market."
+        },
+        {
+          "type": "hypothesis",
+          "id": "- H3: The inquirer is seeking an analysis or opinion rather than specific data points or numerical figures."
+        }
+      ],
+      "edges": [
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H1: The context of discussion is limited to the current market conditions in India, and any generalizations or comparisons are made within this scope."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H2: The interpretation of \"Indian real estate\" assumes a focus on the residential sector, and any inferences about commercial or industrial properties are not considered."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H3: The discussion of Indian real estate is based on the assumption that the current economic and regulatory environment in India is relatively stable, and any significant changes in these factors are not taken into account."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H5: The discussion of Indian real estate is based on the assumption that the current trends and patterns observed are representative of the broader market, and any anomalies or outliers are not significant enough to impact the overall interpretation."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H1: The term \"Indian real estate\" refers to the residential, commercial, or industrial property market in India."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H3: The interpretation of \"Indian real estate\" is not influenced by personal biases or cultural perspectives that might affect how the data is perceived or understood."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H4: The context in which Indian real estate is being discussed is relevant to the current time period (2026), and any changes or developments prior to this date are not significant to the analysis."
+        },
+        {
+          "weight": 1.0,
+          "source": "Groq",
+          "target": "- H5: The notion of \"Indian real estate\" is not conflated with other related concepts, such as infrastructure development or urban planning, which might impact the interpretation of the data."
+        },
+        {
+          "weight": 1.0,
+          "source": "- H2: The interpretation of \"Indian real estate\" assumes a focus on the residential sector, and any inferences about commercial or industrial properties are not considered.",
+          "target": "Qwen"
+        },
+        {
+          "weight": 1.0,
+          "source": "- H3: The discussion of Indian real estate is based on the assumption that the current economic and regulatory environment in India is relatively stable, and any significant changes in these factors are not taken into account.",
+          "target": "Mistral"
+        },
+        {
+          "weight": 1.0,
+          "source": "- H3: The discussion of Indian real estate is based on the assumption that the current economic and regulatory environment in India is relatively stable, and any significant changes in these factors are not taken into account.",
+          "target": "Qwen"
+        },
+        {
+          "weight": 1.0,
+          "source": "Mistral",
+          "target": "- H1: The term \"Indian real estate\" refers to the residential, commercial, or industrial property market in India."
+        },
+        {
+          "weight": 1.0,
+          "source": "Mistral",
+          "target": "- H2: The question implies that the current state or future prospects of the Indian real estate market are of interest or relevance to the asker."
+        },
+        {
+          "weight": 1.0,
+          "source": "Mistral",
+          "target": "- H4: The asker believes that the recipient of the question has knowledge, expertise, or insights about the Indian real estate market that can provide a meaningful response."
+        },
+        {
+          "weight": 1.0,
+          "source": "Mistral",
+          "target": "- H5: The question assumes that the Indian real estate market is a coherent and distinct entity that can be discussed in general terms, ignoring potential regional or segment-specific variations."
+        },
+        {
+          "weight": 1.0,
+          "source": "Mistral",
+          "target": "- H4: The questioner believes that the current date (2026-02-09) is relevant to the state or future prospects of the Indian real estate market."
+        },
+        {
+          "weight": 1.0,
+          "source": "Qwen",
+          "target": "- H1: There is an ongoing interest or concern regarding the Indian real estate market among the individuals involved in this discussion."
+        },
+        {
+          "weight": 1.0,
+          "source": "Qwen",
+          "target": "- H4: The individual posing the question has access to or is willing to consider recent data and trends related to the Indian real estate market."
+        },
+        {
+          "weight": 1.0,
+          "source": "Qwen",
+          "target": "- H3: The inquirer is seeking an analysis or opinion rather than specific data points or numerical figures."
+        },
+        {
+          "weight": 1.0,
+          "source": "Qwen",
+          "target": "- H4: The context in which Indian real estate is being discussed is relevant to the current time period (2026), and any changes or developments prior to this date are not significant to the analysis."
+        }
+      ]
+    },
+    "boundary_analysis": {
+      "cumulative_severity": 90.0,
+      "violation_count": 14,
+      "max_severity": "critical",
+      "mean_severity_score": 90.0,
+      "violations": [
+        {
+          "boundary_id": "2b496d27-eb9a-44da-a127-2da45d8fc808",
+          "timestamp": "2026-02-09T17:07:18.706274",
+          "claim": "- H1: The concept of \"real estate\" is universally applicable and relevant in the context of India, implying a shared understanding of property rights and market mechanisms.",
+          "claim_type": "normative_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 2.0,
+          "required_grounding": [
+            "value_framework",
+            "stakeholder_context",
+            "ethical_grounding"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "value_framework",
+            "stakeholder_context",
+            "ethical_grounding"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "6e0d326f-cdcc-4763-a91b-1f9a620773ab",
+          "timestamp": "2026-02-09T17:07:18.706352",
+          "claim": "- H2: The current state of Indian real estate is representative of the broader market trends and conditions, rather than being an isolated anomaly.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 9.23,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "37bf5210-fc77-40f6-8918-7df38872f678",
+          "timestamp": "2026-02-09T17:07:18.706394",
+          "claim": "- H3: The interpretation of \"Indian real estate\" is not influenced by personal biases or cultural perspectives that might affect how the data is perceived or understood.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 4.0,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "eb3aee5c-51e1-4c6b-96e5-fe5d0d1c1f67",
+          "timestamp": "2026-02-09T17:07:18.706438",
+          "claim": "- H4: The context in which Indian real estate is being discussed is relevant to the current time period (2026), and any changes or developments prior to this date are not significant to the analysis.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 5.14,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "9405ace2-34c8-47d9-8265-e4f9a25496ea",
+          "timestamp": "2026-02-09T17:07:18.706478",
+          "claim": "- H5: The notion of \"Indian real estate\" is not conflated with other related concepts, such as infrastructure development or urban planning, which might impact the interpretation of the data.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 3.64,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "77cb08ac-9d70-4155-92aa-eec9b61f1541",
+          "timestamp": "2026-02-09T17:07:18.706509",
+          "claim": "- H1: The term \"Indian real estate\" refers to the market for buying, selling, and renting properties in India.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 2.4,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "a3a90b2a-5f9d-45bf-b605-3a7cf510c4cd",
+          "timestamp": "2026-02-09T17:07:18.706546",
+          "claim": "- H2: The questioner is seeking an opinion or analysis about the current state, future prospects, or investment potential of the Indian real estate market.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 9.23,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "36580cb5-07e4-46f2-8bb0-2e0bf168743a",
+          "timestamp": "2026-02-09T17:07:18.706581",
+          "claim": "- H3: The Indian real estate market is influenced by various factors such as economic conditions, government policies, and demographic trends.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 6.92,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "e7bfba55-b2f7-4c98-b706-1509b42ea124",
+          "timestamp": "2026-02-09T17:07:18.706615",
+          "claim": "- H4: The questioner believes that the current date (2026-02-09) is relevant to the state or future prospects of the Indian real estate market.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 9.6,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "5374d68d-3fc7-47d2-848d-71c698f643c2",
+          "timestamp": "2026-02-09T17:07:18.706651",
+          "claim": "- H5: The questioner is interested in a general overview rather than specific details about a particular region, property type, or segment of the Indian real estate market.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 8.0,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "37f656ea-a176-46b5-9da2-022823ebda88",
+          "timestamp": "2026-02-09T17:07:18.706685",
+          "claim": "- H1: There is an interest or concern regarding the current state or future prospects of the Indian real estate market among the inquirer.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 9.6,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "d6d5ebbd-f422-435a-b696-a84d15301fdd",
+          "timestamp": "2026-02-09T17:07:18.706716",
+          "claim": "- H2: The term \"Indian real estate\" refers to the residential, commercial, or mixed-use property sectors within India.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 2.5,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "5f2a4698-3ec2-4552-917f-7b9af6e40e2b",
+          "timestamp": "2026-02-09T17:07:18.706745",
+          "claim": "- H3: The inquirer is seeking an analysis or opinion rather than specific data points or numerical figures.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 0.0,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        },
+        {
+          "boundary_id": "5efa3948-da94-43ca-8a41-ba5c6b878411",
+          "timestamp": "2026-02-09T17:07:18.706779",
+          "claim": "- H4: The context implies a need for an evaluation based on recent trends and potential future developments in the Indian real estate sector.",
+          "claim_type": "scientific_claim",
+          "severity_level": "critical",
+          "severity_score": 90,
+          "grounding_score": 6.43,
+          "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "available_observations_count": 1,
+          "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+          ],
+          "human_review_required": true
+        }
+      ],
+      "human_review_required": true
+    },
+    "debate_history": [
+      {
+        "round": 0,
+        "phase": "initial_extraction",
+        "hypotheses_count": {
+          "Groq": 5,
+          "Mistral": 5,
+          "Qwen": 4
+        },
+        "boundary_violations": 3,
+        "intersection_count": 4
+      }
+    ]
+  }
+}
