@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel // Dignified Systems</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body data-mode-active="standard">
+
+<div class="hud-overlay">
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+    <div class="noise"></div>
+</div>
+
+<aside class="sidebar">
+    <div class="brand">
+        <div class="brand-logo">S</div>
+        <div class="brand-text">SENTINEL <span class="version">v2.4</span></div>
+    </div>
+    
+    <button class="new-chat">
+        <i data-lucide="plus"></i>
+        <span>New Analysis</span>
+    </button>
+    
+    <div class="history-label">Session Logs</div>
+    <ul id="history-list" class="history-list">
+        <!-- Log items will be populated here -->
+    </ul>
+
+    <div class="user-profile">
+        <div class="avatar-circle">A</div>
+        <div class="profile-info">
+            <span class="name">Administrator</span>
+            <span class="status">Level 5 Access</span>
+        </div>
+    </div>
+</aside>
+
+<main class="main">
+    
+    <header class="header">
+        <div class="model-toggle">
+            <select id="mode-switch">
+                <option value="standard">⚡ Sentinel-E (Standard)</option>
+                <option value="sigma">🔬 Sentinel-Σ (Experimental)</option>
+            </select>
+        </div>
+        
+        <button class="theme-btn" id="theme-toggle" title="Toggle Theme">
+            <i data-lucide="sun"></i>
+        </button>
+    </header>
+
+    <div class="chat-feed" id="chat-feed">
+        <div class="message-row ai-row">
+            <div class="msg-avatar ai">S</div>
+            <div class="msg-content">
+                <p><strong>SYSTEM READY.</strong></p>
+                <p>Sentinel is online. Select your operating mode from the header.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="input-region">
+        <div class="input-container">
+            <textarea id="user-input" rows="1" placeholder="Enter command or query..."></textarea>
+            <div class="input-actions">
+                <div class="action-left" title="Attach Context">
+                    <i data-lucide="paperclip" width="18"></i>
+                    <span class="attachment-label">ATTACH_DATA</span>
+                </div>
+                <button id="send-btn" class="send-btn">
+                    <i data-lucide="arrow-up" width="16"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="script.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

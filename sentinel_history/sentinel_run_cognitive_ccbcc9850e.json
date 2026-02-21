@@ -1,0 +1,12 @@
+{
+    "timestamp": "2026-02-21T06:02:12.474615",
+    "claim": "what is gta vi",
+    "omega_analysis": {
+        "structural_integrity": 1.0,
+        "boundary_stability": 1.0,
+        "drift_index": 0.0,
+        "adaptive_depth_next_run": 5,
+        "knowledge_sources_used": 5
+    },
+    "average_severity": 0
+}

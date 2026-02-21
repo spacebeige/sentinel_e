@@ -1,6 +1,6 @@
 import os
 from langchain_community.document_loaders import PyMuPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
@@ -14,6 +14,22 @@ class IngestionEngine:
         )
         self.vector_store = None
         self.doc_store = []
+        self.index_path = "data/faiss_index"
+        self._load_index()
+
+    def _load_index(self):
+        """Load existing FAISS index if available."""
+        if os.path.exists(self.index_path):
+            try:
+                self.vector_store = FAISS.load_local(self.index_path, self.embeddings, allow_dangerous_deserialization=True)
+                print(f"Loaded FAISS index from {self.index_path}")
+            except Exception as e:
+                print(f"Failed to load FAISS index: {e}")
+
+    def save_index(self):
+        """Save FAISS index to disk."""
+        if self.vector_store:
+            self.vector_store.save_local(self.index_path)
 
     def process_pdf(self, file_path):
         """Parse PDF, chunk text, and build FAISS index."""
@@ -48,6 +64,7 @@ class IngestionEngine:
         else:
             self.vector_store.add_documents(clean_docs)
             
+        self.save_index()
         return len(clean_docs)
 
     def retrieve_context(self, query, k=3):
@@ -57,3 +74,19 @@ class IngestionEngine:
         # Retrieve top k documents
         docs = self.vector_store.similarity_search(query, k=k)
         return docs
+    
+    def add_text_memory(self, text: str, metadata: dict = None):
+        """Add text directly to memory (for learnings)."""
+        if not text: return
+        try:
+            from langchain_core.documents import Document
+        except ImportError:
+            from langchain.docstore.document import Document
+            
+        doc = Document(page_content=text, metadata=metadata or {})
+        
+        if self.vector_store is None:
+            self.vector_store = FAISS.from_documents([doc], self.embeddings)
+        else:
+            self.vector_store.add_documents([doc])
+        self.save_index()

@@ -1,7 +1,79 @@
 {
-  "global_violation_count": 31,
-  "refusal_count": 1,
-  "feedback_store": [],
+  "global_violation_count": 126,
+  "refusal_count": 37,
+  "feedback_store": [
+    {
+      "run_id": "9f799408-9258-4d89-9594-ed9691ecdefe",
+      "model_name": null,
+      "feedback": "down",
+      "reason": "didnt really understand the logic",
+      "timestamp": "2026-02-11T06:44:44.418010"
+    },
+    {
+      "timestamp": "2026-02-17T18:14:11.780175",
+      "model_name": "standard_mode",
+      "feedback": "up"
+    },
+    {
+      "timestamp": "2026-02-17T18:14:15.413350",
+      "model_name": "standard_mode",
+      "feedback": "down"
+    },
+    {
+      "timestamp": "2026-02-17T18:14:16.746238",
+      "model_name": "standard_mode",
+      "feedback": "up"
+    },
+    {
+      "run_id": "97a4b9ee-ab85-4016-abb0-90162ddab0d1",
+      "model_name": null,
+      "feedback": "up",
+      "reason": null,
+      "timestamp": "2026-02-18T17:34:13.385303"
+    },
+    {
+      "run_id": "97a4b9ee-ab85-4016-abb0-90162ddab0d1",
+      "model_name": null,
+      "feedback": "up",
+      "reason": null,
+      "timestamp": "2026-02-18T17:34:14.212766"
+    },
+    {
+      "run_id": "97a4b9ee-ab85-4016-abb0-90162ddab0d1",
+      "model_name": null,
+      "feedback": "up",
+      "reason": null,
+      "timestamp": "2026-02-18T17:34:14.513969"
+    },
+    {
+      "run_id": "97a4b9ee-ab85-4016-abb0-90162ddab0d1",
+      "model_name": null,
+      "feedback": "up",
+      "reason": null,
+      "timestamp": "2026-02-18T17:34:14.750196"
+    },
+    {
+      "run_id": "97a4b9ee-ab85-4016-abb0-90162ddab0d1",
+      "model_name": null,
+      "feedback": "up",
+      "reason": null,
+      "timestamp": "2026-02-18T17:34:17.630759"
+    },
+    {
+      "run_id": "97a4b9ee-ab85-4016-abb0-90162ddab0d1",
+      "model_name": null,
+      "feedback": "down",
+      "reason": null,
+      "timestamp": "2026-02-18T17:34:19.065615"
+    },
+    {
+      "run_id": "97a4b9ee-ab85-4016-abb0-90162ddab0d1",
+      "model_name": null,
+      "feedback": "up",
+      "reason": null,
+      "timestamp": "2026-02-18T17:34:19.614657"
+    }
+  ],
   "model_patterns": {
     "standard_mode": {
       "violation_history": [
@@ -10,17 +82,239 @@
           "severity_score": 90,
           "severity_level": "critical",
           "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-17T16:47:30.445975",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "normative_claim"
+        },
+        {
+          "timestamp": "2026-02-17T16:47:54.842099",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-17T16:48:06.557483",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-17T16:48:26.489110",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "predictive_claim"
+        },
+        {
+          "timestamp": "2026-02-17T16:50:39.992071",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "normative_claim"
+        },
+        {
+          "timestamp": "2026-02-17T16:53:23.450643",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "normative_claim"
+        },
+        {
+          "timestamp": "2026-02-17T17:31:50.576541",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "normative_claim"
+        },
+        {
+          "timestamp": "2026-02-17T18:12:57.099705",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-17T18:13:33.276804",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-17T18:14:36.750963",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "normative_claim"
+        },
+        {
+          "timestamp": "2026-02-17T18:15:23.022371",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-17T18:15:45.524076",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-17T18:16:20.745419",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T02:12:40.668424",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T02:51:22.387327",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T02:55:38.552890",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T03:29:04.692075",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T03:50:22.667407",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T07:00:36.690771",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "technical_claim"
+        },
+        {
+          "timestamp": "2026-02-18T07:01:22.065562",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T07:03:09.566150",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T07:04:10.680786",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T11:05:25.498719",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T11:16:08.238153",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T11:43:42.869139",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T11:45:03.229273",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T11:46:46.188082",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T14:12:37.036669",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T14:13:42.233813",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T15:06:56.081336",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "predictive_claim"
+        },
+        {
+          "timestamp": "2026-02-18T15:07:49.914223",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T15:11:51.196495",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "predictive_claim"
+        },
+        {
+          "timestamp": "2026-02-18T15:53:22.083561",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T15:54:10.972656",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T16:00:56.198129",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
         }
       ],
       "claim_type_stats": {
         "scientific_claim": {
+          "count": 27,
+          "avg_severity": 90.0
+        },
+        "normative_claim": {
+          "count": 5,
+          "avg_severity": 90.0
+        },
+        "predictive_claim": {
+          "count": 3,
+          "avg_severity": 90.0
+        },
+        "technical_claim": {
           "count": 1,
           "avg_severity": 90.0
         }
       },
       "feedback_correlation": {
-        "up": 0,
-        "down": 0,
+        "up": 2,
+        "down": 1,
         "neutral": 0
       }
     },
@@ -85,11 +379,131 @@
           "severity_score": 90,
           "severity_level": "critical",
           "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.518409",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.519181",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.519701",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.520199",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.520675",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.674977",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.675966",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.676627",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.677252",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.677893",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.059543",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.060774",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.061737",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.062714",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.063665",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.985954",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.987760",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.988667",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.989728",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.990662",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
         }
       ],
       "claim_type_stats": {
         "scientific_claim": {
-          "count": 9,
+          "count": 29,
           "avg_severity": 90.0
         },
         "legal_claim": {
@@ -164,11 +578,135 @@
           "severity_score": 90,
           "severity_level": "critical",
           "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.521222",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.521767",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.522302",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.522846",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.523394",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "predictive_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.678517",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.679146",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.679940",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.680793",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.681601",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.064618",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.065597",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.067054",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.068426",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.069665",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.991628",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.992800",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.993734",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.995048",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.996075",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
         }
       ],
       "claim_type_stats": {
         "scientific_claim": {
-          "count": 10,
+          "count": 29,
+          "avg_severity": 90.0
+        },
+        "predictive_claim": {
+          "count": 1,
           "avg_severity": 90.0
         }
       },
@@ -239,11 +777,135 @@
           "severity_score": 90,
           "severity_level": "critical",
           "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.524044",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.524762",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.525523",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.526569",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:28:57.527596",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.682571",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.683290",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.684167",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.685171",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-11T07:34:03.686241",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.070779",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.071835",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.073028",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.074107",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T05:55:17.075151",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "normative_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.997097",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.998438",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:54.999418",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:55.000323",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-18T06:16:55.001207",
+          "severity_score": 90,
+          "severity_level": "critical",
+          "claim_type": "scientific_claim"
         }
       ],
       "claim_type_stats": {
         "scientific_claim": {
-          "count": 10,
+          "count": 29,
+          "avg_severity": 90.0
+        },
+        "normative_claim": {
+          "count": 1,
           "avg_severity": 90.0
         }
       },

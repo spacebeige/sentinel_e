@@ -15,20 +15,13 @@ def format_output(result: dict) -> str:
 
     output_lines = []
     
-    # === SYSTEM HEADER ===
-    # output_lines.append("--- SENTINEL-E STANDARD MODE ---")
-    if warning:
-        output_lines.append(f"[SYSTEM WARNING: {warning}]")
-    
+    # === CLEAN OUTPUT MODE ===
+    # For Conversational/User-Facing Mode, we suppress all internal telemetry.
     if boundary_warning:
-        output_lines.append(f"[{boundary_warning}]")
-        
-    # === PIPELINE STATUS ===
-    status_line = f"[Models: {model_count}] | [KNN Context: {'Active' if knn_active else 'Idle'}] | [Strategy: {neural_method}]"
-    output_lines.append(status_line)
-    output_lines.append("-" * len(status_line))
-    
-    # === CONTENT ===
+        output_lines.append(f"Note: {boundary_warning}")
+        output_lines.append("")
+
+    # Content Only
     output_lines.append(text)
     
     return "\n\n".join(output_lines)

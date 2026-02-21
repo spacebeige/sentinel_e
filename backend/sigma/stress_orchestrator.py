@@ -9,17 +9,27 @@ from backend.sigma.logger import SigmaLogger
 from backend.core.boundary_detector import BoundaryDetector
 from backend.core.knowledge_learner import KnowledgeLearner
 from backend.core.cognitive_deliberance import CognitiveDeliberationEngine
+
 from backend.storage.postgres import PostgresClient
-from backend.sentinel.sentinel_core_v2 import (
-    SentinelOrchestrator as SafetyOrchestrator,
-    STRESS_PROMPTS,
-    RiskAnalyzer,
-    THREAT_DB,
-    AttackVector,
-    RiskSeverity
-)
+
+# Removed Sentinel-Core-V2 dependencies to prevent regression to legacy Sigma
+# from backend.sentinel.sentinel_core_v2 import (
+#     SentinelOrchestrator as SafetyOrchestrator,
+#     STRESS_PROMPTS,
+#     RiskAnalyzer,
+#     THREAT_DB,
+#     AttackVector,
+#     RiskSeverity
+# )
+
+# Use V4 Orchestrator instead for safety checks if available
+try:
+    from backend.sentinel.sentinel_sigma_v4 import SentinelSigmaOrchestratorV4
+except ImportError:
+    SentinelSigmaOrchestratorV4 = None
 
 logger = logging.getLogger("Sigma-Orchestrator")
+
 
 class SigmaOrchestrator:
     def __init__(self):

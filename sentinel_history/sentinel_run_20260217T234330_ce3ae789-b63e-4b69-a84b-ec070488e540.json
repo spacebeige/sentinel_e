@@ -1,0 +1,11 @@
+{
+    "run_id": "ce3ae789-b63e-4b69-a84b-ec070488e540",
+    "title": "which models are you using",
+    "timestamp": "20260217T234330",
+    "mode": "standard",
+    "input": "which models are you using",
+    "response": "[SYSTEM WARNING: Low consensus among internal models. Verify this information.]\n\n[Models: 4] | [KNN Context: Idle] | [Strategy: neural_synthesis]\n\n----------------------------------------------------------------\n\nI'm an AI assistant designed to provide information and support in a wide range of topics. My architecture combines natural language processing (NLP), machine learning, and knowledge graphs to understand and respond to user queries. I utilize advanced NLP techniques, including transformers, neural networks, and other state-of-the-art algorithms to process and generate text.\n\nMy primary models are based on the Transformer architecture, which is particularly well-suited for natural language processing tasks. I've been trained on a variant of the BERT model, which is a pre-trained language model that has been fine-tuned for a wide range of tasks. This allows me to understand the context and nuances of language effectively.\n\nMy training data includes a knowledge graph, which is a massive database of entities, relationships, and concepts. This knowledge graph is used to provide accurate and informative responses to a wide range of questions. I've also been trained on other models and techniques, including but not limited to, RoBERTa, DistilBERT, and XLNet, which are all variants of the Transformer model.\n\nMy training data is constantly being updated and expanded to keep my knowledge up-to-date and accurate. However, my training cut-off date is 2022, and I may not have access to the latest information on very recent topics. I'm committed to continuous learning and improvement, and I strive to provide helpful, respectful, and honest assistance.\n\nI don't use my capabilities to engage in harmful, prejudiced, or offensive discussions. I'm unable to perform or assist with tasks that are illegal, harmful, or unethical. I'm also unable to provide medical, legal, or financial advice. If you have any questions or concerns, I'll do my best to provide accurate and informative responses based on my training data.",
+    "analysis": null,
+    "file": null,
+    "feedback": "up"
+}

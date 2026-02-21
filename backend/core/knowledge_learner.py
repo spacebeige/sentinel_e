@@ -159,9 +159,26 @@ class KnowledgeLearner:
         self.refusal_count = 0
         self.feedback_store = []
         self.persistence_file = persistence_file
-        self._load_state()
+        self.load_state()
+
+    def update_feedback(self, model_name: str, feedback: str):
+        """Records user feedback for a model's output."""
+        if model_name not in self.model_patterns:
+            self.model_patterns[model_name] = ModelBehaviorPattern(model_name)
+            
+        self.model_patterns[model_name].add_feedback(feedback)
         
-    def _load_state(self):
+        # Also store raw feedback in store
+        self.feedback_store.append({
+            "timestamp": datetime.utcnow().isoformat(),
+            "model_name": model_name,
+            "feedback": feedback
+        })
+        
+        self.save_state()
+        logger.info(f"Feedback '{feedback}' recorded for model {model_name}")
+        
+    def load_state(self):
         """Load state from persistence file."""
         import json
         import os
@@ -199,7 +216,7 @@ class KnowledgeLearner:
         except Exception as e:
             logger.error(f"Failed to load knowledge state: {e}")
 
-    def _save_state(self):
+    def save_state(self):
         """Save state to persistence file."""
         import json
         try:
@@ -245,7 +262,7 @@ class KnowledgeLearner:
         
         logger.info(f"Violation recorded: {model_name} | "
                    f"Severity: {severity_score} | Type: {claim_type}")
-        self._save_state()
+        self.save_state()
     
     def record_refusal_decision(
         self,
@@ -258,7 +275,7 @@ class KnowledgeLearner:
         self.refusal_count += 1
         logger.info(f"Refusal decision: {model_name} | "
                    f"Severity: {boundary_severity} | Reason: {refusal_reason}")
-        self._save_state()
+        self.save_state()
     
     def record_feedback(
         self,
@@ -280,7 +297,7 @@ class KnowledgeLearner:
         })
         
         logger.info(f"Feedback recorded: {feedback} for run {run_id}")
-        self._save_state()
+        self.save_state()
     
     def get_model_risk_profile(self, model_name: str) -> Dict[str, Any]:
         """Get learned risk profile for a model."""
@@ -365,7 +382,7 @@ class KnowledgeLearner:
     
     def get_learning_summary(self) -> Dict[str, Any]:
         """Get overall learning summary."""
-        self._load_state()  # Refresh state from persistence file
+        self.load_state()  # Refresh state from persistence file
         feedback_stats = {"up": 0, "down": 0, "neutral": 0}
         for fb in self.feedback_store:
             feedback_stats[fb["feedback"]] = feedback_stats.get(fb["feedback"], 0) + 1

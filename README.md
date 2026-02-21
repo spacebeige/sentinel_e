@@ -471,8 +471,11 @@ OPENROUTER_API_KEY=your_key
 ### 2. Run Sentinel-Σ
 
 ```bash
-# CLI demo
-python3 backend/run_sentinel_sigma.py
+# V4 CLI demo
+python3 backend/run_sentinel_sigma_v4.py
+
+# Or run legacy version (if available)
+# python3 backend/run_sentinel_sigma.py
 
 # Or run Full API server
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload

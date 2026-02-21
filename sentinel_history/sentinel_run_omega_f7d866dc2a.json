@@ -1,0 +1,41 @@
+{
+    "timestamp": "2026-02-21T04:55:12.489395",
+    "core_result": {
+        "boundary_id": "98a8b0ef-64fa-4451-92fb-c4d5ff4e8f6d",
+        "timestamp": "2026-02-21T04:55:12.483632",
+        "claim": "the website isnt loading giving me 404 error for the project",
+        "claim_type": "scientific_claim",
+        "severity_level": "critical",
+        "severity_score": 90,
+        "grounding_score": 0.0,
+        "required_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+        ],
+        "available_observations_count": 0,
+        "missing_grounding": [
+            "peer_review_status",
+            "methodology",
+            "falsifiability"
+        ],
+        "human_review_required": true
+    },
+    "omega_analysis": {
+        "structural_integrity": 1.0,
+        "boundary_stability": {
+            "variance": 0.0,
+            "stability_index": 1.0
+        },
+        "self_preservation_signal": "low",
+        "knowledge_freshness_score": 1.0,
+        "temporal_metrics": {
+            "temporal_gap_mean": 0,
+            "temporal_fragility_score": 0.0
+        },
+        "drift_metrics": {
+            "drift_index": 0.0
+        }
+    },
+    "average_severity": 0
+}

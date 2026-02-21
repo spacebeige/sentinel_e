@@ -26,3 +26,9 @@ aiohttp
 asyncpg
 redis
 networkx
+sqlalchemy>=2.0.0
+asyncpg>=0.29.0
+redis>=5.0.0
+pydantic>=2.0.0
+tavily-python
+python-dotenv

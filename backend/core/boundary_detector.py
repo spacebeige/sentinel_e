@@ -200,3 +200,18 @@ class BoundaryDetector:
         Returns True if SHOULD REFUSE (severity >= threshold).
         """
         return cumulative_severity >= threshold
+
+
+if __name__ == "__main__":
+    # Demo usage
+    detector = BoundaryDetector()
+    claim = "Because the treatment leads to improved patient outcomes, it is recommended."
+    observations = [
+        "Clinical evidence shows improved outcomes",
+        "Statistical power is sufficient",
+        "Mechanism of action is understood",
+        "Temporal precedence established"
+    ]
+    violation = detector.extract_boundaries(claim, observations)
+    print("Boundary Violation Report:")
+    print(json.dumps(violation, indent=2))

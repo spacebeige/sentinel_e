@@ -89,8 +89,9 @@ class StandardOrchestrator:
 
 
         # 2. Cloud Model Calls (Groq, Mistral, Qwen)
+        from backend.standard.prompts import STANDARD_SYSTEM_PROMPT
         current_date_str = datetime.now().strftime("%Y-%m-%d")
-        system_prompt = f"You are Sentinel-E, a safe and helpful assistant. The current date is {current_date_str}."
+        system_prompt = f"{STANDARD_SYSTEM_PROMPT}\nThe current date is {current_date_str}."
         cloud_tasks = [
             self.models.call_groq(input_text, system_role=system_prompt),
             self.models.call_mistral(input_text, system_role=system_prompt),

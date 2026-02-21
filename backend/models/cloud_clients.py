@@ -64,7 +64,8 @@ class CloudModelClient:
             "max_tokens": 1024,
         }
 
-        async with aiohttp.ClientSession() as session:
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             try:
                 async with session.post(url, headers=headers, json=payload) as resp:
                     if resp.status != 200:
@@ -79,7 +80,7 @@ class CloudModelClient:
     # MISTRAL
     # ============================================================
 
-    async def call_mistral(self, prompt: str, system_role: str = "You are a helpful assistant.") -> str:
+    async def call_mistral(self, prompt: str, system_role: str = "You are a helpful assistant.", history: list = None) -> str:
         """
         Calls the official Mistral API.
         """
@@ -91,17 +92,22 @@ class CloudModelClient:
             "Authorization": f"Bearer {self.mistral_api_key}",
             "Content-Type": "application/json",
         }
+        
+        messages = [{"role": "system", "content": system_role}]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": prompt})
+
         payload = {
             "model": "mistral-small-latest",
-            "messages": [
-                {"role": "system", "content": system_role},
-                {"role": "user", "content": prompt}
-            ],
+            "messages": messages,
             "temperature": 0.2,
             "max_tokens": 1024,
         }
 
-        async with aiohttp.ClientSession() as session:
+        # Custom timeout for Mistral
+        timeout = aiohttp.ClientTimeout(total=45)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             try:
                 async with session.post(url, headers=headers, json=payload) as resp:
                     if resp.status != 200:
@@ -144,7 +150,9 @@ class CloudModelClient:
             "max_tokens": 1024,
         }
 
-        async with aiohttp.ClientSession() as session:
+        # Custom timeout for Qwen
+        timeout = aiohttp.ClientTimeout(total=45)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             try:
                 async with session.post(url, headers=headers, json=payload) as resp:
                     text = await resp.text()

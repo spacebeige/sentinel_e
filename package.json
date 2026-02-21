@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "start": "npm run start-backend & npm run start-frontend",
+    "start-backend": "/Users/ashwinagarkhed/sentinel_e/.venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload",
+    "start-frontend": "cd frontend && npm start"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.574.0",
+    "marked": "^17.0.2",
+    "tailwind-merge": "^3.4.1"
+  }
+}

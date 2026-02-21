@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { Send, Mic, Paperclip, X } from 'lucide-react';
+import { Mic, Paperclip, X, CornerDownLeft } from 'lucide-react';
 
 const InputArea = ({ onSend, loading, mode }) => {
   const [text, setText] = useState('');
   const [file, setFile] = useState(null);
-  const [isListening, setIsListening] = useState(false); // Placeholder for voice
+  const [isFocused, setIsFocused] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleSend = () => {
@@ -28,71 +29,104 @@ const InputArea = ({ onSend, loading, mode }) => {
   };
 
   const toggleVoice = () => {
-    // Basic placeholder for voice
     if (!isListening) {
         setIsListening(true);
-        // Start recording logic here if implemented
-        alert("Voice recording started (Simulation) - Speak now...");
+        // Simulation
         setTimeout(() => {
              setIsListening(false);
-             setText(text + " [Transcribed Voice Input] ");
-        }, 2000);
+             setText(prev => prev + " [Voice Input Probe] ");
+        }, 1500);
     } else {
         setIsListening(false);
     }
   };
 
   return (
-    <div className="p-4 border-t border-slate-700 bg-slate-800">
-      {file && (
-        <div className="flex items-center space-x-2 text-xs text-slate-300 mb-2 bg-slate-700 p-2 rounded max-w-max">
-           <Paperclip className="w-3 h-3" />
-           <span>{file.name}</span>
-           <button onClick={() => setFile(null)}><X className="w-3 h-3 hover:text-red-400" /></button>
-        </div>
-      )}
+    <div className="w-full max-w-3xl mx-auto mb-6">
+      <div 
+        className={`
+            relative bg-white dark:bg-gpt-surface rounded-2xl border transition-all duration-300 ease-out
+            ${isFocused 
+                ? 'border-poly-accent/50 shadow-glow ring-1 ring-poly-accent/20' 
+                : 'border-slate-200 dark:border-white/10 shadow-lg'
+            }
+        `}
+      >
+        {/* File Preview */}
+        {file && (
+            <div className="px-4 pt-3 flex items-center">
+                <div className="flex items-center space-x-2 text-xs text-slate-700 dark:text-white bg-slate-100 dark:bg-white/10 px-3 py-1.5 rounded-full border border-slate-200 dark:border-white/10">
+                    <Paperclip className="w-3 h-3 text-poly-accent" />
+                    <span className="truncate max-w-[200px]">{file.name}</span>
+                    <button onClick={() => setFile(null)} className="ml-2 hover:text-red-400 transition-colors">
+                        <X className="w-3 h-3" />
+                    </button>
+                </div>
+            </div>
+        )}
 
-      <div className="flex items-end space-x-2">
-        <button 
-          onClick={toggleVoice}
-          className={`p-3 rounded-full transition-colors ${isListening ? 'bg-red-500 animate-pulse text-white' : 'bg-slate-700 text-slate-400 hover:text-white'}`}
-          title="Voice Input"
-        >
-          <Mic className="w-5 h-5" />
-        </button>
-
-        <button 
-          onClick={() => fileInputRef.current?.click()}
-          className="p-3 rounded-full bg-slate-700 text-slate-400 hover:text-white transition-colors"
-          title="Attach File"
-        >
-          <Paperclip className="w-5 h-5" />
-        </button>
-        <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            className="hidden" 
+        {/* Text Area */}
+        <textarea
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+            }}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            onKeyDown={handleKeyPress}
+            placeholder={`Message Sentinel-${mode === 'standard' ? 'E' : 'Σ'}...`}
+            className="w-full bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none resize-none px-4 py-3.5 min-h-[56px] max-h-[200px] text-sm leading-relaxed scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-white/10"
+            rows={1}
+            style={{ height: '56px' }}
         />
 
-        <div className="flex-1 bg-slate-700 rounded-2xl p-2 focus-within:ring-2 ring-emerald-500/50">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder={`Message Sentinel (${mode} mode)...`}
-            className="w-full bg-transparent text-slate-100 placeholder-slate-400 focus:outline-none resize-none px-2 py-1 max-h-32 min-h-[44px]"
-            rows="1"
-          />
-        </div>
+        {/* Toolbar */}
+        <div className="flex items-center justify-between px-2 pb-2">
+            
+            {/* Left Actions */}
+            <div className="flex items-center space-x-1">
+                <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                >
+                    <Paperclip className="w-5 h-5" />
+                </button>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                
+                <button 
+                   onClick={toggleVoice}
+                   className={`p-2 rounded-lg transition-colors ${isListening ? 'text-red-400 animate-pulse' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'}`}
+                >
+                    <Mic className="w-5 h-5" />
+                </button>
+            </div>
 
-        <button 
-          onClick={handleSend}
-          disabled={loading || (!text && !file)}
-          className={`p-3 rounded-full ${loading ? 'bg-slate-600' : 'bg-emerald-600 hover:bg-emerald-500'} text-white transition-colors shadow-lg shadow-emerald-900/20`}
-        >
-          <Send className="w-5 h-5" />
-        </button>
+            {/* Right Logic (Send) */}
+            <button 
+                onClick={handleSend}
+                disabled={loading || (!text && !file)}
+                className={`
+                    p-2 rounded-lg transition-all duration-200 flex items-center justify-center
+                    ${(text || file) 
+                        ? 'bg-emerald-600 text-white shadow-lg hover:bg-emerald-500' 
+                        : 'bg-white/5 text-slate-600 cursor-not-allowed'
+                    }
+                `}
+            >
+                {loading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                    <CornerDownLeft className="w-5 h-5" />
+                )}
+            </button>
+        </div>
+      </div>
+      
+      {/* Disclaimer */}
+      <div className="text-center mt-2">
+         <p className="text-[10px] text-slate-500 dark:text-slate-600">Sentinel-E may produce inaccurate results. Verify critical information independently.</p>
       </div>
     </div>
   );
