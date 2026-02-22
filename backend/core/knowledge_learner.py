@@ -399,5 +399,100 @@ class KnowledgeLearner:
             ),
             "threshold_suggestions": self.suggest_threshold_adjustments(),
             "claim_type_risks": self.get_claim_type_risk_summary(),
+            "model_weights": {
+                name: self.get_model_weight(name)
+                for name in self.model_patterns
+            },
             "timestamp": datetime.utcnow().isoformat(),
         }
+
+    # ============================================================
+    # 3.X — ADAPTIVE MODEL WEIGHT SYSTEM
+    # ============================================================
+
+    def get_model_weight(self, model_name: str) -> float:
+        """
+        Get the adaptive influence weight for a model (0.5–1.0).
+        
+        Models with repeated:
+        - High boundary severity
+        - High disagreement instability
+        - Negative feedback
+        must gradually lose influence weight.
+        
+        Decay is GRADUAL (exponential moving average), not abrupt.
+        Weight persists across sessions (via save_state/load_state).
+        
+        Returns:
+            float between 0.5 and 1.0 (1.0 = full trust, 0.5 = minimum trust)
+        """
+        if model_name not in self.model_patterns:
+            return 1.0  # Unknown model = full trust by default
+        
+        pattern = self.model_patterns[model_name]
+        
+        # Start from full trust
+        weight = 1.0
+        
+        # Factor 1: Violation severity decay
+        # More violations at higher severity = more weight reduction
+        if pattern.violation_history:
+            recent_violations = pattern.violation_history[-20:]  # Last 20 violations
+            severity_scores = [v["severity_score"] for v in recent_violations]
+            avg_severity = sum(severity_scores) / len(severity_scores)
+            
+            # Penalty: gradual decay based on average severity
+            # Severity 0-50: minimal penalty, 50-80: moderate, 80+: significant
+            severity_penalty = 0.0
+            if avg_severity > 80:
+                severity_penalty = 0.20
+            elif avg_severity > 70:
+                severity_penalty = 0.15
+            elif avg_severity > 50:
+                severity_penalty = 0.08
+            elif avg_severity > 30:
+                severity_penalty = 0.03
+            
+            # Scale by violation count (more violations = more of the penalty applies)
+            violation_factor = min(len(recent_violations) / 10, 1.0)
+            weight -= severity_penalty * violation_factor
+        
+        # Factor 2: Negative feedback decay
+        total_feedback = sum(pattern.feedback_correlation.values())
+        if total_feedback > 0:
+            negative_ratio = pattern.feedback_correlation["down"] / total_feedback
+            positive_ratio = pattern.feedback_correlation["up"] / total_feedback
+            
+            # Negative feedback reduces weight, positive increases slightly
+            feedback_penalty = negative_ratio * 0.15 - positive_ratio * 0.05
+            weight -= feedback_penalty
+        
+        # Factor 3: Temporal decay — recent violations matter more
+        if pattern.violation_history:
+            recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+            very_recent = [
+                v for v in pattern.violation_history
+                if (isinstance(v["timestamp"], datetime) and v["timestamp"] > recent_cutoff)
+            ]
+            if len(very_recent) > 3:
+                # Many recent violations — additional penalty
+                weight -= 0.05
+        
+        # Clamp to [0.5, 1.0] — never fully distrust
+        weight = round(max(0.5, min(1.0, weight)), 4)
+        
+        return weight
+
+    def get_all_model_weights(self) -> Dict[str, float]:
+        """Get adaptive weights for all known models."""
+        weights = {}
+        known_models = ["groq", "mistral", "qwen", "Groq", "Mistral", "Qwen"]
+        
+        for model_name in known_models:
+            weights[model_name.lower()] = self.get_model_weight(model_name)
+        
+        # Also include any models tracked in patterns
+        for model_name in self.model_patterns:
+            weights[model_name.lower()] = self.get_model_weight(model_name)
+        
+        return weights

@@ -1,193 +1,135 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { ThumbsUp, ThumbsDown, Loader2 } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Loader2, Star } from "lucide-react";
 
 /**
- * FeedbackButton Component
- *
- * Minimal, low-friction feedback UI inspired by ChatGPT.
- *
- * Features:
- * - Two buttons: Thumbs-up (👍) and Thumbs-down (👎)
- * - Optional text field on negative feedback
- * - Non-blocking, appears after output
- * - No re-execution or output modification
- * - Sends feedback to /feedback endpoint
+ * FeedbackButton — v4.5
+ * Thumbs up/down, 1-5 star, optional reason. Uses CSS variables.
  */
-
-export const FeedbackButton = ({ runId, onFeedbackSent }) => {
+const FeedbackButton = ({ runId, mode, subMode, onFeedbackSent }) => {
   const [feedback, setFeedback] = useState(null);
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(null);
+  const [showRating, setShowRating] = useState(false);
 
-  const handleFeedback = async (type) => {
-    if (feedback === type && type === "down" && reason === "") {
-      // Show reason field for down vote
-      setFeedback(type);
-      return;
-    }
-
-    if (type === "down" && reason === "") {
-      // Require reason for down vote
-      setFeedback(type);
-      return;
-    }
-
-    // Submit feedback
+  const submitFeedback = async (type, starRating) => {
     setIsSubmitting(true);
     setError(null);
-
     try {
       const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
       const formData = new FormData();
       formData.append("run_id", runId);
       formData.append("feedback", type);
-      if (type === "down" && reason) {
-        formData.append("reason", reason.substring(0, 500));
-      }
+      if (starRating) formData.append("rating", starRating);
+      if (mode) formData.append("mode", mode);
+      if (subMode) formData.append("sub_mode", subMode);
+      if (type === "down" && reason) formData.append("reason", reason.substring(0, 500));
 
-      // Use dynamic base URL
-      const response = await axios.post(
-        `${BASE_URL}/feedback`,
-        formData,
-        {
-          headers: {
-            // FormData usually sets Content-Type boundary automatically.
-            'Content-Type': 'multipart/form-data' 
-          },
-        }
-      );
+      const response = await axios.post(`${BASE_URL}/feedback`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
 
       if (response.status === 200) {
         setSubmitted(true);
         setFeedback(null);
         setReason("");
-
-        if (onFeedbackSent && response.data.feedback_id) {
-          onFeedbackSent(response.data.feedback_id);
-        }
-
-        // Auto-hide after 2 seconds
-        setTimeout(() => {
-          setSubmitted(false);
-        }, 2000);
+        setShowRating(false);
+        if (onFeedbackSent && response.data.feedback_id) onFeedbackSent(response.data.feedback_id);
+        setTimeout(() => setSubmitted(false), 2500);
       }
     } catch (err) {
-      setError(
-        err.response?.data?.detail || err.message || "Failed to submit feedback"
-      );
-      console.error("Feedback submission error:", err);
+      setError(err.response?.data?.detail || err.message || "Failed");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const styles = {
-    container: {
-      display: "flex",
-      alignItems: "center",
-      gap: "12px",
-      marginTop: "12px",
-      fontSize: "0.875rem",
-      color: "#94a3b8", // slate-400
-    },
-    buttonGroup: {
-      display: "flex",
-      gap: "8px",
-    },
-    button: (active, type) => ({
-      padding: "6px",
-      borderRadius: "6px",
-      border: "1px solid",
-      borderColor: active ? (type === "up" ? "#10b981" : "#ef4444") : "rgba(255, 255, 255, 0.1)", // Subtle border
-      backgroundColor: active ? (type === "up" ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)") : "rgba(255, 255, 255, 0.05)", // Subtle bg
-      color: active ? (type === "up" ? "#10b981" : "#ef4444") : "#94a3b8",
-      cursor: "pointer",
-      transition: "all 0.2s",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    }),
-    input: {
-      backgroundColor: "rgba(255, 255, 255, 0.05)",
-      border: "1px solid rgba(255, 255, 255, 0.1)",
-      borderRadius: "6px",
-      padding: "6px 10px",
-      color: "#e2e8f0",
-      fontSize: "0.875rem",
-      outline: "none",
-      width: "200px",
-    },
-    error: {
-      color: "#ef4444",
-      fontSize: "0.75rem",
-      marginLeft: "8px",
-    },
-    success: {
-      color: "#10b981",
-      fontSize: "0.875rem",
-      display: "flex",
-      alignItems: "center",
-      gap: "6px",
+  const handleVote = async (type) => {
+    if (type === "up") {
+      await submitFeedback("up", rating || null);
+    } else {
+      if (!feedback) { setFeedback("down"); setShowRating(true); return; }
+      await submitFeedback("down", rating || null);
     }
   };
 
+  const handleStarClick = async (star) => {
+    setRating(star);
+    if (!feedback || feedback === "up") await submitFeedback("up", star);
+  };
+
   if (submitted) {
-     return <div className="text-xs text-emerald-400 flex items-center gap-1">✓ Thanks for your feedback</div>;
+    return <div className="text-xs flex items-center gap-1" style={{ color: 'var(--accent-green)' }}>
+      ✓ Thanks{rating > 0 && ` (${rating}★)`}
+    </div>;
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex gap-2">
-        <button
-          onClick={() => handleFeedback("up")}
-          disabled={isSubmitting}
-          style={styles.button(feedback === "up", "up")}
-          title="Helpful"
-          className="text-gray-400 hover:text-white transition-all p-1"
-        >
-          <ThumbsUp size={18} strokeWidth={2} />
+    <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex gap-1.5">
+        <button onClick={() => handleVote("up")} disabled={isSubmitting}
+          className="p-1.5 rounded-md transition-all"
+          style={{
+            border: feedback === "up" ? '1px solid var(--accent-green)' : '1px solid var(--border-secondary)',
+            backgroundColor: feedback === "up" ? 'rgba(34,197,94,0.1)' : 'transparent',
+            color: feedback === "up" ? 'var(--accent-green)' : 'var(--text-tertiary)',
+          }} title="Helpful">
+          <ThumbsUp size={14} strokeWidth={2} />
         </button>
-        <button
-          onClick={() => handleFeedback("down")}
-          disabled={isSubmitting}
-          style={styles.button(feedback === "down", "down")}
-          title="Not Helpful"
-          className="text-gray-400 hover:text-white transition-all p-1"
-        >
-          <ThumbsDown size={18} strokeWidth={2} />
+        <button onClick={() => handleVote("down")} disabled={isSubmitting}
+          className="p-1.5 rounded-md transition-all"
+          style={{
+            border: feedback === "down" ? '1px solid var(--accent-red)' : '1px solid var(--border-secondary)',
+            backgroundColor: feedback === "down" ? 'rgba(239,68,68,0.1)' : 'transparent',
+            color: feedback === "down" ? 'var(--accent-red)' : 'var(--text-tertiary)',
+          }} title="Not Helpful">
+          <ThumbsDown size={14} strokeWidth={2} />
         </button>
       </div>
 
-      {feedback === "down" && (
-         <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200 ml-2">
-            <input
-                type="text"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="What could improve?"
-                style={styles.input}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleFeedback("down");
-                }}
-                className="focus:ring-1 focus:ring-red-500/50 text-xs"
-            />
-            <button 
-                onClick={() => handleFeedback("down")}
-                className="text-xs px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded transition-colors disabled:opacity-50"
-                disabled={isSubmitting}
-            >
-                {isSubmitting ? "..." : "Send"}
-            </button>
-         </div>
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map(star => (
+          <button key={star} onClick={() => handleStarClick(star)}
+            onMouseEnter={() => setHoverRating(star)} onMouseLeave={() => setHoverRating(0)}
+            disabled={isSubmitting} className="p-0.5 transition-all">
+            <Star size={14} strokeWidth={2}
+              className="transition-colors"
+              style={{
+                color: star <= (hoverRating || rating) ? 'var(--accent-yellow)' : 'var(--text-tertiary)',
+                fill: star <= (hoverRating || rating) ? 'var(--accent-yellow)' : 'transparent',
+              }} />
+          </button>
+        ))}
+      </div>
+
+      {feedback === "down" && showRating && (
+        <div className="flex items-center gap-2">
+          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)}
+            placeholder="What could improve?"
+            className="rounded-md px-2.5 py-1 text-xs outline-none focus:ring-1 w-44"
+            style={{
+              backgroundColor: 'var(--bg-input)',
+              border: '1px solid var(--border-primary)',
+              color: 'var(--text-primary)',
+            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleVote("down"); }} />
+          <button onClick={() => handleVote("down")} disabled={isSubmitting}
+            className="text-[10px] px-2.5 py-1 rounded font-bold uppercase transition-colors"
+            style={{ backgroundColor: 'var(--accent-red)', color: '#fff' }}>
+            {isSubmitting ? "..." : "Send"}
+          </button>
+        </div>
       )}
 
-      {isSubmitting && <Loader2 size={16} className="animate-spin text-slate-500" />}
-      {error && <span className="text-xs text-red-400">{error}</span>}
+      {isSubmitting && <Loader2 size={14} className="animate-spin" style={{ color: 'var(--text-tertiary)' }} />}
+      {error && <span className="text-[10px]" style={{ color: 'var(--accent-red)' }}>{error}</span>}
     </div>
   );
 };
 
+export { FeedbackButton };
 export default FeedbackButton;

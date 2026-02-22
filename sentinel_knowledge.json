@@ -1,5 +1,5 @@
 {
-  "global_violation_count": 126,
+  "global_violation_count": 134,
   "refusal_count": 37,
   "feedback_store": [
     {
@@ -907,6 +907,107 @@
         "normative_claim": {
           "count": 1,
           "avg_severity": 90.0
+        }
+      },
+      "feedback_correlation": {
+        "up": 0,
+        "down": 0,
+        "neutral": 0
+      }
+    },
+    "experimental": {
+      "violation_history": [
+        {
+          "timestamp": "2026-02-22T08:05:07.017093",
+          "severity_score": 68,
+          "severity_level": "MEDIUM",
+          "claim_type": "normative_claim"
+        },
+        {
+          "timestamp": "2026-02-22T08:08:51.165697",
+          "severity_score": 68,
+          "severity_level": "MEDIUM",
+          "claim_type": "normative_claim"
+        },
+        {
+          "timestamp": "2026-02-22T08:09:44.758354",
+          "severity_score": 68,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-22T15:28:40.316518",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "normative_claim"
+        },
+        {
+          "timestamp": "2026-02-22T16:47:14.843000",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        }
+      ],
+      "claim_type_stats": {
+        "normative_claim": {
+          "count": 3,
+          "avg_severity": 67.33333333333333
+        },
+        "scientific_claim": {
+          "count": 2,
+          "avg_severity": 67.0
+        }
+      },
+      "feedback_correlation": {
+        "up": 0,
+        "down": 0,
+        "neutral": 0
+      }
+    },
+    "standard": {
+      "violation_history": [
+        {
+          "timestamp": "2026-02-22T15:55:08.349352",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "normative_claim"
+        }
+      ],
+      "claim_type_stats": {
+        "normative_claim": {
+          "count": 1,
+          "avg_severity": 66.0
+        }
+      },
+      "feedback_correlation": {
+        "up": 0,
+        "down": 0,
+        "neutral": 0
+      }
+    },
+    "research": {
+      "violation_history": [
+        {
+          "timestamp": "2026-02-22T18:06:25.925153",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-22T18:36:21.416637",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "technical_claim"
+        }
+      ],
+      "claim_type_stats": {
+        "scientific_claim": {
+          "count": 1,
+          "avg_severity": 66.0
+        },
+        "technical_claim": {
+          "count": 1,
+          "avg_severity": 66.0
         }
       },
       "feedback_correlation": {

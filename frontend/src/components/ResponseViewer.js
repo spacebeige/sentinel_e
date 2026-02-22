@@ -1,231 +1,275 @@
 import React from 'react';
-import { CheckCircle2, Terminal, Copy, Check } from 'lucide-react';
+import { Terminal, Shield, Brain, Activity, AlertTriangle, Skull, TrendingUp } from 'lucide-react';
 import { FeedbackButton } from './FeedbackButton';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 
-const ResponseViewer = ({ data, mode, onFeedback }) => {
-  const [copied, setCopied] = React.useState(false);
+/* ─── helpers ─── */
+const pct = v => v != null ? `${(v * 100).toFixed(0)}%` : '—';
+const fixed2 = v => v != null ? v.toFixed(2) : '—';
+const riskColor = level => {
+  if (!level) return 'text-emerald-400';
+  const l = level.toUpperCase();
+  if (l === 'CRITICAL') return 'text-red-500 animate-pulse';
+  if (l === 'HIGH') return 'text-red-400';
+  if (l === 'MEDIUM') return 'text-amber-400';
+  return 'text-emerald-400';
+};
+const confColor = c => {
+  if (c == null) return 'text-slate-400';
+  if (c >= 0.8) return 'text-emerald-400';
+  if (c >= 0.5) return 'text-amber-400';
+  return 'text-red-400';
+};
 
+/* ─── metric card ─── */
+const MetricCard = ({ label, value, color = 'text-white', sub }) => (
+  <div className="bg-black/30 p-3 rounded-lg border border-white/5">
+    <div className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">{label}</div>
+    <div className={`text-lg font-bold mt-1 ${color}`}>{value}</div>
+    {sub && <div className="text-[9px] text-slate-600 mt-0.5">{sub}</div>}
+  </div>
+);
+
+/* ─── confidence evolution bar ─── */
+const ConfidenceEvolution = ({ evolution }) => {
+  if (!evolution) return null;
+  const stages = [
+    { key: 'initial', label: 'Initial', color: 'bg-slate-500' },
+    { key: 'post_reasoning', label: 'Post-Reasoning', color: 'bg-blue-500' },
+    { key: 'post_boundary', label: 'Post-Boundary', color: 'bg-amber-500' },
+    { key: 'final', label: 'Final', color: 'bg-emerald-500' },
+  ];
+  return (
+    <div className="bg-white/[0.02] rounded-lg border border-white/5 p-4">
+      <h4 className="text-[10px] text-slate-400 uppercase font-bold mb-3 flex items-center">
+        <TrendingUp className="w-3 h-3 mr-2 text-blue-400" />
+        Confidence Evolution
+      </h4>
+      <div className="flex items-end space-x-2 h-16">
+        {stages.map(s => {
+          const val = evolution[s.key];
+          if (val == null) return null;
+          return (
+            <div key={s.key} className="flex-1 flex flex-col items-center">
+              <span className="text-[9px] font-mono text-slate-400 mb-1">{pct(val)}</span>
+              <div className="w-full rounded-t relative" style={{ height: `${Math.max(val * 100, 4)}%` }}>
+                <div className={`${s.color} w-full h-full rounded-t opacity-80`}></div>
+              </div>
+              <span className="text-[8px] text-slate-600 mt-1 truncate w-full text-center">{s.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+/* ─── fragility gauge ─── */
+const FragilityGauge = ({ index }) => {
+  if (index == null) return null;
+  const width = Math.min(index * 100, 100);
+  const barColor = index >= 0.7 ? 'bg-red-500' : index >= 0.4 ? 'bg-amber-500' : 'bg-emerald-500';
+  return (
+    <div className="bg-white/[0.02] rounded-lg border border-white/5 p-4">
+      <h4 className="text-[10px] text-slate-400 uppercase font-bold mb-3 flex items-center">
+        <AlertTriangle className="w-3 h-3 mr-2 text-amber-400" />
+        Fragility Index
+      </h4>
+      <div className="relative h-3 bg-black/40 rounded-full overflow-hidden">
+        <div className={`${barColor} h-full rounded-full transition-all duration-700`} style={{ width: `${width}%` }}></div>
+      </div>
+      <div className="flex justify-between mt-1">
+        <span className="text-[9px] text-emerald-600 font-mono">SOLID</span>
+        <span className="text-[10px] font-mono text-slate-400">{fixed2(index)}</span>
+        <span className="text-[9px] text-red-600 font-mono">FRAGILE</span>
+      </div>
+    </div>
+  );
+};
+
+/* ─── main component ─── */
+const ResponseViewer = ({ data, mode }) => {
   if (!data) return null;
 
-  // STANDARD MODE UI
-  if (mode === 'standard') {
-      const resultText = data.data?.priority_answer || data.priority_answer || data.result || "No output generated.";
-      const runId = data.chat_id || data.run_id || data.id;
+  const runId = data.chat_id || data.run_id;
+  const omega = data.omega_metadata || {};
+  const confidence = data.confidence ?? omega.confidence;
+  const reasoning = data.reasoning_trace || omega.reasoning_trace || {};
+  const boundary = data.boundary_result || omega.boundary_result || {};
+  const session = data.session_state || omega.session_state || {};
+  const evolution = omega.confidence_evolution || {};
+  const fragility = omega.fragility_index ?? session.fragility_index;
 
-      const handleCopy = () => {
-        navigator.clipboard.writeText(resultText);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      };
-
-      return (
-        <div className="bg-white dark:bg-white/5 p-6 rounded-xl border border-slate-200 dark:border-white/10 shadow-lg backdrop-blur-sm">
-          {/* Clean Markdown Content */}
-          <div className="prose prose-slate dark:prose-invert max-w-none text-slate-900 dark:text-slate-200 leading-relaxed">
-            <style>{`
-              .dark .prose-invert h1 { font-size: 1.875rem; margin-bottom: 1rem; }
-              .dark .prose-invert h2 { font-size: 1.5rem; margin-top: 1.5rem; margin-bottom: 0.75rem; }
-              .dark .prose-invert p { margin-bottom: 1rem; }
-              .dark .prose-invert ul, .dark .prose-invert ol { margin-left: 1.5rem; margin-bottom: 1rem; }
-              .dark .prose-invert li { margin-bottom: 0.5rem; }
-              .dark .prose-invert code { background: rgba(100, 200, 100, 0.1); padding: 0.2em 0.4em; border-radius: 0.25rem; color: #10b981; }
-              .dark .prose-invert pre { background: rgba(0, 0, 0, 0.5); padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
-              .dark .prose-invert a { color: #3b82f6; text-decoration: underline; }
-              .dark .prose-invert table { border-collapse: collapse; width: 100%; }
-              .dark .prose-invert th, .dark .prose-invert td { border: 1px solid rgba(255, 255, 255, 0.1); padding: 0.75rem; text-align: left; }
-            `}</style>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {resultText}
-            </ReactMarkdown>
-          </div>
-
-          {/* ChatGPT-Style Footer */}
-          <div className="mt-6 pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between gap-4">
-            <div className="flex items-center text-xs text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-100 dark:bg-emerald-500/10 rounded-full px-3 py-1 w-fit">
-                <CheckCircle2 className="w-3 h-3 mr-2" />
-                Safe Response
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleCopy}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                title="Copy response"
-              >
-                {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-              </button>
-              {runId && <FeedbackButton runId={runId} onFeedbackSent={onFeedback} />}
-            </div>
-          </div>
+  /* ═══════ KILL MODE ═══════ */
+  if (mode === 'kill') {
+    return (
+      <div className="space-y-4">
+        {/* Kill Mode Banner */}
+        <div className="flex items-center space-x-2 border-b border-red-500/20 pb-2">
+          <Skull className="w-4 h-4 text-red-500" />
+          <h3 className="text-xs font-bold uppercase tracking-widest text-red-400">Kill Mode · Diagnostic Panel</h3>
         </div>
-      );
+
+        {/* Top Metrics */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <MetricCard label="Mode" value="KILL" color="text-red-500" />
+          <MetricCard label="Confidence" value={pct(confidence)} color={confColor(confidence)} />
+          <MetricCard label="Boundary Risk" value={boundary.risk_level || '—'} color={riskColor(boundary.risk_level)} />
+          <MetricCard label="Passes" value={reasoning.total_passes || '—'} sub={reasoning.logical_gaps_detected ? `${reasoning.logical_gaps_detected} gaps` : null} />
+        </div>
+
+        {/* Boundary Detail */}
+        {boundary.explanation && (
+          <div className="bg-red-500/5 rounded-lg border border-red-500/20 p-4">
+            <h4 className="text-[10px] text-red-400 uppercase font-bold mb-2">Boundary Evaluation</h4>
+            <p className="text-xs text-slate-300">{boundary.explanation}</p>
+            {boundary.severity_score != null && (
+              <div className="mt-2 text-[10px] font-mono text-red-400">Severity: {fixed2(boundary.severity_score)}</div>
+            )}
+          </div>
+        )}
+
+        {/* Session + Evolution */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ConfidenceEvolution evolution={evolution} />
+          <FragilityGauge index={fragility} />
+        </div>
+
+        {/* Raw Omega Dump */}
+        <details className="group">
+          <summary className="cursor-pointer text-[10px] text-red-600/60 hover:text-red-400 uppercase tracking-widest font-bold py-2 flex items-center select-none transition-colors">
+            <span className="mr-2 transform group-open:rotate-90 transition-transform">▶</span> Raw Omega Protocol
+          </summary>
+          <div className="mt-2 bg-black rounded-lg border border-red-500/20 p-4 max-h-60 overflow-auto shadow-inner">
+            <pre className="text-[10px] font-mono text-red-400/80 whitespace-pre-wrap break-all">
+              {JSON.stringify(omega, null, 2)}
+            </pre>
+          </div>
+        </details>
+
+        {runId && (
+          <div className="flex justify-end pt-4 border-t border-red-500/10">
+            <FeedbackButton runId={runId} />
+          </div>
+        )}
+      </div>
+    );
   }
 
-  // EXPERIMENTAL MODE UI
-  const runId = data.chat_id || data.run_id || (data.metadata ? data.metadata.run_id : null);
-  
-  // Support both new 'SentinelResponse' structure and legacy formats
-  const strictData = data.data || {};
-  const strictMetadata = data.metadata || {};
-  
-  const humanText = strictData.priority_answer || data.priority_answer || data.human_layer || data.result;
-  
-  // Map machine metrics from new Metadata or fallback to legacy
-  const machineData = {
-    ...strictMetadata,
-    ...strictData, // merge data for easy access to model_positions etc
-    ...(data.machine_layer || {})
-  };
-
-  // Extract Metrics (Shim for V4/Legacy compatibility)
-  const signals = machineData.signals || machineData.machine_metadata || {};
-  const decision = machineData.decision || {};
-  const analysis = machineData.analysis || {
-     models_used: strictMetadata.models_used || [],
-     rounds: strictMetadata.rounds_executed || 0
-  };
-  const risk = machineData.risk_layer || {};
-
+  /* ═══════ EXPERIMENTAL MODE ═══════ */
   return (
-    <div className="space-y-8">
-       
-       {/* 1. Human Layer (Chat) */}
-       {humanText && (
-        <div className="bg-white/5 p-6 rounded-xl border border-white/10 shadow-lg backdrop-blur-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-2 opacity-50 text-[10px] uppercase font-bold tracking-widest text-slate-500 pointer-events-none group-hover:opacity-100 transition-opacity">
-                Human Layer
-            </div>
-            <div className="prose prose-invert max-w-none text-slate-200 leading-relaxed text-sm">
-                <style>{`
-                  .prose-invert h1 { font-size: 1.5rem; margin-bottom: 0.75rem; color: #fff; }
-                  .prose-invert h2 { font-size: 1.25rem; margin-top: 1.25rem; margin-bottom: 0.5rem; color: #e2e8f0; }
-                  .prose-invert p { margin-bottom: 0.75rem; }
-                  .prose-invert ul { margin-left: 1.25rem; margin-bottom: 0.75rem; list-style-type: disc; }
-                  .prose-invert li { margin-bottom: 0.25rem; }
-                  .prose-invert strong { color: #facc15; font-weight: 600; }
-                `}</style>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {humanText}
-                </ReactMarkdown>
-            </div>
+    <div className="space-y-4">
+      {/* Section Header */}
+      <div className="flex items-center space-x-2 border-b border-white/5 pb-2">
+        <Terminal className="w-4 h-4 text-emerald-500" />
+        <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Omega Machine Layer</h3>
+        {omega.omega_version && <span className="text-[9px] font-mono text-slate-600 ml-auto">v{omega.omega_version}</span>}
+      </div>
+
+      {/* Primary Metrics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MetricCard label="Confidence" value={pct(confidence)} color={confColor(confidence)} />
+        <MetricCard 
+          label="Boundary Risk" 
+          value={boundary.risk_level || 'LOW'} 
+          color={riskColor(boundary.risk_level)} 
+          sub={boundary.severity_score != null ? `severity ${fixed2(boundary.severity_score)}` : null}
+        />
+        <MetricCard 
+          label="Multipass" 
+          value={reasoning.total_passes || '—'} 
+          sub={reasoning.logical_gaps_detected ? `${reasoning.logical_gaps_detected} gaps found` : 'clean'}
+        />
+        <MetricCard 
+          label="Fragility" 
+          value={fixed2(fragility)} 
+          color={fragility >= 0.5 ? 'text-red-400' : 'text-emerald-400'}
+        />
+      </div>
+
+      {/* Session Intelligence */}
+      {session.inferred_domain && (
+        <div className="bg-white/[0.02] rounded-lg border border-white/5 p-4">
+          <h4 className="text-[10px] text-slate-400 uppercase font-bold mb-3 flex items-center">
+            <Brain className="w-3 h-3 mr-2 text-purple-400" />
+            Session Intelligence
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div><span className="text-slate-500">Domain:</span> <span className="text-slate-200">{session.inferred_domain}</span></div>
+            <div><span className="text-slate-500">Expertise:</span> <span className="text-slate-200">{fixed2(session.user_expertise_score)}</span></div>
+            <div><span className="text-slate-500">Turns:</span> <span className="text-slate-200">{session.interaction_count || 0}</span></div>
+            <div><span className="text-slate-500">Confidence:</span> <span className={confColor(session.session_confidence)}>{pct(session.session_confidence)}</span></div>
+          </div>
         </div>
-       )}
+      )}
 
-       {/* 2. Machine Layer (Metrics Dashboard) */}
-       {Object.keys(machineData).length > 0 && (
-       <div className="space-y-4">
-           {/* Section Header */}
-           <div className="flex items-center space-x-2 border-b border-white/5 pb-2">
-               <Terminal className="w-4 h-4 text-emerald-500" />
-               <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Machine Layer Interception</h3>
-           </div>
+      {/* Confidence Evolution + Fragility */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <ConfidenceEvolution evolution={evolution} />
+        <FragilityGauge index={fragility} />
+      </div>
 
-           {/* Cards Grid */}
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-               {/* Verdict */}
-               <div className="bg-black/30 p-3 rounded-lg border border-white/5">
-                   <div className="text-[9px] text-slate-500 uppercase font-bold">Verdict</div>
-                   <div className={`text-lg font-bold mt-1 ${
-                       decision.verdict === 'CRITICAL' ? 'text-red-500' : 
-                       decision.verdict === 'FRAGILE' ? 'text-amber-500' : 
-                       decision.verdict === 'JUSTIFIED' ? 'text-emerald-500' : 'text-slate-300'
-                   }`}>
-                       {decision.verdict || 'PENDING'}
-                   </div>
-               </div>
+      {/* Boundary Explanation */}
+      {boundary.explanation && (
+        <div className="bg-white/[0.02] rounded-lg border border-white/5 p-4">
+          <h4 className="text-[10px] text-slate-400 uppercase font-bold mb-2 flex items-center">
+            <Shield className="w-3 h-3 mr-2 text-amber-400" />
+            Boundary Evaluation
+          </h4>
+          <p className="text-xs text-slate-300 leading-relaxed">{boundary.explanation}</p>
+          {boundary.recommendations && boundary.recommendations.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {boundary.recommendations.map((r, i) => (
+                <li key={i} className="text-[10px] text-slate-400 flex items-start">
+                  <span className="text-amber-500 mr-1">→</span> {r}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
-               {/* Confidence */}
-               <div className="bg-black/30 p-3 rounded-lg border border-white/5">
-                   <div className="text-[9px] text-slate-500 uppercase font-bold">Confidence</div>
-                   <div className="text-lg font-bold text-white mt-1">
-                       {decision.confidence || '-'}
-                   </div>
-               </div>
+      {/* Reasoning Trace */}
+      {reasoning.total_passes > 0 && (
+        <div className="bg-white/[0.02] rounded-lg border border-white/5 p-4">
+          <h4 className="text-[10px] text-slate-400 uppercase font-bold mb-3 flex items-center">
+            <Activity className="w-3 h-3 mr-2 text-blue-400" />
+            Multipass Reasoning Trace
+          </h4>
+          <div className="grid grid-cols-3 gap-3 text-xs mb-3">
+            <div><span className="text-slate-500">Total Passes:</span> <span className="text-white font-mono">{reasoning.total_passes}</span></div>
+            <div><span className="text-slate-500">Gaps Detected:</span> <span className="text-amber-400 font-mono">{reasoning.logical_gaps_detected || 0}</span></div>
+            <div><span className="text-slate-500">Assumptions:</span> <span className="text-purple-400 font-mono">{reasoning.assumptions_challenged || 0}</span></div>
+          </div>
+          {reasoning.evidence_chain && reasoning.evidence_chain.length > 0 && (
+            <div className="space-y-1">
+              <span className="text-[9px] text-slate-500 uppercase font-bold">Evidence Chain</span>
+              {reasoning.evidence_chain.slice(0, 5).map((item, i) => (
+                <div key={i} className="text-[10px] text-slate-400 font-mono pl-2 border-l border-blue-500/30">
+                  {typeof item === 'string' ? item : JSON.stringify(item)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-               {/* Variance */}
-               <div className="bg-black/30 p-3 rounded-lg border border-white/5">
-                   <div className="text-[9px] text-slate-500 uppercase font-bold">Variance</div>
-                   <div className="text-lg font-bold text-blue-400 mt-1">
-                       {signals.variance_score != null ? signals.variance_score.toFixed(2) : '-'}
-                   </div>
-               </div>
+      {/* Raw Omega Protocol Toggle */}
+      <details className="group">
+        <summary className="cursor-pointer text-[10px] text-slate-600 hover:text-slate-400 uppercase tracking-widest font-bold py-2 flex items-center select-none transition-colors">
+          <span className="mr-2 transform group-open:rotate-90 transition-transform">▶</span> View Raw Omega Protocol
+        </summary>
+        <div className="mt-2 bg-black rounded-lg border border-white/10 p-4 max-h-60 overflow-auto shadow-inner">
+          <pre className="text-[10px] font-mono text-emerald-500/80 whitespace-pre-wrap break-all">
+            {JSON.stringify({ confidence, reasoning, boundary, session, evolution, fragility, ...omega }, null, 2)}
+          </pre>
+        </div>
+      </details>
 
-               {/* Risk Level */}
-               <div className="bg-black/30 p-3 rounded-lg border border-white/5">
-                   <div className="text-[9px] text-slate-500 uppercase font-bold">Boundary Risk</div>
-                   <div className={`text-lg font-bold mt-1 ${
-                       risk.boundary_severity === 'CRITICAL' || risk.boundary_severity === 'HIGH' ? 'text-red-500 animate-pulse' : 'text-emerald-400'
-                   }`}>
-                       {risk.boundary_severity || 'LOW'}
-                   </div>
-               </div>
-           </div>
-
-           {/* Analysis Details - Key Assumptions & Findings */}
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               {/* Key Assumptions */}
-               <div className="bg-white/[0.02] rounded-lg border border-white/5 p-4">
-                   <h4 className="text-[10px] text-slate-400 uppercase font-bold mb-3 flex items-center">
-                       <span className="w-1.5 h-1.5 bg-amber-500 rounded-full mr-2"></span>
-                       Key Assumptions Map
-                   </h4>
-                   <ul className="space-y-2">
-                       {analysis.key_assumptions?.length > 0 ? (
-                           analysis.key_assumptions.slice(0, 5).map((item, idx) => (
-                               <li key={idx} className="text-xs text-slate-300 flex items-start">
-                                   <span className="text-slate-600 mr-2 font-mono">{idx + 1}.</span>
-                                   {item}
-                                </li>
-                           ))
-                       ) : (
-                           <li className="text-xs text-slate-600 italic">No assumptions extracted.</li>
-                       )}
-                   </ul>
-               </div>
-
-               {/* Divergence Points */}
-               <div className="bg-white/[0.02] rounded-lg border border-white/5 p-4">
-                   <h4 className="text-[10px] text-slate-400 uppercase font-bold mb-3 flex items-center">
-                       <span className="w-1.5 h-1.5 bg-purple-500 rounded-full mr-2"></span>
-                       Structural Divergence
-                   </h4>
-                   <ul className="space-y-2">
-                        {analysis.divergence_points?.length > 0 ? (
-                           analysis.divergence_points.slice(0, 5).map((item, idx) => (
-                               <li key={idx} className="text-xs text-slate-300 flex items-start">
-                                   <span className="text-slate-600 mr-2 font-mono">⚠</span>
-                                   {item}
-                                </li>
-                           ))
-                       ) : (
-                           <li className="text-xs text-slate-600 italic">No structural divergence detected.</li>
-                       )}
-                   </ul>
-               </div>
-           </div>
-
-           {/* JSON Raw Data Toggle */}
-           <details className="group">
-               <summary className="cursor-pointer text-[10px] text-slate-600 hover:text-slate-400 uppercase tracking-widest font-bold py-2 flex items-center select-none transition-colors">
-                   <span className="mr-2 transform group-open:rotate-90 transition-transform">▶</span> View Raw Machine Protocol
-               </summary>
-               <div className="mt-2 bg-black rounded-lg border border-white/10 p-4 max-h-60 overflow-auto shadow-inner">
-                   <pre className="text-[10px] font-mono text-emerald-500/80 whitespace-pre-wrap break-all">
-                       {JSON.stringify(machineData, null, 2)}
-                   </pre>
-               </div>
-           </details>
-       </div>
-       )}
-
-       {/* Footer Actions */}
-       {runId && (
-           <div className="flex justify-end pt-4 border-t border-white/5">
-                <FeedbackButton runId={runId} />
-           </div>
-       )}
-
+      {runId && (
+        <div className="flex justify-end pt-4 border-t border-white/5">
+          <FeedbackButton runId={runId} />
+        </div>
+      )}
     </div>
   );
 };
