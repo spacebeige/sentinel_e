@@ -856,7 +856,7 @@ async def run():
     print("\n========== MODE A (Cross Model Escalation) ==========")
     res_a = await sentinel.mode_a_cross_model(
         primary_model="qwen",
-        reviewer_models=["mistral", "groq"],
+        reviewer_models=["llama70b", "groq"],
         prompt=ESCALATION_PROMPTS[0],
     )
     print(res_a)

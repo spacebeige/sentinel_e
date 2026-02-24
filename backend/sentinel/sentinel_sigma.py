@@ -51,8 +51,8 @@ class SentinelSigmaOrchestrator:
             "You are Groq. Produce a fast, fluent interpretation of the text. "
             "Tend toward confident completion. Serve as the consensus-pressure probe."
         )
-        ROLE_MISTRAL = (
-            "You are Mistral. Produce a sparse, conservative interpretation. "
+        ROLE_LLAMA70B = (
+            "You are Llama 3.3 70B. Produce a sparse, conservative interpretation. "
             "Preserve ambiguity. Do not over-interpret. Serve as the under-commitment baseline."
         )
 
@@ -62,13 +62,13 @@ class SentinelSigmaOrchestrator:
         results = await asyncio.gather(
             self.client.call_qwenvl(prompt, system_role=ROLE_QWEN),
             self.client.call_groq(prompt, system_role=ROLE_GROQ),
-            self.client.call_mistral(prompt, system_role=ROLE_MISTRAL)
+            self.client.call_llama70b(prompt, system_role=ROLE_LLAMA70B)
         )
 
         return {
             "QwenVL": results[0],
             "Groq": results[1],
-            "Mistral": results[2]
+            "Llama70B": results[2]
         }
 
     async def diagnose(self, evidence_text: str) -> Dict[str, Any]:
@@ -97,8 +97,8 @@ class SentinelSigmaOrchestrator:
         [Groq Output]
         {claims['Groq']}
 
-        [Mistral Output]
-        {claims['Mistral']}
+        [Llama70B Output]
+        {claims['Llama70B']}
 
         --- INSTRUCTION ---
         Perform Step 3 (Consensus Surface), Step 4 (Evidence Mapping), 
@@ -109,7 +109,7 @@ class SentinelSigmaOrchestrator:
 
         logger.info("Steps 3-7: Meta-Analysis via Sentinel-Sigma Core...")
         
-        # We use the strongest available model (e.g. Mistral or Groq/Llama3) to act as Sentinel-Sigma
+        # We use the strongest available model (e.g. Llama 3.3 70B or Groq/Llama3) to act as Sentinel-Sigma
         # Here we use Groq (Llama 3.1 8b) as it's fast and decent at JSON, 
         # but in a real setting you might use a larger model.
         diagnosis_json_str = await self.client.call_groq(

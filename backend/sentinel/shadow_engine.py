@@ -38,10 +38,11 @@ class SentinelShadowEngine:
         """
 
         try:
-            # Using Mistral for shadow analysis (or a specific model if configured)
-            response = await self.client.call_mistral(
+            # Using Llama 3.3 70B for shadow analysis (primary reasoning model)
+            response = await self.client.call_llama70b(
                 prompt=shadow_prompt,
-                system_role="You are a strict AI safety auditor. You return JSON only."
+                system_role="You are a strict AI safety auditor. You return JSON only.",
+                temperature=0.3
             )
             
             # Simple JSON extraction

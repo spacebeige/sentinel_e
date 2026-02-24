@@ -181,10 +181,10 @@ class SentinelSigmaOrchestratorV4:
         }
         """
         
-        response_text = await self.client.call_mistral(
+        response_text = await self.client.call_llama70b(
             prompt=f"Respond to this input: {config.text}",
             system_role=system_prompt,
-            history=config.history
+            temperature=0.4
         )
         
         # Parse Response
@@ -199,7 +199,7 @@ class SentinelSigmaOrchestratorV4:
                 "priority_answer": readable,
                 "model_positions": [
                     ModelPosition(
-                        model="Mistral-Small",
+                        model="Llama-3.3-70B",
                         position="Analyst",
                         confidence=machine_data.get("confidence", 0.9),
                         key_points=machine_data.get("key_points", [])
@@ -211,7 +211,7 @@ class SentinelSigmaOrchestratorV4:
                 "shadow_analysis": ShadowAnalysis(**shadow_result).model_dump() if config.enable_shadow else None
             },
             metadata=MachineMetadata(
-                models_used=["mistral-small"],
+                models_used=["llama-3.3-70b"],
                 rounds_executed=1,
                 debate_depth=0,
                 shadow_enabled=config.enable_shadow,
@@ -244,9 +244,10 @@ class SentinelSigmaOrchestratorV4:
         - evidence_extracted (list)
         """
         
-        response_text = await self.client.call_mistral(
+        response_text = await self.client.call_llama70b(
             prompt=prompt,
-            system_role="You are a Forensic AI Auditor. Output structured JSON only."
+            system_role="You are a Forensic AI Auditor. Output structured JSON only.",
+            temperature=0.3
         )
         
         # Parse JSON
@@ -274,7 +275,7 @@ class SentinelSigmaOrchestratorV4:
                 "shadow_analysis": ShadowAnalysis(**shadow_result).model_dump() if config.enable_shadow else None
             },
             metadata=MachineMetadata(
-                models_used=["mistral-small"],
+                models_used=["llama-3.3-70b"],
                 rounds_executed=1,
                 debate_depth=0,
                 shadow_enabled=config.enable_shadow,
@@ -327,7 +328,7 @@ class SentinelSigmaOrchestratorV4:
                 "shadow_analysis": ShadowAnalysis(**shadow_result).model_dump() if config.enable_shadow else None
             },
             metadata=MachineMetadata(
-                models_used=["groq-llama3", "mistral-small", "qwen-2.5-7b"],
+                models_used=["groq-llama3", "llama-3.3-70b", "qwen-2.5-7b"],
                 rounds_executed=debate_result.get("rounds_executed", 1),
                 debate_depth=config.rounds,
                 shadow_enabled=config.enable_shadow,

@@ -129,7 +129,7 @@ Be precise and concise.
     def call_reasoning_model(self, prompt, max_tokens=150):
         """
         Calls Groq LLaMA-3.1 via CloudModelClient (async to sync).
-        You can switch to Mistral or Qwen by changing the method.
+        You can switch to Llama 3.3 70B or Qwen by changing the method.
         """
         import asyncio
         loop = asyncio.new_event_loop()

@@ -7,7 +7,7 @@
 # 1. Chain of Thought (CoT): Sequential step-by-step reasoning
 # 2. Tree of Thought (ToT): Multi-path exploration with evaluation and selection
 
-# The module is designed to integrate with LLM APIs (e.g., OpenAI, Groq, Mistral)
+# The module is designed to integrate with LLM APIs (e.g., OpenAI, Groq, Llama 3.3 70B)
 # through a generic call_model() interface.
 # """
 
@@ -61,7 +61,7 @@
 #     In production, this would connect to services like:
 #     - OpenAI API (GPT-4, GPT-3.5)
 #     - Groq API
-#     - Mistral API
+#     - Llama 3.3 70B API (via Groq)
 #     - Local LLM via llama-cpp-python
 #     - Any other LLM service
     
@@ -837,7 +837,7 @@ class IndustrialReasoningEngine:
         """Route request to the specific model."""
         try:
             if target == "groq": return await self.client.call_groq(prompt)
-            if target == "mistral": return await self.client.call_mistral(prompt)
+            if target == "llama70b": return await self.client.call_llama70b(prompt)
             if target == "qwen": return await self.client.call_qwenvl(prompt)
             return "ERROR: Unknown Target"
         except Exception as e:
@@ -989,8 +989,8 @@ class IndustrialReasoningEngine:
     # MAIN ANALYZER LOOP
     # --------------------------------------------------------------------------
     async def run_reasoning_campaign(self, problem: str):
-        # We test on one 'Smart' model (Mistral) and one 'Fast' model (Groq) for contrast
-        targets = ["mistral", "groq"] 
+        # We test on one 'Strong' model (Llama 3.3 70B) and one 'Fast' model (Groq) for contrast
+        targets = ["llama70b", "groq"] 
         
         print(f"\n{'='*80}")
         print(f"SENTINEL-X REASONING CORE | PROBLEM: {problem[:40]}...")

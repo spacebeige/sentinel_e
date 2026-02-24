@@ -375,7 +375,7 @@ class RobustSentinel:
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def safe_query(self, target, prompt):
         if target == "groq": return await self.client.call_groq(prompt)
-        if target == "mistral": return await self.client.call_mistral(prompt)
+        if target == "llama70b": return await self.client.call_llama70b(prompt)
         if target == "qwen": return await self.client.call_qwenvl(prompt)
         return "ERROR_CONNECTION"
 
@@ -437,7 +437,7 @@ async def run_campaign():
     sentinel = RobustSentinel()
     analyzer = IndustrialAnalyzer()
     
-    targets = ["groq", "mistral", "qwen"]
+    targets = ["groq", "llama70b", "qwen"]
     
     # === THE "DEEP PROBE" SCENARIOS ===
     scenarios = [

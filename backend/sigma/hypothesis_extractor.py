@@ -35,7 +35,7 @@ class HypothesisExtractor:
         # Parallel extraction
         tasks = [
             self.models.call_groq(prompt, system_role="You are a critical analyst extracting hidden assumptions."),
-            self.models.call_mistral(prompt, system_role="You are a skeptic identifying logical dependencies."),
+            self.models.call_llama70b(prompt, system_role="You are a skeptic identifying logical dependencies.", temperature=0.3),
             self.models.call_openrouter(prompt, system_role="You are a meticulous forensic analyst exposing latent beliefs.")
         ]
         
@@ -43,7 +43,7 @@ class HypothesisExtractor:
         
         # Simple parsing (robust enough for demo)
         extracted = {}
-        models = ["Groq", "Mistral", "Qwen"]
+        models = ["Groq", "Llama70B", "Qwen"]
         for i, res in enumerate(results):
             lines = res.split('\n')
             hypotheses = [line.strip() for line in lines if line.strip().startswith("-") or line.strip().startswith("H")]

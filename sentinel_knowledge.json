@@ -1,5 +1,5 @@
 {
-  "global_violation_count": 134,
+  "global_violation_count": 161,
   "refusal_count": 37,
   "feedback_store": [
     {
@@ -971,12 +971,98 @@
           "severity_score": 66,
           "severity_level": "MEDIUM",
           "claim_type": "normative_claim"
+        },
+        {
+          "timestamp": "2026-02-23T02:25:54.438268",
+          "severity_score": 65,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T02:28:57.319450",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T02:47:49.244945",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T04:44:43.800724",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T09:18:06.914995",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T09:37:30.166088",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "normative_claim"
+        },
+        {
+          "timestamp": "2026-02-23T09:51:05.368058",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T15:24:03.417354",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T15:24:50.108004",
+          "severity_score": 67,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T16:12:52.636084",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T16:17:12.403876",
+          "severity_score": 67,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T17:11:49.350589",
+          "severity_score": 42.79,
+          "severity_level": "MEDIUM",
+          "claim_type": "unknown"
+        },
+        {
+          "timestamp": "2026-02-23T17:12:58.441144",
+          "severity_score": 41.6,
+          "severity_level": "MEDIUM",
+          "claim_type": "unknown"
         }
       ],
       "claim_type_stats": {
         "normative_claim": {
-          "count": 1,
+          "count": 2,
           "avg_severity": 66.0
+        },
+        "scientific_claim": {
+          "count": 10,
+          "avg_severity": 66.1
+        },
+        "unknown": {
+          "count": 2,
+          "avg_severity": 42.195
         }
       },
       "feedback_correlation": {
@@ -998,16 +1084,108 @@
           "severity_score": 66,
           "severity_level": "MEDIUM",
           "claim_type": "technical_claim"
+        },
+        {
+          "timestamp": "2026-02-23T02:32:13.322758",
+          "severity_score": 67,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T02:37:07.188591",
+          "severity_score": 65,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T04:46:20.906882",
+          "severity_score": 67,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T09:18:07.808859",
+          "severity_score": 67,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T09:20:53.795701",
+          "severity_score": 66,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T09:22:35.195248",
+          "severity_score": 67,
+          "severity_level": "MEDIUM",
+          "claim_type": "normative_claim"
+        },
+        {
+          "timestamp": "2026-02-23T09:35:21.857417",
+          "severity_score": 71,
+          "severity_level": "HIGH",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T16:21:13.275088",
+          "severity_score": 67,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T16:27:51.455415",
+          "severity_score": 68,
+          "severity_level": "MEDIUM",
+          "claim_type": "scientific_claim"
+        },
+        {
+          "timestamp": "2026-02-23T17:17:31.101364",
+          "severity_score": 43.28,
+          "severity_level": "MEDIUM",
+          "claim_type": "unknown"
+        },
+        {
+          "timestamp": "2026-02-24T02:31:16.425113",
+          "severity_score": 40.24,
+          "severity_level": "MEDIUM",
+          "claim_type": "unknown"
+        },
+        {
+          "timestamp": "2026-02-24T02:31:18.585386",
+          "severity_score": 44.5,
+          "severity_level": "MEDIUM",
+          "claim_type": "unknown"
+        },
+        {
+          "timestamp": "2026-02-24T05:00:14.306761",
+          "severity_score": 50.74,
+          "severity_level": "MEDIUM",
+          "claim_type": "unknown"
+        },
+        {
+          "timestamp": "2026-02-24T05:01:27.969257",
+          "severity_score": 42.98,
+          "severity_level": "MEDIUM",
+          "claim_type": "unknown"
         }
       ],
       "claim_type_stats": {
         "scientific_claim": {
-          "count": 1,
-          "avg_severity": 66.0
+          "count": 9,
+          "avg_severity": 67.11111111111111
         },
         "technical_claim": {
           "count": 1,
           "avg_severity": 66.0
+        },
+        "normative_claim": {
+          "count": 1,
+          "avg_severity": 67.0
+        },
+        "unknown": {
+          "count": 5,
+          "avg_severity": 44.348
         }
       },
       "feedback_correlation": {

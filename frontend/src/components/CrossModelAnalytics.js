@@ -28,14 +28,14 @@ const scoreColor = (v) => {
 
 const MODEL_COLORS = {
   groq: '#3b82f6',
-  mistral: '#f97316',
+  llama70b: '#6366f1',
   qwen: '#8b5cf6',
   qwenvl: '#06b6d4',
 };
 
 const MODEL_LABELS = {
   groq: 'Groq (LLaMA 3.1)',
-  mistral: 'Mistral Small',
+  llama70b: 'Llama 3.3 70B',
   qwen: 'Qwen 2.5',
   qwenvl: 'QwenVL',
 };
@@ -399,7 +399,7 @@ const CrossModelAnalytics = ({ chatId, lastResponse, query, autoTrigger = false 
             Cross-model behavioral analysis will run automatically when a response is generated in Glass mode.
           </p>
           <p className="text-[8px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
-            Analyzes: Groq (LLaMA 3.1) · Mistral Small · Qwen 2.5 · QwenVL
+            Analyzes: Groq (LLaMA 3.1) · Llama 3.3 70B · Qwen 2.5 · QwenVL
           </p>
         </div>
       )}

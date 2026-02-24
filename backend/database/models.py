@@ -28,6 +28,6 @@ class Message(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     chat_id = Column(UUID(as_uuid=True), index=True, nullable=False)
-    role = Column(String, nullable=False) # user | assistant | model_groq | model_qwen | model_mistral
+    role = Column(String, nullable=False) # user | assistant | model_groq | model_qwen | model_llama70b
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

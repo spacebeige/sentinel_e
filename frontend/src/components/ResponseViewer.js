@@ -161,7 +161,7 @@ const ResponseViewer = ({ data, mode }) => {
       {/* Section Header */}
       <div className="flex items-center space-x-2 border-b border-white/5 pb-2">
         <Terminal className="w-4 h-4 text-emerald-500" />
-        <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Omega Machine Layer</h3>
+        <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Analysis Engine</h3>
         {omega.omega_version && <span className="text-[9px] font-mono text-slate-600 ml-auto">v{omega.omega_version}</span>}
       </div>
 

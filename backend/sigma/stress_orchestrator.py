@@ -293,8 +293,8 @@ class SigmaOrchestrator:
             name_lower = model_name.lower()
             if "groq" in name_lower:
                 return await self.models.call_groq(query, system_role="Refine your hypotheses based on the debate critique.")
-            elif "mistral" in name_lower:
-                return await self.models.call_mistral(query, system_role="Refine your hypotheses based on the debate critique.")
+            elif "llama70b" in name_lower:
+                return await self.models.call_llama70b(query, system_role="Refine your hypotheses based on the debate critique.")
             elif "qwen" in name_lower:
                 return await self.models.call_openrouter(query, system_role="Refine your hypotheses based on the debate critique.")
             else:
@@ -309,7 +309,7 @@ class SigmaOrchestrator:
         Execute Kill-Switch scenarios and Critical Threat Detection.
         Returns critical safety assessment.
         """
-        target_models = ["qwenvl", "groq", "mistral"]
+        target_models = ["qwenvl", "groq", "llama70b"]
         
         # Run Kill-Switch campaign
         logger.info("Executing Kill-Switch Detection Campaign...")
@@ -382,7 +382,7 @@ class SigmaOrchestrator:
         - Agency limit breaches
         - Deception detection
         """
-        target_models = ["qwenvl", "groq", "mistral"]
+        target_models = ["qwenvl", "groq", "llama70b"]
         
         # Define comprehensive shadow scenarios
         shadow_scenarios = [

@@ -899,8 +899,8 @@ class SentinelSigmaV2Orchestrator:
                 raw = await self.client.call_qwenvl(prompt)
             elif model == "groq":
                 raw = await self.client.call_groq(prompt)
-            elif model == "mistral":
-                raw = await self.client.call_mistral(prompt)
+            elif model == "llama70b":
+                raw = await self.client.call_llama70b(prompt)
             else:
                 raw = f"Unsupported model: {model}"
                 return ModelResponse(
@@ -973,7 +973,7 @@ class SentinelSigmaV2Orchestrator:
         run_id = str(uuid.uuid4())
         timestamp = datetime.utcnow().isoformat()
 
-        models = ["qwen", "groq", "mistral"]
+        models = ["qwen", "groq", "llama70b"]
         responses = await asyncio.gather(
             *[self._call_model(m, evidence) for m in models]
         )

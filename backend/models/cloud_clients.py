@@ -20,22 +20,17 @@ class CloudModelClient:
     Research-grade cloud LLM client.
     Supports:
       - Groq (LLaMA-3.1 via Groq)
-      - Mistral (official API)
+      - Llama 3.3 70B (via Groq — primary reasoning model)
       - Qwen 2.5 via OpenRouter (FREE tier) - Text Only for now
     """
 
     def __init__(self):
         self.groq_api_key = os.getenv("GROQ_API_KEY")
-        self.mistral_api_key = os.getenv("MISTRAL_API_KEY")
         self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 
-        # one-time sanity check (safe)
-        print(
-            "ENV CHECK →",
-            bool(self.groq_api_key),
-            bool(self.mistral_api_key),
-            bool(self.openrouter_api_key),
-        )
+        # SECURITY: Never log API key presence or values
+        import logging
+        logging.getLogger("CloudClient").info("Cloud model client initialized")
 
     # ============================================================
     # GROQ
@@ -77,46 +72,49 @@ class CloudModelClient:
                 return f"Groq Exception: {str(e)}"
 
     # ============================================================
-    # MISTRAL
+    # LLAMA 3.3 70B (via Groq — Primary Reasoning Model)
     # ============================================================
 
-    async def call_mistral(self, prompt: str, system_role: str = "You are a helpful assistant.", history: list = None) -> str:
+    async def call_llama70b(self, prompt: str, system_role: str = "You are a rigorous analytical reasoning assistant.", temperature: float = 0.4, max_tokens: int = 2048) -> str:
         """
-        Calls the official Mistral API.
-        """
-        if not self.mistral_api_key:
-            return "Mistral API Key missing"
+        Calls Llama 3.3 70B via Groq API — primary reasoning model.
+        Replaces Mistral in the model stack.
 
-        url = "https://api.mistral.ai/v1/chat/completions"
+        Mode-aware temperature defaults:
+        - Standard: 0.3–0.5
+        - Debate: 0.7
+        - Evidence: 0.2–0.4
+        - Glass: 0.3
+        """
+        if not self.groq_api_key:
+            return "Llama70B API Key missing (uses Groq)"
+
+        url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {
-            "Authorization": f"Bearer {self.mistral_api_key}",
+            "Authorization": f"Bearer {self.groq_api_key}",
             "Content-Type": "application/json",
         }
-        
-        messages = [{"role": "system", "content": system_role}]
-        if history:
-            messages.extend(history)
-        messages.append({"role": "user", "content": prompt})
-
         payload = {
-            "model": "mistral-small-latest",
-            "messages": messages,
-            "temperature": 0.2,
-            "max_tokens": 1024,
+            "model": "llama-3.3-70b-versatile",
+            "messages": [
+                {"role": "system", "content": system_role},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
         }
 
-        # Custom timeout for Mistral
-        timeout = aiohttp.ClientTimeout(total=45)
+        timeout = aiohttp.ClientTimeout(total=60)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             try:
                 async with session.post(url, headers=headers, json=payload) as resp:
                     if resp.status != 200:
                         text = await resp.text()
-                        return f"Mistral Error {resp.status}: {text}"
+                        return f"Llama70B Error {resp.status}: {text}"
                     data = await resp.json()
                     return data["choices"][0]["message"]["content"]
             except Exception as e:
-                return f"Mistral Exception: {str(e)}"
+                return f"Llama70B Exception: {str(e)}"
 
     # ============================================================
     # QWEN 2.5 7B (FREE) via OPENROUTER

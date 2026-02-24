@@ -1,3 +1,37 @@
+---
+
+## Sentinel-E Cognitive Engine 3.X — Ultra Detailed Mode System
+
+**Major Backend Rewrite (Feb 2026):**
+- New Mode System: `STANDARD` (single answer, mathematically defensible confidence) and `RESEARCH` (sub-modes: `DEBATE`, `GLASS`, `EVIDENCE`, `STRESS`)
+- True multi-agent debate with named models (Groq, Mistral, Qwen), role assignment, judge scoring, disagreement quantification
+- Evidence mode: claim extraction, overlap matrix, evidence strength, answer traceability
+- Glass mode: interpretive console, behavioral risk engine, fragility model, confidence evolution trace
+- Stress mode: adversarial answer breaking, stability metrics, revised confidence
+- Session Intelligence 2.0: cognitive drift, topic stability, confidence volatility, debate history graph, model reliability scores
+- Adaptive learning: model weights decay for boundary violations/negative feedback
+- All confidence scores computed via mathematically defensible weighted pipeline
+- Master `ModeConfig` object governs all runs
+
+**Key Files:**
+- `backend/core/mode_config.py` — ModeConfig, Mode, SubMode, DebateRole
+- `backend/core/confidence_engine.py` — ConfidenceEngine, ConfidenceTrace
+- `backend/core/stress_engine.py` — StressEngine, StressResult
+- `backend/core/debate_orchestrator.py` — DebateOrchestrator, judge scoring
+- `backend/core/evidence_engine.py` — EvidenceEngine, claim mapping
+- `backend/core/omega_kernel.py` — Central orchestrator (complete rewrite)
+- `backend/core/omega_formatter.py` — Structured output, new `format_stress`
+- `backend/sentinel/schemas.py` — Updated request/response schemas
+- `backend/main.py` — Updated endpoints, mode routing, session persistence
+
+**How to Use:**
+- All endpoints now route through the new mode system
+- `STANDARD` mode: single answer, confidence, risk explanation
+- `RESEARCH` mode: choose sub_mode (`debate`, `glass`, `evidence`, `stress`) for advanced analysis
+- See docstrings in each file for detailed technical specs
+
+---
+
 # 🛡️ Sentinel-E / Sentinel-Σ (Sigma) — Comprehensive Documentation
 
 **A structural epistemic analysis engine for multi-model AI systems**

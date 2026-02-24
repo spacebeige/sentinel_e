@@ -22,10 +22,11 @@ class SentinelDebateEngine:
         
         # --- ROUND 1 ---
         logger.info("Debate Round 1: Initial Position")
-        # Model A (Mistral) generates structured position
-        pos_a = await self.client.call_mistral(
+        # Model A (Llama 3.3 70B) generates structured position
+        pos_a = await self.client.call_llama70b(
             prompt=f"Topic: {topic}\nGenerate a structured position statement.",
-            system_role="You are Model A (Analytical). Be precise and structured."
+            system_role="You are Model A (Analytical). Be precise and structured.",
+            temperature=0.7
         )
         debate_history.append({"round": 1, "step": "position_a", "content": pos_a})
         
@@ -70,9 +71,10 @@ class SentinelDebateEngine:
         
         # A and C critique the revision
         r2_critique_tasks = [
-            self.client.call_mistral(
+            self.client.call_llama70b(
                 prompt=f"Critique this revised position:\n{revision_b}",
-                system_role="You are Model A. Defend original nuance or accept improvement."
+                system_role="You are Model A. Defend original nuance or accept improvement.",
+                temperature=0.7
             ),
             self.client.call_qwenvl(
                 prompt=f"Critique this revised position:\n{revision_b}",

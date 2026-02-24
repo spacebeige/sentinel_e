@@ -156,7 +156,7 @@ class StressEngine:
         if cloud_client:
             self._model_callers = {
                 "Groq": cloud_client.call_groq,
-                "Mistral": cloud_client.call_mistral,
+                "Llama70B": cloud_client.call_llama70b,
                 "Qwen": cloud_client.call_qwenvl,
             }
 
@@ -172,7 +172,7 @@ class StressEngine:
         
         Uses different models for different stress vectors:
         - Groq: Counterexample generation (fast, analytical)
-        - Mistral: Adversarial reasoning (balanced)
+        - Llama70B: Adversarial reasoning (balanced)
         - Qwen: Logical inversion (careful, methodical)
         - Groq: Boundary amplification (fast iteration)
         """
@@ -194,9 +194,9 @@ class StressEngine:
         counter_prompt = STRESS_TEMPLATES["counterexample"].format(answer=answer[:2000])
         tasks.append(self._run_vector("counterexample", "Groq", counter_prompt))
 
-        # Vector 2: Adversarial (Mistral)
+        # Vector 2: Adversarial (Llama70B)
         adversarial_prompt = STRESS_TEMPLATES["adversarial"].format(answer=answer[:2000])
-        tasks.append(self._run_vector("adversarial", "Mistral", adversarial_prompt))
+        tasks.append(self._run_vector("adversarial", "Llama70B", adversarial_prompt))
 
         # Vector 3: Logical Inversion (Qwen)
         inversion_prompt = STRESS_TEMPLATES["logical_inversion"].format(

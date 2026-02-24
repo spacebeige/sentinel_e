@@ -1,17 +1,35 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict, Any, Union
 from uuid import UUID
 from datetime import datetime
 
 class SentinelRequest(BaseModel):
-    text: str
-    mode: str = "conversational"  # conversational | standard | research | experimental | kill
-    sub_mode: Optional[str] = None  # debate | glass | evidence | stress (research sub-modes)
+    text: str = Field(..., max_length=50000, description="User query text")
+    mode: str = Field(default="conversational", description="conversational | standard | research | experimental | kill")
+    sub_mode: Optional[str] = Field(default=None, description="debate | glass | evidence | stress")
     enable_shadow: bool = False
-    rounds: int = 1
-    chat_id: Optional[UUID] = None  # Added for continuation
-    role_map: Optional[Dict[str, str]] = None  # Debate roles: {model_id: "for"|"against"|"judge"|"neutral"}
-    kill: bool = False  # Kill diagnostic (only valid inside glass sub-mode)
+    rounds: int = Field(default=1, ge=1, le=10, description="Max debate/analysis rounds")
+    chat_id: Optional[UUID] = None
+    role_map: Optional[Dict[str, str]] = None
+    kill: bool = False
+
+    @field_validator("mode")
+    @classmethod
+    def validate_mode(cls, v):
+        valid = {"conversational", "standard", "research", "experimental", "kill", "forensic"}
+        if v not in valid:
+            return "standard"
+        return v
+
+    @field_validator("sub_mode")
+    @classmethod
+    def validate_sub_mode(cls, v):
+        if v is None:
+            return v
+        valid = {"debate", "glass", "evidence", "stress"}
+        if v not in valid:
+            return "debate"
+        return v
 
 class ModelPosition(BaseModel):
     model: str

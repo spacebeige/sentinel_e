@@ -16,7 +16,16 @@ module.exports = {
       boxShadow: {
         'glow': '0 0 15px rgba(56, 189, 248, 0.5)', // Custom glow
         'cursor-highlight': '0 0 0 2px rgba(56, 189, 248, 0.2), 0 0 20px rgba(56, 189, 248, 0.1)', // Focus ring
-      }
+      },
+      keyframes: {
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(200%)' },
+        },
+      },
+      animation: {
+        shimmer: 'shimmer 2s infinite',
+      },
     },
   },
   plugins: [],

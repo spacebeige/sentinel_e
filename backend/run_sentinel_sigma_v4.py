@@ -18,41 +18,51 @@ except ImportError:
 
 async def main():
     parser = argparse.ArgumentParser(description="Run Sentinel-Sigma V4")
-    parser.add_argument("topic", nargs="?", type=str, help="Input topic")
+    parser.add_argument("topic", nargs="?", type=str, help="Input topic/text")
     parser.add_argument("--mode", type=str, default="conversational", help="conversational | forensic | experimental")
-    parser.add_argument("--rounds", type=int, default=1, help="Number of rounds")
-    parser.add_argument("--kill-switch", action="store_true", help="Enable kill switch")
-    parser.add_argument("--execute", action="store_true", help="Force execute=True even without topic")
+    parser.add_argument("--rounds", type=int, default=1, help="Number of debate rounds (experimental mode)")
+    parser.add_argument("--shadow", action="store_true", help="Enable shadow evaluation")
+    parser.add_argument("--chat-id", type=str, default=None, help="Optional chat UUID")
     
     args = parser.parse_args()
     
-    # Logic: if topic is provided, execute=True. If --execute is provided, execute=True.
-    execute = bool(args.topic) or args.execute
+    text = args.topic if args.topic else input("Enter topic/query: ")
     
-    config = SigmaV4Config(
-        execute=execute,
-        mode=args.mode,
-        topic=args.topic if args.topic else "",
-        rounds=args.rounds,
-        kill_switch_enabled=args.kill_switch
-    )
+    config_kwargs = {
+        "text": text,
+        "mode": args.mode,
+        "rounds": args.rounds,
+        "enable_shadow": args.shadow,
+    }
+    if args.chat_id:
+        config_kwargs["chat_id"] = args.chat_id
+    
+    config = SigmaV4Config(**config_kwargs)
     
     orchestrator = SentinelSigmaOrchestratorV4()
     result = await orchestrator.run_sentinel(config)
     
-    # Print Human Layer
-    if "human_layer" in result:
+    # Print Human-Readable Layer (priority_answer from data)
+    priority_answer = result.data.get("priority_answer") if result.data else None
+    if priority_answer:
         print("\n" + "="*40)
-        print(" SENTINEL-Σ v4 HUMAN LAYER")
+        print(" SENTINEL-Σ v4 RESPONSE")
         print("="*40 + "\n")
-        print(result["human_layer"])
+        print(priority_answer)
     
-    # Print Machine Layer
-    if "machine_layer" in result:
+    # Print Machine Metadata
+    if result.metadata:
         print("\n" + "="*40)
-        print(" SENTINEL-Σ v4 MACHINE LAYER")
+        print(" SENTINEL-Σ v4 METADATA")
         print("="*40 + "\n")
-        print(json.dumps(result["machine_layer"], indent=2))
+        print(json.dumps(result.metadata.model_dump(), indent=2))
+    
+    # Print Full Data Payload
+    if result.data:
+        print("\n" + "="*40)
+        print(" SENTINEL-Σ v4 DATA PAYLOAD")
+        print("="*40 + "\n")
+        print(json.dumps(result.data, indent=2, default=str))
 
 if __name__ == "__main__":
     asyncio.run(main())

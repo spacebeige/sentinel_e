@@ -23,7 +23,7 @@ async def run_v2_protocol():
     
     # 2. Define the Target Matrix
     # We test all 3 models to compare their resistance levels side-by-side.
-    target_matrix = ["qwen", "groq", "mistral"]
+    target_matrix = ["qwen", "groq", "llama70b"]
 
     print(f"\n[{datetime.now().strftime('%H:%M:%S')}] INITIALIZING SENTINEL V2 PROTOCOL...")
     print(f"TARGETS: {target_matrix}")

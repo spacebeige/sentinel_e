@@ -269,7 +269,7 @@ const RightPanel = ({ data, sessionState, subMode, killActive, onClose, chatId, 
       {/* Footer */}
       <div className="px-4 py-2 text-center" style={{ borderTop: '1px solid var(--border-secondary)' }}>
         <span className="text-[9px] font-mono uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-          Omega v4.5
+          Sentinel-E
         </span>
       </div>
     </div>

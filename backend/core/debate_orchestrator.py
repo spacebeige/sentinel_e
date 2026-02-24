@@ -12,7 +12,7 @@ Architecture:
 
 Models:
 - Model A (Groq/LLaMA 3.1): Fast analytical
-- Model B (Mistral Small): Balanced reasoning
+- Model B (Llama 3.3 70B): Primary reasoning
 - Model C (Qwen 2.5 7B): Careful methodical
 
 Output: Per-round, per-model structured data + final debate analysis.
@@ -34,7 +34,7 @@ logger = logging.getLogger("Debate-Orchestrator")
 
 DEBATE_MODELS = [
     {"id": "groq", "label": "Groq", "provider": "groq", "name": "LLaMA 3.1 (Groq)", "color": "blue"},
-    {"id": "mistral", "label": "Mistral", "provider": "mistral", "name": "Mistral Small", "color": "orange"},
+    {"id": "llama70b", "label": "Llama70B", "provider": "groq", "name": "Llama 3.3 70B", "color": "indigo"},
     {"id": "qwen", "label": "Qwen", "provider": "qwen", "name": "Qwen 2.5 7B", "color": "purple"},
 ]
 
@@ -78,7 +78,7 @@ YOUR PREVIOUS POSITION:
 
 RULES FOR THIS ROUND:
 1. You MUST directly address and rebut specific points from other models.
-2. Reference opponents BY NAME (e.g., "Groq claims X, but this fails because...", "Mistral argues Y, which overlooks...")
+2. Reference opponents BY NAME (e.g., "Groq claims X, but this fails because...", "Llama70B argues Y, which overlooks...")
 3. Identify WEAKNESSES in opponents' arguments.
 4. STRENGTHEN your own position or SHIFT if opponents made compelling points.
 5. If you shift position, explain WHY explicitly.
@@ -94,7 +94,7 @@ WEAKNESSES_FOUND: [Specific weaknesses in opponents' reasoning]
 CONFIDENCE: [0.0-1.0 updated confidence]"""
 
 ANALYSIS_SYSTEM = """You are an impartial debate analyst. Analyze this multi-round adversarial debate transcript.
-The debaters are: Groq (LLaMA 3.1), Mistral (Mistral Small), and Qwen (Qwen 2.5 7B).
+The debaters are: Groq (LLaMA 3.1), Llama 3.3 70B, and Qwen (Qwen 2.5 7B).
 Always refer to them by name.
 
 FULL DEBATE TRANSCRIPT:
@@ -129,7 +129,7 @@ JUDGE_SCORING_SYSTEM = """You are the JUDGE in this multi-model debate. You must
 DEBATE TRANSCRIPT:
 {transcript}
 
-DEBATERS: Groq, Mistral, Qwen
+DEBATERS: Groq, Llama70B, Qwen
 
 Your task is to evaluate each debater's performance. Score each on:
 1. Logical Strength (0.0-1.0): How logically sound are their arguments?
@@ -142,7 +142,7 @@ STRONGEST_ARGUMENT: [Which model and why]
 WEAKEST_ARGUMENT: [Which model and why]
 SCORING_MATRIX:
 - Groq: logic={score} evidence={score} coherence={score} rebuttal={score} total={score}
-- Mistral: logic={score} evidence={score} coherence={score} rebuttal={score} total={score}
+- Llama70B: logic={score} evidence={score} coherence={score} rebuttal={score} total={score}
 - Qwen: logic={score} evidence={score} coherence={score} rebuttal={score} total={score}
 STABILITY_ASSESSMENT: [How stable is the overall debate? Are positions well-founded or fragile?]
 WINNER: [Which model presents the most compelling overall case]"""
@@ -248,7 +248,7 @@ class DebateOrchestrator:
     """
     True multi-round adversarial debate engine (v3.X).
     
-    Uses CloudModelClient to call 3 named models (Groq, Mistral, Qwen)
+    Uses CloudModelClient to call 3 named models (Groq, Llama 3.3 70B, Qwen)
     in parallel per round, with full transcript injection for rounds 2+.
     
     Supports:
@@ -263,7 +263,7 @@ class DebateOrchestrator:
         self.client = cloud_client
         self._model_callers = {
             "groq": self.client.call_groq,
-            "mistral": self.client.call_mistral,
+            "llama70b": self.client.call_llama70b,
             "qwen": self.client.call_qwenvl,
         }
 
@@ -278,7 +278,7 @@ class DebateOrchestrator:
             query: User's input question/claim
             rounds: Number of debate rounds (default 3)
             role_map: Optional role assignments {model_id: role}
-                      e.g. {"groq": "for", "mistral": "against", "qwen": "judge"}
+                      e.g. {"groq": "for", "llama70b": "against", "qwen": "judge"}
         """
         rounds = max(1, min(rounds, 10))
         role_map = role_map or {}
@@ -433,12 +433,12 @@ class DebateOrchestrator:
         return results
 
     async def _run_analysis(self, transcript: str) -> DebateAnalysis:
-        """Run final debate analysis using Mistral (most balanced model)."""
+        """Run final debate analysis using Llama 3.3 70B (strongest reasoning model)."""
         system_prompt = ANALYSIS_SYSTEM.format(transcript=transcript)
         user_prompt = "Analyze this debate and produce your structured analysis."
         
         try:
-            raw = await self.client.call_mistral(user_prompt, system_prompt)
+            raw = await self.client.call_llama70b(user_prompt, system_prompt, temperature=0.3)
             return self._parse_analysis(raw)
         except Exception as e:
             logger.error(f"Debate analysis failed: {e}")

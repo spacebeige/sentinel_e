@@ -116,7 +116,7 @@ class ModeConfig:
             self.role_map = {
                 "qwen": DebateRole.NEUTRAL,
                 "groq": DebateRole.NEUTRAL,
-                "mistral": DebateRole.NEUTRAL,
+                "llama70b": DebateRole.NEUTRAL,
             }
 
     @property

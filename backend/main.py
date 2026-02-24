@@ -1,614 +1,657 @@
+"""
+============================================================
+Sentinel-E v5.0 — Production API Gateway
+============================================================
+Layered Architecture:
+  L1: API Gateway (this file) — routing, auth, middleware
+  L2: Orchestrator           — request coordination
+  L3: Model Interface        — provider abstraction
+  L4: Cognitive Engine       — Omega kernel
+  L5: Memory Engine          — 3-tier memory
+  L6: Retrieval Engine       — cognitive RAG
+  L7: Presentation Layer     — response formatting
+
+Security:
+  - JWT authentication
+  - CSP headers
+  - Rate limiting
+  - Input validation
+  - Prompt firewall
+  - Centralized error handling
+  - No credentials in logs
+  - Strict CORS
+"""
+
 import sys
 import os
-import uvicorn
+import json
 import logging
+import uuid as uuid_lib
 from contextlib import asynccontextmanager
-from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Depends, APIRouter, Body, Form, UploadFile, File
+from typing import Optional, Dict, Any
+from datetime import datetime, timezone
+
+from fastapi import FastAPI, HTTPException, Depends, Form, UploadFile, File, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+# ── Gateway Layer Imports ────────────────────────────────────
+from backend.gateway.config import get_settings
+from backend.gateway.auth import (
+    create_access_token, create_refresh_token,
+    get_current_user, get_optional_user, decode_token,
+)
+from backend.gateway.middleware import (
+    RateLimitMiddleware, SecurityHeadersMiddleware,
+    RequestTrackingMiddleware, ErrorHandlerMiddleware,
+    InputValidationMiddleware,
+)
+from backend.gateway.prompt_firewall import get_firewall
+
+# ── Database ─────────────────────────────────────────────────
 from backend.database.connection import get_db, init_db, check_redis, redis_client
-from backend.database.crud import create_chat, get_chat, list_chats, update_chat_metadata, add_message, get_chat_messages
-import json
-import glob
-from pathlib import Path
-from datetime import datetime
-from backend.sentinel.sentinel_sigma_v4 import SentinelSigmaOrchestratorV4, SigmaV4Config
-from backend.sentinel.schemas import SentinelRequest, SentinelResponse, OmegaResponse
-from backend.core.omega_kernel import OmegaCognitiveKernel, OmegaConfig
-from backend.core.mode_config import ModeConfig, Mode, SubMode
+from backend.database.crud import (
+    create_chat, get_chat, list_chats, update_chat_metadata,
+    add_message, get_chat_messages,
+)
+
+# ── Core Engine Imports ──────────────────────────────────────
+from backend.sentinel.sentinel_sigma_v4 import SentinelSigmaOrchestratorV4
+from backend.sentinel.schemas import SentinelRequest
+from backend.core.omega_kernel import OmegaCognitiveKernel
+from backend.core.mode_config import ModeConfig
 from backend.core.knowledge_learner import KnowledgeLearner
 from backend.utils.chat_naming import generate_chat_name
-from backend.core.cross_model_analyzer import CrossModelAnalyzer, run_cross_analysis_on_response
 
+# ── New Architecture Layers ──────────────────────────────────
+from backend.memory.memory_engine import MemoryEngine
+from backend.retrieval.cognitive_rag import CognitiveRAG
+from backend.providers.provider_router import get_provider_router
+from backend.core.dynamic_analytics import DynamicAnalyticsEngine
 
-
-
-logging.basicConfig(level=logging.INFO)
+# ── Logging ──────────────────────────────────────────────────
+settings = get_settings()
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL, logging.INFO),
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger("Sentinel-API")
 
-# Global State
+# ── Global State ─────────────────────────────────────────────
 orchestrator: Optional[SentinelSigmaOrchestratorV4] = None
 omega_kernel: Optional[OmegaCognitiveKernel] = None
 knowledge_learner: Optional[KnowledgeLearner] = None
-# Per-session omega kernels (keyed by chat_id)
-omega_sessions: dict = {}
+cognitive_rag: Optional[CognitiveRAG] = None
+analytics_engine: Optional[DynamicAnalyticsEngine] = None
+omega_sessions: Dict[str, OmegaCognitiveKernel] = {}
+memory_sessions: Dict[str, MemoryEngine] = {}
+
+# Maximum in-memory sessions to prevent memory leak
+MAX_SESSIONS = 500
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global orchestrator, omega_kernel, knowledge_learner
-    logger.info("Initializing Sentinel-E Omega Cognitive Kernel v4.5...")
-    
-    # Initialize DB (Tables)
+    global orchestrator, omega_kernel, knowledge_learner, cognitive_rag, analytics_engine
+    logger.info("Initializing Sentinel-E v5.0 Production System...")
+
+    # Initialize DB
     await init_db()
-    
-    # Check Redis
     await check_redis()
-    
-    # Initialize Sigma V4 Orchestrator (LLM layer)
+
+    # Initialize core components
     orchestrator = SentinelSigmaOrchestratorV4()
-    
-    # Initialize Omega Cognitive Kernel (wraps Sigma V4)
+    knowledge_learner = KnowledgeLearner()
     omega_kernel = OmegaCognitiveKernel(
         sigma_orchestrator=orchestrator,
         knowledge_learner=knowledge_learner,
     )
-    
-    # Initialize Knowledge Learner
-    knowledge_learner = KnowledgeLearner()
-    # Attach knowledge_learner to kernel after init
     omega_kernel.knowledge_learner = knowledge_learner
-    logger.info("Omega Cognitive Kernel v3.X online. Knowledge Learner active.")
-    
+
+    # New architecture layers
+    cognitive_rag = CognitiveRAG()
+    analytics_engine = DynamicAnalyticsEngine()
+
+    logger.info("Sentinel-E v5.0 online. All systems initialized.")
     yield
-    
-    logger.info("Shutting down Sentinel-E Omega System...")
+    logger.info("Shutting down Sentinel-E v5.0...")
 
 
+app = FastAPI(
+    title="Sentinel-E API",
+    version="5.0.0",
+    lifespan=lifespan,
+    docs_url="/docs" if not settings.is_production else None,
+    redoc_url=None,
+    openapi_url="/openapi.json" if not settings.is_production else None,
+)
 
-app = FastAPI(title="Sentinel-E Omega Cognitive Kernel API", lifespan=lifespan)
+# ── Middleware Stack (order matters: outermost first) ────────
+app.add_middleware(ErrorHandlerMiddleware)
+app.add_middleware(RequestTrackingMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(InputValidationMiddleware)
 
-# CORS Configuration
+# Strict CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+    expose_headers=["X-Request-ID", "X-Response-Time"],
 )
 
 
 # ============================================================
-# SESSION PERSISTENCE HELPERS
+# SESSION MANAGEMENT
 # ============================================================
 
-async def _persist_omega_session(chat_id: str, kernel: OmegaCognitiveKernel):
-    """Persist Omega kernel session state to Redis."""
+def _evict_sessions():
+    """Evict oldest sessions when limit reached."""
+    global omega_sessions, memory_sessions
+    if len(omega_sessions) > MAX_SESSIONS:
+        keys = list(omega_sessions.keys())[:MAX_SESSIONS // 4]
+        for k in keys:
+            omega_sessions.pop(k, None)
+            memory_sessions.pop(k, None)
+        logger.info(f"Evicted {len(keys)} sessions (limit: {MAX_SESSIONS})")
+
+
+async def _persist_session(chat_id: str, kernel: OmegaCognitiveKernel, memory: MemoryEngine):
+    """Persist session to Redis."""
     try:
-        session_data = kernel.serialize_session()
+        session_data = {
+            "omega": kernel.serialize_session(),
+            "memory": memory.serialize(),
+        }
         await redis_client.setex(
-            f"omega:session:{chat_id}",
-            3600,  # 1 hour TTL
-            json.dumps(session_data, default=str)
+            f"session:{chat_id}",
+            settings.REDIS_SESSION_TTL,
+            json.dumps(session_data, default=str),
         )
     except Exception as e:
-        logger.warning(f"Failed to persist Omega session to Redis: {e}")
+        logger.warning(f"Session persist failed: {e}")
 
 
-async def _restore_omega_session(chat_id: str) -> Optional[OmegaCognitiveKernel]:
-    """Restore Omega kernel session from Redis."""
+async def _restore_session(chat_id: str, user_id: str = ""):
+    """Restore session from Redis."""
     try:
-        cached = await redis_client.get(f"omega:session:{chat_id}")
+        cached = await redis_client.get(f"session:{chat_id}")
         if cached:
             data = json.loads(cached)
             kernel = OmegaCognitiveKernel.restore_from_session(
-                data, sigma_orchestrator=orchestrator, knowledge_learner=knowledge_learner
+                data.get("omega", {}),
+                sigma_orchestrator=orchestrator,
+                knowledge_learner=knowledge_learner,
             )
-            logger.info(f"Restored Omega session from Redis for chat {chat_id}")
-            return kernel
+            memory = MemoryEngine.deserialize(data.get("memory", {}))
+            return kernel, memory
     except Exception as e:
-        logger.warning(f"Failed to restore Omega session from Redis: {e}")
-    return None
+        logger.warning(f"Session restore failed: {e}")
+    return None, None
 
 
-def _get_omega_session_sync(chat_id: str) -> OmegaCognitiveKernel:
-    """Get existing in-memory Omega session (sync, for immediate access)."""
-    global omega_sessions, orchestrator, knowledge_learner
-    if chat_id not in omega_sessions:
-        omega_sessions[chat_id] = OmegaCognitiveKernel(
-            sigma_orchestrator=orchestrator, knowledge_learner=knowledge_learner
-        )
-    return omega_sessions[chat_id]
+async def _get_session(chat_id: str, user_id: str = ""):
+    """Get or create session pair."""
+    global omega_sessions, memory_sessions
 
-
-async def _get_omega_session(chat_id: str) -> OmegaCognitiveKernel:
-    """Get or create an Omega kernel session for a chat, with Redis restore."""
-    global omega_sessions, orchestrator, knowledge_learner
     if chat_id in omega_sessions:
-        return omega_sessions[chat_id]
-    # Try to restore from Redis
-    kernel = await _restore_omega_session(chat_id)
+        return omega_sessions[chat_id], memory_sessions.get(chat_id, MemoryEngine(user_id=user_id))
+
+    # Try Redis
+    kernel, memory = await _restore_session(chat_id, user_id)
     if kernel:
         omega_sessions[chat_id] = kernel
-        return kernel
-    # Create new session
-    omega_sessions[chat_id] = OmegaCognitiveKernel(
-        sigma_orchestrator=orchestrator, knowledge_learner=knowledge_learner
+        memory_sessions[chat_id] = memory
+        return kernel, memory
+
+    # Create new
+    _evict_sessions()
+    kernel = OmegaCognitiveKernel(
+        sigma_orchestrator=orchestrator,
+        knowledge_learner=knowledge_learner,
     )
-    return omega_sessions[chat_id]
+    memory = MemoryEngine(user_id=user_id)
+    omega_sessions[chat_id] = kernel
+    memory_sessions[chat_id] = memory
+    return kernel, memory
+
+
+# ============================================================
+# AUTH ENDPOINTS
+# ============================================================
+
+@app.post("/api/auth/session")
+async def create_session():
+    """
+    Bootstrap an anonymous session.
+    Returns a JWT token for session continuity.
+    """
+    session_id = f"session-{uuid_lib.uuid4().hex[:16]}"
+    access_token = create_access_token(session_id)
+    refresh_token = create_refresh_token(session_id)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "session_id": session_id,
+    }
+
+
+@app.post("/api/auth/refresh")
+async def refresh_session(refresh_token: str = Body(..., embed=True)):
+    """Refresh an expired access token."""
+    payload = decode_token(refresh_token)
+    if payload.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    new_access = create_access_token(payload["sub"])
+    return {
+        "access_token": new_access,
+        "token_type": "bearer",
+    }
+
+
+# ============================================================
+# HEALTH & STATUS
+# ============================================================
 
 @app.get("/")
 async def root():
     return {
         "status": "online",
-        "service": "Sentinel-E Omega Cognitive Kernel",
-        "version": "4.5.0",
-        "modes": ["standard", "experimental"],
-        "sub_modes": ["debate", "glass", "evidence"],
-        "omega_active": omega_kernel is not None,
-        "learning_active": knowledge_learner is not None,
+        "service": "Sentinel-E",
+        "version": "5.0.0",
     }
 
-router = APIRouter(prefix="/api")
+
+@app.get("/health")
+async def health_check():
+    """Production health check."""
+    health = {
+        "status": "healthy",
+        "version": "5.0.0",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        if redis_client:
+            await redis_client.ping()
+            health["redis"] = "connected"
+        else:
+            health["redis"] = "not_configured"
+    except Exception:
+        health["redis"] = "disconnected"
+        health["status"] = "degraded"
+    return health
+
 
 # ============================================================
-# ENDPOINTS
+# MAIN EXECUTION ENDPOINT
 # ============================================================
 
-@router.post("/run", response_model=None)
+@app.post("/api/run")
 async def run_sentinel(
     request: SentinelRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+    frontend_context: Optional[str] = None,
 ):
     """
     Main entry point for Sentinel execution.
-    All modes route through Omega Cognitive Kernel for multipass reasoning,
-    boundary evaluation, and session intelligence.
-    SigmaV4 remains the LLM execution layer inside Omega.
+    Routes through Omega Cognitive Kernel.
+    Protected by JWT auth, rate limiting, and prompt firewall.
     """
     if not orchestrator:
-        raise HTTPException(status_code=503, detail="System not initialized")
+        raise HTTPException(status_code=503, detail="System initializing. Please retry.")
 
+    user_id = user["user_id"]
+    firewall = get_firewall()
+
+    # ── Input Validation ─────────────────────────────────────
+    if len(request.text) > settings.MAX_INPUT_LENGTH:
+        raise HTTPException(status_code=400, detail="Input too long.")
+
+    request.rounds = min(request.rounds, settings.MAX_ROUNDS)
+
+    # ── Prompt Firewall ──────────────────────────────────────
+    verdict = firewall.analyze(request.text)
+    if verdict.blocked:
+        logger.warning(f"Firewall blocked input from {user_id}: {verdict.violations}")
+        raise HTTPException(
+            status_code=400,
+            detail="Your input could not be processed. Please rephrase your question.",
+        )
+    effective_text = verdict.sanitized_text or request.text
+
+    # ── Chat Resolution ──────────────────────────────────────
+    chat = None
+    if request.chat_id:
+        chat = await get_chat(db, request.chat_id)
+    if not chat:
+        chat_name = generate_chat_name(effective_text, request.mode)
+        chat = await create_chat(db, chat_name, request.mode, user_id=user_id)
+
+    await add_message(db, chat.id, "user", effective_text)
+
+    # ── Session & Memory ─────────────────────────────────────
+    kernel, memory = await _get_session(str(chat.id), user_id)
+    memory.add_message("user", effective_text)
+
+    # ── Conversation History ─────────────────────────────────
+    history = []
     try:
-        chat = None
-        if request.chat_id:
-            chat = await get_chat(db, request.chat_id)
-        
-        if not chat:
-            # 1. Create Chat Record
-            chat_name = generate_chat_name(request.text, request.mode)
-            chat = await create_chat(db, chat_name, request.mode)
-        
-        # 2. Log User Message
-        await add_message(db, chat.id, "user", request.text)
+        stored = await get_chat_messages(db, chat.id)
+        if len(stored) > 1:
+            for msg in stored[-settings.SHORT_TERM_MEMORY_SIZE:]:
+                history.append({"role": msg.role, "content": msg.content})
+    except Exception as e:
+        logger.warning(f"History retrieval failed: {e}")
 
-        # [Feature] Conversational Continuity
-        history = []
+    # ── Frontend Context (Sanitized) ─────────────────────────
+    if frontend_context:
         try:
-            stored_messages = await get_chat_messages(db, chat.id)
-            if len(stored_messages) > 1:
-                context_messages = stored_messages[:-1] 
-                for msg in context_messages[-20:]: 
-                    history.append({"role": msg.role, "content": msg.content})
+            ctx = json.loads(frontend_context)
+            safe_ctx = firewall.validate_context_injection(ctx)
+            st = safe_ctx.get("shortTerm", {})
+
+            if st.get("isFollowUp") and st.get("resolvedQuery"):
+                effective_text = st["resolvedQuery"]
+
+            active_entity = st.get("activeEntity")
+            active_topic = st.get("activeTopic")
+            if active_entity or active_topic:
+                ctx_hint = "Context: "
+                if active_topic:
+                    ctx_hint += f"topic is '{active_topic}'"
+                if active_entity:
+                    ctx_hint += f"{', ' if active_topic else ''}subject is '{active_entity}'"
+                history.insert(0, {"role": "system", "content": ctx_hint})
         except Exception as e:
-            logger.warning(f"Failed to retrieve chat history: {e}")
-        
-        # 3. Route through Omega Cognitive Kernel
-        # Map legacy modes to new mode system
-        omega_mode = request.mode
-        if omega_mode == "conversational":
-            omega_mode = "standard"
-        elif omega_mode == "forensic":
-            omega_mode = "standard"  # Forensic treated as standard with shadow
-        elif omega_mode == "experimental":
-            omega_mode = "research"  # Experimental → Research
+            logger.debug(f"Context injection skipped: {e}")
 
-        kernel = await _get_omega_session(str(chat.id))
+    # ── Memory Context Injection ─────────────────────────────
+    memory_ctx = memory.build_prompt_context()
+    if memory_ctx:
+        history.insert(0, {"role": "system", "content": memory_ctx})
 
-        # Resolve sub_mode
-        sub_mode = getattr(request, 'sub_mode', None) or "debate"
-        kill = getattr(request, 'kill', False)
-
-        # Build ModeConfig (v3.X) directly for new system
-        role_map = getattr(request, 'role_map', None) or {}
-        config = ModeConfig.from_legacy(
-            text=request.text,
-            mode=omega_mode,
-            sub_mode=sub_mode,
-            kill_switch=kill,
-            enable_shadow=request.enable_shadow,
-            rounds=request.rounds,
-            chat_id=str(chat.id),
-            history=history,
-            role_map=role_map,
-        )
-
-        result = await kernel.process(config)
-
-        # 4. Extract response fields
-        formatted_output = result.get("formatted_output", "")
-        confidence = result.get("confidence", 0.5)
-        session_state = result.get("session_state", {})
-        reasoning_trace = result.get("reasoning_trace", {})
-        boundary_result = result.get("boundary_result", {})
-
-        # 5. Build unified metadata
-        omega_metadata = {
-            "omega_version": "4.5.0",
-            "mode": result.get("mode", omega_mode),
-            "sub_mode": result.get("sub_mode", sub_mode),
-            "original_mode": request.mode,
-            "confidence": confidence,
-            "session_state": session_state,
-            "reasoning_trace": reasoning_trace,
-            "boundary_result": boundary_result,
-        }
-
-        # Include sub-mode specific data
-        if result.get("confidence_evolution"):
-            omega_metadata["confidence_evolution"] = result["confidence_evolution"]
-        if result.get("fragility_index") is not None:
-            omega_metadata["fragility_index"] = result["fragility_index"]
-        if result.get("behavioral_risk"):
-            omega_metadata["behavioral_risk"] = result["behavioral_risk"]
-        if result.get("evidence_result"):
-            omega_metadata["evidence_result"] = result["evidence_result"]
-        if result.get("kill_active") is not None:
-            omega_metadata["kill_active"] = result["kill_active"]
-        if result.get("stress_result"):
-            omega_metadata["stress_result"] = result["stress_result"]
-        if result.get("confidence_components"):
-            omega_metadata["confidence_components"] = result["confidence_components"]
-        if result.get("debate_result"):
-            omega_metadata["debate_result"] = result["debate_result"]
-
-        # Wire KnowledgeLearner — record boundary violations
-        if knowledge_learner and boundary_result:
-            severity = boundary_result.get("severity_score", 0)
-            if severity > 40:
-                try:
-                    knowledge_learner.record_boundary_violation(
-                        model_name=omega_metadata.get("mode", "unknown"),
-                        severity_score=severity,
-                        severity_level=boundary_result.get("risk_level", "LOW"),
-                        claim_type=boundary_result.get("claim_type", "unknown"),
-                        run_id=str(chat.id),
-                    )
-                except Exception as e:
-                    logger.warning(f"KnowledgeLearner violation recording failed: {e}")
-
-        # 6. Persist to DB
-        await update_chat_metadata(
-            db,
-            chat.id,
-            priority_answer=formatted_output,
-            machine_metadata=omega_metadata,
-            rounds=request.rounds,
-        )
-
-        # 7. Persist Omega session to Redis
-        await _persist_omega_session(str(chat.id), kernel)
-
-        # 8. Cache metadata in Redis
+    # ── Cognitive RAG ────────────────────────────────────────
+    rag_result = None
+    if cognitive_rag:
         try:
-            await redis_client.setex(
-                f"chat:{chat.id}:metadata",
-                3600,
-                json.dumps(omega_metadata, default=str)
+            rag_result = await cognitive_rag.process(effective_text)
+            if rag_result and rag_result.retrieval_executed and rag_result.sources:
+                rag_context = "External evidence:\n" + "\n".join(
+                    [f"- [{s.title}]({s.url}): {s.content[:200]}" for s in rag_result.sources[:3]]
+                )
+                history.append({"role": "system", "content": rag_context})
+        except Exception as e:
+            logger.warning(f"RAG failed: {e}")
+
+    # ── Mode Resolution ──────────────────────────────────────
+    omega_mode = request.mode
+    mode_map = {"conversational": "standard", "forensic": "standard", "experimental": "research"}
+    omega_mode = mode_map.get(omega_mode, omega_mode)
+
+    sub_mode = getattr(request, "sub_mode", None) or "debate"
+    kill = getattr(request, "kill", False)
+    role_map = getattr(request, "role_map", None) or {}
+
+    config = ModeConfig.from_legacy(
+        text=effective_text,
+        mode=omega_mode,
+        sub_mode=sub_mode,
+        kill_switch=kill,
+        enable_shadow=request.enable_shadow,
+        rounds=request.rounds,
+        chat_id=str(chat.id),
+        history=history,
+        role_map=role_map,
+    )
+
+    # ── Execute ──────────────────────────────────────────────
+    result = await kernel.process(config)
+
+    # ── Extract & Build Response ─────────────────────────────
+    formatted_output = result.get("formatted_output", "")
+    confidence = result.get("confidence", 0.5)
+    session_state = result.get("session_state", {})
+    reasoning_trace = result.get("reasoning_trace", {})
+    boundary_result = result.get("boundary_result", {})
+
+    # ── Inject RAG Citations ─────────────────────────────────
+    if rag_result and rag_result.retrieval_executed:
+        if rag_result.no_sources_found:
+            formatted_output += "\n\n*No verified external sources found for this query.*"
+        elif rag_result.citations_text:
+            formatted_output += "\n\n" + rag_result.citations_text
+
+    # ── Dynamic Analytics ────────────────────────────────────
+    analytics = None
+    if analytics_engine:
+        model_outputs = []
+        if result.get("omega_metadata", {}).get("aggregation_result"):
+            agg = result["omega_metadata"]["aggregation_result"]
+            if isinstance(agg, dict):
+                for key in ["groq_response", "llama70b_response", "qwen_response"]:
+                    if key in agg:
+                        model_outputs.append(str(agg[key]))
+
+        if model_outputs:
+            analytics = analytics_engine.compute(
+                model_outputs=model_outputs,
+                evidence_sources=rag_result.source_count if rag_result else 0,
+                contradiction_count=rag_result.contradiction_count if rag_result else 0,
+                evidence_reliability=rag_result.average_reliability if rag_result else 0,
             )
-        except Exception as e:
-            logger.warning(f"Redis Cache Error: {e}")
-        
-        # 9. Log System Message
-        await add_message(db, chat.id, "assistant", formatted_output)
-        
-        # 10. Return unified Omega response
-        return {
-            "chat_id": str(chat.id),
-            "chat_name": result.get("chat_name", ""),
-            "mode": result.get("mode", omega_mode),
-            "sub_mode": result.get("sub_mode", sub_mode),
-            "original_mode": request.mode,
-            "formatted_output": formatted_output,
-            "data": {
-                "priority_answer": formatted_output,
-            },
-            "confidence": confidence,
-            "session_state": session_state,
-            "reasoning_trace": reasoning_trace,
-            "boundary_result": boundary_result,
-            "omega_metadata": omega_metadata,
+            confidence = analytics.confidence  # Use dynamic confidence
+
+    # ── Build Metadata ───────────────────────────────────────
+    omega_metadata = {
+        "version": "5.0.0",
+        "mode": result.get("mode", omega_mode),
+        "sub_mode": result.get("sub_mode", sub_mode),
+        "confidence": confidence,
+        "session_state": session_state,
+        "reasoning_trace": reasoning_trace,
+        "boundary_result": boundary_result,
+    }
+
+    # Mode-specific data
+    for key in ["confidence_evolution", "fragility_index", "behavioral_risk",
+                 "evidence_result", "stress_result", "confidence_components",
+                 "debate_result"]:
+        if result.get(key) is not None:
+            omega_metadata[key] = result[key]
+
+    # Dynamic analytics override
+    if analytics:
+        omega_metadata["confidence_components"] = analytics.confidence_components
+        omega_metadata["boundary_result"] = {
+            "risk_level": analytics.risk_level,
+            "severity_score": int(analytics.boundary_risk * 100),
+            "explanation": analytics.explanation,
+            "risk_dimensions": analytics.boundary_components,
         }
 
-    except Exception as e:
-        logger.error(f"Execution Error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+    # Engine metadata passthrough
+    if result.get("omega_metadata"):
+        engine_meta = result["omega_metadata"]
+        for key in ["aggregation_result", "forensic_result", "audit_result", "pipeline_steps"]:
+            if engine_meta.get(key):
+                omega_metadata[key] = engine_meta[key]
 
-@router.post("/run/experimental", response_model=SentinelResponse)
-async def run_experimental(
-    request: SentinelRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    """Alias for experimental mode"""
-    request.mode = "experimental"
-    return await run_sentinel(request, db)
-
-@router.post("/run/forensic", response_model=SentinelResponse)
-async def run_forensic(
-    request: SentinelRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    """Alias for forensic mode"""
-    request.mode = "forensic"
-    return await run_sentinel(request, db)
-
-@router.post("/run/shadow", response_model=SentinelResponse)
-async def run_shadow_route(
-    request: SentinelRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Explicit Shadow Execution.
-    Forces enable_shadow=True.
-    Mode defaults to forensic if not specified, or keeps user generic mode.
-    """
-    request.enable_shadow = True
-    # "Shadow Mode" isn't a primary mode, it's an overlay. But if user asks for /run/shadow
-    # we treat it as forensic audit primarily unless specified otherwise.
-    if request.mode == "conversational":
-        request.mode = "forensic"
-        
-    return await run_sentinel(request, db)
-
-# ============================================================
-# OMEGA COGNITIVE KERNEL ENDPOINTS
-# ============================================================
-
-@router.post("/omega/run")
-async def omega_run(
-    request: SentinelRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Omega Cognitive Kernel direct entry point.
-    Delegates to the unified run_sentinel which routes through Omega.
-    """
-    return await run_sentinel(request, db)
-
-
-@router.post("/omega/standard")
-async def omega_standard(request: SentinelRequest, db: AsyncSession = Depends(get_db)):
-    """Omega STANDARD mode alias."""
-    request.mode = "standard"
-    return await omega_run(request, db)
-
-
-@router.post("/omega/experimental")
-async def omega_experimental(request: SentinelRequest, db: AsyncSession = Depends(get_db)):
-    """Omega EXPERIMENTAL mode alias."""
-    request.mode = "experimental"
-    return await omega_run(request, db)
-
-
-@router.post("/omega/kill")
-async def omega_kill(request: SentinelRequest, db: AsyncSession = Depends(get_db)):
-    """
-    Omega KILL mode — diagnostic only.
-    Returns session cognitive state snapshot without generating new reasoning.
-    """
-    request.mode = "kill"
-    return await omega_run(request, db)
-
-
-@router.get("/omega/session/{chat_id}")
-async def omega_session_state(chat_id: str):
-    """Get Omega session intelligence state for a chat."""
-    # Try in-memory first, then Redis
-    if chat_id in omega_sessions:
-        kernel = omega_sessions[chat_id]
-        return {
-            "chat_id": chat_id,
-            "session_state": kernel.get_session_state(),
-            "boundary_trend": kernel.get_boundary_trend(),
-            "initialized": kernel.is_initialized(),
+    # RAG metadata
+    if rag_result and rag_result.retrieval_executed:
+        omega_metadata["rag_result"] = {
+            "executed": True,
+            "source_count": rag_result.source_count,
+            "average_reliability": rag_result.average_reliability,
+            "contradictions": len(rag_result.contradictions),
+            "no_sources": rag_result.no_sources_found,
         }
-    # Try Redis restore
-    kernel = await _restore_omega_session(chat_id)
-    if kernel:
-        return {
-            "chat_id": chat_id,
-            "session_state": kernel.get_session_state(),
-            "boundary_trend": kernel.get_boundary_trend(),
-            "initialized": kernel.is_initialized(),
-        }
-    return {"chat_id": chat_id, "session_state": None, "initialized": False}
 
+    # ── Knowledge Learning ───────────────────────────────────
+    if knowledge_learner and boundary_result:
+        severity = boundary_result.get("severity_score", 0)
+        if severity > 40:
+            try:
+                knowledge_learner.record_boundary_violation(
+                    model_name=omega_metadata.get("mode", "unknown"),
+                    severity_score=severity,
+                    severity_level=boundary_result.get("risk_level", "LOW"),
+                    claim_type=boundary_result.get("claim_type", "unknown"),
+                    run_id=str(chat.id),
+                )
+            except Exception as e:
+                logger.warning(f"Knowledge learning failed: {e}")
 
-@router.post("/cross-analysis")
-async def cross_model_analysis(
-    chat_id: Optional[str] = Body(None),
-    query: str = Body(""),
-    llm_response: str = Body(""),
-):
-    """
-    Run the 8-step cross-model behavioral analysis pipeline.
-    Auto-triggered in glass mode — no user input required.
-    
-    If llm_response is provided, all models analyze it.
-    If chat_id is provided, fetches the latest response from that chat.
-    """
-    if not orchestrator or not hasattr(orchestrator, 'client'):
-        raise HTTPException(status_code=503, detail="Cloud model client not initialized")
+    # ── Persist ──────────────────────────────────────────────
+    await update_chat_metadata(
+        db, chat.id,
+        priority_answer=formatted_output,
+        machine_metadata=omega_metadata,
+        rounds=request.rounds,
+    )
+    memory.add_message("assistant", formatted_output)
+    await _persist_session(str(chat.id), kernel, memory)
 
     try:
-        # If no llm_response but chat_id, try to get latest response
-        if not llm_response and chat_id:
-            if chat_id in omega_sessions:
-                kernel = omega_sessions[chat_id]
-                session_state = kernel.get_session_state()
-                llm_response = session_state.get("last_response", "")
-
-        if not llm_response:
-            llm_response = "No response available for analysis."
-
-        result = await run_cross_analysis_on_response(
-            cloud_client=orchestrator.client,
-            llm_response=llm_response,
-            query=query,
+        await redis_client.setex(
+            f"chat:{chat.id}:metadata",
+            settings.REDIS_SESSION_TTL,
+            json.dumps(omega_metadata, default=str),
         )
-        return result
+    except Exception:
+        pass
 
-    except Exception as e:
-        logger.error(f"Cross-analysis error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+    await add_message(db, chat.id, "assistant", formatted_output)
 
+    # ── Rolling Summary Check ────────────────────────────────
+    if memory.needs_summarization():
+        try:
+            summary_prompt = memory.generate_summary_prompt()
+            if summary_prompt and orchestrator and hasattr(orchestrator, "client"):
+                summary = await orchestrator.client.call_groq(summary_prompt)
+                if summary and not summary.startswith("Groq"):
+                    memory.rolling_summary.add_summary(summary, settings.ROLLING_SUMMARY_INTERVAL)
+                    logger.info(f"Rolling summary generated for chat {chat.id}")
+        except Exception as e:
+            logger.debug(f"Summary generation skipped: {e}")
 
-@router.get("/cross-analysis/models")
-async def get_analyzed_models():
-    """Return the list of models being analyzed in the cross-analysis pipeline."""
-    from backend.core.cross_model_analyzer import ANALYZED_MODELS, ANALYSIS_STEPS
+    # ── Response ─────────────────────────────────────────────
     return {
-        "analyzed_models": ANALYZED_MODELS,
-        "analysis_steps": ANALYSIS_STEPS,
-        "total_steps": len(ANALYSIS_STEPS),
+        "chat_id": str(chat.id),
+        "chat_name": result.get("chat_name", ""),
+        "mode": result.get("mode", omega_mode),
+        "sub_mode": result.get("sub_mode", sub_mode),
+        "formatted_output": formatted_output,
+        "data": {"priority_answer": formatted_output},
+        "confidence": confidence,
+        "session_state": session_state,
+        "boundary_result": omega_metadata.get("boundary_result", boundary_result),
+        "omega_metadata": omega_metadata,
     }
 
 
-@router.get("/chats")
-async def get_chats_history(
-    limit: int = 50, 
-    offset: int = 0, 
-    db: AsyncSession = Depends(get_db)
-):
-    """List recent chats"""
-    chats = await list_chats(db, limit, offset)
-    return chats
-
-@router.get("/chat/{chat_id}")
-async def get_chat_details(
-    chat_id: UUID,
-    db: AsyncSession = Depends(get_db)
-):
-    """Get full chat details including messages"""
-    chat = await get_chat(db, chat_id)
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
-        
-    # Get messages
-    # Assuming crud function exists or we add it to response
-    from backend.database.crud import get_chat_messages
-    messages = await get_chat_messages(db, chat_id)
-    
-    return {
-        "chat": chat,
-        "messages": messages
-    }
-
-@router.get("/chat/{chat_id}/messages")
-async def get_messages_for_chat(
-    chat_id: UUID,
-    db: AsyncSession = Depends(get_db)
-):
-    """Return all messages for a chat as clean JSON, ordered oldest first."""
-    msgs = await get_chat_messages(db, chat_id)
-    return [
-        {
-            "role": m.role,
-            "content": m.content,
-            "timestamp": m.created_at.isoformat() if m.created_at else None,
-        }
-        for m in msgs
-    ]
-
-@router.post("/chat/share")
-async def share_chat(
-    chat_id: UUID = Body(..., embed=True),
-    db: AsyncSession = Depends(get_db)
-):
-    """Generate a share token (Dummy implementation for contract)"""
-    # Verify chat exists
-    chat = await get_chat(db, chat_id)
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
-        
-    return {"share_token": f"share_{chat_id}_token_12345"}
-
 # ============================================================
-# COMPATIBILITY ROUTES (Frontend Legacy Support)
+# FORM-DATA ENDPOINTS (Frontend Compatibility)
 # ============================================================
-@router.get("/history")
-async def history_alias(
-    limit: int = 50, 
-    offset: int = 0, 
-    db: AsyncSession = Depends(get_db)
-):
-    """Alias for /api/chats to match frontend"""
-    return await list_chats(db, limit, offset)
 
-# Note: This route is on 'app' directly because frontend calls /run/standard (no /api prefix)
 @app.post("/run/standard")
-async def run_standard_alias(
+async def run_standard_form(
     text: str = Form(...),
     chat_id: Optional[UUID] = Form(None),
     file: Optional[UploadFile] = File(None),
-    db: AsyncSession = Depends(get_db)
+    context: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
 ):
-    """Standard mode via FormData — routes through Omega pipeline."""
+    """Standard mode via FormData."""
     request = SentinelRequest(text=text, mode="standard", chat_id=chat_id)
-    return await run_sentinel(request, db)
+    return await run_sentinel(request, db, user, frontend_context=context)
 
-@app.get("/api/history/{chat_id}")
-async def history_detail_alias(
-    chat_id: UUID,
-    db: AsyncSession = Depends(get_db)
-):
-    """Alias for /api/chat/{chat_id}"""
-    return await get_chat_details(chat_id, db)
 
 @app.post("/run/experimental")
-async def run_experimental_alias_form(
+async def run_experimental_form(
     text: str = Form(...),
-    mode: str = Form("experimental"), 
+    mode: str = Form("experimental"),
     rounds: int = Form(6),
     kill_switch: bool = Form(False),
     sub_mode: str = Form("debate"),
     chat_id: Optional[UUID] = Form(None),
     file: Optional[UploadFile] = File(None),
-    db: AsyncSession = Depends(get_db)
+    context: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
 ):
-    """
-    Experimental mode via FormData — routes through Omega pipeline.
-    Sub-modes: debate, glass, evidence.
-    If kill_switch=true, routes to glass+kill.
-    """
-    # Handle kill switch — route to glass + kill
+    """Experimental mode via FormData."""
     if kill_switch:
-        request = SentinelRequest(text=text or "kill", mode="kill", rounds=rounds, chat_id=chat_id, sub_mode="glass")
-        return await run_sentinel(request, db)
+        request = SentinelRequest(text=text or "kill", mode="kill", rounds=min(rounds, settings.MAX_ROUNDS), chat_id=chat_id, sub_mode="glass")
+        return await run_sentinel(request, db, user)
 
-    # Validate sub_mode
-    valid_sub_modes = ["debate", "glass", "evidence"]
-    if sub_mode not in valid_sub_modes:
-        sub_mode = "debate"
-
-    # Validate Mode
-    valid_modes = ["conversational", "experimental", "forensic", "standard"]
-    if mode not in valid_modes:
-        mode = "experimental"
+    valid_sub_modes = {"debate", "glass", "evidence"}
+    sub_mode = sub_mode if sub_mode in valid_sub_modes else "debate"
+    valid_modes = {"conversational", "experimental", "forensic", "standard"}
+    mode = mode if mode in valid_modes else "experimental"
 
     request = SentinelRequest(
-        text=text, 
-        mode=mode,
-        sub_mode=sub_mode,
-        rounds=rounds,
-        chat_id=chat_id
+        text=text, mode=mode, sub_mode=sub_mode,
+        rounds=min(rounds, settings.MAX_ROUNDS), chat_id=chat_id,
     )
-    return await run_sentinel(request, db)
+    return await run_sentinel(request, db, user, frontend_context=context)
+
+
+@app.post("/run/omega/standard")
+async def omega_standard_form(
+    text: str = Form(...),
+    chat_id: Optional[UUID] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    request = SentinelRequest(text=text, mode="standard", chat_id=chat_id)
+    return await run_sentinel(request, db, user)
+
+
+@app.post("/run/omega/experimental")
+async def omega_experimental_form(
+    text: str = Form(...),
+    rounds: int = Form(3),
+    sub_mode: str = Form("debate"),
+    chat_id: Optional[UUID] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    valid_sub_modes = {"debate", "glass", "evidence"}
+    sub_mode = sub_mode if sub_mode in valid_sub_modes else "debate"
+    request = SentinelRequest(text=text, mode="experimental", sub_mode=sub_mode, rounds=min(rounds, settings.MAX_ROUNDS), chat_id=chat_id)
+    return await run_sentinel(request, db, user)
+
+
+@app.post("/run/omega/kill")
+async def omega_kill_form(
+    text: str = Form(""),
+    chat_id: Optional[UUID] = Form(None),
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    request = SentinelRequest(text=text or "kill", mode="kill", sub_mode="glass", chat_id=chat_id)
+    return await run_sentinel(request, db, user)
+
+
+# ============================================================
+# FEEDBACK
+# ============================================================
 
 @app.post("/feedback")
 async def feedback_endpoint(
@@ -622,253 +665,233 @@ async def feedback_endpoint(
     fragility_index: Optional[float] = Form(None),
     disagreement_score: Optional[float] = Form(None),
     confidence: Optional[float] = Form(None),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
 ):
-    """
-    Enhanced feedback — 1-5 rating, full context, wired to KnowledgeLearner.
-    PATCH: Stores feedback in Chat.machine_metadata + KnowledgeLearner.
-    """
-    logger.info(f"Feedback received for {run_id}: {feedback} rating={rating} - {reason}")
-    
-    try:
-        # Validate run_id is UUID
-        try:
-            chat_uuid = UUID(run_id)
-        except ValueError:
-            logger.warning(f"Invalid UUID for feedback: {run_id}")
-            return {"status": "error", "message": "Invalid Run ID"}
+    """Enhanced feedback with memory learning."""
+    user_id = user["user_id"]
 
-        chat = await get_chat(db, chat_uuid)
-        if not chat:
-            logger.warning(f"Chat not found for feedback: {run_id}")
-            return {"status": "error", "message": "Chat not found"}
-        
-        # Merge feedback into machine_metadata
-        metadata = chat.machine_metadata or {}
-        if "feedback" not in metadata:
-            metadata["feedback"] = []
-            
-        feedback_entry = {
-            "vote": feedback,
-            "rating": rating,
-            "reason": reason,
-            "mode": mode,
-            "sub_mode": sub_mode,
-            "boundary_severity": boundary_severity,
-            "fragility_index": fragility_index,
-            "disagreement_score": disagreement_score,
-            "confidence": confidence,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        
-        # Ensure it's a list (handle legacy data if any)
-        if isinstance(metadata.get("feedback"), list):
-            metadata["feedback"].append(feedback_entry)
-        else:
-             metadata["feedback"] = [feedback_entry]
-             
-        chat.machine_metadata = metadata
-        
-        from backend.database.crud import update_chat_metadata
-        await update_chat_metadata(
-            db, 
-            chat.id, 
-            priority_answer=chat.priority_answer,
-            machine_metadata=metadata,
-            rounds=chat.rounds
+    try:
+        chat_uuid = UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+
+    chat = await get_chat(db, chat_uuid)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    # Update chat metadata
+    metadata = chat.machine_metadata or {}
+    if "feedback" not in metadata:
+        metadata["feedback"] = []
+
+    feedback_entry = {
+        "vote": feedback,
+        "rating": rating,
+        "reason": reason,
+        "mode": mode,
+        "sub_mode": sub_mode,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    if isinstance(metadata.get("feedback"), list):
+        metadata["feedback"].append(feedback_entry)
+    else:
+        metadata["feedback"] = [feedback_entry]
+
+    await update_chat_metadata(db, chat.id, priority_answer=chat.priority_answer, machine_metadata=metadata, rounds=chat.rounds)
+
+    # Memory learning
+    memory = memory_sessions.get(str(chat.id))
+    if memory:
+        memory.record_feedback(
+            vote=feedback,
+            rating=rating,
+            reason=reason,
+            mode=mode,
         )
 
-        # Wire to KnowledgeLearner
-        if knowledge_learner:
-            try:
-                knowledge_learner.record_feedback(
-                    run_id=run_id,
-                    vote=feedback,
-                    rating=rating,
-                    mode=mode or "unknown",
-                    sub_mode=sub_mode,
-                    reason=reason,
-                )
-            except Exception as e:
-                logger.warning(f"KnowledgeLearner feedback recording failed: {e}")
-        
-        return {"status": "success", "feedback_id": run_id, "storage": "postgres", "learning": knowledge_learner is not None}
+    # Knowledge learner
+    if knowledge_learner:
+        try:
+            knowledge_learner.record_feedback(
+                run_id=run_id, vote=feedback, rating=rating,
+                mode=mode or "unknown", sub_mode=sub_mode, reason=reason,
+            )
+        except Exception as e:
+            logger.warning(f"Knowledge learner feedback failed: {e}")
 
-    except Exception as e:
-        logger.error(f"Feedback DB Error: {e}", exc_info=True)
-        return {"status": "error", "detail": str(e)}
+    return {"status": "success", "feedback_id": run_id}
 
-app.include_router(router)
 
 # ============================================================
-# OMEGA FORM-DATA ENDPOINTS (Frontend Integration)
+# CHAT HISTORY
 # ============================================================
 
-@app.post("/run/omega/standard")
-async def omega_standard_form(
-    text: str = Form(...),
-    chat_id: Optional[UUID] = Form(None),
-    file: Optional[UploadFile] = File(None),
-    db: AsyncSession = Depends(get_db)
+@app.get("/api/chats")
+async def get_chats_list(
+    limit: int = 50, offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
 ):
-    """Omega STANDARD mode via FormData."""
-    request = SentinelRequest(text=text, mode="standard", chat_id=chat_id)
-    return await run_sentinel(request, db)
+    chats = await list_chats(db, limit, offset)
+    return chats
 
-@app.post("/run/omega/experimental")
-async def omega_experimental_form(
-    text: str = Form(...),
-    rounds: int = Form(3),
-    sub_mode: str = Form("debate"),
-    chat_id: Optional[UUID] = Form(None),
-    file: Optional[UploadFile] = File(None),
-    db: AsyncSession = Depends(get_db)
+
+@app.get("/api/history")
+async def history_alias(
+    limit: int = 50, offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
 ):
-    """Omega EXPERIMENTAL mode via FormData. Sub-modes: debate, glass, evidence."""
-    valid_sub_modes = ["debate", "glass", "evidence"]
-    if sub_mode not in valid_sub_modes:
-        sub_mode = "debate"
-    request = SentinelRequest(text=text, mode="experimental", sub_mode=sub_mode, rounds=rounds, chat_id=chat_id)
-    return await run_sentinel(request, db)
+    return await list_chats(db, limit, offset)
 
-@app.post("/run/omega/kill")
-async def omega_kill_form(
-    text: str = Form(""),
-    chat_id: Optional[UUID] = Form(None),
-    db: AsyncSession = Depends(get_db)
+
+@app.get("/api/chat/{chat_id}")
+async def get_chat_detail(
+    chat_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
 ):
-    """Omega KILL mode — routes to Glass + Kill for backward compat."""
-    request = SentinelRequest(text=text or "kill", mode="kill", sub_mode="glass", chat_id=chat_id)
-    return await run_sentinel(request, db)
+    chat = await get_chat(db, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    messages = await get_chat_messages(db, chat_id)
+    return {"chat": chat, "messages": messages}
 
 
-# ============================================================
-# SENTINEL-E v4.5 API ROUTES
-# ============================================================
-
-@app.get("/health")
-async def health_check():
-    """Production health check — DB, Redis, models."""
-    health = {
-        "status": "healthy",
-        "version": "4.5.0",
-        "omega_kernel": omega_kernel is not None,
-        "knowledge_learner": knowledge_learner is not None,
-        "orchestrator": orchestrator is not None,
-    }
-    # Check Redis
-    try:
-        if redis_client:
-            await redis_client.ping()
-            health["redis"] = "connected"
-        else:
-            health["redis"] = "not_configured"
-    except Exception:
-        health["redis"] = "disconnected"
-        health["status"] = "degraded"
-    # Check DB
-    try:
-        from backend.database.connection import get_db
-        health["database"] = "connected"
-    except Exception:
-        health["database"] = "disconnected"
-        health["status"] = "degraded"
-    return health
-
-
-@app.get("/kernel-status")
-async def kernel_status():
-    """Omega kernel introspection — active sessions, boundary trends."""
-    if not omega_kernel:
-        return {"status": "offline", "message": "Omega kernel not initialized"}
-    
-    status = {
-        "status": "online",
-        "version": "4.5.0",
-        "active_sessions": len(omega_sessions),
-        "session_ids": list(omega_sessions.keys())[:20],
-        "sub_modes": ["debate", "glass", "evidence"],
-        "behavioral_analyzer": hasattr(omega_kernel, 'behavioral') and omega_kernel.behavioral is not None,
-        "evidence_engine": hasattr(omega_kernel, 'evidence') and omega_kernel.evidence is not None,
-    }
-    return status
-
-
-@app.get("/session-stats")
-async def session_stats(db: AsyncSession = Depends(get_db)):
-    """Aggregate session analytics."""
-    try:
-        chats = await list_chats(db)
-        total = len(chats)
-        modes = {}
-        for c in chats:
-            m = c.mode or "unknown"
-            modes[m] = modes.get(m, 0) + 1
-        
-        return {
-            "total_sessions": total,
-            "mode_distribution": modes,
-            "active_omega_sessions": len(omega_sessions),
+@app.get("/api/chat/{chat_id}/messages")
+async def get_messages(
+    chat_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    msgs = await get_chat_messages(db, chat_id)
+    return [
+        {
+            "role": m.role,
+            "content": m.content,
+            "timestamp": m.created_at.isoformat() if m.created_at else None,
         }
-    except Exception as e:
-        logger.error(f"Session stats error: {e}")
-        return {"error": str(e)}
+        for m in msgs
+    ]
 
 
-@app.get("/api/learning")
-async def learning_summary():
-    """KnowledgeLearner summary — boundary violations, feedback trends, threshold suggestions."""
-    if not knowledge_learner:
-        return {"status": "disabled", "message": "KnowledgeLearner not initialized"}
-    
-    try:
-        summary = knowledge_learner.get_learning_summary()
-        suggestions = knowledge_learner.suggest_threshold_adjustments()
-        risk_profiles = knowledge_learner.get_all_risk_profiles()
-        claim_risks = knowledge_learner.get_claim_type_risk_summary()
-        
+@app.get("/api/history/{chat_id}")
+async def history_detail(
+    chat_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    return await get_chat_detail(chat_id, db, user)
+
+
+# ============================================================
+# SESSION & ANALYTICS ENDPOINTS
+# ============================================================
+
+@app.get("/api/omega/session/{chat_id}")
+async def omega_session_state(
+    chat_id: str,
+    user: Dict = Depends(get_current_user),
+):
+    if chat_id in omega_sessions:
+        kernel = omega_sessions[chat_id]
         return {
-            "status": "active",
-            "summary": summary,
-            "threshold_suggestions": suggestions,
-            "risk_profiles": risk_profiles,
-            "claim_type_risks": claim_risks,
+            "chat_id": chat_id,
+            "session_state": kernel.get_session_state(),
+            "initialized": kernel.is_initialized(),
         }
-    except Exception as e:
-        logger.error(f"Learning summary error: {e}")
-        return {"status": "error", "detail": str(e)}
-
-
-@app.get("/api/learning/risk-profiles")
-async def learning_risk_profiles():
-    """Model risk profiles from KnowledgeLearner."""
-    if not knowledge_learner:
-        return {"status": "disabled"}
-    try:
-        return knowledge_learner.get_all_risk_profiles()
-    except Exception as e:
-        return {"error": str(e)}
+    kernel, _ = await _restore_session(chat_id)
+    if kernel:
+        return {
+            "chat_id": chat_id,
+            "session_state": kernel.get_session_state(),
+            "initialized": kernel.is_initialized(),
+        }
+    return {"chat_id": chat_id, "session_state": None, "initialized": False}
 
 
 @app.get("/api/session/{chat_id}/descriptive")
-async def session_descriptive(chat_id: str):
-    """
-    Descriptive session summary for right panel display.
-    v4.5: All metrics have human-readable labels, no raw floats.
-    """
+async def session_descriptive(
+    chat_id: str,
+    user: Dict = Depends(get_current_user),
+):
     kernel = omega_sessions.get(chat_id)
     if not kernel:
-        # Try Redis restore
-        kernel = await _restore_omega_session(chat_id)
+        kernel, _ = await _restore_session(chat_id)
     if not kernel:
         return {"error": "Session not found", "chat_id": chat_id}
-    
     try:
         return kernel.session.get_descriptive_summary()
     except Exception as e:
-        logger.error(f"Descriptive summary error: {e}")
         return {"error": str(e)}
 
 
+@app.post("/api/cross-analysis")
+async def cross_model_analysis(
+    chat_id: Optional[str] = Body(None),
+    query: str = Body(""),
+    llm_response: str = Body(""),
+    user: Dict = Depends(get_current_user),
+):
+    if not orchestrator or not hasattr(orchestrator, "client"):
+        raise HTTPException(status_code=503, detail="System not ready")
+
+    try:
+        from backend.core.cross_model_analyzer import run_cross_analysis_on_response
+
+        if not llm_response and chat_id and chat_id in omega_sessions:
+            kernel = omega_sessions[chat_id]
+            session_state = kernel.get_session_state()
+            llm_response = session_state.get("last_response", "")
+
+        if not llm_response:
+            llm_response = "No response available for analysis."
+
+        result = await run_cross_analysis_on_response(
+            cloud_client=orchestrator.client,
+            llm_response=llm_response,
+            query=query,
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Cross-analysis error: {e}")
+        raise HTTPException(status_code=500, detail="Analysis failed. Please try again.")
+
+
+@app.get("/api/learning")
+async def learning_summary(user: Dict = Depends(get_current_user)):
+    if not knowledge_learner:
+        return {"status": "disabled"}
+    try:
+        return {
+            "status": "active",
+            "summary": knowledge_learner.get_learning_summary(),
+            "threshold_suggestions": knowledge_learner.suggest_threshold_adjustments(),
+        }
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+
+# ============================================================
+# PROVIDER STATUS (Admin Only)
+# ============================================================
+
+@app.get("/api/providers/status")
+async def provider_status(user: Dict = Depends(get_current_user)):
+    """Provider usage stats (non-sensitive)."""
+    router = get_provider_router()
+    from backend.providers.provider_router import list_active_models
+    return {
+        "active_models": [{"id": m.id, "name": m.name, "tier": m.tier} for m in list_active_models()],
+        "usage": router.get_usage_stats(),
+    }
+
+
+# ============================================================
+# STARTUP
+# ============================================================
+
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

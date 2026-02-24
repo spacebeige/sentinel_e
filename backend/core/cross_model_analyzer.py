@@ -8,18 +8,18 @@ Pipeline (no user input required — self-triggering on glass mode):
 
   INDIVIDUAL ANALYSES:
     Step 1: Qwen analyzes Groq         → Groq behavioral profile
-    Step 2: Groq analyzes Mistral       → Mistral behavioral profile
-    Step 3: Mistral analyzes Qwen       → Qwen behavioral profile
-    Step 4: Groq analyzes QwenVL        → QwenVL behavioral profile
-    Step 5: Mistral analyzes Groq       → Groq behavioral profile (2nd opinion)
+    Step 2: Groq analyzes Llama70B     → Llama70B behavioral profile
+    Step 3: Llama70B analyzes Qwen     → Qwen behavioral profile
+    Step 4: Groq analyzes QwenVL       → QwenVL behavioral profile
+    Step 5: Llama70B analyzes Groq     → Groq behavioral profile (2nd opinion)
 
   CONSENSUS ANALYSES (pairs):
-    Step 6: Groq + Mistral analyze Qwen   → Qwen consensus profile
-    Step 7: Qwen + Mistral analyze Groq   → Groq consensus profile
-    Step 8: Groq + Qwen analyze Mistral   → Mistral consensus profile
+    Step 6: Groq + Llama70B analyze Qwen   → Qwen consensus profile
+    Step 7: Qwen + Llama70B analyze Groq   → Groq consensus profile
+    Step 8: Groq + Qwen analyze Llama70B   → Llama70B consensus profile
 
-Models being analyzed: Groq (LLaMA 3.1), Mistral Small, Qwen 2.5, QwenVL
-Analyzer models: Groq, Mistral, Qwen (rotate roles)
+Models being analyzed: Groq (LLaMA 3.1), Llama 3.3 70B, Qwen 2.5, QwenVL
+Analyzer models: Groq, Llama70B, Qwen (rotate roles)
 """
 
 import asyncio
@@ -53,18 +53,18 @@ ANALYSIS_STEPS = [
         "type": "individual",
         "analyzer": "Groq (LLaMA 3.1)",
         "analyzer_id": "groq",
-        "subject": "Mistral Small",
-        "subject_id": "mistral",
-        "description": "Groq analyzes Mistral's behavioral patterns",
+        "subject": "Llama 3.3 70B",
+        "subject_id": "llama70b",
+        "description": "Groq analyzes Llama70B's behavioral patterns",
     },
     {
         "step": 3,
         "type": "individual",
-        "analyzer": "Mistral Small",
-        "analyzer_id": "mistral",
+        "analyzer": "Llama 3.3 70B",
+        "analyzer_id": "llama70b",
         "subject": "Qwen 2.5",
         "subject_id": "qwen",
-        "description": "Mistral analyzes Qwen's behavioral patterns",
+        "description": "Llama70B analyzes Qwen's behavioral patterns",
     },
     {
         "step": 4,
@@ -78,46 +78,46 @@ ANALYSIS_STEPS = [
     {
         "step": 5,
         "type": "individual",
-        "analyzer": "Mistral Small",
-        "analyzer_id": "mistral",
+        "analyzer": "Llama 3.3 70B",
+        "analyzer_id": "llama70b",
         "subject": "Groq (LLaMA 3.1)",
         "subject_id": "groq",
-        "description": "Mistral analyzes Groq's behavioral patterns (2nd opinion)",
+        "description": "Llama70B analyzes Groq's behavioral patterns (2nd opinion)",
     },
     # Consensus analyses
     {
         "step": 6,
         "type": "consensus",
-        "analyzers": ["Groq (LLaMA 3.1)", "Mistral Small"],
-        "analyzer_ids": ["groq", "mistral"],
+        "analyzers": ["Groq (LLaMA 3.1)", "Llama 3.3 70B"],
+        "analyzer_ids": ["groq", "llama70b"],
         "subject": "Qwen 2.5",
         "subject_id": "qwen",
-        "description": "Groq + Mistral consensus analysis of Qwen",
+        "description": "Groq + Llama70B consensus analysis of Qwen",
     },
     {
         "step": 7,
         "type": "consensus",
-        "analyzers": ["Qwen 2.5", "Mistral Small"],
-        "analyzer_ids": ["qwen", "mistral"],
+        "analyzers": ["Qwen 2.5", "Llama 3.3 70B"],
+        "analyzer_ids": ["qwen", "llama70b"],
         "subject": "Groq (LLaMA 3.1)",
         "subject_id": "groq",
-        "description": "Qwen + Mistral consensus analysis of Groq",
+        "description": "Qwen + Llama70B consensus analysis of Groq",
     },
     {
         "step": 8,
         "type": "consensus",
         "analyzers": ["Groq (LLaMA 3.1)", "Qwen 2.5"],
         "analyzer_ids": ["groq", "qwen"],
-        "subject": "Mistral Small",
-        "subject_id": "mistral",
-        "description": "Groq + Qwen consensus analysis of Mistral",
+        "subject": "Llama 3.3 70B",
+        "subject_id": "llama70b",
+        "description": "Groq + Qwen consensus analysis of Llama70B",
     },
 ]
 
 # Models being analyzed in this pipeline
 ANALYZED_MODELS = [
     {"id": "groq", "name": "Groq (LLaMA 3.1)", "color": "#3b82f6", "analyzed_in_steps": [1, 5, 7]},
-    {"id": "mistral", "name": "Mistral Small", "color": "#f97316", "analyzed_in_steps": [2, 8]},
+    {"id": "llama70b", "name": "Llama 3.3 70B", "color": "#6366f1", "analyzed_in_steps": [2, 8]},
     {"id": "qwen", "name": "Qwen 2.5", "color": "#8b5cf6", "analyzed_in_steps": [3, 6]},
     {"id": "qwenvl", "name": "QwenVL", "color": "#06b6d4", "analyzed_in_steps": [4]},
 ]
@@ -200,7 +200,7 @@ OUTPUT FORMAT (JSON only, no markdown):
 class CrossModelAnalyzer:
     """
     Runs the 8-step cross-model behavioral analysis pipeline.
-    Requires a CloudModelClient with call_groq, call_mistral, call_qwenvl.
+    Requires a CloudModelClient with call_groq, call_llama70b, call_qwenvl.
     Automatically triggered in glass mode (no user input).
     """
 
@@ -208,7 +208,7 @@ class CrossModelAnalyzer:
         self.client = cloud_client
         self.model_callers = {
             "groq": self.client.call_groq,
-            "mistral": self.client.call_mistral,
+            "llama70b": self.client.call_llama70b,
             "qwen": self.client.call_qwenvl,
             "qwenvl": self.client.call_qwenvl,
         }
@@ -223,7 +223,7 @@ class CrossModelAnalyzer:
 
         Args:
             subject_outputs: Dict mapping model_id to their response text.
-                e.g. {"groq": "Groq's response...", "mistral": "Mistral's response...", 
+                e.g. {"groq": "Groq's response...", "llama70b": "Llama70B's response...", 
                        "qwen": "Qwen's response...", "qwenvl": "QwenVL's response..."}
             timeout_per_step: Max seconds per analysis call.
 
@@ -555,7 +555,7 @@ Provide your analysis covering: accuracy, completeness, potential biases, missin
     # Run all models in parallel to get their "subject outputs" 
     tasks = {
         "groq": cloud_client.call_groq(analysis_prompt, system_role="You are an AI response auditor."),
-        "mistral": cloud_client.call_mistral(analysis_prompt, system_role="You are an AI response auditor."),
+        "llama70b": cloud_client.call_llama70b(analysis_prompt, system_role="You are an AI response auditor."),
         "qwen": cloud_client.call_qwenvl(analysis_prompt, system_role="You are an AI response auditor."),
         "qwenvl": cloud_client.call_qwenvl(analysis_prompt, system_role="You are a visual-analytical AI response auditor."),
     }

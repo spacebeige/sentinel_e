@@ -94,13 +94,13 @@ QUERY:
 
         roles = {
             "Groq": "Fast intuitive responder",
-            "Mistral": "Analytical and cautious reasoner",
+            "Llama70B": "Analytical and cautious reasoner",
             "Qwen": "Detail-oriented explainer"
         }
 
         responses: List[ModelResponse] = await asyncio.gather(
             self._query_model(self.cloud.call_groq, "Groq", roles["Groq"], query),
-            self._query_model(self.cloud.call_mistral, "Mistral", roles["Mistral"], query),
+            self._query_model(self.cloud.call_llama70b, "Llama70B", roles["Llama70B"], query),
             self._query_model(self.cloud.call_qwen, "Qwen", roles["Qwen"], query),
         )
 
@@ -129,7 +129,7 @@ QUERY:
         # ---------------------------------
 
         conflict_prompt = self._build_conflict_prompt(responses)
-        arbitrated_answer = await self.cloud.call_mistral(conflict_prompt)
+        arbitrated_answer = await self.cloud.call_llama70b(conflict_prompt)
 
         # ---------------------------------
         # Output package

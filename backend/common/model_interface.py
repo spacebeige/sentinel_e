@@ -23,7 +23,6 @@ class ModelInterface:
 
     def __init__(self):
         self.groq_api_key = os.getenv("GROQ_API_KEY")
-        self.mistral_api_key = os.getenv("MISTRAL_API_KEY")
         self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
         # Local model - always initialize (will work in simulated mode if no model files present)
         self.local_llm = None
@@ -59,17 +58,26 @@ class ModelInterface:
             temperature
         )
 
-    async def call_mistral(self, prompt: str, system_role: str = "You are a helpful assistant.", temperature: float = 0.2) -> str:
+    async def call_llama70b(self, prompt: str, system_role: str = "You are a rigorous analytical reasoning assistant.", temperature: float = 0.4, max_tokens: int = 2048) -> str:
         """
-        Calls the official Mistral API.
+        Calls Llama 3.3 70B via Groq API — primary reasoning model.
+        Replaces Mistral in the model stack.
+
+        Supports:
+        - Structured memory injection (via system_role)
+        - RAG context injection (via prompt)
+        - Mode-aware temperature (Standard: 0.3-0.5, Debate: 0.7, Evidence: 0.2-0.4, Glass: 0.3)
+        - Adaptive token budgeting via max_tokens
         """
         return await asyncio.to_thread(self._sync_request,
-            "https://api.mistral.ai/v1/chat/completions",
-            self.mistral_api_key,
-            "mistral-small-latest",
+            "https://api.groq.com/openai/v1/chat/completions",
+            self.groq_api_key,
+            "llama-3.3-70b-versatile",
             prompt,
             system_role,
-            temperature
+            temperature,
+            None,  # extra_headers
+            max_tokens,
         )
 
     async def call_openrouter(self, prompt: str, system_role: str = "You are a helpful assistant.") -> str:
@@ -86,7 +94,7 @@ class ModelInterface:
             {"HTTP-Referer": "http://localhost:3000", "X-Title": "Sentinel-E"}
         )
 
-    def _sync_request(self, url, api_key, model, prompt, system_role, temperature, extra_headers=None):
+    def _sync_request(self, url, api_key, model, prompt, system_role, temperature, extra_headers=None, max_tokens=None):
         if not api_key:
             return f"API Key missing for {model}"
             
@@ -105,6 +113,8 @@ class ModelInterface:
             ],
             "temperature": temperature,
         }
+        if max_tokens:
+            payload["max_tokens"] = max_tokens
         
         try:
             resp = requests.post(url, headers=headers, json=payload, timeout=30)

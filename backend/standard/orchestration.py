@@ -88,13 +88,13 @@ class StandardOrchestrator:
             return self.refusal.get_refusal_message()
 
 
-        # 2. Cloud Model Calls (Groq, Mistral, Qwen)
+        # 2. Cloud Model Calls (Groq, Llama 3.3 70B, Qwen)
         from backend.standard.prompts import STANDARD_SYSTEM_PROMPT
         current_date_str = datetime.now().strftime("%Y-%m-%d")
         system_prompt = f"{STANDARD_SYSTEM_PROMPT}\nThe current date is {current_date_str}."
         cloud_tasks = [
             self.models.call_groq(input_text, system_role=system_prompt),
-            self.models.call_mistral(input_text, system_role=system_prompt),
+            self.models.call_llama70b(input_text, system_role=system_prompt),
             self.models.call_openrouter(input_text, system_role=system_prompt)
         ]
         cloud_results = await asyncio.gather(*cloud_tasks)

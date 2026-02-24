@@ -55,8 +55,10 @@ REDIS_PORT = os.getenv("REDIS_PORT", "6379")
 REDIS_DB = os.getenv("REDIS_DB", "0")
 
 # SQLAlchemy Async Engine
-print(f"Connecting to DB: {DATABASE_URL}")
-print(f"Connect Args: {connect_args}")
+import logging
+_db_logger = logging.getLogger("Database")
+_db_logger.info("Connecting to database...")
+# SECURITY: Never log connection strings or credentials
 
 # PostgreSQL Async Engine Configuration
 from sqlalchemy.pool import NullPool

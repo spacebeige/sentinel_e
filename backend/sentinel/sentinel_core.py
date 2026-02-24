@@ -88,8 +88,8 @@ class SentinelLLM:
     async def _call_model(self, model_name: str, prompt: str) -> str:
         if model_name == "groq":
             return await self.client.call_groq(prompt)
-        if model_name == "mistral":
-            return await self.client.call_mistral(prompt)
+        if model_name == "llama70b":
+            return await self.client.call_llama70b(prompt)
         if model_name == "qwen":
             return await self.client.call_qwenvl(prompt)
         raise ValueError(f"Unknown model: {model_name}")
@@ -285,7 +285,7 @@ async def main():
     print("\n=== MODE A: CROSS-MODEL ESCALATION ===")
     res_a = await sentinel.mode_a_cross_model(
         primary_model="qwen",
-        reviewer_models=["mistral", "groq"],
+        reviewer_models=["llama70b", "groq"],
         prompt=ESCALATION_PROMPTS[0],
     )
     print(res_a)

@@ -486,7 +486,7 @@ class KnowledgeLearner:
     def get_all_model_weights(self) -> Dict[str, float]:
         """Get adaptive weights for all known models."""
         weights = {}
-        known_models = ["groq", "mistral", "qwen", "Groq", "Mistral", "Qwen"]
+        known_models = ["groq", "llama70b", "qwen", "Groq", "Llama70B", "Qwen"]
         
         for model_name in known_models:
             weights[model_name.lower()] = self.get_model_weight(model_name)

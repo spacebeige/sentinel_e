@@ -42,6 +42,13 @@ from backend.core.debate_orchestrator import DebateOrchestrator
 from backend.core.confidence_engine import ConfidenceEngine, ConfidenceTrace
 from backend.core.stress_engine import StressEngine
 
+# v4 Engine Modules — Production Cognitive Governance
+from backend.engines.aggregation_engine import AggregationEngine
+from backend.engines.forensic_evidence_engine import ForensicEvidenceEngine
+from backend.engines.blind_audit_engine import BlindAuditEngine
+from backend.engines.dynamic_boundary import DynamicBoundaryEngine
+from backend.engines.mode_controller import resolve_execution_mode, detect_evidence_trigger
+
 logger = logging.getLogger("Omega-Kernel")
 
 
@@ -125,14 +132,21 @@ class OmegaCognitiveKernel:
         self.confidence_engine = ConfidenceEngine()
         self.debate = None
         self.stress = None
+        self.aggregation = None
+        self.forensic = None
+        self.audit = None
         self._initialized = False
 
         # Initialize model-dependent engines
         if self.sigma and hasattr(self.sigma, 'client'):
             self.debate = DebateOrchestrator(self.sigma.client)
             self.stress = StressEngine(self.sigma.client)
+            # v4 Production Engines
+            self.aggregation = AggregationEngine(self.sigma.client)
+            self.forensic = ForensicEvidenceEngine(self.sigma.client)
+            self.audit = BlindAuditEngine(self.sigma.client)
 
-        logger.info("Omega Cognitive Kernel v3.X initialized.")
+        logger.info("Omega Cognitive Kernel v4.0 initialized — Production engines active.")
 
     # ============================================================
     # SESSION PERSISTENCE
@@ -198,6 +212,23 @@ class OmegaCognitiveKernel:
         else:
             is_first = False
 
+        # 1b. Trigger Word Detection — Standard mode → Evidence override (Section 7)
+        if config.is_standard and detect_evidence_trigger(config.text):
+            logger.info(
+                f"Evidence trigger detected in Standard mode — routing to Evidence. "
+                f"Input: '{config.text[:60]}...'"
+            )
+            config = ModeConfig(
+                text=config.text,
+                mode=Mode.RESEARCH,
+                sub_mode=SubMode.EVIDENCE,
+                chat_id=config.chat_id,
+                history=config.history,
+                rounds=config.rounds,
+                enable_shadow=config.enable_shadow,
+                adaptive_learning=config.adaptive_learning,
+            )
+
         # 2. Mode Routing
         if config.is_standard:
             return await self._process_standard(config, is_first)
@@ -219,18 +250,18 @@ class OmegaCognitiveKernel:
 
     async def _process_standard(self, config: ModeConfig, is_first: bool) -> Dict[str, Any]:
         """
-        STANDARD mode: ONE coherent answer, ONE confidence score, ONE risk explanation.
-
-        No duplicate summaries. No multiple narrative sections. No raw telemetry.
+        STANDARD mode v4: TRUE parallel 3-model aggregation.
 
         Pipeline:
         1. Multi-pass pre-analysis
-        2. LLM execution via Sigma
-        3. Multi-pass post-analysis
-        4. Boundary evaluation
-        5. Confidence computation (mathematically defensible)
-        6. Learning-adjusted weighting
-        7. Single formatted output
+        2. Parallel execution: Groq + Llama 3.3 70B + Qwen via AggregationEngine
+        3. Divergence computation + synthesis generation
+        4. Multi-pass post-analysis
+        5. Dynamic boundary evaluation (computed, not hardcoded)
+        6. Confidence aggregation (mathematically defensible)
+        7. Single formatted output with cross-model data
+        
+        NO debate. NO sequential single-model calls. NO stale state.
         """
         trace = ConfidenceTrace()
 
@@ -241,17 +272,31 @@ class OmegaCognitiveKernel:
         initial_confidence = pre_analysis.get("initial_confidence", 0.5)
         trace.record_stage("initial", initial_confidence, "Pre-analysis baseline")
 
-        # LLM Execution
-        llm_result = None
+        # PARALLEL 3-MODEL AGGREGATION (v4 engine)
+        aggregation_result = None
         llm_text = ""
-        if self.sigma:
+        aggregation_dict = {}
+
+        if self.aggregation:
+            aggregation_result = await self.aggregation.run_parallel_aggregation(
+                query=config.text, history=config.history or []
+            )
+            llm_text = aggregation_result.synthesis
+            aggregation_dict = aggregation_result.to_dict()
+            
+            trace.record_stage(
+                "post_aggregation",
+                aggregation_result.confidence_aggregation,
+                f"Parallel aggregation: {aggregation_result.models_succeeded}/3 succeeded, "
+                f"divergence={aggregation_result.divergence_score:.3f}"
+            )
+        elif self.sigma:
+            # Fallback: legacy single-model if engine not available
             from backend.sentinel.sentinel_sigma_v4 import SigmaV4Config
             sigma_config = SigmaV4Config(
-                text=config.text,
-                mode="conversational",
+                text=config.text, mode="conversational",
                 enable_shadow=config.enable_shadow,
-                rounds=config.rounds,
-                chat_id=config.chat_id,
+                rounds=config.rounds, chat_id=config.chat_id,
                 history=config.history,
             )
             llm_result = await self.sigma.run_sentinel(sigma_config)
@@ -262,22 +307,31 @@ class OmegaCognitiveKernel:
         # PASS 5-9: Post-generation analysis
         post_analysis = self.reasoning.execute_post_passes(llm_text, pre_analysis)
 
-        # Boundary Evaluation
-        boundary_result = self.boundary.evaluate(
-            config.text,
-            context_observations=[llm_text[:500]] if llm_text else [],
-            session_data=self.session.get_state_dict(),
-        )
+        # DYNAMIC BOUNDARY (v4 — computed, not hardcoded)
+        if aggregation_result:
+            boundary_data = DynamicBoundaryEngine.compute_severity(
+                evidence_confidence=aggregation_result.confidence_aggregation,
+                model_divergence=aggregation_result.divergence_score,
+                model_confidences=list(aggregation_result.confidence_per_model.values()),
+                failed_models=aggregation_result.models_failed,
+            )
+        else:
+            boundary_data = self.boundary.evaluate(
+                config.text,
+                context_observations=[llm_text[:500]] if llm_text else [],
+                session_data=self.session.get_state_dict(),
+            )
+
         trace.record_stage(
             "post_boundary",
             post_analysis.get("final_confidence", 0.5),
-            f"Boundary severity: {boundary_result.get('severity_score', 0)}"
+            f"Boundary severity: {boundary_data.get('severity_score', 0)}"
         )
 
         # Session Update
         self.session.update(
             config.text, config.mode.value,
-            boundary_result=boundary_result,
+            boundary_result=boundary_data,
         )
         session_state = self.session.get_state_dict()
 
@@ -286,25 +340,34 @@ class OmegaCognitiveKernel:
         if config.adaptive_learning and self.knowledge_learner:
             model_weight = self.knowledge_learner.get_model_weight("groq")
 
-        # Confidence Computation (mathematically defensible)
-        confidence_components = self.confidence_engine.compute_standard(
-            base_confidence=post_analysis.get("final_confidence", 0.5),
-            boundary_result=boundary_result,
-            session_state=session_state,
-            model_weight=model_weight,
-        )
-        final_confidence = confidence_components.final_confidence
+        # Confidence (use aggregation confidence if available, else legacy)
+        if aggregation_result:
+            final_confidence = aggregation_result.confidence_aggregation
+            # Apply boundary penalty
+            boundary_penalty = boundary_data.get("severity_score", 0) / 200.0
+            final_confidence = max(0.05, min(0.95, final_confidence - boundary_penalty))
+        else:
+            confidence_components = self.confidence_engine.compute_standard(
+                base_confidence=post_analysis.get("final_confidence", 0.5),
+                boundary_result=boundary_data,
+                session_state=session_state,
+                model_weight=model_weight,
+            )
+            final_confidence = confidence_components.final_confidence
+
         trace.record_stage("final", final_confidence, "After all adjustments")
 
-        # Risk explanation (1-2 sentences)
+        # Risk explanation
         risk_explanation = self._generate_risk_explanation(
-            boundary_result, confidence_components, session_state
+            boundary_data,
+            None,  # confidence_components may not exist
+            session_state
         )
 
         # Decomposition
         decomposition = self._build_decomposition(pre_analysis)
 
-        # Structured Output — single coherent answer
+        # Structured Output
         formatter_data = {
             "is_first_message": is_first,
             "chat_name": session_state.get("chat_name"),
@@ -314,8 +377,8 @@ class OmegaCognitiveKernel:
             "logical_gaps": pre_analysis.get("gaps", {}),
             "solution": llm_text,
             "boundary": {
-                "risk_level": boundary_result.get("risk_level", "LOW"),
-                "severity_score": boundary_result.get("severity_score", 0),
+                "risk_level": boundary_data.get("risk_level", "LOW"),
+                "severity_score": boundary_data.get("severity_score", 0),
                 "explanation": risk_explanation,
             },
             "session": {
@@ -336,16 +399,28 @@ class OmegaCognitiveKernel:
         else:
             formatted = self.formatter.format_standard(formatter_data)
 
+        # Build omega_metadata with aggregation data for frontend
+        omega_metadata = {}
+        if aggregation_result:
+            omega_metadata["aggregation_result"] = aggregation_dict
+            omega_metadata["pipeline_steps"] = [
+                {"step": "parallel_execution", "label": "Running 3 Models in Parallel", "status": "complete"},
+                {"step": "divergence", "label": "Computing Cross-Model Divergence", "status": "complete"},
+                {"step": "synthesis", "label": "Generating Synthesis", "status": "complete"},
+                {"step": "boundary", "label": "Computing Dynamic Boundary", "status": "complete"},
+            ]
+
         return {
             "formatted_output": formatted,
             "mode": "standard",
             "chat_id": config.chat_id,
             "chat_name": session_state.get("chat_name", "Standard Analysis"),
             "session_state": session_state,
-            "boundary_result": boundary_result,
+            "boundary_result": boundary_data,
             "reasoning_trace": post_analysis.get("trace_summary", {}),
             "confidence": final_confidence,
-            "llm_result": llm_result,
+            "omega_metadata": omega_metadata,
+            "llm_result": None,
         }
 
     # ============================================================
@@ -354,7 +429,7 @@ class OmegaCognitiveKernel:
 
     async def _process_debate(self, config: ModeConfig, is_first: bool) -> Dict[str, Any]:
         """
-        DEBATE sub-mode: Named models (Qwen, Groq, Mistral), role assignment,
+        DEBATE sub-mode: Named models (Qwen, Groq, Llama 3.3 70B), role assignment,
         iterative rounds with cross-model awareness, disagreement quantification.
 
         Pipeline:
@@ -529,24 +604,23 @@ class OmegaCognitiveKernel:
 
     async def _process_glass(self, config: ModeConfig, is_first: bool = False) -> Dict[str, Any]:
         """
-        GLASS sub-mode: Interpretive analysis console.
+        GLASS sub-mode v4: Blind Cross-Model Forensic Audit.
 
-        Exposes: confidence pipeline, boundary reasoning, disagreement analysis,
-        fragility score, behavioral risk profile, session intelligence metrics.
-        Every metric includes interpretation.
+        Steps:
+        1. Each model generates independent response
+        2. Each model blindly evaluates another's output (no identity revealed)
+        3. Extract: coherence, hidden assumptions, bias, confidence inflation, persuasion
+        4. Compute cross-model tactical map
+        5. Dynamic boundary + trust scoring
+        6. Formatted output with per-model forensic assessments
 
-        When config.kill_override=True: KILL diagnostic (inside GLASS only).
-          - Disables learning adjustments
-          - Disables boundary penalties
-          - Disables fragility penalties
-          - Shows raw model outputs and base confidence
-          - Does NOT modify state
+        When config.kill_override=True: KILL diagnostic (unchanged — inside GLASS only).
         """
-        # --- KILL OVERRIDE (diagnostic inside Glass) ---
+        # --- KILL OVERRIDE (diagnostic inside Glass, unchanged) ---
         if config.is_kill:
             return await self._process_kill_diagnostic(config)
 
-        # --- GLASS ANALYSIS ---
+        # --- BLIND AUDIT (v4 engine) ---
         trace = ConfidenceTrace()
 
         # PASS 1-4: Pre-analysis
@@ -556,71 +630,129 @@ class OmegaCognitiveKernel:
         initial_conf = pre_analysis.get("initial_confidence", 0.5)
         trace.record_stage("initial", initial_conf, "Pre-analysis baseline")
 
-        # LLM Execution
-        llm_result = None
+        # BLIND CROSS-MODEL AUDIT
+        audit_result = None
+        audit_dict = {}
         llm_text = ""
-        if self.sigma:
-            from backend.sentinel.sentinel_sigma_v4 import SigmaV4Config
-            sigma_config = SigmaV4Config(
-                text=config.text, mode="experimental",
-                enable_shadow=config.enable_shadow,
-                rounds=config.rounds, chat_id=config.chat_id,
-                history=config.history,
-            )
-            llm_result = await self.sigma.run_sentinel(sigma_config)
-            llm_text = llm_result.data.get("priority_answer", "")
-        else:
-            llm_text = "[ANALYSIS-ONLY MODE]"
 
-        # PASS 5-9: Post-analysis
+        if self.audit:
+            audit_result = await self.audit.run_blind_audit(
+                query=config.text, history=config.history or []
+            )
+            audit_dict = audit_result.to_dict()
+            
+            # Build structured output from audit
+            llm_text = "## 🧠 Blind Forensic Audit Results\n\n"
+            
+            for assessment in audit_result.assessments:
+                llm_text += f"### 🧠 {assessment.auditor_name} Forensic Assessment\n"
+                llm_text += f"**Subject**: {assessment.subject_name}\n\n"
+                llm_text += f"| Metric | Score |\n|---|---|\n"
+                llm_text += f"| Logical Coherence | {assessment.logical_coherence:.0%} |\n"
+                llm_text += f"| Hidden Assumptions | {assessment.hidden_assumptions:.0%} |\n"
+                llm_text += f"| Bias Patterns | {assessment.bias_patterns:.0%} |\n"
+                llm_text += f"| Confidence Inflation | {assessment.confidence_inflation:.0%} |\n"
+                llm_text += f"| Persuasion Tactics | {assessment.persuasion_tactics:.0%} |\n"
+                llm_text += f"| Evidence Quality | {assessment.evidence_quality:.0%} |\n"
+                llm_text += f"| Trust Score | {assessment.trust_score:.0%} |\n\n"
+                
+                if assessment.weak_points:
+                    llm_text += f"**Weak Points**: {'; '.join(assessment.weak_points[:3])}\n\n"
+                if assessment.risk_factors:
+                    llm_text += f"**Risk Factors**: {'; '.join(assessment.risk_factors[:3])}\n\n"
+
+            # Tactical map
+            if audit_result.tactical_map.get("model_profiles"):
+                llm_text += "### Cross-Model Tactical Map\n\n"
+                for model_id, profile in audit_result.tactical_map["model_profiles"].items():
+                    llm_text += f"**{profile.get('model_name', model_id)}**: "
+                    llm_text += f"Trust={profile.get('avg_trust', 0):.0%}, "
+                    llm_text += f"Bias={profile.get('avg_bias', 0):.0%}, "
+                    llm_text += f"Inflation={profile.get('avg_confidence_inflation', 0):.0%}\n"
+
+                if audit_result.tactical_map.get("highest_risk_model"):
+                    llm_text += f"\n⚠️ **Highest Risk**: {audit_result.tactical_map['highest_risk_model']}\n"
+                if audit_result.tactical_map.get("most_trustworthy_model"):
+                    llm_text += f"✅ **Most Trustworthy**: {audit_result.tactical_map['most_trustworthy_model']}\n"
+
+            trace.record_stage(
+                "post_audit",
+                audit_result.overall_trust,
+                f"Blind audit: {len(audit_result.assessments)} assessments, "
+                f"trust={audit_result.overall_trust:.3f}, risk={audit_result.consensus_risk}"
+            )
+        else:
+            # Fallback: legacy glass behavior
+            if self.sigma:
+                from backend.sentinel.sentinel_sigma_v4 import SigmaV4Config
+                sigma_config = SigmaV4Config(
+                    text=config.text, mode="experimental",
+                    enable_shadow=config.enable_shadow,
+                    rounds=config.rounds, chat_id=config.chat_id,
+                    history=config.history,
+                )
+                llm_result = await self.sigma.run_sentinel(sigma_config)
+                llm_text = llm_result.data.get("priority_answer", "")
+
+        # POST-PASSES
         post_analysis = self.reasoning.execute_post_passes(llm_text, pre_analysis)
 
-        # Boundary Evaluation
-        boundary_result = self.boundary.evaluate(
-            config.text,
-            context_observations=[llm_text[:500]] if llm_text else [],
-            session_data=self.session.get_state_dict(),
-        )
+        # DYNAMIC BOUNDARY (v4)
+        if audit_result:
+            boundary_data = DynamicBoundaryEngine.compute_severity(
+                evidence_confidence=audit_result.overall_trust,
+                model_divergence=1.0 - audit_result.overall_trust,
+                model_confidences=[a.trust_score for a in audit_result.assessments],
+            )
+        else:
+            boundary_data = self.boundary.evaluate(
+                config.text,
+                context_observations=[llm_text[:500]] if llm_text else [],
+                session_data=self.session.get_state_dict(),
+            )
+
         trace.record_stage(
             "post_boundary",
             post_analysis.get("final_confidence", 0.5),
-            f"Boundary severity: {boundary_result.get('severity_score', 0)}"
+            f"Boundary severity: {boundary_data.get('severity_score', 0)}"
         )
 
-        # Behavioral Analytics (full profile)
+        # Behavioral Analytics
         behavioral_profile = self.behavioral.analyze(
             text=config.text,
             llm_output=llm_text,
             shadow_result=None,
             context=self.session.get_state_dict(),
         )
-
-        # Update session with behavioral risk
         self.session.update_behavioral_risk(behavioral_profile.to_dict())
 
         # Session Update
         self.session.update(
             config.text, config.mode.value,
-            boundary_result=boundary_result,
+            boundary_result=boundary_data,
         )
         session_state = self.session.get_state_dict()
 
-        # Model weight (adaptive learning)
-        model_weight = 1.0
-        if config.adaptive_learning and self.knowledge_learner:
-            model_weight = self.knowledge_learner.get_model_weight("groq")
+        # Confidence
+        if audit_result:
+            final_conf = audit_result.overall_trust
+            boundary_penalty = boundary_data.get("severity_score", 0) / 200.0
+            final_conf = max(0.05, min(0.95, final_conf - boundary_penalty))
+        else:
+            model_weight = 1.0
+            if config.adaptive_learning and self.knowledge_learner:
+                model_weight = self.knowledge_learner.get_model_weight("groq")
+            confidence_components = self.confidence_engine.compute_standard(
+                base_confidence=post_analysis.get("final_confidence", 0.5),
+                boundary_result=boundary_data,
+                session_state=session_state,
+                model_weight=model_weight,
+            )
+            final_conf = confidence_components.final_confidence
 
-        # Confidence Computation (full component visibility)
-        confidence_components = self.confidence_engine.compute_standard(
-            base_confidence=post_analysis.get("final_confidence", 0.5),
-            boundary_result=boundary_result,
-            session_state=session_state,
-            model_weight=model_weight,
-        )
-        final_conf = confidence_components.final_confidence
         trace.record_stage("final", final_conf, "After all adjustments")
 
-        # Format glass output (every metric includes interpretation)
+        # Format glass output
         formatter_data = {
             "session": {
                 "primary_goal": session_state.get("primary_goal", "Analysis"),
@@ -628,29 +760,31 @@ class OmegaCognitiveKernel:
                 "user_expertise_score": session_state.get("user_expertise_score", 0.5),
             },
             "boundary": {
-                "risk_level": boundary_result.get("risk_level", "LOW"),
-                "severity_score": boundary_result.get("severity_score", 0),
-                "explanation": boundary_result.get("explanation", ""),
+                "risk_level": boundary_data.get("risk_level", "LOW"),
+                "severity_score": boundary_data.get("severity_score", 0),
+                "explanation": boundary_data.get("explanation", ""),
             },
             "behavioral_risk": behavioral_profile.to_dict(),
             "confidence_evolution": trace.to_dict(),
-            "confidence_components": confidence_components.to_dict(),
             "fragility": {
                 "score": session_state.get("fragility_index", 0.0),
                 "explanation": self._fragility_explanation(session_state.get("fragility_index", 0.0)),
-                "formula": "0.4 * disagreement + 0.3 * boundary_severity + 0.2 * evidence_contradictions + 0.1 * confidence_volatility",
-            },
-            "session_intelligence": {
-                "cognitive_drift": session_state.get("cognitive_drift_score", 0.0),
-                "topic_stability": session_state.get("topic_stability_score", 1.0),
-                "confidence_volatility": session_state.get("confidence_volatility_index", 0.0),
-                "behavioral_risk_accumulator": session_state.get("behavioral_risk_accumulator", 0.0),
-                "model_reliability_scores": session_state.get("model_reliability_scores", {}),
             },
             "severity_trend": self.boundary.get_trend(),
             "synthesis": llm_text,
         }
         formatted = self.formatter.format_glass(formatter_data)
+
+        # Build omega_metadata with audit data
+        omega_metadata = {
+            "audit_result": audit_dict,
+            "pipeline_steps": [],
+        }
+        if audit_result:
+            omega_metadata["pipeline_steps"] = [
+                {"step": p.get("name", ""), "label": p.get("name", ""), "status": p.get("status", "")}
+                for p in audit_result.phase_log
+            ]
 
         return {
             "formatted_output": formatted,
@@ -658,16 +792,16 @@ class OmegaCognitiveKernel:
             "sub_mode": "glass",
             "kill_active": False,
             "chat_id": config.chat_id,
-            "chat_name": session_state.get("chat_name", "Glass Analysis"),
+            "chat_name": session_state.get("chat_name", "Blind Forensic Audit"),
             "session_state": session_state,
-            "boundary_result": boundary_result,
+            "boundary_result": boundary_data,
             "behavioral_risk": behavioral_profile.to_dict(),
             "reasoning_trace": post_analysis.get("trace_summary", {}),
             "confidence": final_conf,
-            "confidence_components": confidence_components.to_dict(),
             "confidence_evolution": trace.to_dict(),
             "fragility_index": session_state.get("fragility_index", 0.0),
-            "llm_result": llm_result,
+            "omega_metadata": omega_metadata,
+            "llm_result": None,
         }
 
     async def _process_kill_diagnostic(self, config: ModeConfig) -> Dict[str, Any]:
@@ -733,14 +867,16 @@ class OmegaCognitiveKernel:
 
     async def _process_evidence(self, config: ModeConfig, is_first: bool) -> Dict[str, Any]:
         """
-        EVIDENCE sub-mode: Research-grade evidence analysis.
+        EVIDENCE sub-mode v4: 5-Phase Triangular Forensic Pipeline.
 
         Pipeline:
-        1. Pre-analysis
-        2. LLM execution (for answer generation)
-        3. Full evidence analysis (claim extraction, source mapping, traceability)
-        4. Confidence adjusted by evidence strength
-        5. Formatted output
+        1. Phase 1: Independent retrieval (3 models extract claims independently)
+        2. Phase 2: Triangular cross-verification (blind, forensic framing)
+        3. Phase 3: Algorithmic contradiction detection (deterministic)
+        4. Phase 4: Bayesian confidence update (computed, not fixed)
+        5. Phase 5: Verbatim citation mode (if triggered)
+        6. Dynamic boundary evaluation
+        7. Formatted output with structured evidence data
         """
         trace = ConfidenceTrace()
 
@@ -751,76 +887,131 @@ class OmegaCognitiveKernel:
         initial_conf = pre_analysis.get("initial_confidence", 0.5)
         trace.record_stage("initial", initial_conf, "Pre-analysis baseline")
 
-        # LLM Execution
-        llm_result = None
+        # 5-PHASE FORENSIC PIPELINE (v4 engine)
+        forensic_result = None
+        forensic_dict = {}
         llm_text = ""
-        if self.sigma:
-            from backend.sentinel.sentinel_sigma_v4 import SigmaV4Config
-            sigma_config = SigmaV4Config(
-                text=config.text, mode="experimental",
-                enable_shadow=config.enable_shadow,
-                rounds=config.rounds, chat_id=config.chat_id,
-                history=config.history,
-            )
-            llm_result = await self.sigma.run_sentinel(sigma_config)
-            llm_text = llm_result.data.get("priority_answer", "")
-        else:
-            llm_text = "[ANALYSIS-ONLY MODE]"
 
-        # Full Evidence Analysis (3.X pipeline)
-        evidence_result = await self.evidence.run_full_evidence_analysis(
-            query=config.text,
-            answer=llm_text,
-            max_results=5,
-        )
-        trace.record_stage(
-            "post_evidence",
-            evidence_result.evidence_confidence,
-            f"Evidence: {len(evidence_result.sources)} sources, "
-            f"{len(evidence_result.contradictions)} contradictions"
-        )
+        if self.forensic:
+            forensic_result = await self.forensic.run_forensic_pipeline(
+                query=config.text, history=config.history or []
+            )
+            forensic_dict = forensic_result.to_dict()
+            
+            # Build synthesis from claims
+            if forensic_result.all_claims:
+                top_claims = sorted(
+                    forensic_result.all_claims,
+                    key=lambda c: c.final_confidence,
+                    reverse=True
+                )[:5]
+                llm_text = "## Forensic Evidence Analysis\n\n"
+                for i, claim in enumerate(top_claims, 1):
+                    conf_pct = claim.final_confidence * 100
+                    llm_text += (
+                        f"**{i}. [{claim.model_origin.upper()}]** {claim.statement}\n"
+                        f"   - Confidence: {conf_pct:.1f}% | "
+                        f"Verified by {claim.agreement_count} model(s) | "
+                        f"{claim.contradiction_count} contradiction(s)\n\n"
+                    )
+                
+                # Add verbatim citations if available
+                if forensic_result.verbatim_citations:
+                    llm_text += "\n## Verbatim Citations\n\n"
+                    for cit in forensic_result.verbatim_citations[:5]:
+                        llm_text += f"> \"{cit.get('quote', 'N/A')}\"\n"
+                        llm_text += f"Source: {cit.get('source', 'Unknown')} "
+                        llm_text += f"(Reliability: {cit.get('reliability', 0):.0%})\n\n"
+
+                # Add contradiction report
+                if forensic_result.contradictions:
+                    llm_text += "\n## ⚠️ Contradictions Detected\n\n"
+                    for c in forensic_result.contradictions[:5]:
+                        llm_text += (
+                            f"- **{c['type']}** between {c['model_a']} and {c['model_b']}: "
+                            f"Severity {c['severity']:.0%}\n"
+                        )
+
+            trace.record_stage(
+                "post_forensic",
+                forensic_result.bayesian_confidence,
+                f"Forensic: {forensic_result.to_dict().get('total_claims', 0)} claims, "
+                f"{len(forensic_result.contradictions)} contradictions, "
+                f"Bayesian confidence: {forensic_result.bayesian_confidence:.3f}"
+            )
+        else:
+            # Fallback: legacy evidence engine
+            llm_result = None
+            if self.sigma:
+                from backend.sentinel.sentinel_sigma_v4 import SigmaV4Config
+                sigma_config = SigmaV4Config(
+                    text=config.text, mode="experimental",
+                    enable_shadow=config.enable_shadow,
+                    rounds=config.rounds, chat_id=config.chat_id,
+                    history=config.history,
+                )
+                llm_result = await self.sigma.run_sentinel(sigma_config)
+                llm_text = llm_result.data.get("priority_answer", "")
+
+            evidence_result = await self.evidence.run_full_evidence_analysis(
+                query=config.text, answer=llm_text, max_results=5
+            )
+            forensic_dict = {"legacy": True, "evidence": evidence_result.to_dict()}
 
         # POST-PASSES
         post_analysis = self.reasoning.execute_post_passes(llm_text, pre_analysis)
 
-        # Boundary Evaluation
-        boundary_result = self.boundary.evaluate(
-            config.text,
-            context_observations=[llm_text[:500]] if llm_text else [],
-            session_data=self.session.get_state_dict(),
-        )
+        # DYNAMIC BOUNDARY (v4 — computed from forensic data)
+        if forensic_result and forensic_result.pipeline_succeeded:
+            boundary_data = DynamicBoundaryEngine.compute_evidence_severity(
+                bayesian_confidence=forensic_result.bayesian_confidence,
+                agreement_score=forensic_result.agreement_score,
+                contradiction_count=len(forensic_result.contradictions),
+                source_reliability=forensic_result.source_reliability_avg,
+                claims_total=len(forensic_result.all_claims),
+                claims_verified=sum(
+                    1 for c in forensic_result.all_claims
+                    if c.agreement_count > 0
+                ),
+            )
+        else:
+            boundary_data = self.boundary.evaluate(
+                config.text,
+                context_observations=[llm_text[:500]] if llm_text else [],
+                session_data=self.session.get_state_dict(),
+            )
+
         trace.record_stage(
             "post_boundary",
             post_analysis.get("final_confidence", 0.5),
-            f"Boundary severity: {boundary_result.get('severity_score', 0)}"
+            f"Boundary severity: {boundary_data.get('severity_score', 0)}"
         )
 
         # Session Update
         self.session.update(
             config.text, config.mode.value,
-            boundary_result=boundary_result,
+            boundary_result=boundary_data,
         )
         session_state = self.session.get_state_dict()
 
-        # Model weight
-        model_weight = 1.0
-        if config.adaptive_learning and self.knowledge_learner:
-            model_weight = self.knowledge_learner.get_model_weight("groq")
+        # Confidence (use forensic Bayesian confidence if available)
+        if forensic_result and forensic_result.pipeline_succeeded:
+            final_conf = forensic_result.bayesian_confidence
+            # Apply boundary penalty
+            boundary_penalty = boundary_data.get("severity_score", 0) / 200.0
+            final_conf = max(0.05, min(0.95, final_conf - boundary_penalty))
+        else:
+            model_weight = 1.0
+            if config.adaptive_learning and self.knowledge_learner:
+                model_weight = self.knowledge_learner.get_model_weight("groq")
+            base_components = self.confidence_engine.compute_standard(
+                base_confidence=post_analysis.get("final_confidence", 0.5),
+                boundary_result=boundary_data,
+                session_state=session_state,
+                model_weight=model_weight,
+            )
+            final_conf = base_components.final_confidence
 
-        # Base confidence
-        base_components = self.confidence_engine.compute_standard(
-            base_confidence=post_analysis.get("final_confidence", 0.5),
-            boundary_result=boundary_result,
-            session_state=session_state,
-            model_weight=model_weight,
-        )
-
-        # Evidence-adjusted confidence
-        evidence_components = self.confidence_engine.compute_evidence_adjusted(
-            base_components=base_components,
-            evidence_result=evidence_result.to_dict(),
-        )
-        final_conf = evidence_components.final_confidence
         trace.record_stage("final", final_conf, "After evidence adjustment")
 
         # Format output
@@ -830,32 +1021,42 @@ class OmegaCognitiveKernel:
                 "inferred_domain": session_state.get("inferred_domain", "General"),
                 "user_expertise_score": session_state.get("user_expertise_score", 0.5),
             },
-            "evidence": evidence_result.to_dict(),
+            "evidence": forensic_dict,
             "boundary": {
-                "risk_level": boundary_result.get("risk_level", "LOW"),
-                "severity_score": boundary_result.get("severity_score", 0),
-                "explanation": boundary_result.get("explanation", ""),
+                "risk_level": boundary_data.get("risk_level", "LOW"),
+                "severity_score": boundary_data.get("severity_score", 0),
+                "explanation": boundary_data.get("explanation", ""),
             },
             "confidence_evolution": trace.to_dict(),
             "synthesis": llm_text,
         }
         formatted = self.formatter.format_evidence(formatter_data)
 
+        # Build omega_metadata with forensic pipeline data
+        omega_metadata = {
+            "forensic_result": forensic_dict,
+            "pipeline_steps": [],
+        }
+        if forensic_result:
+            omega_metadata["pipeline_steps"] = [
+                {"step": p.get("name", ""), "label": p.get("name", ""), "status": p.get("status", "")}
+                for p in forensic_result.phase_log
+            ]
+
         return {
             "formatted_output": formatted,
             "mode": "research",
             "sub_mode": "evidence",
             "chat_id": config.chat_id,
-            "chat_name": session_state.get("chat_name", "Evidence Analysis"),
+            "chat_name": session_state.get("chat_name", "Forensic Evidence Analysis"),
             "session_state": session_state,
-            "boundary_result": boundary_result,
-            "evidence_result": evidence_result.to_dict(),
+            "boundary_result": boundary_data,
             "reasoning_trace": post_analysis.get("trace_summary", {}),
             "confidence": final_conf,
-            "confidence_components": evidence_components.to_dict(),
             "confidence_evolution": trace.to_dict(),
             "fragility_index": session_state.get("fragility_index", 0.0),
-            "llm_result": llm_result,
+            "omega_metadata": omega_metadata,
+            "llm_result": None,
         }
 
     # ============================================================

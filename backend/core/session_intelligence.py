@@ -125,7 +125,7 @@ class SessionState:
     debate_history_graph: List[Dict[str, Any]] = field(default_factory=list)  # Per-round debate summary
     boundary_trend: str = "stable"       # escalating | stabilizing | flat | stable
     behavioral_risk_accumulator: float = 0.0  # Cumulative behavioral risk across session
-    model_reliability_scores: Dict[str, float] = field(default_factory=lambda: {"groq": 1.0, "mistral": 1.0, "qwen": 1.0})
+    model_reliability_scores: Dict[str, float] = field(default_factory=lambda: {"groq": 1.0, "llama70b": 1.0, "qwen": 1.0})
     confidence_trace_history: List[float] = field(default_factory=list)  # All confidence values in session
     domain_history: List[str] = field(default_factory=list)  # Domain per message
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
@@ -249,7 +249,7 @@ class SessionState:
             debate_history_graph=data.get("debate_history_graph", []),
             boundary_trend=data.get("boundary_trend", "stable"),
             behavioral_risk_accumulator=data.get("behavioral_risk_accumulator", 0.0),
-            model_reliability_scores=data.get("model_reliability_scores", {"groq": 1.0, "mistral": 1.0, "qwen": 1.0}),
+            model_reliability_scores=data.get("model_reliability_scores", {"groq": 1.0, "llama70b": 1.0, "qwen": 1.0}),
             confidence_trace_history=data.get("confidence_trace_history", []),
             domain_history=data.get("domain_history", []),
             created_at=data.get("created_at", datetime.utcnow().isoformat()),

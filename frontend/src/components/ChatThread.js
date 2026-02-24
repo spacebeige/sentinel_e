@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { Copy, Check, Zap, Brain, ShieldAlert } from 'lucide-react';
 import FeedbackButton from './FeedbackButton';
+import { normalizeResponse, isCodeResponse } from '../engines/responseNormalizer';
 
 /* ─── Helpers ───────────────────────────────────────────────────── */
 function formatTime(ts) {
@@ -80,8 +79,18 @@ const AssistantBubble = ({ message, mode, subMode }) => {
           {labelText}
         </span>
         <div className="card px-5 py-4 rounded-2xl rounded-tl-sm">
-          <div className="markdown-body text-sm leading-relaxed">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+          <div className="text-sm leading-relaxed">
+            {isCodeResponse(message.content) ? (
+              <pre className="bg-[#f5f5f7] rounded-lg p-3 overflow-x-auto text-xs font-mono text-[#1d1d1f] whitespace-pre-wrap">
+                <code>{message.content.replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '')}</code>
+              </pre>
+            ) : (
+              normalizeResponse(message.content).split('\n\n').filter(Boolean).map((para, i) => (
+                <p key={i} className="mb-2 last:mb-0" style={{ color: 'var(--text-primary)' }}>
+                  {para}
+                </p>
+              ))
+            )}
           </div>
         </div>
         <div className="flex items-center justify-between mt-1.5 px-0.5">
@@ -164,7 +173,7 @@ const EmptyState = ({ mode, subMode }) => {
       <div className="mt-10 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest"
         style={{ color: 'var(--text-tertiary)' }}>
         <Zap className="w-3 h-3" />
-        <span>Omega v4.5 · {isExp ? 'Multi-Model' : 'Standard'}</span>
+        <span>Sentinel-E · {isExp ? 'Multi-Model' : 'Standard'}</span>
       </div>
     </div>
   );

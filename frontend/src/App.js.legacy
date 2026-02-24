@@ -1,0 +1,348 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
+import { Menu, X, Activity } from 'lucide-react';
+import Sidebar from './components/Sidebar';
+import InputArea from './components/InputArea';
+import ChatThread from './components/ChatThread';
+import RightPanel from './components/RightPanel';
+import LearningDashboard from './components/LearningDashboard';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function App() {
+  const [darkMode, setDarkMode] = useState(true);
+  const [mode, setMode] = useState('standard');
+  const [subMode, setSubMode] = useState('debate');
+  const [killActive, setKillActive] = useState(false);
+  const [rounds, setRounds] = useState(3);
+  const [history, setHistory] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
+  const [currentResult, setCurrentResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showLearning, setShowLearning] = useState(false);
+  const [serverStatus, setServerStatus] = useState('unknown');
+  const [sessionState, setSessionState] = useState(null);
+  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
+  const [rightPanelMobileOpen, setRightPanelMobileOpen] = useState(false);
+  const [lastResponseText, setLastResponseText] = useState('');
+  const [lastQueryText, setLastQueryText] = useState('');
+
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+  // Theme handling via data-theme attribute
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
+
+  const checkHealth = useCallback(async () => {
+    try {
+      await axios.get(`${API_BASE_URL}/`, { timeout: 3000 });
+      setServerStatus('online');
+    } catch {
+      setServerStatus('offline');
+    }
+  }, [API_BASE_URL]);
+
+  useEffect(() => {
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000);
+    return () => clearInterval(interval);
+  }, [checkHealth]);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/history`);
+        const formatted = res.data.map(item => ({
+          id: item.id,
+          timestamp: item.updated_at || item.created_at || new Date().toISOString(),
+          mode: item.mode,
+          summary: item.chat_name || item.preview || 'Chat',
+          filename: item.id,
+          data: null,
+        }));
+        setHistory(formatted);
+      } catch (err) {
+        console.error('Failed to load history:', err);
+      }
+    };
+    fetchHistory();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch descriptive session state for right panel
+  useEffect(() => {
+    if (!activeChatId) { setSessionState(null); return; }
+    const fetchSession = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/session/${activeChatId}/descriptive`);
+        if (res.data && !res.data.error) setSessionState(res.data);
+      } catch {
+        // Fall back to legacy endpoint
+        try {
+          const res = await axios.get(`${API_BASE_URL}/api/omega/session/${activeChatId}`);
+          if (res.data?.session_state) setSessionState(res.data.session_state);
+        } catch { /* ignore */ }
+      }
+    };
+    fetchSession();
+  }, [activeChatId, API_BASE_URL]);
+
+  const handleSend = async ({ text, file }) => {
+    if (!text && !file) return;
+    const chatId = activeChatId;
+    setLoading(true);
+    setShowLearning(false);
+    setLastQueryText(text || '');
+
+    const userMsg = { role: 'user', content: text || `[File: ${file?.name}]`, timestamp: new Date().toISOString() };
+    setMessages(prev => [...prev, userMsg]);
+
+    const formData = new FormData();
+    if (text) formData.append('text', text);
+    if (file) formData.append('file', file);
+    if (chatId && UUID_REGEX.test(chatId)) formData.append('chat_id', chatId);
+
+    let endpoint;
+    if (mode === 'experimental' && subMode === 'glass' && killActive) {
+      endpoint = `${API_BASE_URL}/run/omega/kill`;
+    } else if (mode === 'experimental') {
+      endpoint = `${API_BASE_URL}/run/experimental`;
+      formData.append('mode', 'experimental');
+      formData.append('sub_mode', subMode);
+      formData.append('rounds', rounds);
+    } else {
+      endpoint = `${API_BASE_URL}/run/standard`;
+    }
+
+    try {
+      const response = await axios.post(endpoint, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const result = response.data;
+      const returnedChatId = result.chat_id ? String(result.chat_id) : null;
+      
+      const answerText = result.formatted_output 
+        || result.data?.priority_answer 
+        || result.priority_answer 
+        || 'No response.';
+
+      setMessages(prev => [...prev, { role: 'assistant', content: answerText, timestamp: new Date().toISOString() }]);
+      setCurrentResult(result);
+      setLastResponseText(answerText);
+      if (result.session_state) setSessionState(result.session_state);
+
+      if (returnedChatId && UUID_REGEX.test(returnedChatId)) {
+        setActiveChatId(returnedChatId);
+      }
+
+      const effectiveChatId = chatId || returnedChatId;
+      if (effectiveChatId && UUID_REGEX.test(effectiveChatId)) {
+        setHistory(prev => {
+          const exists = prev.some(item => item.id === effectiveChatId);
+          if (exists) {
+            return prev.map(item =>
+              item.id === effectiveChatId
+                ? { ...item, timestamp: new Date().toISOString(), summary: text ? text.substring(0, 40) : item.summary, data: result }
+                : item
+            );
+          }
+          return [{ id: effectiveChatId, timestamp: new Date().toISOString(), mode, summary: text ? text.substring(0, 40) : 'Chat', filename: effectiveChatId, data: result }, ...prev];
+        });
+      }
+
+      setServerStatus('online');
+    } catch (error) {
+      console.error(error);
+      setServerStatus('offline');
+      setMessages(prev => prev.slice(0, -1));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectRun = async (run) => {
+    setShowLearning(false);
+    if (run.mode === 'standard' || run.mode === 'conversational') {
+      setMode('standard');
+    } else {
+      setMode('experimental');
+    }
+    if (run.sub_mode) setSubMode(run.sub_mode);
+    setActiveChatId(run.id);
+    setMessages([]);
+    setCurrentResult(null);
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API_BASE_URL}/api/chat/${run.id}/messages`);
+      const loaded = (res.data || [])
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp || run.timestamp }));
+      setMessages(loaded);
+    } catch (err) {
+      console.error('Failed to load messages:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNewChat = () => {
+    setActiveChatId(null);
+    setMessages([]);
+    setCurrentResult(null);
+    setShowLearning(false);
+    setSessionState(null);
+    setKillActive(false);
+    setLastResponseText('');
+    setLastQueryText('');
+  };
+
+  return (
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+      
+      {/* MOBILE: Header bar */}
+      <div className="mobile-header" style={{ display: 'none' }}>
+        <button onClick={() => setSidebarMobileOpen(true)}
+          className="p-2 rounded-lg" style={{ color: 'var(--text-primary)' }}>
+          <Menu className="w-5 h-5" />
+        </button>
+        <span className="text-sm font-semibold tracking-wide">Sentinel-E</span>
+        <button onClick={() => setRightPanelMobileOpen(true)}
+          className="p-2 rounded-lg" style={{ color: 'var(--text-primary)' }}>
+          <Activity className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* MOBILE: Sidebar overlay */}
+      {sidebarMobileOpen && (
+        <div className="sidebar-backdrop" onClick={() => setSidebarMobileOpen(false)} />
+      )}
+      <div className={`sidebar-mobile-overlay ${sidebarMobileOpen ? 'open' : ''}`}
+        style={{ backgroundColor: 'var(--bg-sidebar)' }}>
+        <div className="flex items-center justify-end p-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <button onClick={() => setSidebarMobileOpen(false)} className="p-2 rounded-lg"
+            style={{ color: 'var(--text-sidebar)' }}>
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <Sidebar
+          history={history}
+          onSelectRun={(run) => { handleSelectRun(run); setSidebarMobileOpen(false); }}
+          onNewChat={() => { handleNewChat(); setSidebarMobileOpen(false); }}
+          activeMode={mode}
+          setMode={setMode}
+          subMode={subMode}
+          setSubMode={setSubMode}
+          killActive={killActive}
+          setKillActive={setKillActive}
+          rounds={rounds}
+          setRounds={setRounds}
+          activeChatId={activeChatId}
+          showLearning={showLearning}
+          onToggleLearning={() => { setShowLearning(true); setSidebarMobileOpen(false); }}
+          darkMode={darkMode}
+          toggleDarkMode={() => setDarkMode(d => !d)}
+          serverStatus={serverStatus}
+        />
+      </div>
+
+      {/* LEFT PANEL: Sidebar (desktop) */}
+      <div className="sidebar-desktop">
+        <Sidebar
+          history={history}
+          onSelectRun={handleSelectRun}
+          onNewChat={handleNewChat}
+          activeMode={mode}
+          setMode={setMode}
+          subMode={subMode}
+          setSubMode={setSubMode}
+          killActive={killActive}
+          setKillActive={setKillActive}
+          rounds={rounds}
+          setRounds={setRounds}
+          activeChatId={activeChatId}
+          showLearning={showLearning}
+          onToggleLearning={() => setShowLearning(true)}
+          darkMode={darkMode}
+          toggleDarkMode={() => setDarkMode(d => !d)}
+          serverStatus={serverStatus}
+        />
+      </div>
+
+      {/* CENTER PANEL: Chat */}
+      <main className="flex-1 flex flex-col min-w-0 relative" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+        {showLearning ? (
+          <div className="flex-1 overflow-y-auto p-6">
+            <LearningDashboard />
+          </div>
+        ) : (
+          <>
+            {/* Messages area */}
+            <div className="flex-1 overflow-y-auto px-4 md:px-0">
+              <div className="max-w-3xl mx-auto w-full py-6">
+                <ChatThread messages={messages} loading={loading} mode={mode} subMode={subMode} />
+              </div>
+            </div>
+
+            {/* Input area */}
+            <div className="border-t px-4 py-3" style={{ borderColor: 'var(--border-primary)', backgroundColor: 'var(--bg-primary)' }}>
+              <div className="max-w-3xl mx-auto w-full">
+                <InputArea onSend={handleSend} loading={loading} mode={mode} subMode={subMode} />
+              </div>
+            </div>
+          </>
+        )}
+      </main>
+
+      {/* RIGHT PANEL: Intelligence Dashboard (desktop) */}
+      {rightPanelOpen && !showLearning && (
+        <div className="right-panel-desktop">
+          <RightPanel 
+            data={currentResult} 
+            sessionState={sessionState}
+            subMode={subMode}
+            killActive={killActive}
+            onClose={() => setRightPanelOpen(false)}
+            chatId={activeChatId}
+            lastResponse={lastResponseText}
+            lastQuery={lastQueryText}
+          />
+        </div>
+      )}
+      
+      {/* RIGHT PANEL: Mobile overlay */}
+      {rightPanelMobileOpen && (
+        <div className="sidebar-backdrop" onClick={() => setRightPanelMobileOpen(false)} />
+      )}
+      <div className={`right-panel-mobile-overlay ${rightPanelMobileOpen ? 'open' : ''}`}
+        style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <RightPanel 
+          data={currentResult} 
+          sessionState={sessionState}
+          subMode={subMode}
+          killActive={killActive}
+          onClose={() => setRightPanelMobileOpen(false)}
+          chatId={activeChatId}
+          lastResponse={lastResponseText}
+          lastQuery={lastQueryText}
+        />
+      </div>
+      
+      {/* Right panel toggle (when closed, desktop only) */}
+      {!rightPanelOpen && !showLearning && (
+        <button
+          onClick={() => setRightPanelOpen(true)}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-40 px-1.5 py-4 rounded-l-lg text-xs sidebar-desktop"
+          style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-primary)', border: '1px solid', borderRight: 'none', color: 'var(--text-secondary)' }}
+          title="Open Intelligence Panel"
+        >
+          ◀
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default App;
