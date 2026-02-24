@@ -10,7 +10,6 @@ pypdf
 PyMuPDF
 groq
 huggingface_hub
-llama-cpp-python
 fastapi
 uvicorn
 python-multipart
