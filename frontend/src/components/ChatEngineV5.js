@@ -43,7 +43,7 @@ export default function ChatEngineV5() {
   const [activeChatId, setActiveChatId] = useState(null);
   const [currentResult, setCurrentResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [showLearning] = useState(false);
+  const [showLearning,setShowLearning] = useState(false);
   const [serverStatus, setServerStatus] = useState('unknown');
   const [sessionState, setSessionState] = useState(null);
   const [lastResponseText, setLastResponseText] = useState('');
