@@ -18,7 +18,7 @@ import jwt
 from fastapi import Request, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from backend.gateway.config import get_settings
+from gateway.config import get_settings
 
 logger = logging.getLogger("Auth")
 security = HTTPBearer(auto_error=False)
