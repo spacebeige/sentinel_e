@@ -1,0 +1,446 @@
+"""
+============================================================
+Meta-Cognitive Orchestrator — FastAPI Routes
+============================================================
+Exposes the distributed cognitive architecture as API endpoints.
+Integrates with the existing Sentinel-E gateway.
+
+Routes:
+  POST /api/mco/run         — Standard/Experimental execution
+  POST /api/mco/experimental — Experimental mode (full exposure)
+  GET  /api/mco/session/{id} — Session state inspection
+  GET  /api/mco/graph/{id}   — Knowledge graph subgraph
+  GET  /api/mco/models       — Available model registry
+  GET  /api/mco/daemon/status — Background daemon status
+  POST /api/mco/daemon/start  — Start background daemon
+  POST /api/mco/daemon/stop   — Stop background daemon
+============================================================
+"""
+
+import logging
+from typing import Dict, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Body
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from gateway.auth import get_current_user
+from database.connection import get_db
+from database.crud import (
+    create_chat, get_chat, add_message, update_chat_metadata,
+)
+from utils.chat_naming import generate_chat_name
+
+from metacognitive.schemas import (
+    OperatingMode,
+    OrchestratorRequest,
+    OrchestratorResponse,
+)
+from metacognitive.orchestrator import MetaCognitiveOrchestrator
+from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+from metacognitive.background_daemon import BackgroundDaemon
+
+logger = logging.getLogger("MCO-Routes")
+
+# ── Router ───────────────────────────────────────────────────
+router = APIRouter(prefix="/api/mco", tags=["Meta-Cognitive Orchestrator"])
+
+# ── Global references (set during app startup) ──────────────
+_orchestrator: Optional[MetaCognitiveOrchestrator] = None
+_daemon: Optional[BackgroundDaemon] = None
+
+
+def set_orchestrator(orch: MetaCognitiveOrchestrator):
+    global _orchestrator
+    _orchestrator = orch
+
+
+def set_daemon(daemon: BackgroundDaemon):
+    global _daemon
+    _daemon = daemon
+
+
+def _get_orchestrator() -> MetaCognitiveOrchestrator:
+    if not _orchestrator:
+        raise HTTPException(
+            status_code=503,
+            detail="Meta-Cognitive Orchestrator not initialized",
+        )
+    return _orchestrator
+
+
+# ============================================================
+# MAIN EXECUTION
+# ============================================================
+
+@router.post("/run")
+async def mco_run(
+    query: str = Body(...),
+    mode: str = Body("standard"),
+    chat_id: Optional[str] = Body(None),
+    session_id: Optional[str] = Body(None),
+    force_retrieval: bool = Body(False),
+    selected_model: Optional[str] = Body(None),
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    """
+    Main Meta-Cognitive Orchestrator execution endpoint.
+    Routes through the mandatory 10-step protocol.
+
+    Standard Mode: Returns highest-scoring aggregated answer.
+    Experimental Mode: Returns all outputs with full scoring breakdown.
+    Single Model Focus: Only the selected model executes.
+    """
+    orch = _get_orchestrator()
+
+    # Validate selected_model if provided
+    if selected_model:
+        if selected_model not in COGNITIVE_MODEL_REGISTRY:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown model: {selected_model}",
+            )
+        spec = COGNITIVE_MODEL_REGISTRY[selected_model]
+        if not spec.enabled:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Model not enabled: {selected_model}",
+            )
+
+    # Resolve operating mode
+    try:
+        op_mode = OperatingMode(mode)
+    except ValueError:
+        op_mode = OperatingMode.STANDARD
+
+    # Resolve chat
+    chat = None
+    if chat_id:
+        try:
+            chat = await get_chat(db, UUID(chat_id))
+        except (ValueError, Exception):
+            pass
+
+    if not chat:
+        chat_name = generate_chat_name(query, f"mco-{mode}")
+        chat = await create_chat(
+            db, chat_name, f"mco-{mode}",
+            user_id=user["user_id"],
+        )
+
+    await add_message(db, chat.id, "user", query)
+
+    # Build request
+    request = OrchestratorRequest(
+        session_id=session_id or str(chat.id),
+        query=query,
+        mode=op_mode,
+        chat_id=str(chat.id),
+        force_retrieval=force_retrieval,
+        selected_model=selected_model,
+    )
+
+    # Execute 10-step protocol
+    try:
+        response = await orch.process(request)
+    except Exception as e:
+        logger.error(f"MCO execution failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
+    # Persist assistant response
+    await add_message(db, chat.id, "assistant", response.aggregated_answer)
+    await update_chat_metadata(
+        db, chat.id,
+        priority_answer=response.aggregated_answer,
+        machine_metadata={
+            "mco_version": "1.0.0",
+            "mode": response.mode.value,
+            "winning_model": response.winning_model,
+            "winning_score": response.winning_score,
+            "drift_score": response.drift_score,
+            "volatility_score": response.volatility_score,
+            "refinement_cycles": response.refinement_cycles,
+            "latency_ms": response.latency_ms,
+            "model_count": len(response.all_results),
+        },
+        rounds=1,
+    )
+
+    # Build API response
+    result = {
+        "chat_id": str(chat.id),
+        "session_id": response.session_id,
+        "mode": response.mode.value,
+        "aggregated_answer": response.aggregated_answer,
+        "formatted_output": response.aggregated_answer,
+        "winning_model": response.winning_model,
+        "winning_score": round(response.winning_score, 4),
+        "drift_score": round(response.drift_score, 4),
+        "volatility_score": round(response.volatility_score, 4),
+        "refinement_cycles": response.refinement_cycles,
+        "latency_ms": round(response.latency_ms, 1),
+        "knowledge_bundle_size": len(response.knowledge_bundle),
+        "retrieval_confidence": round(response.retrieval_confidence, 4),
+        "selected_model": selected_model,
+    }
+
+    # Single Model Focus: compact response with model identity
+    if selected_model:
+        result["data"] = {"priority_answer": response.aggregated_answer}
+        result["confidence"] = round(response.winning_score, 4)
+        result["focus_model"] = response.winning_model
+
+    # Standard mode: compact response
+    elif response.mode == OperatingMode.STANDARD:
+        result["data"] = {"priority_answer": response.aggregated_answer}
+        result["confidence"] = round(response.winning_score, 4)
+
+    # Experimental mode: full observability
+    if response.mode == OperatingMode.EXPERIMENTAL:
+        result["all_outputs"] = [
+            {
+                "model_name": r.output.model_name,
+                "raw_output": r.output.raw_output,
+                "tokens_used": r.output.tokens_used,
+                "latency_ms": round(r.output.latency_ms, 1),
+                "success": r.output.success,
+                "error": r.output.error,
+                "score": {
+                    "topic_alignment": round(r.score.topic_alignment, 4),
+                    "knowledge_grounding": round(r.score.knowledge_grounding, 4),
+                    "specificity": round(r.score.specificity, 4),
+                    "confidence_calibration": round(r.score.confidence_calibration, 4),
+                    "drift_penalty": round(r.score.drift_penalty, 4),
+                    "final_score": round(r.score.final_score, 4),
+                },
+            }
+            for r in response.all_results
+        ]
+        result["divergence_metrics"] = response.divergence_metrics
+        result["scoring_breakdown"] = [
+            {
+                "model": s.model_name,
+                "T": round(s.topic_alignment, 4),
+                "K": round(s.knowledge_grounding, 4),
+                "S": round(s.specificity, 4),
+                "C": round(s.confidence_calibration, 4),
+                "D": round(s.drift_penalty, 4),
+                "final": round(s.final_score, 4),
+            }
+            for s in (response.scoring_breakdown or [])
+        ]
+
+    return result
+
+
+@router.post("/experimental")
+async def mco_experimental(
+    query: str = Body(...),
+    chat_id: Optional[str] = Body(None),
+    session_id: Optional[str] = Body(None),
+    force_retrieval: bool = Body(False),
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    """
+    Convenience endpoint for Experimental Mode.
+    All models run in parallel. No arbitration override.
+    All outputs displayed. Full scoring metrics exposed.
+    """
+    return await mco_run(
+        query=query,
+        mode="experimental",
+        chat_id=chat_id,
+        session_id=session_id,
+        force_retrieval=force_retrieval,
+        db=db,
+        user=user,
+    )
+
+
+# ============================================================
+# SESSION INSPECTION
+# ============================================================
+
+@router.get("/session/{session_id}")
+async def mco_session_state(
+    session_id: str,
+    user: Dict = Depends(get_current_user),
+):
+    """Inspect Meta-Cognitive session state."""
+    orch = _get_orchestrator()
+    session = orch.session_engine.get_session(session_id)
+
+    if not session:
+        # Try Redis
+        session = await orch.session_engine.restore_from_redis(session_id)
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return {
+        "session_id": session.session_id,
+        "mode": session.mode.value,
+        "turn_count": session.turn_count,
+        "drift_score": round(session.drift_score, 4),
+        "volatility_score": round(session.volatility_score, 4),
+        "refinement_cycles": session.refinement_cycles,
+        "active_goals": [
+            {"id": g.id, "description": g.description, "status": g.status}
+            for g in session.structured_goals
+        ],
+        "unresolved_questions": [
+            {"id": q.id, "question": q.question, "priority": q.priority, "attempts": q.attempts}
+            for q in session.unresolved_questions
+        ],
+        "memory_block_count": len(session.memory_blocks),
+        "behavioral_history_count": len(session.behavioral_history),
+        "has_centroid": bool(session.topic_centroid_embedding),
+        "created_at": session.created_at,
+        "updated_at": session.updated_at,
+    }
+
+
+# ============================================================
+# KNOWLEDGE GRAPH
+# ============================================================
+
+@router.get("/graph/{session_id}")
+async def mco_knowledge_graph(
+    session_id: str,
+    user: Dict = Depends(get_current_user),
+):
+    """Get knowledge graph subgraph for a session."""
+    orch = _get_orchestrator()
+    subgraph = orch.knowledge_graph.get_session_subgraph(session_id)
+    stats = orch.knowledge_graph.stats()
+
+    return {
+        "session_id": session_id,
+        "subgraph": subgraph,
+        "global_stats": stats,
+    }
+
+
+# ============================================================
+# MODEL REGISTRY
+# ============================================================
+
+@router.get("/models")
+async def mco_models(user: Dict = Depends(get_current_user)):
+    """List available cognitive models with enabled/disabled status."""
+    return {
+        "models": [
+            {
+                "key": key,
+                "name": spec.name,
+                "model_id": spec.model_id,
+                "provider": spec.provider,
+                "role": spec.role.value,
+                "context_window": spec.context_window,
+                "max_output_tokens": spec.max_output_tokens,
+                "active": spec.active,
+                "enabled": spec.enabled,
+            }
+            for key, spec in COGNITIVE_MODEL_REGISTRY.items()
+        ]
+    }
+
+
+# ============================================================
+# BACKGROUND DAEMON
+# ============================================================
+
+@router.get("/daemon/status")
+async def daemon_status(user: Dict = Depends(get_current_user)):
+    """Get background daemon status."""
+    if not _daemon:
+        return {"status": "not_configured"}
+    return {
+        "running": _daemon.is_running,
+        "interval_seconds": _daemon.interval,
+        "iterations": _daemon._iterations,
+    }
+
+
+@router.post("/daemon/start")
+async def daemon_start(user: Dict = Depends(get_current_user)):
+    """Start the background daemon."""
+    if not _daemon:
+        raise HTTPException(status_code=503, detail="Daemon not configured")
+    if _daemon.is_running:
+        return {"status": "already_running"}
+    _daemon.start()
+    return {"status": "started"}
+
+
+@router.post("/daemon/stop")
+async def daemon_stop(user: Dict = Depends(get_current_user)):
+    """Stop the background daemon."""
+    if not _daemon:
+        raise HTTPException(status_code=503, detail="Daemon not configured")
+    if not _daemon.is_running:
+        return {"status": "not_running"}
+    _daemon.stop()
+    return {"status": "stopped"}
+
+
+# ============================================================
+# BEHAVIORAL ANALYTICS
+# ============================================================
+
+@router.get("/analytics/{session_id}")
+async def mco_analytics(
+    session_id: str,
+    user: Dict = Depends(get_current_user),
+):
+    """Get behavioral analytics for a session."""
+    orch = _get_orchestrator()
+    session = orch.session_engine.get_session(session_id)
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Aggregate behavioral data
+    model_stats = {}
+    for record in session.behavioral_history:
+        name = record.model_name
+        if name not in model_stats:
+            model_stats[name] = {
+                "invocations": 0,
+                "avg_score": 0.0,
+                "avg_grounding": 0.0,
+                "avg_specificity": 0.0,
+                "total_drift": 0.0,
+            }
+        stats = model_stats[name]
+        stats["invocations"] += 1
+        stats["avg_score"] = (
+            (stats["avg_score"] * (stats["invocations"] - 1) + record.final_score)
+            / stats["invocations"]
+        )
+        stats["avg_grounding"] = (
+            (stats["avg_grounding"] * (stats["invocations"] - 1) + record.grounding_score)
+            / stats["invocations"]
+        )
+        stats["avg_specificity"] = (
+            (stats["avg_specificity"] * (stats["invocations"] - 1) + record.specificity)
+            / stats["invocations"]
+        )
+        stats["total_drift"] += record.drift_penalty
+
+    return {
+        "session_id": session_id,
+        "turn_count": session.turn_count,
+        "model_performance": model_stats,
+        "drift_history": [
+            {
+                "model": r.model_name,
+                "timestamp": r.timestamp,
+                "score": round(r.final_score, 4),
+                "drift": round(r.drift_penalty, 4),
+            }
+            for r in session.behavioral_history[-20:]
+        ],
+    }

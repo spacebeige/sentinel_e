@@ -20,20 +20,22 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import FigmaChatShell, { MODELS } from '../figma_shell/FigmaChatShell';
+import FigmaChatShell from '../figma_shell/FigmaChatShell';
+import useModels, { DEFAULT_CHAT_MODELS } from '../hooks/useModels';
 import { getDefaultPipelineSteps } from '../engines/modeController';
 import memoryManager from '../engines/memoryManager';
 import { buildContextPayload } from '../engines/contextInjector';
 import { evaluateResponse } from '../engines/cognitiveGovernor';
 import {
   initSession, checkHealth as apiCheckHealth,
-  sendStandard, sendExperimental, sendKill,
+  sendStandard, sendExperimental, sendKill, sendMCOQuery,
   getHistory, getChatMessages, getSessionDescriptive, getOmegaSession,
 } from '../services/api';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function ChatEngineV5() {
+  const { chatModels, mcoModels } = useModels();
   const [mode, setMode] = useState('standard');
   const [subMode, setSubMode] = useState(null);
   const [killActive, setKillActive] = useState(false);
@@ -52,7 +54,7 @@ export default function ChatEngineV5() {
   const [error, setError] = useState(null);
 
   const [input, setInput] = useState('');
-  const [selectedModel, setSelectedModel] = useState(MODELS[0]);
+  const [selectedModel, setSelectedModel] = useState(chatModels[0] || DEFAULT_CHAT_MODELS[0]);
 
   // ── Session Bootstrap ────────────────────────────────────
   useEffect(() => {
@@ -77,11 +79,11 @@ export default function ChatEngineV5() {
 
   useEffect(() => {
     if (mode === 'standard' && selectedModel.category !== 'standard') {
-      setSelectedModel(MODELS[0]);
+      setSelectedModel(chatModels.find(m => m.category === 'standard') || chatModels[0]);
     } else if (mode === 'experimental' && selectedModel.category !== 'experimental') {
-      setSelectedModel(MODELS[4]);
+      setSelectedModel(chatModels.find(m => m.category === 'experimental') || chatModels[chatModels.length - 1]);
     }
-  }, [mode, selectedModel]);
+  }, [mode, selectedModel, chatModels]);
 
   useEffect(() => {
     if (selectedModel.category === 'standard') {
@@ -169,7 +171,17 @@ export default function ChatEngineV5() {
     try {
       let result;
 
-      if (mode === 'experimental' && subMode === 'glass' && killActive) {
+      // Determine if single model focus mode
+      const isSingleModel = selectedModel && !selectedModel.isMeta && selectedModel.id !== 'sentinel-std' && selectedModel.id !== 'sentinel-exp';
+
+      if (isSingleModel) {
+        // Single Model Focus: route through MCO with selected_model
+        result = await sendMCOQuery(text, {
+          chatId,
+          mode: 'standard',
+          selectedModel: selectedModel.id,
+        });
+      } else if (mode === 'experimental' && subMode === 'glass' && killActive) {
         result = await sendKill(text, chatId);
       } else if (mode === 'experimental') {
         result = await sendExperimental(text, {
@@ -319,6 +331,8 @@ export default function ChatEngineV5() {
       lastResponseText={lastResponseText}
       governanceVerdict={governanceVerdict}
       error={error}
+      chatModels={chatModels}
+      mcoModels={mcoModels}
     />
   );
 }

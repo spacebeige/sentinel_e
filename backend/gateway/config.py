@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = ""
     TAVILY_API_KEY: str = ""
 
+    # ── MCO Per-Model Keys (provider isolation) ───────────────
+    QWEN3_CODER_API_KEY: str = ""
+    QWEN3_VL_API_KEY: str = ""
+    NEMOTRON_API_KEY: str = ""
+    KIMI_API_KEY: str = ""
+
     # ── Database ─────────────────────────────────────────────
     POSTGRES_URL: str = ""
     POSTGRES_USER: str = "postgres"

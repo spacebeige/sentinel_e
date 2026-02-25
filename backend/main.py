@@ -83,6 +83,11 @@ from optimization import (
     get_observability_hub,
 )
 
+# ── Meta-Cognitive Orchestrator ──────────────────────────────
+from metacognitive.orchestrator import MetaCognitiveOrchestrator
+from metacognitive.background_daemon import BackgroundDaemon
+from metacognitive.routes import router as mco_router, set_orchestrator as mco_set_orchestrator, set_daemon as mco_set_daemon
+
 # ── Logging ──────────────────────────────────────────────────
 settings = get_settings()
 logging.basicConfig(
@@ -101,6 +106,8 @@ omega_kernel: Optional[OmegaCognitiveKernel] = None
 knowledge_learner: Optional[KnowledgeLearner] = None
 cognitive_rag: Optional[CognitiveRAG] = None
 analytics_engine: Optional[DynamicAnalyticsEngine] = None
+mco_orchestrator: Optional[MetaCognitiveOrchestrator] = None
+mco_daemon: Optional[BackgroundDaemon] = None
 omega_sessions: Dict[str, OmegaCognitiveKernel] = {}
 memory_sessions: Dict[str, MemoryEngine] = {}
 
@@ -111,6 +118,7 @@ MAX_SESSIONS = 500
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global orchestrator, omega_kernel, knowledge_learner, cognitive_rag, analytics_engine
+    global mco_orchestrator, mco_daemon
     logger.info("Initializing Sentinel-E v5.0 Production System...")
 
     # Initialize DB
@@ -137,8 +145,32 @@ async def lifespan(app: FastAPI):
     get_cost_governor()
     get_observability_hub()
 
-    logger.info("Sentinel-E v5.0 online. All systems initialized (with optimization layer).")
+    # ── Meta-Cognitive Orchestrator ────────────────────────
+    try:
+        mco_orchestrator = MetaCognitiveOrchestrator()
+        if redis_client:
+            mco_orchestrator.set_redis(redis_client)
+        mco_set_orchestrator(mco_orchestrator)
+
+        # Background daemon (starts paused — activate via API)
+        mco_daemon = BackgroundDaemon(
+            cognitive_gateway=mco_orchestrator.cognitive_gateway,
+            knowledge_engine=mco_orchestrator.knowledge_engine,
+            session_engine=mco_orchestrator.session_engine,
+            interval=300,
+        )
+        mco_set_daemon(mco_daemon)
+        logger.info("Meta-Cognitive Orchestrator initialized")
+    except Exception as e:
+        logger.warning(f"MCO init failed (non-fatal): {e}")
+
+    logger.info("Sentinel-E v5.0 online. All systems initialized (with optimization layer + MCO).")
     yield
+    # Cleanup MCO
+    if mco_orchestrator:
+        await mco_orchestrator.close()
+    if mco_daemon and mco_daemon.is_running:
+        mco_daemon.stop()
     logger.info("Shutting down Sentinel-E v5.0...")
 
 
@@ -167,6 +199,9 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
     expose_headers=["X-Request-ID", "X-Response-Time"],
 )
+
+# ── Meta-Cognitive Orchestrator Router ──────────────────────
+app.include_router(mco_router)
 
 
 # ============================================================

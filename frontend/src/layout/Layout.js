@@ -13,7 +13,7 @@ export default function Layout() {
   const isChatPage = location.pathname === '/chat';
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a1a] transition-colors duration-300">
+    <div className="min-h-screen flex flex-col bg-[#f5f5f7] dark:bg-[#0f0f10] transition-colors duration-300">
       <Navbar />
       <main className={isChatPage ? 'flex-1 pt-14' : 'flex-1'}>
         <Outlet />

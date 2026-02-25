@@ -253,6 +253,52 @@ export async function runCrossAnalysis(chatId, query, llmResponse) {
   return res.data;
 }
 
+// ── MCO (Meta-Cognitive Orchestrator) ───────────────────────
+
+/**
+ * Send a query through the Meta-Cognitive Orchestrator.
+ * Used for single-model focus mode and MCO-based standard/experimental.
+ * 
+ * @param {string} query       — User query text
+ * @param {Object} options     — { chatId, mode, selectedModel, forceRetrieval }
+ */
+export async function sendMCOQuery(query, options = {}) {
+  const {
+    chatId,
+    mode = 'standard',
+    selectedModel = null,
+    forceRetrieval = false,
+  } = options;
+
+  const body = {
+    query,
+    mode,
+    selected_model: selectedModel,
+    force_retrieval: forceRetrieval,
+  };
+  if (chatId) body.chat_id = chatId;
+
+  const res = await api.post('/api/mco/run', body);
+  return res.data;
+}
+
+/**
+ * Fetch available cognitive models from MCO registry.
+ * Returns { models: [{ key, name, model_id, provider, role, enabled, ... }] }
+ */
+export async function fetchMCOModels() {
+  const res = await api.get('/api/mco/models');
+  return res.data;
+}
+
+/**
+ * Fetch MCO analytics for a specific session.
+ */
+export async function fetchMCOAnalytics(sessionId) {
+  const res = await api.get(`/api/mco/analytics/${sessionId}`);
+  return res.data;
+}
+
 // ── Utilities ───────────────────────────────────────────────
 
 function generateRequestId() {

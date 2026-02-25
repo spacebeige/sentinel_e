@@ -39,7 +39,7 @@ const faqs = [
 
 export function PricingPage() {
   return (
-    <div className="min-h-screen bg-[#f5f5f7]">
+    <div className="min-h-screen bg-[#f5f5f7] dark:bg-[#0f0f10] transition-colors">
       <div className="max-w-6xl mx-auto px-6 py-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -47,12 +47,12 @@ export function PricingPage() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <h1 className="text-[#1d1d1f] mb-4"
+          <h1 className="text-[#1d1d1f] dark:text-[#f1f5f9] mb-4"
             style={{ fontFamily: FONT, fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
             Simple,<br />
             <span className="bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] bg-clip-text text-transparent">transparent pricing.</span>
           </h1>
-          <p className="text-[#6e6e73] max-w-lg mx-auto"
+          <p className="text-[#6e6e73] dark:text-[#94a3b8] max-w-lg mx-auto"
             style={{ fontFamily: FONT, fontSize: '17px', lineHeight: 1.6, fontWeight: 400 }}>
             Start free, upgrade when you're ready. No hidden fees, cancel anytime.
           </p>
@@ -68,7 +68,7 @@ export function PricingPage() {
               className={`relative p-6 rounded-3xl border flex flex-col ${
                 plan.popular
                   ? 'bg-[#1d1d1f] border-transparent shadow-2xl shadow-black/20 md:-mt-4 md:mb-0'
-                  : 'bg-white border-black/5'
+                  : 'bg-white dark:bg-[#1c1c1e] border-black/5 dark:border-white/5'
               }`}
             >
               {plan.popular && (
@@ -82,12 +82,12 @@ export function PricingPage() {
               )}
 
               <div className="mb-6">
-                <h3 className={plan.popular ? 'text-white mb-2' : 'text-[#1d1d1f] mb-2'}
+                <h3 className={plan.popular ? 'text-white mb-2' : 'text-[#1d1d1f] dark:text-[#f1f5f9] mb-2'}
                   style={{ fontFamily: FONT, fontSize: '20px', fontWeight: 600 }}>
                   {plan.name}
                 </h3>
                 <div className="flex items-baseline gap-1 mb-2">
-                  <span className={plan.popular ? 'text-white' : 'text-[#1d1d1f]'}
+                  <span className={plan.popular ? 'text-white' : 'text-[#1d1d1f] dark:text-[#f1f5f9]'}
                     style={{ fontFamily: FONT, fontSize: '48px', fontWeight: 700, letterSpacing: '-0.03em' }}>
                     {plan.price}
                   </span>
@@ -96,7 +96,7 @@ export function PricingPage() {
                     {plan.period}
                   </span>
                 </div>
-                <p className={plan.popular ? 'text-white/60' : 'text-[#6e6e73]'}
+                <p className={plan.popular ? 'text-white/60' : 'text-[#6e6e73] dark:text-[#94a3b8]'}
                   style={{ fontFamily: FONT, fontSize: '14px', lineHeight: 1.5, fontWeight: 400 }}>
                   {plan.description}
                 </p>
@@ -110,7 +110,7 @@ export function PricingPage() {
                     }`}>
                       <Check className="w-3 h-3" style={{ color: plan.popular ? '#5eead4' : '#34c759' }} />
                     </div>
-                    <span className={plan.popular ? 'text-white/80' : 'text-[#1d1d1f]'}
+                    <span className={plan.popular ? 'text-white/80' : 'text-[#1d1d1f] dark:text-[#e2e8f0]'}
                       style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 400 }}>
                       {feature}
                     </span>
@@ -122,7 +122,7 @@ export function PricingPage() {
                 className={`block text-center py-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98] ${
                   plan.popular
                     ? `bg-gradient-to-r ${plan.gradient} text-white shadow-lg shadow-blue-500/30`
-                    : 'bg-[#f5f5f7] text-[#1d1d1f] hover:bg-[#e8e8ed]'
+                    : 'bg-[#f5f5f7] dark:bg-white/10 text-[#1d1d1f] dark:text-[#f1f5f9] hover:bg-[#e8e8ed] dark:hover:bg-white/15'
                 }`}
                 style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 600 }}>
                 {plan.cta}
@@ -139,17 +139,17 @@ export function PricingPage() {
           transition={{ duration: 0.6 }}
           className="mt-20 max-w-2xl mx-auto"
         >
-          <h2 className="text-center text-[#1d1d1f] mb-8"
+          <h2 className="text-center text-[#1d1d1f] dark:text-[#f1f5f9] mb-8"
             style={{ fontFamily: FONT, fontSize: '28px', fontWeight: 700, letterSpacing: '-0.02em' }}>
             Frequently Asked
           </h2>
           {faqs.map((faq) => (
-            <div key={faq.q} className="mb-4 p-5 rounded-2xl bg-white border border-black/5">
-              <h4 className="text-[#1d1d1f] mb-2"
+            <div key={faq.q} className="mb-4 p-5 rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5">
+              <h4 className="text-[#1d1d1f] dark:text-[#f1f5f9] mb-2"
                 style={{ fontFamily: FONT, fontSize: '16px', fontWeight: 600 }}>
                 {faq.q}
               </h4>
-              <p className="text-[#6e6e73]"
+              <p className="text-[#6e6e73] dark:text-[#94a3b8]"
                 style={{ fontFamily: FONT, fontSize: '14px', lineHeight: 1.6, fontWeight: 400 }}>
                 {faq.a}
               </p>

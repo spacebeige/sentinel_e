@@ -46,12 +46,10 @@ import { getVisibility, hasAnyVisibleAnalytics } from '../engines/analyticsVisib
 // Visual Constants (from Figma design system)
 // ============================================================
 
+/** Legacy static fallback — only used when chatModels prop is absent */
 export const MODELS = [
-  { id: 'sentinel-std', name: 'Sentinel-E Standard', provider: 'Standard', color: '#3b82f6', category: 'standard' },
-  { id: 'qwen', name: 'Qwen 2.5', provider: 'Standard', color: '#06b6d4', category: 'standard' },
-  { id: 'llama70b', name: 'Llama 3.3 70B', provider: 'Standard', color: '#6366f1', category: 'standard' },
-  { id: 'groq', name: 'Groq LPU', provider: 'Standard', color: '#10b981', category: 'standard' },
-  { id: 'sentinel-exp', name: 'Sentinel-E Pro', provider: 'Experimental', color: '#8b5cf6', category: 'experimental' },
+  { id: 'sentinel-std', name: 'Sentinel-E Standard', provider: 'Standard', color: '#3b82f6', category: 'standard', enabled: true },
+  { id: 'sentinel-exp', name: 'Sentinel-E Pro', provider: 'Experimental', color: '#8b5cf6', category: 'experimental', enabled: true },
 ];
 
 const PRO_SUB_MODES = [
@@ -111,7 +109,16 @@ export default function FigmaChatShell({
 
   // === Cognitive governance (Section XII) ===
   governanceVerdict,
+
+  // === Dynamic model registry ===
+  chatModels: chatModelsProp,
+  mcoModels,
 }) {
+  // ============================================================
+  // RESOLVED MODELS — Dynamic from props, fallback to static
+  // ============================================================
+  const resolvedModels = chatModelsProp && chatModelsProp.length > 0 ? chatModelsProp : MODELS;
+
   // ============================================================
   // LOCAL UI STATE (visual concerns only — no data flow impact)
   // ============================================================
@@ -120,9 +127,14 @@ export default function FigmaChatShell({
   const [showSessionPanel, setShowSessionPanel] = useState(false);
   const [expandedMeta, setExpandedMeta] = useState(null);
   const [attachedFile, setAttachedFile] = useState(null);
+  const [attachedPreview, setAttachedPreview] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [localFeedback, setLocalFeedback] = useState({});
 
   const fileInputRef = useRef(null);
+  const dropZoneRef = useRef(null);
+
+  const isImageFile = (file) => file?.type?.startsWith('image/');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -258,15 +270,37 @@ export default function FigmaChatShell({
     }
   }, [enhancedMessages, mode, subMode, activeChatId]);
 
+  const attachFile = useCallback((file) => {
+    if (!file) return;
+    setAttachedFile(file);
+    if (file.type?.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setAttachedPreview(ev.target.result);
+      reader.readAsDataURL(file);
+    } else {
+      setAttachedPreview(null);
+    }
+  }, []);
+
   const handleFileSelect = useCallback((e) => {
     const file = e.target.files?.[0];
-    if (file) setAttachedFile(file);
-  }, []);
+    if (file) attachFile(file);
+  }, [attachFile]);
 
   const removeFile = useCallback(() => {
     setAttachedFile(null);
+    setAttachedPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
+
+  // -- Drag-and-drop handlers --
+  const handleDragOver = useCallback((e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }, []);
+  const handleDragLeave = useCallback((e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }, []);
+  const handleDrop = useCallback((e) => {
+    e.preventDefault(); e.stopPropagation(); setIsDragging(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) attachFile(file);
+  }, [attachFile]);
 
   // ============================================================
   // RENDER HELPERS
@@ -313,16 +347,16 @@ export default function FigmaChatShell({
     return parts.map((part, idx) => {
       if (part.type === 'code') {
         return (
-          <div key={idx} className="my-3 rounded-xl overflow-hidden border border-black/5">
+          <div key={idx} className="my-3 rounded-xl overflow-hidden border border-black/5 dark:border-white/10">
             {part.language && (
-              <div className="px-4 py-1.5 bg-[#f5f5f7] border-b border-black/5">
-                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#6e6e73', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+              <div className="px-4 py-1.5 bg-[#f5f5f7] dark:bg-[#2a2a2e] border-b border-black/5 dark:border-white/10">
+                <span className="text-[#6e6e73] dark:text-[#94a3b8]" style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                   {part.language}
                 </span>
               </div>
             )}
-            <pre className="p-4 bg-[#fafafa] overflow-x-auto">
-              <code style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace", fontSize: '13px', lineHeight: 1.5, color: '#1d1d1f' }}>
+            <pre className="p-4 bg-[#fafafa] dark:bg-[#1a1a1e] overflow-x-auto">
+              <code className="text-[#1d1d1f] dark:text-[#e2e8f0]" style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace", fontSize: '13px', lineHeight: 1.5 }}>
                 {part.content}
               </code>
             </pre>
@@ -332,7 +366,7 @@ export default function FigmaChatShell({
 
       // Render clean text — split paragraphs
       return (
-        <div key={idx} className="whitespace-pre-wrap" style={{ color: '#1d1d1f' }}>
+        <div key={idx} className="whitespace-pre-wrap text-inherit">
           {part.content}
         </div>
       );
@@ -341,15 +375,15 @@ export default function FigmaChatShell({
 
   const renderConfidenceBar = (value, label, color) => (
     <div className="flex items-center gap-2">
-      <span className="text-[#6e6e73] w-20 flex-shrink-0"
+      <span className="text-[#6e6e73] dark:text-[#94a3b8] w-20 flex-shrink-0"
         style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 500 }}>
         {label}
       </span>
-      <div className="flex-1 h-1.5 bg-black/5 rounded-full overflow-hidden">
+      <div className="flex-1 h-1.5 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
         <div className="h-full rounded-full transition-all duration-500"
           style={{ width: `${Math.round(value * 100)}%`, backgroundColor: color }} />
       </div>
-      <span className="text-[#1d1d1f] w-10 text-right flex-shrink-0"
+      <span className="text-[#1d1d1f] dark:text-white w-10 text-right flex-shrink-0"
         style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600 }}>
         {Math.round(value * 100)}%
       </span>
@@ -405,7 +439,7 @@ export default function FigmaChatShell({
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="mt-2 p-3 rounded-xl bg-[#f5f5f7]/80 space-y-3">
+              <div className="mt-2 p-3 rounded-xl bg-[#f5f5f7]/80 dark:bg-[#1c1c1e]/80 space-y-3">
 
                 {/* Confidence Evolution */}
                 {message.confidenceEvolution && (
@@ -448,8 +482,8 @@ export default function FigmaChatShell({
                         { label: 'Boundary sev.', value: message.reasoningTrace.boundary_severity },
                       ].map((item) => (
                         <div key={item.label} className="flex items-center justify-between">
-                          <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 400, color: '#6e6e73' }}>{item.label}</span>
-                          <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#1d1d1f' }}>{item.value}</span>
+                          <span className="text-[#6e6e73] dark:text-[#94a3b8]" style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 400 }}>{item.label}</span>
+                          <span className="text-[#1d1d1f] dark:text-white" style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600 }}>{item.value}</span>
                         </div>
                       ))}
                     </div>
@@ -489,8 +523,8 @@ export default function FigmaChatShell({
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span style={{ fontFamily: FONT, fontSize: '10px', color: '#6e6e73' }}>Severity</span>
-                        <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#1d1d1f' }}>
+                        <span className="text-[#6e6e73] dark:text-[#94a3b8]" style={{ fontFamily: FONT, fontSize: '10px' }}>Severity</span>
+                        <span className="text-[#1d1d1f] dark:text-white" style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600 }}>
                           {message.boundaryResult.severity_score}/100
                         </span>
                       </div>
@@ -524,7 +558,7 @@ export default function FigmaChatShell({
                       <Zap className="w-3 h-3 text-[#f59e0b]" />
                       <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 500, color: '#6e6e73' }}>Fragility Index</span>
                     </div>
-                    <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#1d1d1f' }}>
+                    <span className="text-[#1d1d1f] dark:text-white" style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600 }}>
                       {(message.omegaMetadata.fragility_index * 100).toFixed(1)}%
                     </span>
                   </div>
@@ -568,7 +602,7 @@ export default function FigmaChatShell({
                         <div key={i} className="flex items-start gap-1.5">
                           <span style={{ fontFamily: FONT, fontSize: '9px', fontWeight: 600, color: '#06b6d4' }}>[{i + 1}]</span>
                           <div>
-                            <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 500, color: '#1d1d1f' }}>{src.title || src.domain}</span>
+                            <span className="text-[#1d1d1f] dark:text-white" style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 500 }}>{src.title || src.domain}</span>
                             {src.url && (
                               <a href={src.url} target="_blank" rel="noopener noreferrer"
                                 className="block text-[#3b82f6] hover:underline" style={{ fontSize: '9px' }}>
@@ -672,8 +706,8 @@ export default function FigmaChatShell({
             { value: sessionState.boundary_history_count || 0, label: 'Boundaries' },
             { value: sessionState.reasoning_depth || 'N/A', label: 'Depth' },
           ].map((stat) => (
-            <div key={stat.label} className="p-2 rounded-xl bg-[#f5f5f7] text-center">
-              <span className="block text-[#1d1d1f]"
+            <div key={stat.label} className="p-2 rounded-xl bg-[#f5f5f7] dark:bg-[#1c1c1e] text-center">
+              <span className="block text-[#1d1d1f] dark:text-[#f1f5f9]"
                 style={{ fontFamily: FONT, fontSize: '18px', fontWeight: 700 }}>
                 {stat.value}
               </span>
@@ -697,7 +731,7 @@ export default function FigmaChatShell({
 
         {/* Boundary Trend */}
         {sessionState.boundary_trend && (
-          <div className="flex items-center justify-between p-2 rounded-xl bg-[#f5f5f7]">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-[#f5f5f7] dark:bg-[#1c1c1e]">
             <span style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73' }}>Boundary Trend</span>
             <span className="px-2 py-0.5 rounded-md" style={{
               fontFamily: FONT, fontSize: '10px', fontWeight: 600,
@@ -723,7 +757,7 @@ export default function FigmaChatShell({
   // MAIN RENDER
   // ============================================================
   return (
-    <div className="flex bg-[#f5f5f7]" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="flex bg-[#f5f5f7] dark:bg-[#0f0f10]" style={{ height: 'calc(100vh - 56px)' }}>
 
       {/* ==================== HISTORY SIDEBAR ==================== */}
       <AnimatePresence>
@@ -733,17 +767,17 @@ export default function FigmaChatShell({
             animate={{ width: 280, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="h-full border-r border-black/5 bg-white/80 backdrop-blur-xl overflow-hidden flex-shrink-0"
+            className="h-full border-r border-black/5 dark:border-white/10 bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl overflow-hidden flex-shrink-0"
           >
             <div className="h-full flex flex-col">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-black/5">
-                <span className="text-[#1d1d1f]"
+              <div className="flex items-center justify-between px-4 py-3 border-b border-black/5 dark:border-white/5">
+                <span className="text-[#1d1d1f] dark:text-[#f1f5f9]"
                   style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}>
                   Chat History
                 </span>
                 <button onClick={() => setShowHistory(false)}
-                  className="p-1 rounded-lg hover:bg-black/5 transition-colors">
-                  <X className="w-4 h-4 text-[#6e6e73]" />
+                  className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                  <X className="w-4 h-4 text-[#6e6e73] dark:text-[#94a3b8]" />
                 </button>
               </div>
 
@@ -769,10 +803,10 @@ export default function FigmaChatShell({
                         key={chat.id}
                         onClick={() => handleSelectRunLocal(chat)}
                         className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors ${
-                          activeChatId === chat.id ? 'bg-[#e8e8ed]' : 'hover:bg-[#f5f5f7]'
+                          activeChatId === chat.id ? 'bg-[#e8e8ed] dark:bg-white/10' : 'hover:bg-[#f5f5f7] dark:hover:bg-[#1c1c1e]'
                         }`}
                       >
-                        <div className="text-[#1d1d1f] truncate"
+                        <div className="text-[#1d1d1f] dark:text-[#f1f5f9] truncate"
                           style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 500 }}>
                           {chat.summary || chat.name || 'Untitled Chat'}
                         </div>
@@ -802,34 +836,59 @@ export default function FigmaChatShell({
       <div className="flex-1 flex flex-col min-w-0">
 
         {/* ---------- CHAT HEADER ---------- */}
-        <div className="flex items-center justify-between px-4 py-3 bg-white/80 backdrop-blur-xl border-b border-black/5">
+        <div className="flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/10">
           <div className="flex items-center gap-2">
             {/* History toggle */}
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className={`p-2 rounded-xl transition-colors ${showHistory ? 'bg-[#e8e8ed]' : 'hover:bg-black/5'}`}
+              className={`p-2 rounded-xl transition-colors ${showHistory ? 'bg-[#e8e8ed] dark:bg-white/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
               title="Chat History"
             >
-              <History className="w-4 h-4 text-[#6e6e73]" />
+              <History className="w-4 h-4 text-[#6e6e73] dark:text-[#94a3b8]" />
             </button>
 
             {/* Model picker trigger */}
             <button
               onClick={() => setShowModelPicker(!showModelPicker)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-black/5 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
             >
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: selectedModel.color }} />
-              <span className="text-[#1d1d1f]"
+              <span className="text-[#1d1d1f] dark:text-[#f1f5f9]"
                 style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 600 }}>
                 {selectedModel.name}
               </span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#6e6e73]" />
+              <ChevronDown className="w-3.5 h-3.5 text-[#6e6e73] dark:text-[#94a3b8]" />
             </button>
+
+            {/* Mode badge — shows active mode/model */}
+            {selectedModel && !selectedModel.isMeta && selectedModel.id !== 'sentinel-std' && selectedModel.id !== 'sentinel-exp' ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+                style={{ backgroundColor: selectedModel.color + '15' }}>
+                <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: selectedModel.color }} />
+                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: selectedModel.color }}>
+                  Running: {selectedModel.name}
+                </span>
+              </div>
+            ) : selectedModel.id === 'sentinel-exp' ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#8b5cf6]/10">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]" />
+                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#8b5cf6' }}>
+                  Sentinel-E Pro{activeSubMode ? ` — ${PRO_SUB_MODES.find(m => m.id === activeSubMode)?.label || ''}` : ''}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#3b82f6]/10">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
+                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#3b82f6' }}>
+                  Sentinel-E Standard
+                </span>
+              </div>
+            )}
 
             {/* Connection Status */}
             <div className="flex items-center gap-1.5">
               {serverStatus === 'unknown' ? (
-                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#f5f5f7]">
+                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#f5f5f7] dark:bg-white/10">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#aeaeb2] animate-pulse" />
                   <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500, color: '#aeaeb2' }}>
                     Connecting...
@@ -910,54 +969,82 @@ export default function FigmaChatShell({
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="absolute top-16 left-16 z-50 w-64 p-2 rounded-2xl bg-white/95 backdrop-blur-xl shadow-2xl shadow-black/10 border border-black/5"
+                className="absolute top-16 left-16 z-50 w-72 p-2 rounded-2xl bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-xl shadow-2xl shadow-black/10 border border-black/5 dark:border-white/10"
               >
                 {/* Standard models */}
-                <div className="px-3 pt-2 pb-1 text-[#6e6e73]"
+                <div className="px-3 pt-2 pb-1 text-[#6e6e73] dark:text-[#94a3b8]"
                   style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                   Standard
                 </div>
-                {MODELS.filter(m => m.category === 'standard').map((model) => (
-                  <button
-                    key={model.id}
-                    onClick={() => handleModelSelect(model)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
-                      selectedModel.id === model.id ? 'bg-[#f5f5f7]' : 'hover:bg-[#f5f5f7]'
-                    }`}
-                  >
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: model.color + '20' }}>
-                      <Sparkles className="w-4 h-4" style={{ color: model.color }} />
+                {resolvedModels.filter(m => m.category === 'standard').map((model) => {
+                  const isDisabled = model.enabled === false;
+                  return (
+                    <div key={model.id} className="relative group">
+                      <button
+                        onClick={() => !isDisabled && handleModelSelect(model)}
+                        disabled={isDisabled}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+                          isDisabled
+                            ? 'opacity-40 cursor-not-allowed'
+                            : selectedModel.id === model.id ? 'bg-[#f5f5f7] dark:bg-white/10' : 'hover:bg-[#f5f5f7] dark:hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                          style={{ backgroundColor: (isDisabled ? '#9ca3af' : model.color) + '20' }}>
+                          <Sparkles className="w-4 h-4" style={{ color: isDisabled ? '#9ca3af' : model.color }} />
+                        </div>
+                        <div className="text-left flex-1 min-w-0">
+                          <div className="text-[#1d1d1f] dark:text-[#f1f5f9] truncate"
+                            style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}>
+                            {model.name}
+                          </div>
+                          {model.provider && !model.isMeta && (
+                            <div className="text-[#6e6e73] dark:text-[#94a3b8] truncate"
+                              style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 400 }}>
+                              {model.provider}{model.role ? ` · ${model.role}` : ''}
+                            </div>
+                          )}
+                        </div>
+                        {isDisabled && (
+                          <span className="px-1.5 py-0.5 rounded-md bg-[#fef2f2] dark:bg-red-500/10 text-[#ef4444] flex-shrink-0"
+                            style={{ fontFamily: FONT, fontSize: '9px', fontWeight: 600 }}>
+                            OFF
+                          </span>
+                        )}
+                        {!isDisabled && selectedModel.id === model.id && (
+                          <div className="ml-auto w-5 h-5 rounded-full bg-[#007aff] flex items-center justify-center flex-shrink-0">
+                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                      {/* Tooltip for disabled models */}
+                      {isDisabled && (
+                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block z-50 pointer-events-none">
+                          <div className="px-3 py-1.5 rounded-lg bg-[#1d1d1f] text-white shadow-lg whitespace-nowrap"
+                            style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500 }}>
+                            API key not configured
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-left">
-                      <div className="text-[#1d1d1f]"
-                        style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}>
-                        {model.name}
-                      </div>
-                    </div>
-                    {selectedModel.id === model.id && (
-                      <div className="ml-auto w-5 h-5 rounded-full bg-[#007aff] flex items-center justify-center">
-                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                          <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </div>
-                    )}
-                  </button>
-                ))}
+                  );
+                })}
 
-                <div className="my-1.5 mx-3 border-t border-black/5" />
+                <div className="my-1.5 mx-3 border-t border-black/5 dark:border-white/10" />
 
                 {/* Experimental models */}
-                <div className="px-3 pt-2 pb-1 text-[#6e6e73]"
+                <div className="px-3 pt-2 pb-1 text-[#6e6e73] dark:text-[#94a3b8]"
                   style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                   Experimental
                 </div>
-                {MODELS.filter(m => m.category === 'experimental').map((model) => (
+                {resolvedModels.filter(m => m.category === 'experimental').map((model) => (
                   <button
                     key={model.id}
                     onClick={() => handleModelSelect(model)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
-                      selectedModel.id === model.id ? 'bg-[#f5f5f7]' : 'hover:bg-[#f5f5f7]'
+                      selectedModel.id === model.id ? 'bg-[#f5f5f7] dark:bg-white/10' : 'hover:bg-[#f5f5f7] dark:hover:bg-white/5'
                     }`}
                   >
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center"
@@ -965,7 +1052,7 @@ export default function FigmaChatShell({
                       <Sparkles className="w-4 h-4" style={{ color: model.color }} />
                     </div>
                     <div className="text-left">
-                      <div className="text-[#1d1d1f]"
+                      <div className="text-[#1d1d1f] dark:text-[#f1f5f9]"
                         style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}>
                         {model.name}
                       </div>
@@ -1003,8 +1090,8 @@ export default function FigmaChatShell({
                     <div
                       className={`max-w-[85%] sm:max-w-[70%] ${
                         message.role === 'user'
-                          ? 'rounded-[20px] rounded-br-md bg-[#007aff] text-white px-4 py-3'
-                          : 'rounded-[20px] rounded-bl-md bg-white border border-black/5 text-[#1d1d1f] shadow-sm overflow-hidden'
+                          ? 'rounded-[20px] rounded-br-md bg-blue-600 dark:bg-blue-500 text-white px-4 py-3'
+                          : 'rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/10 text-[#1d1d1f] dark:text-white shadow-sm overflow-hidden'
                       }`}
                       style={
                         message.role === 'assistant' && msgMode
@@ -1152,7 +1239,7 @@ export default function FigmaChatShell({
                 className="flex justify-start"
               >
                 <div
-                  className="max-w-[85%] sm:max-w-[70%] rounded-[20px] rounded-bl-md bg-white border shadow-sm overflow-hidden"
+                  className="max-w-[85%] sm:max-w-[70%] rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border shadow-sm overflow-hidden"
                   style={{
                     borderColor: activeSubMode
                       ? (PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color || '#6e6e73') + '30'
@@ -1181,18 +1268,41 @@ export default function FigmaChatShell({
         <div className="px-4 pb-6 pt-2">
           <div className="max-w-3xl mx-auto">
             <div
-              className="flex flex-col gap-0 p-2 rounded-[28px] bg-white shadow-lg transition-all duration-300"
+              ref={dropZoneRef}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`relative flex flex-col gap-0 p-2 rounded-[28px] bg-white dark:bg-[#1c1c1e] shadow-lg transition-all duration-300 ${
+                isDragging ? 'ring-2 ring-[#3b82f6] ring-offset-2 dark:ring-offset-[#0f0f10]' : ''
+              }`}
               style={{
                 borderWidth: '1px',
                 borderStyle: 'solid',
-                borderColor: activeSubMode
-                  ? (PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color || '#007aff') + '40'
-                  : 'rgba(0,0,0,0.1)',
+                borderColor: isDragging
+                  ? '#3b82f6'
+                  : activeSubMode
+                    ? (PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color || '#007aff') + '40'
+                    : 'rgba(0,0,0,0.1)',
                 boxShadow: activeSubMode
                   ? `0 4px 24px -4px ${PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color}20, 0 0 0 1px ${PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color}15`
                   : '0 4px 6px -1px rgba(0,0,0,0.05)',
               }}
             >
+              {/* Drag overlay */}
+              <AnimatePresence>
+                {isDragging && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-10 flex items-center justify-center rounded-[28px] bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 border-2 border-dashed border-[#3b82f6] pointer-events-none"
+                  >
+                    <span className="text-[#3b82f6] font-semibold" style={{ fontFamily: FONT, fontSize: '14px' }}>
+                      Drop file here
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               {/* File attachment preview */}
               <AnimatePresence>
                 {attachedFile && (
@@ -1202,18 +1312,25 @@ export default function FigmaChatShell({
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="flex items-center gap-2 px-3 py-2 mx-1 mt-1 rounded-xl bg-[#f5f5f7]">
-                      <Paperclip className="w-3.5 h-3.5 text-[#6e6e73]" />
-                      <span className="flex-1 truncate text-[#1d1d1f]"
-                        style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 500 }}>
-                        {attachedFile.name}
-                      </span>
-                      <span style={{ fontFamily: FONT, fontSize: '10px', color: '#aeaeb2' }}>
-                        {(attachedFile.size / 1024).toFixed(1)} KB
-                      </span>
+                    <div className="flex items-center gap-2 px-3 py-2 mx-1 mt-1 rounded-xl bg-[#f5f5f7] dark:bg-white/10">
+                      {attachedPreview ? (
+                        <img src={attachedPreview} alt="preview" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                      ) : (
+                        <Paperclip className="w-3.5 h-3.5 text-[#6e6e73] dark:text-[#94a3b8] flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <span className="block truncate text-[#1d1d1f] dark:text-[#f1f5f9]"
+                          style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 500 }}>
+                          {attachedFile.name}
+                        </span>
+                        <span style={{ fontFamily: FONT, fontSize: '10px', color: '#aeaeb2' }}>
+                          {(attachedFile.size / 1024).toFixed(1)} KB
+                          {isImageFile(attachedFile) && ' · Image'}
+                        </span>
+                      </div>
                       <button onClick={removeFile}
-                        className="p-0.5 rounded-md hover:bg-black/10 transition-colors">
-                        <X className="w-3 h-3 text-[#6e6e73]" />
+                        className="p-0.5 rounded-md hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
+                        <X className="w-3 h-3 text-[#6e6e73] dark:text-[#94a3b8]" />
                       </button>
                     </div>
                   </motion.div>
@@ -1239,7 +1356,7 @@ export default function FigmaChatShell({
                               key={sm.id}
                               onClick={() => handleSubModeToggle(sm.id)}
                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 ${
-                                isActive ? 'text-white shadow-md' : 'bg-[#f5f5f7] text-[#6e6e73] hover:bg-[#e8e8ed]'
+                                isActive ? 'text-white shadow-md' : 'bg-[#f5f5f7] dark:bg-white/10 text-[#6e6e73] dark:text-[#94a3b8] hover:bg-[#e8e8ed] dark:hover:bg-white/15'
                               }`}
                               style={isActive ? {
                                 backgroundColor: sm.color,
@@ -1287,18 +1404,18 @@ export default function FigmaChatShell({
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className={`p-2 rounded-full transition-colors flex-shrink-0 ${
-                    attachedFile ? 'bg-[#e0f2fe]' : 'hover:bg-black/5'
+                    attachedFile ? 'bg-[#e0f2fe] dark:bg-[#1e3a5f]' : 'hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
                   title="Attach file"
                 >
-                  <Paperclip className={`w-5 h-5 ${attachedFile ? 'text-[#3b82f6]' : 'text-[#6e6e73]'}`} />
+                  <Paperclip className={`w-5 h-5 ${attachedFile ? 'text-[#3b82f6]' : 'text-[#6e6e73] dark:text-[#94a3b8]'}`} />
                 </button>
                 <input
                   ref={fileInputRef}
                   type="file"
                   className="hidden"
                   onChange={handleFileSelect}
-                  accept=".txt,.pdf,.md,.json,.csv,.py,.js,.ts,.jsx,.tsx"
+                  accept=".txt,.pdf,.md,.json,.csv,.py,.js,.ts,.jsx,.tsx,.png,.jpg,.jpeg,.webp,.gif,.docx,.doc"
                 />
 
                 <textarea
@@ -1312,7 +1429,7 @@ export default function FigmaChatShell({
                       : 'Message Sentinel-E...'
                   }
                   rows={1}
-                  className="flex-1 resize-none bg-transparent outline-none py-2 px-1 max-h-32 text-[#1d1d1f] placeholder-[#aeaeb2]"
+                  className="flex-1 resize-none bg-transparent outline-none py-2 px-1 max-h-32 text-[#1d1d1f] dark:text-[#f1f5f9] placeholder-[#aeaeb2] dark:placeholder-[#64748b]"
                   style={{ fontFamily: FONT, fontSize: '16px', lineHeight: 1.5, fontWeight: 400 }}
                 />
 
@@ -1357,20 +1474,20 @@ export default function FigmaChatShell({
             animate={{ width: 320, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="h-full border-l border-black/5 bg-white/80 backdrop-blur-xl overflow-hidden flex-shrink-0"
+            className="h-full border-l border-black/5 dark:border-white/10 bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl overflow-hidden flex-shrink-0"
           >
             <div className="h-full flex flex-col">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-black/5">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-black/5 dark:border-white/5">
                 <div className="flex items-center gap-2">
                   <Activity className="w-4 h-4 text-[#8b5cf6]" />
-                  <span className="text-[#1d1d1f]"
+                  <span className="text-[#1d1d1f] dark:text-[#f1f5f9]"
                     style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}>
                     Session Analytics
                   </span>
                 </div>
                 <button onClick={() => setShowSessionPanel(false)}
-                  className="p-1.5 rounded-lg hover:bg-black/5 transition-colors">
-                  <X className="w-4 h-4 text-[#6e6e73]" />
+                  className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                  <X className="w-4 h-4 text-[#6e6e73] dark:text-[#94a3b8]" />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto">
