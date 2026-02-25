@@ -50,6 +50,7 @@ else:
     connect_args = {}
 
 # Redis Configuration
+REDIS_URL = os.getenv("REDIS_URL", "")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = os.getenv("REDIS_PORT", "6379")
 REDIS_DB = os.getenv("REDIS_DB", "0")
@@ -76,13 +77,20 @@ AsyncSessionLocal = sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
 
-# Redis Client
-redis_client = redis.Redis(
-    host=REDIS_HOST,
-    port=int(REDIS_PORT),
-    db=int(REDIS_DB),
-    decode_responses=True
-)
+# Redis Client — prefer REDIS_URL (Render/Railway), fallback to host/port,
+# gracefully degrade to None if Redis is unavailable.
+try:
+    if REDIS_URL:
+        redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+    else:
+        redis_client = redis.Redis(
+            host=REDIS_HOST,
+            port=int(REDIS_PORT),
+            db=int(REDIS_DB),
+            decode_responses=True,
+        )
+except Exception:
+    redis_client = None
 
 async def get_db():
     async with AsyncSessionLocal() as session:

@@ -266,7 +266,7 @@ class MemoryEngine:
     """
 
     def __init__(self, user_id: str = "", settings=None):
-        from backend.gateway.config import get_settings
+        from gateway.config import get_settings
         self.settings = settings or get_settings()
         self.user_id = user_id
         self.short_term = ShortTermMemory(max_messages=self.settings.SHORT_TERM_MEMORY_SIZE)

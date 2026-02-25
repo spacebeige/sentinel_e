@@ -26,13 +26,13 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from dataclasses import dataclass, field
 
-from backend.core.session_intelligence import SessionIntelligence
-from backend.core.multipass_reasoning import MultiPassReasoningEngine
-from backend.core.omega_boundary import OmegaBoundaryEvaluator
-from backend.core.omega_formatter import OmegaOutputFormatter
-from backend.core.behavioral_analytics import BehavioralAnalyzer
-from backend.core.evidence_engine import EvidenceEngine
-from backend.core.debate_orchestrator import DebateOrchestrator
+from core.session_intelligence import SessionIntelligence
+from core.multipass_reasoning import MultiPassReasoningEngine
+from core.omega_boundary import OmegaBoundaryEvaluator
+from core.omega_formatter import OmegaOutputFormatter
+from core.behavioral_analytics import BehavioralAnalyzer
+from core.evidence_engine import EvidenceEngine
+from core.debate_orchestrator import DebateOrchestrator
 
 logger = logging.getLogger("Omega-Kernel")
 

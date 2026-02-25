@@ -13,7 +13,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from backend.core.boundary_detector import BoundaryDetector
+from core.boundary_detector import BoundaryDetector
 
 logger = logging.getLogger("Omega-Boundary")
 
