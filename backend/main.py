@@ -41,38 +41,38 @@ from uuid import UUID
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # ── Gateway Layer Imports ────────────────────────────────────
-from backend.gateway.config import get_settings
-from backend.gateway.auth import (
+from gateway.config import get_settings
+from gateway.auth import (
     create_access_token, create_refresh_token,
     get_current_user, get_optional_user, decode_token,
 )
-from backend.gateway.middleware import (
+from gateway.middleware import (
     RateLimitMiddleware, SecurityHeadersMiddleware,
     RequestTrackingMiddleware, ErrorHandlerMiddleware,
     InputValidationMiddleware,
 )
-from backend.gateway.prompt_firewall import get_firewall
+from gateway.prompt_firewall import get_firewall
 
 # ── Database ─────────────────────────────────────────────────
-from backend.database.connection import get_db, init_db, check_redis, redis_client
-from backend.database.crud import (
+from database.connection import get_db, init_db, check_redis, redis_client
+from database.crud import (
     create_chat, get_chat, list_chats, update_chat_metadata,
     add_message, get_chat_messages,
 )
 
 # ── Core Engine Imports ──────────────────────────────────────
-from backend.sentinel.sentinel_sigma_v4 import SentinelSigmaOrchestratorV4
-from backend.sentinel.schemas import SentinelRequest
-from backend.core.omega_kernel import OmegaCognitiveKernel
-from backend.core.mode_config import ModeConfig
-from backend.core.knowledge_learner import KnowledgeLearner
-from backend.utils.chat_naming import generate_chat_name
+from sentinel.sentinel_sigma_v4 import SentinelSigmaOrchestratorV4
+from sentinel.schemas import SentinelRequest
+from core.omega_kernel import OmegaCognitiveKernel
+from core.mode_config import ModeConfig
+from core.knowledge_learner import KnowledgeLearner
+from utils.chat_naming import generate_chat_name
 
 # ── New Architecture Layers ──────────────────────────────────
-from backend.memory.memory_engine import MemoryEngine
-from backend.retrieval.cognitive_rag import CognitiveRAG
-from backend.providers.provider_router import get_provider_router
-from backend.core.dynamic_analytics import DynamicAnalyticsEngine
+from memory.memory_engine import MemoryEngine
+from retrieval.cognitive_rag import CognitiveRAG
+from providers.provider_router import get_provider_router
+from core.dynamic_analytics import DynamicAnalyticsEngine
 
 # ── Logging ──────────────────────────────────────────────────
 settings = get_settings()
@@ -82,6 +82,9 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("Sentinel-API")
+
+# ── Environment Detection ───────────────────────────────────
+ENV = os.getenv("ENV", "development").lower()
 
 # ── Global State ─────────────────────────────────────────────
 orchestrator: Optional[SentinelSigmaOrchestratorV4] = None
@@ -127,9 +130,9 @@ app = FastAPI(
     title="Sentinel-E API",
     version="5.0.0",
     lifespan=lifespan,
-    docs_url="/docs" if not settings.is_production else None,
-    redoc_url=None,
-    openapi_url="/openapi.json" if not settings.is_production else None,
+    docs_url=None if ENV == "production" else "/docs",
+    redoc_url=None if ENV == "production" else "/redoc",
+    openapi_url=None if ENV == "production" else "/openapi.json",
 )
 
 # ── Middleware Stack (order matters: outermost first) ────────
@@ -838,7 +841,7 @@ async def cross_model_analysis(
         raise HTTPException(status_code=503, detail="System not ready")
 
     try:
-        from backend.core.cross_model_analyzer import run_cross_analysis_on_response
+        from core.cross_model_analyzer import run_cross_analysis_on_response
 
         if not llm_response and chat_id and chat_id in omega_sessions:
             kernel = omega_sessions[chat_id]
@@ -881,7 +884,7 @@ async def learning_summary(user: Dict = Depends(get_current_user)):
 async def provider_status(user: Dict = Depends(get_current_user)):
     """Provider usage stats (non-sensitive)."""
     router = get_provider_router()
-    from backend.providers.provider_router import list_active_models
+    from providers.provider_router import list_active_models
     return {
         "active_models": [{"id": m.id, "name": m.name, "tier": m.tier} for m in list_active_models()],
         "usage": router.get_usage_stats(),
