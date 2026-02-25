@@ -257,7 +257,16 @@ from typing import List, Dict, Any
 # --- DEPENDENCIES ---
 # pip install tenacity sentence-transformers scikit-learn numpy
 from tenacity import retry, stop_after_attempt, wait_exponential
-from sentence_transformers import SentenceTransformer
+
+try:
+    if os.getenv("USE_LOCAL_INGESTION", "false").lower() == "true":
+        from sentence_transformers import SentenceTransformer
+        _ST_AVAILABLE = True
+    else:
+        _ST_AVAILABLE = False
+except ImportError:
+    _ST_AVAILABLE = False
+
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ==============================================================================
@@ -301,8 +310,12 @@ JSON_FILE = f"sentinel_deep_probe_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jso
 # ==============================================================================
 # 1. THE NEURAL THREAT ENGINE (EXPANDED)
 # ==============================================================================
-print("[-] Loading Neural Threat Engine (MiniLM-L6)...")
-embedder = SentenceTransformer('all-MiniLM-L6-v2')
+embedder = None
+THREAT_VECTORS = {}
+
+if _ST_AVAILABLE:
+    print("[-] Loading Neural Threat Engine (MiniLM-L6)...")
+    embedder = SentenceTransformer('all-MiniLM-L6-v2')
 
 # DEFINING THE "CONCEPTS" OF DANGER
 THREAT_CONCEPTS = {
@@ -341,7 +354,8 @@ THREAT_CONCEPTS = {
 }
 
 # Pre-calculate vectors
-THREAT_VECTORS = {k: embedder.encode(v) for k, v in THREAT_CONCEPTS.items()}
+if _ST_AVAILABLE and embedder is not None:
+    THREAT_VECTORS = {k: embedder.encode(v) for k, v in THREAT_CONCEPTS.items()}
 
 # ==============================================================================
 # 2. STORAGE (JSON Active / SQLite Archived)

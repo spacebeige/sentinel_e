@@ -215,31 +215,44 @@ from typing import Dict, List
 from sklearn.cluster import DBSCAN
 from sklearn.ensemble import IsolationForest
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import os as _os
+
+# ── Guard torch behind feature flag (not needed for cloud deployment) ──
+_USE_NEURAL = _os.getenv("USE_LOCAL_INGESTION", "false").lower() == "true"
+
+try:
+    if _USE_NEURAL:
+        import torch
+        import torch.nn as nn
+        import torch.nn.functional as F
+        _TORCH_AVAILABLE = True
+    else:
+        _TORCH_AVAILABLE = False
+except ImportError:
+    _TORCH_AVAILABLE = False
 
 
 # ============================================================
 # NEURAL DECISION HEAD
 # ============================================================
 
-class SimpleDecisionNet(nn.Module):
-    """
-    Tiny neural decision surface.
+if _TORCH_AVAILABLE:
+    class SimpleDecisionNet(nn.Module):
+        """
+        Tiny neural decision surface.
 
-    This is NOT a language model.
-    It operates on embeddings only.
-    """
+        This is NOT a language model.
+        It operates on embeddings only.
+        """
 
-    def __init__(self, input_dim: int, hidden_dim: int = 64):
-        super().__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, 1)
+        def __init__(self, input_dim: int, hidden_dim: int = 64):
+            super().__init__()
+            self.fc1 = nn.Linear(input_dim, hidden_dim)
+            self.fc2 = nn.Linear(hidden_dim, 1)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = F.relu(self.fc1(x))
-        return torch.sigmoid(self.fc2(x))
+        def forward(self, x):
+            x = F.relu(self.fc1(x))
+            return torch.sigmoid(self.fc2(x))
 
 
 class NeuralAnalyzer:
@@ -249,12 +262,15 @@ class NeuralAnalyzer:
     Purpose:
     - Estimate internal approval
     - Produce confidence proxy
+    Falls back to heuristic scoring when torch is unavailable.
     """
 
     def __init__(self, embedding_dim: int = 384):
         self.embedding_dim = embedding_dim
-        self.model = SimpleDecisionNet(embedding_dim)
-        self.model.eval()
+        self.model = None
+        if _TORCH_AVAILABLE:
+            self.model = SimpleDecisionNet(embedding_dim)
+            self.model.eval()
 
     def analyze_embedding(self, embedding: np.ndarray) -> Dict:
         """
@@ -267,9 +283,13 @@ class NeuralAnalyzer:
                 f"Expected embedding dim {self.embedding_dim}, got {embedding.shape}"
             )
 
-        with torch.no_grad():
-            x = torch.tensor(embedding, dtype=torch.float32).unsqueeze(0)
-            score = float(self.model(x).item())
+        if _TORCH_AVAILABLE and self.model is not None:
+            with torch.no_grad():
+                x = torch.tensor(embedding, dtype=torch.float32).unsqueeze(0)
+                score = float(self.model(x).item())
+        else:
+            # Heuristic fallback: use mean of embedding as proxy score
+            score = float(np.clip(np.mean(embedding) + 0.5, 0, 1))
 
         # Distance from boundary → confidence
         confidence = abs(score - 0.5) * 2.0
@@ -278,7 +298,7 @@ class NeuralAnalyzer:
             "approval_score": round(score, 4),
             "confidence": round(float(confidence), 4),
             "decision": "approve" if score >= 0.6 else "reject",
-            "note": "Neural fallback evaluation (non-semantic)"
+            "note": "Neural fallback evaluation (non-semantic)" if _TORCH_AVAILABLE else "Heuristic evaluation (torch unavailable)"
         }
 
 

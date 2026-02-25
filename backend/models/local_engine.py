@@ -1,11 +1,22 @@
 # from llama_cpp import Llama
 import json
+import os
+
+# ── Feature flag: disable local model scanning in cloud deployment ──
+USE_LOCAL_MODEL = os.getenv("USE_LOCAL_MODEL", "false").lower() == "true"
 
 class LocalLLMEngine:
     def __init__(self, model_path=None, backup_path=None):
+        self.model_path = None
+        self.backup_path = None
+        self.llm = None
+
+        if not USE_LOCAL_MODEL:
+            # Cloud mode: no local model scanning
+            return
+
         # Use the best available Phi and Llama model files in backend/models
         # Check for Phi-3 Mini first
-        import os
         phi_candidates = [
             "backend/models/phi-3-mini-4k-instruct.Q4_K_M.gguf",
             "backend/models/Phi-3-mini-4k-instruct-q4.gguf",

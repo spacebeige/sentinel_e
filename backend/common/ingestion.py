@@ -1,36 +1,56 @@
 import os
-from langchain_community.document_loaders import PyMuPDFLoader
-try:
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-except ImportError:
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
+import logging
+
+logger = logging.getLogger("CommonIngestionEngine")
+
+# ── Feature flag: disable heavy ML deps in cloud deployment ──
+USE_LOCAL_INGESTION = os.getenv("USE_LOCAL_INGESTION", "false").lower() == "true"
+
 
 class IngestionEngine:
     def __init__(self):
-        # Initialize embeddings on CPU
+        self.embeddings = None
+        self.vector_store = None
+        self.doc_store = []
+        self._initialized = False
+
+        if USE_LOCAL_INGESTION:
+            self._lazy_init()
+        else:
+            logger.info("CommonIngestionEngine running in cloud mode (no local embeddings)")
+
+    def _lazy_init(self):
+        """Load heavy ML dependencies only when explicitly needed."""
+        if self._initialized:
+            return
         try:
+            from langchain_community.embeddings import HuggingFaceEmbeddings
             self.embeddings = HuggingFaceEmbeddings(
                 model_name="sentence-transformers/all-MiniLM-L6-v2",
                 model_kwargs={'device': 'cpu'},
                 encode_kwargs={'normalize_embeddings': True}
             )
-            self.vector_store = None
-            self.doc_store = []
+            self._initialized = True
         except Exception as e:
-            # Fallback or logging if initialization fails (e.g. missing torch)
-            print(f"Failed to initialize embeddings: {e}")
+            logger.warning(f"Failed to initialize embeddings: {e}")
             self.embeddings = None
 
 
     def process_pdf(self, file_path):
         """Parse PDF, chunk text, and build FAISS index."""
+        if not self._initialized:
+            self._lazy_init()
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
-
         if not self.embeddings:
-             raise RuntimeError("Embeddings model not initialized")
+             raise RuntimeError("Embeddings model not initialized. Set USE_LOCAL_INGESTION=true and install deps.")
+
+        from langchain_community.document_loaders import PyMuPDFLoader
+        from langchain_community.vectorstores import FAISS
+        try:
+            from langchain_text_splitters import RecursiveCharacterTextSplitter
+        except ImportError:
+            from langchain.text_splitter import RecursiveCharacterTextSplitter
 
         # 1. Load PDF
         loader = PyMuPDFLoader(file_path)

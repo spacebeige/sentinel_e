@@ -1,37 +1,44 @@
-streamlit
-langchain
-langchain-community
-faiss-cpu
-sentence-transformers
-python-dotenv
-numpy
-scikit-learn
-pypdf
-PyMuPDF
-groq
-huggingface_hub
+# ── Core API Framework ──
 fastapi
 uvicorn
 python-multipart
-faster-whisper
-edge-tts
-streamlit-mic-recorder
-textblob
-matplotlib
-seaborn
-torch
-requests
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# ── Cloud LLM Clients ──
+groq
 aiohttp
-asyncpg
-redis
-networkx
+requests
+python-dotenv
+tavily-python
+
+# ── Database ──
 sqlalchemy>=2.0.0
 asyncpg>=0.29.0
 redis>=5.0.0
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
-tavily-python
-python-dotenv
-# Security & Auth
+
+# ── Lightweight Analysis ──
+numpy
+scikit-learn
+networkx
+textblob
+tenacity
+
+# ── Security & Auth ──
 PyJWT>=2.8.0
-# Production
+
+# ── Optional: Heavy ML (only install when USE_LOCAL_INGESTION=true) ──
+# Uncomment these for local development with embeddings/RAG:
+# torch
+# sentence-transformers
+# faiss-cpu
+# langchain
+# langchain-community
+# huggingface_hub
+# pypdf
+# PyMuPDF
+# streamlit
+# faster-whisper
+# edge-tts
+# matplotlib
+# seaborn

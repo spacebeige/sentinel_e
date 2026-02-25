@@ -74,6 +74,15 @@ from retrieval.cognitive_rag import CognitiveRAG
 from providers.provider_router import get_provider_router
 from core.dynamic_analytics import DynamicAnalyticsEngine
 
+# ── Optimization Layer ───────────────────────────────────────
+from optimization import (
+    get_token_optimizer,
+    get_response_cache,
+    get_fallback_router,
+    get_cost_governor,
+    get_observability_hub,
+)
+
 # ── Logging ──────────────────────────────────────────────────
 settings = get_settings()
 logging.basicConfig(
@@ -121,7 +130,14 @@ async def lifespan(app: FastAPI):
     cognitive_rag = CognitiveRAG()
     analytics_engine = DynamicAnalyticsEngine()
 
-    logger.info("Sentinel-E v5.0 online. All systems initialized.")
+    # Optimization layer (lightweight singletons)
+    get_token_optimizer()
+    get_response_cache()
+    get_fallback_router()
+    get_cost_governor()
+    get_observability_hub()
+
+    logger.info("Sentinel-E v5.0 online. All systems initialized (with optimization layer).")
     yield
     logger.info("Shutting down Sentinel-E v5.0...")
 
@@ -408,6 +424,83 @@ async def run_sentinel(
     kill = getattr(request, "kill", False)
     role_map = getattr(request, "role_map", None) or {}
 
+    # ── Optimization: Observability Tracing ───────────────────
+    obs_hub = get_observability_hub()
+    request_id = str(uuid_lib.uuid4().hex[:12])
+    tracer = obs_hub.start_request(session_id=str(chat.id), request_id=request_id)
+    tracer.start_span("total")
+
+    # ── Optimization: Response Cache Check ────────────────────
+    cache = get_response_cache()
+    cache_result = cache.lookup(effective_text, omega_mode)
+    if cache_result.hit:
+        cached_response = cache_result.response or {}
+        cache_latency = tracer.end_span("total")
+        tier_name = {1: "exact", 2: "lexical", 3: "semantic"}.get(cache_result.tier, "unknown")
+        tracer.record_cache_hit(tier=tier_name, latency_ms=cache_latency)
+        summary = tracer.finalize()
+        obs_hub.record(summary)
+
+        # Return cached response (preserving full response contract)
+        return {
+            "chat_id": str(chat.id),
+            "chat_name": cached_response.get("chat_name", ""),
+            "mode": cached_response.get("mode", omega_mode),
+            "sub_mode": cached_response.get("sub_mode", sub_mode),
+            "formatted_output": cached_response.get("formatted_output", ""),
+            "data": {"priority_answer": cached_response.get("formatted_output", "")},
+            "confidence": cached_response.get("confidence", 0.5),
+            "session_state": cached_response.get("session_state", {}),
+            "boundary_result": cached_response.get("boundary_result", {}),
+            "omega_metadata": {**cached_response.get("omega_metadata", {}), "cache_hit": True, "cache_tier": tier_name},
+        }
+    tracer.record_cache_miss()
+
+    # ── Optimization: Cost Governance ─────────────────────────
+    governor = get_cost_governor()
+    tier = "premium" if omega_mode in ("research", "experimental") else "standard"
+    gov_decision = governor.check_budget(str(chat.id), requested_tier=tier)
+    if not gov_decision.allowed:
+        from optimization.observability import ObservabilityEvent, EventType
+        tracer.record_event(ObservabilityEvent(event_type=EventType.BUDGET_EXCEEDED))
+        logger.warning(f"Budget exceeded for chat {chat.id}: {gov_decision.reason}")
+        raise HTTPException(status_code=429, detail=f"Session budget exceeded. {gov_decision.reason}")
+
+    # Apply cost governor model recommendation
+    if gov_decision.downgraded and gov_decision.recommended_model:
+        logger.info(f"Cost governor downgraded model for chat {chat.id}: {gov_decision.recommended_model}")
+
+    # ── Optimization: Token Optimization ──────────────────────
+    token_optimizer = get_token_optimizer()
+
+    # Separate system messages and user/assistant history
+    system_msgs = [m for m in history if m.get("role") == "system"]
+    conv_history = [m for m in history if m.get("role") != "system"]
+    system_prompt = "\n".join(m.get("content", "") for m in system_msgs)
+
+    opt_result = token_optimizer.optimize(
+        query=effective_text,
+        system_prompt=system_prompt,
+        history=conv_history,
+        context_window=settings.TOKEN_BUDGET_PER_REQUEST,
+    )
+    depth_assessment = opt_result.get("depth_assessment")
+    if opt_result.get("compression_applied") or opt_result.get("deduped_history_count", 0) < len(conv_history):
+        original_tokens = sum(len(m.get("content", "")) // 4 for m in history)
+        opt_system = opt_result.get("system_prompt", system_prompt)
+        opt_history_list = opt_result.get("history", conv_history)
+        optimized_tokens = len(opt_system) // 4 + sum(len(m.get("content", "")) // 4 for m in opt_history_list)
+        if original_tokens > optimized_tokens:
+            tracer.record_token_optimization(
+                original_tokens=original_tokens,
+                optimized_tokens=optimized_tokens,
+            )
+        # Rebuild history with optimized system prompt + conversation
+        history = []
+        if opt_system:
+            history.append({"role": "system", "content": opt_system})
+        history.extend(opt_history_list)
+
     config = ModeConfig.from_legacy(
         text=effective_text,
         mode=omega_mode,
@@ -421,7 +514,9 @@ async def run_sentinel(
     )
 
     # ── Execute ──────────────────────────────────────────────
+    tracer.start_span("kernel")
     result = await kernel.process(config)
+    kernel_latency = tracer.end_span("kernel")
 
     # ── Extract & Build Response ─────────────────────────────
     formatted_output = result.get("formatted_output", "")
@@ -550,8 +645,8 @@ async def run_sentinel(
         except Exception as e:
             logger.debug(f"Summary generation skipped: {e}")
 
-    # ── Response ─────────────────────────────────────────────
-    return {
+    # ── Optimization: Cache Store & Observability ─────────────
+    response_payload = {
         "chat_id": str(chat.id),
         "chat_name": result.get("chat_name", ""),
         "mode": result.get("mode", omega_mode),
@@ -563,6 +658,45 @@ async def run_sentinel(
         "boundary_result": omega_metadata.get("boundary_result", boundary_result),
         "omega_metadata": omega_metadata,
     }
+
+    # Store in response cache (non-blocking, best-effort)
+    try:
+        cache.store(effective_text, omega_mode, response_payload)
+    except Exception:
+        pass
+
+    # Record usage in cost governor
+    try:
+        # Estimate tokens from history length + output length
+        est_input_tokens = sum(len(m.get("content", "")) // 4 for m in history)
+        est_output_tokens = len(formatted_output) // 4
+        governor.record_usage(
+            session_id=str(chat.id),
+            model_id=result.get("omega_metadata", {}).get("primary_model", "llama-3.1-8b"),
+            input_tokens=est_input_tokens,
+            output_tokens=est_output_tokens,
+            latency_ms=kernel_latency,
+        )
+    except Exception:
+        pass
+
+    # Finalize observability
+    try:
+        total_latency = tracer.end_span("total")
+        tracer.record_model_call(
+            model_id=result.get("omega_metadata", {}).get("primary_model", "llama-3.1-8b"),
+            input_tokens=est_input_tokens,
+            output_tokens=est_output_tokens,
+            latency_ms=kernel_latency,
+            cost_estimate=0.0,
+        )
+        summary = tracer.finalize()
+        obs_hub.record(summary)
+    except Exception:
+        pass
+
+    # ── Response ─────────────────────────────────────────────
+    return response_payload
 
 
 # ============================================================
@@ -889,6 +1023,34 @@ async def provider_status(user: Dict = Depends(get_current_user)):
         "active_models": [{"id": m.id, "name": m.name, "tier": m.tier} for m in list_active_models()],
         "usage": router.get_usage_stats(),
     }
+
+
+# ============================================================
+# OPTIMIZATION STATS
+# ============================================================
+
+@app.get("/api/optimization/stats")
+async def optimization_stats(user: Dict = Depends(get_current_user)):
+    """Optimization layer metrics (non-sensitive)."""
+    cache = get_response_cache()
+    governor = get_cost_governor()
+    obs_hub = get_observability_hub()
+
+    return {
+        "cache": cache.stats,
+        "cost": governor.get_global_stats(),
+        "observability": obs_hub.get_metrics(),
+    }
+
+
+@app.get("/api/optimization/session/{chat_id}")
+async def optimization_session_stats(
+    chat_id: str,
+    user: Dict = Depends(get_current_user),
+):
+    """Per-session budget status."""
+    governor = get_cost_governor()
+    return governor.get_session_budget(chat_id)
 
 
 # ============================================================

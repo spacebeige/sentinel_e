@@ -4,7 +4,17 @@ import re
 from dataclasses import dataclass
 from typing import List, Dict
 
-from sentence_transformers import SentenceTransformer
+import os
+
+try:
+    if os.getenv("USE_LOCAL_INGESTION", "false").lower() == "true":
+        from sentence_transformers import SentenceTransformer
+        _ST_AVAILABLE = True
+    else:
+        _ST_AVAILABLE = False
+except ImportError:
+    _ST_AVAILABLE = False
+
 from sklearn.metrics.pairwise import cosine_similarity
 
 # -------------------------------
@@ -58,7 +68,9 @@ class DeliberativeOrchestrator:
 
     def __init__(self, cloud_client):
         self.cloud = cloud_client
-        self.embedder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        self.embedder = None
+        if _ST_AVAILABLE:
+            self.embedder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
     # ---------------------------------
     # Parallel role-conditioned prompts
@@ -76,7 +88,14 @@ QUERY:
 """
         text = await model_fn(role_prompt)
         norm = normalize_text(text)
-        emb = self.embedder.encode([norm], normalize_embeddings=True)[0]
+        if self.embedder:
+            emb = self.embedder.encode([norm], normalize_embeddings=True)[0]
+        else:
+            # Fallback: use hash-based pseudo-embedding when sentence-transformers unavailable
+            import hashlib
+            h = hashlib.sha256(norm.encode()).digest()
+            emb = np.frombuffer(h[:32], dtype=np.float32)  # 8-dim pseudo-embedding
+            emb = emb / (np.linalg.norm(emb) + 1e-9)
 
         return ModelResponse(
             model_name=model_name,
