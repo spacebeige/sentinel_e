@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import StructuredOutput from '../components/structured/StructuredOutput';
 import ThinkingAnimation from '../components/structured/ThinkingAnimation';
+import AdvancedCopyMenu from '../components/AdvancedCopyMenu';
 import { normalizeResponseText } from '../engines/responseNormalizer';
 import memoryManager from '../engines/memoryManager';
 import { getVisibility, hasAnyVisibleAnalytics } from '../engines/analyticsVisibilityController';
@@ -1199,6 +1200,7 @@ export default function FigmaChatShell({
 
                           {message.role === 'assistant' && message.id !== 'welcome' && (
                             <div className="flex items-center gap-1 ml-2">
+                              <AdvancedCopyMenu message={message} />
                               <button
                                 onClick={() => handleFeedback(message.id, 'up')}
                                 className={`p-1 rounded-md transition-colors ${
