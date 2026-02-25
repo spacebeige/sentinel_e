@@ -31,23 +31,23 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from dataclasses import dataclass, field
 
-from backend.core.mode_config import ModeConfig, Mode, SubMode
-from backend.core.session_intelligence import SessionIntelligence
-from backend.core.multipass_reasoning import MultiPassReasoningEngine
-from backend.core.omega_boundary import OmegaBoundaryEvaluator
-from backend.core.omega_formatter import OmegaOutputFormatter
-from backend.core.behavioral_analytics import BehavioralAnalyzer
-from backend.core.evidence_engine import EvidenceEngine
-from backend.core.debate_orchestrator import DebateOrchestrator
-from backend.core.confidence_engine import ConfidenceEngine, ConfidenceTrace
-from backend.core.stress_engine import StressEngine
+from core.mode_config import ModeConfig, Mode, SubMode
+from core.session_intelligence import SessionIntelligence
+from core.multipass_reasoning import MultiPassReasoningEngine
+from core.omega_boundary import OmegaBoundaryEvaluator
+from core.omega_formatter import OmegaOutputFormatter
+from core.behavioral_analytics import BehavioralAnalyzer
+from core.evidence_engine import EvidenceEngine
+from core.debate_orchestrator import DebateOrchestrator
+from core.confidence_engine import ConfidenceEngine, ConfidenceTrace
+from core.stress_engine import StressEngine
 
 # v4 Engine Modules — Production Cognitive Governance
-from backend.engines.aggregation_engine import AggregationEngine
-from backend.engines.forensic_evidence_engine import ForensicEvidenceEngine
-from backend.engines.blind_audit_engine import BlindAuditEngine
-from backend.engines.dynamic_boundary import DynamicBoundaryEngine
-from backend.engines.mode_controller import resolve_execution_mode, detect_evidence_trigger
+from engines.aggregation_engine import AggregationEngine
+from engines.forensic_evidence_engine import ForensicEvidenceEngine
+from engines.blind_audit_engine import BlindAuditEngine
+from engines.dynamic_boundary import DynamicBoundaryEngine
+from engines.mode_controller import resolve_execution_mode, detect_evidence_trigger
 
 logger = logging.getLogger("Omega-Kernel")
 

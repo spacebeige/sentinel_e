@@ -3,14 +3,14 @@ import asyncio
 from typing import Dict, Any
 
 try:
-    from backend.sentinel.sentinel_sigma import SentinelSigmaOrchestrator
-    from backend.core.ingestion import IngestionEngine
+    from sentinel.sentinel_sigma import SentinelSigmaOrchestrator
+    from core.ingestion import IngestionEngine
 except ImportError:
     import sys
     import os
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-    from backend.sentinel.sentinel_sigma import SentinelSigmaOrchestrator
-    from backend.core.ingestion import IngestionEngine
+    from sentinel.sentinel_sigma import SentinelSigmaOrchestrator
+    from core.ingestion import IngestionEngine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("PolyMath-Orchestrator")

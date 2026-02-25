@@ -13,8 +13,8 @@ except ImportError:
     import sys
     import os
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-    from backend.models.cloud_clients import CloudModelClient
-    from backend.sentinel.prompts import SENTINEL_SIGMA_SYSTEM_PROMPT
+    from models.cloud_clients import CloudModelClient
+    from sentinel.prompts import SENTINEL_SIGMA_SYSTEM_PROMPT
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | SIGMA | %(levelname)s | %(message)s")
