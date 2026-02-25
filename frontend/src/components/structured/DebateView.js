@@ -24,12 +24,21 @@ export default function DebateView({ data, boundary, confidence }) {
   const [expandedRound, setExpandedRound] = useState(0);
 
   // Safe fallback values — hooks must be called unconditionally
-  const safeData = data || {};
-  const rounds = safeData.rounds || [];
-  const analysis = safeData.analysis || {};
-  const modelsUsed = safeData.models_used || [];
-  const scores = safeData.scores || safeData.score_breakdown || {};
+  const safeData = useMemo(() => data || {}, [data]);
 
+  const rounds = useMemo(() => safeData.rounds || [], [safeData.rounds]);
+
+  const analysis = useMemo(() => safeData.analysis || {}, [safeData.analysis]);
+
+  const modelsUsed = useMemo(
+    () => safeData.models_used || [],
+    [safeData.models_used]
+  );
+
+  const scores = useMemo(
+    () => safeData.scores || safeData.score_breakdown || {},
+    [safeData.scores, safeData.score_breakdown]
+  );
   // ── Radar data: each "axis" shows how much models diverge ──
   const radarData = useMemo(() => {
     const axes = analysis.conflict_axes || [];
