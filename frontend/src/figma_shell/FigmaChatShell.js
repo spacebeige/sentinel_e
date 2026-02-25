@@ -246,7 +246,7 @@ export default function FigmaChatShell({
     });
 
     // POST to backend /feedback endpoint (fire-and-forget)
-    const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    const API_BASE = require('../config').API_BASE;
     if (activeChatId) {
       const feedbackForm = new FormData();
       feedbackForm.append('run_id', activeChatId);

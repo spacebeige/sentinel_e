@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from abc import ABC, abstractmethod
 
-from backend.gateway.config import get_settings
+from gateway.config import get_settings
 
 logger = logging.getLogger("Providers")
 

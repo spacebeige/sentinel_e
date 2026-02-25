@@ -5,8 +5,8 @@ from statistics import mean
 from tavily import TavilyClient
 from dotenv import load_dotenv
 
-from backend.core.boundary_detector import BoundaryDetector
-from backend.core.neural_executive import NeuralExecutive
+from core.boundary_detector import BoundaryDetector
+from core.neural_executive import NeuralExecutive
 
 load_dotenv()
 
@@ -19,7 +19,7 @@ class SentinelXOmegaCognitive:
         self.tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
         # Cloud LLM client
-        from backend.models.cloud_clients import CloudModelClient
+        from models.cloud_clients import CloudModelClient
         self.cloud_client = CloudModelClient()
 
         # Lightweight session memory (no full replay)

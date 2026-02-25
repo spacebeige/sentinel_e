@@ -29,7 +29,8 @@ function App() {
   const [lastResponseText, setLastResponseText] = useState('');
   const [lastQueryText, setLastQueryText] = useState('');
 
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+  const { API_BASE } = require('./config');
+  const API_BASE_URL = API_BASE;
 
   // Theme handling via data-theme attribute
   useEffect(() => {

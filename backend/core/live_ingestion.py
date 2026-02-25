@@ -349,7 +349,7 @@ class LiveIngestionDaemon:
 
         # Step 6: Store evidence and update graph
         if self.evidence_memory:
-            from backend.core.knowledge_memory import EvidenceObject
+            from core.knowledge_memory import EvidenceObject
             evidence = EvidenceObject(
                 query_origin=f"auto_ingest:{watcher.source_id}",
                 entity_tags=[],

@@ -310,7 +310,7 @@ class ModelGateway:
                 import sys
                 import os
                 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                from backend.common.model_interface import ModelInterface
+                from common.model_interface import ModelInterface
                 self.model_interface = ModelInterface()
             except ImportError:
                 logger.warning("Could not import ModelInterface, using mock responses")

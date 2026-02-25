@@ -102,7 +102,7 @@ class IntentHasher:
     def _get_classifier(self):
         if self._classifier is None:
             try:
-                from backend.retrieval.cognitive_rag import QueryClassifier
+                from retrieval.cognitive_rag import QueryClassifier
                 self._classifier = QueryClassifier()
             except ImportError:
                 logger.warning("QueryClassifier not available; using defaults")

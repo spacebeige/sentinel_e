@@ -16,8 +16,7 @@
  */
 
 import axios from 'axios';
-
-const API_BASE = process.env.REACT_APP_API_URL || '';
+import { API_BASE } from '../config';
 
 // ── Token Storage (memory-only, not localStorage) ───────────
 let _accessToken = null;

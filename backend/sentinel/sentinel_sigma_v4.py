@@ -7,23 +7,23 @@ from dataclasses import dataclass, field
 
 # Local imports
 try:
-    from backend.models.cloud_clients import CloudModelClient
-    from backend.sentinel.schemas import SentinelResponse, MachineMetadata, ShadowAnalysis, ModelPosition, SentinelRequest
-    from backend.sentinel.shadow_engine import SentinelShadowEngine
-    from backend.sentinel.debate_engine import SentinelDebateEngine
-    from backend.core.ingestion import IngestionEngine
-    from backend.core.memory import KnowledgeBase
+    from models.cloud_clients import CloudModelClient
+    from sentinel.schemas import SentinelResponse, MachineMetadata, ShadowAnalysis, ModelPosition, SentinelRequest
+    from sentinel.shadow_engine import SentinelShadowEngine
+    from sentinel.debate_engine import SentinelDebateEngine
+    from core.ingestion import IngestionEngine
+    from core.memory import KnowledgeBase
 except ImportError:
     import sys
     import os
     # Add project root to sys.path
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-    from backend.models.cloud_clients import CloudModelClient
-    from backend.sentinel.schemas import SentinelResponse, MachineMetadata, ShadowAnalysis, ModelPosition, SentinelRequest
-    from backend.sentinel.shadow_engine import SentinelShadowEngine
-    from backend.sentinel.debate_engine import SentinelDebateEngine
-    from backend.core.ingestion import IngestionEngine
-    from backend.core.memory import KnowledgeBase
+    from models.cloud_clients import CloudModelClient
+    from sentinel.schemas import SentinelResponse, MachineMetadata, ShadowAnalysis, ModelPosition, SentinelRequest
+    from sentinel.shadow_engine import SentinelShadowEngine
+    from sentinel.debate_engine import SentinelDebateEngine
+    from core.ingestion import IngestionEngine
+    from core.memory import KnowledgeBase
 from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | SIGMA-V4 | %(levelname)s | %(message)s")

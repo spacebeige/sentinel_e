@@ -9,7 +9,7 @@ Experimental mode (Sigma) NEVER refuses—only logs.
 """
 
 from typing import Dict, Any, Optional
-from backend.core.boundary_detector import BoundaryDetector
+from core.boundary_detector import BoundaryDetector
 
 
 class RefusalSystem:

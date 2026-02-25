@@ -693,7 +693,7 @@ from dataclasses import dataclass, asdict, field
 from datetime import datetime
 import os
 
-from backend.models.cloud_clients import CloudModelClient
+from models.cloud_clients import CloudModelClient
 
 # ------------------------------------------------------------
 # LOGGING

@@ -24,20 +24,20 @@ from datetime import datetime, timezone
 
 class TestConfig:
     def test_settings_load(self):
-        from backend.gateway.config import get_settings
+        from gateway.config import get_settings
         s = get_settings()
         assert s.APP_VERSION == "5.0.0"
         assert s.ENVIRONMENT in ("development", "staging", "production")
 
     def test_cors_origins_parsing(self):
-        from backend.gateway.config import get_settings
+        from gateway.config import get_settings
         s = get_settings()
         origins = s.cors_origins
         assert isinstance(origins, list)
         assert len(origins) >= 1
 
     def test_effective_database_url(self):
-        from backend.gateway.config import get_settings
+        from gateway.config import get_settings
         s = get_settings()
         url = s.effective_database_url
         assert url
@@ -51,7 +51,7 @@ class TestConfig:
 
 class TestAuth:
     def test_create_access_token(self):
-        from backend.gateway.auth import create_access_token, decode_token
+        from gateway.auth import create_access_token, decode_token
         token = create_access_token("user-123")
         assert token
         payload = decode_token(token)
@@ -59,7 +59,7 @@ class TestAuth:
         assert payload["type"] == "access"
 
     def test_create_refresh_token(self):
-        from backend.gateway.auth import create_refresh_token, decode_token
+        from gateway.auth import create_refresh_token, decode_token
         token = create_refresh_token("user-456")
         payload = decode_token(token)
         assert payload["sub"] == "user-456"

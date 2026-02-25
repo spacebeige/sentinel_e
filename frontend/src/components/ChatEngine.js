@@ -22,6 +22,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
+import { API_BASE } from '../config';
 import FigmaChatShell, { MODELS } from '../figma_shell/FigmaChatShell';
 import { getDefaultPipelineSteps } from '../engines/modeController';
 import memoryManager from '../engines/memoryManager';
@@ -51,7 +52,7 @@ export default function ChatEngine() {
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState(MODELS[0]);
 
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+  const API_BASE_URL = API_BASE;
 
   // Sync selectedModel.category ↔ mode (bidirectional adapter)
   useEffect(() => {

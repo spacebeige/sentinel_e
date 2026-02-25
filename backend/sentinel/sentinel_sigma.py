@@ -6,8 +6,8 @@ from dataclasses import dataclass, asdict
 
 # Import existing infrastructure
 try:
-    from backend.models.cloud_clients import CloudModelClient
-    from backend.sentinel.prompts import SENTINEL_SIGMA_SYSTEM_PROMPT
+    from models.cloud_clients import CloudModelClient
+    from sentinel.prompts import SENTINEL_SIGMA_SYSTEM_PROMPT
 except ImportError:
     # Adjust path if running from root
     import sys

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { API_BASE } from '../config';
 import { ThumbsUp, ThumbsDown, Loader2, Star } from "lucide-react";
 
 /**
@@ -20,7 +21,7 @@ const FeedbackButton = ({ runId, mode, subMode, onFeedbackSent }) => {
     setIsSubmitting(true);
     setError(null);
     try {
-      const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+      const BASE_URL = API_BASE;
       const formData = new FormData();
       formData.append("run_id", runId);
       formData.append("feedback", type);

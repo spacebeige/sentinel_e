@@ -6,7 +6,7 @@ Captures hypotheses, boundaries, safety assessments, metrics.
 import json
 import os
 from datetime import datetime
-from backend.common.utils import generate_id, get_timestamp
+from common.utils import generate_id, get_timestamp
 
 class SigmaLogger:
     def __init__(self, output_dir="sentinel_history"):

@@ -4,7 +4,7 @@ import asyncio
 import requests
 from dotenv import load_dotenv
 # Local LLM engine import
-from backend.models.local_engine import LocalLLMEngine
+from models.local_engine import LocalLLMEngine
 
 # ============================================================
 # ENV LOADING

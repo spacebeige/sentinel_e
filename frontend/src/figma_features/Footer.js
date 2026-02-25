@@ -38,7 +38,7 @@ export function Footer() {
               <ul className="space-y-2">
                 {section.links.map((link) => (
                   <li key={link}>
-                    <a href="#" className="text-white/40 hover:text-white/80 transition-colors"
+                    <a href="/" className="text-white/40 hover:text-white/80 transition-colors"
                       style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 400 }}>
                       {link}
                     </a>
@@ -55,7 +55,7 @@ export function Footer() {
           </p>
           <div className="flex items-center gap-6">
             {['Privacy', 'Terms', 'Cookies'].map((link) => (
-              <a key={link} href="#" className="text-white/30 hover:text-white/60 transition-colors"
+              <a key={link} href="/" className="text-white/30 hover:text-white/60 transition-colors"
                 style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 400 }}>
                 {link}
               </a>

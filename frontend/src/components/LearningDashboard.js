@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { API_BASE } from '../config';
 import { 
     Activity, Shield, AlertTriangle, Brain, TrendingUp, 
     RefreshCw, ChevronRight, BarChart2
@@ -39,7 +40,7 @@ const LearningDashboard = () => {
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('overview');
 
-    const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    const API_BASE_URL = API_BASE;
 
     const fetchData = useCallback(async () => {
         setLoading(true);

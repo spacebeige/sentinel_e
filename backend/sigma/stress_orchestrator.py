@@ -1,16 +1,16 @@
 import logging
 import uuid
-from backend.common.model_interface import ModelInterface
-from backend.common.ingestion import IngestionEngine
-from backend.sigma.hypothesis_extractor import HypothesisExtractor
-from backend.sigma.hypothesis_graph import HypothesisGraph
-from backend.sigma.metrics import calculate_hfi, calculate_integrity_score
-from backend.sigma.logger import SigmaLogger
-from backend.core.boundary_detector import BoundaryDetector
-from backend.core.knowledge_learner import KnowledgeLearner
-from backend.core.cognitive_deliberance import CognitiveDeliberationEngine
+from common.model_interface import ModelInterface
+from common.ingestion import IngestionEngine
+from sigma.hypothesis_extractor import HypothesisExtractor
+from sigma.hypothesis_graph import HypothesisGraph
+from sigma.metrics import calculate_hfi, calculate_integrity_score
+from sigma.logger import SigmaLogger
+from core.boundary_detector import BoundaryDetector
+from core.knowledge_learner import KnowledgeLearner
+from core.cognitive_deliberance import CognitiveDeliberationEngine
 
-from backend.storage.postgres import PostgresClient
+from storage.postgres import PostgresClient
 
 # Removed Sentinel-Core-V2 dependencies to prevent regression to legacy Sigma
 # from backend.sentinel.sentinel_core_v2 import (
@@ -24,7 +24,7 @@ from backend.storage.postgres import PostgresClient
 
 # Use V4 Orchestrator instead for safety checks if available
 try:
-    from backend.sentinel.sentinel_sigma_v4 import SentinelSigmaOrchestratorV4
+    from sentinel.sentinel_sigma_v4 import SentinelSigmaOrchestratorV4
 except ImportError:
     SentinelSigmaOrchestratorV4 = None
 

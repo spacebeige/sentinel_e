@@ -1,8 +1,8 @@
 from typing import List, Dict
 import asyncio
 from datetime import datetime
-from backend.common.model_interface import ModelInterface
-from backend.core.boundary_detector import BoundaryDetector
+from common.model_interface import ModelInterface
+from core.boundary_detector import BoundaryDetector
 
 class HypothesisExtractor:
     def __init__(self, model_interface: ModelInterface):

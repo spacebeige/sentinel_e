@@ -1,16 +1,16 @@
 import logging
 import asyncio
 from datetime import datetime
-from backend.common.model_interface import ModelInterface
-from backend.common.ingestion import IngestionEngine
-from backend.standard.aggregate import Aggregator
-from backend.standard.refusal import RefusalSystem
-from backend.standard.output_formatter import format_output
-from backend.core.neural_executive import NeuralExecutive  # Integrated Neural Stage
-from backend.core.boundary_detector import BoundaryDetector
-from backend.core.knowledge_learner import KnowledgeLearner
-from backend.sigma.metrics import extract_boundary_metrics
-from backend.storage.postgres import PostgresClient
+from common.model_interface import ModelInterface
+from common.ingestion import IngestionEngine
+from standard.aggregate import Aggregator
+from standard.refusal import RefusalSystem
+from standard.output_formatter import format_output
+from core.neural_executive import NeuralExecutive  # Integrated Neural Stage
+from core.boundary_detector import BoundaryDetector
+from core.knowledge_learner import KnowledgeLearner
+from sigma.metrics import extract_boundary_metrics
+from storage.postgres import PostgresClient
 
 logger = logging.getLogger("Standard-Orchestrator")
 
@@ -89,7 +89,7 @@ class StandardOrchestrator:
 
 
         # 2. Cloud Model Calls (Groq, Llama 3.3 70B, Qwen)
-        from backend.standard.prompts import STANDARD_SYSTEM_PROMPT
+        from standard.prompts import STANDARD_SYSTEM_PROMPT
         current_date_str = datetime.now().strftime("%Y-%m-%d")
         system_prompt = f"{STANDARD_SYSTEM_PROMPT}\nThe current date is {current_date_str}."
         cloud_tasks = [

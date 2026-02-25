@@ -26,8 +26,8 @@ import memoryManager from '../engines/memoryManager';
 import { buildContextPayload } from '../engines/contextInjector';
 import { evaluateResponse } from '../engines/cognitiveGovernor';
 import {
-  initSession, isAuthenticated, checkHealth as apiCheckHealth,
-  sendStandard, sendExperimental, sendKill, sendFeedback,
+  initSession, checkHealth as apiCheckHealth,
+  sendStandard, sendExperimental, sendKill,
   getHistory, getChatMessages, getSessionDescriptive, getOmegaSession,
 } from '../services/api';
 
@@ -37,13 +37,13 @@ export default function ChatEngineV5() {
   const [mode, setMode] = useState('standard');
   const [subMode, setSubMode] = useState(null);
   const [killActive, setKillActive] = useState(false);
-  const [rounds, setRounds] = useState(3);
+  const [rounds] = useState(3);
   const [history, setHistory] = useState([]);
   const [messages, setMessages] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [currentResult, setCurrentResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [showLearning, setShowLearning] = useState(false);
+  const [showLearning] = useState(false);
   const [serverStatus, setServerStatus] = useState('unknown');
   const [sessionState, setSessionState] = useState(null);
   const [lastResponseText, setLastResponseText] = useState('');

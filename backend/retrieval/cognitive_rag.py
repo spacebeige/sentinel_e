@@ -272,7 +272,7 @@ class CognitiveRAG:
     """
 
     def __init__(self, tavily_api_key: str = "", threshold: float = 0.6):
-        from backend.gateway.config import get_settings
+        from gateway.config import get_settings
         settings = get_settings()
         self.api_key = tavily_api_key or settings.TAVILY_API_KEY
         self.threshold = threshold or settings.RAG_CONFIDENCE_THRESHOLD

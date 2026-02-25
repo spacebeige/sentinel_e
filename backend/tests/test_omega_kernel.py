@@ -15,11 +15,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 pytest_plugins = ('anyio',)
 
-from backend.core.session_intelligence import SessionIntelligence, SessionState
-from backend.core.multipass_reasoning import MultiPassReasoningEngine
-from backend.core.omega_boundary import OmegaBoundaryEvaluator
-from backend.core.omega_formatter import OmegaOutputFormatter
-from backend.core.omega_kernel import OmegaCognitiveKernel, OmegaConfig
+from core.session_intelligence import SessionIntelligence, SessionState
+from core.multipass_reasoning import MultiPassReasoningEngine
+from core.omega_boundary import OmegaBoundaryEvaluator
+from core.omega_formatter import OmegaOutputFormatter
+from core.omega_kernel import OmegaCognitiveKernel, OmegaConfig
 
 
 # ============================================================

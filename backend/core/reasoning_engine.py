@@ -23,16 +23,16 @@ from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from backend.core.intent_hasher import IntentHasher, IntentHash
-from backend.core.evidence_cache import EvidenceCache, EvidenceCacheEntry, CachedChunk
-from backend.core.knowledge_memory import (
+from core.intent_hasher import IntentHasher, IntentHash
+from core.evidence_cache import EvidenceCache, EvidenceCacheEntry, CachedChunk
+from core.knowledge_memory import (
     SessionMemoryTier, EvidenceMemory, KnowledgeGraph, EvidenceObject, cosine_similarity,
 )
-from backend.core.context_compiler import ContextCompiler, CompiledContext
-from backend.core.topic_boundary import (
+from core.context_compiler import ContextCompiler, CompiledContext
+from core.topic_boundary import (
     TopicBoundaryDetector, FollowUpAnchorEngine, ContextDecayEngine,
 )
-from backend.core.hallucination_gate import HallucinationGate
+from core.hallucination_gate import HallucinationGate
 
 logger = logging.getLogger("ReasoningEngine")
 

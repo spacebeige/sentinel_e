@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 
 try:
-    from backend.sentinel.sentinel_sigma_v4 import SentinelSigmaOrchestratorV4, SigmaV4Config
+    from sentinel.sentinel_sigma_v4 import SentinelSigmaOrchestratorV4, SigmaV4Config
 except ImportError:
     # Try importing directly if we are inside the package structure weirdly
     from sentinel.sentinel_sigma_v4 import SentinelSigmaOrchestratorV4, SigmaV4Config
