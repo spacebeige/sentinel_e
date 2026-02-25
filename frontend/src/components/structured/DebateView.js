@@ -23,12 +23,12 @@ const MODEL_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#0
 export default function DebateView({ data, boundary, confidence }) {
   const [expandedRound, setExpandedRound] = useState(0);
 
-  if (!data) return null;
-
-  const rounds = data.rounds || [];
-  const analysis = data.analysis || {};
-  const modelsUsed = data.models_used || [];
-  const scores = data.scores || data.score_breakdown || {};
+  // Safe fallback values — hooks must be called unconditionally
+  const safeData = data || {};
+  const rounds = safeData.rounds || [];
+  const analysis = safeData.analysis || {};
+  const modelsUsed = safeData.models_used || [];
+  const scores = safeData.scores || safeData.score_breakdown || {};
 
   // ── Radar data: each "axis" shows how much models diverge ──
   const radarData = useMemo(() => {
@@ -60,6 +60,15 @@ export default function DebateView({ data, boundary, confidence }) {
   // Models for left/right layout
   const leftModel = rounds[0]?.[0] || rounds[0];
   const rightModel = rounds[0]?.[1];
+
+  // ── Early return after all hooks ──
+  if (!data) {
+    return (
+      <div className="text-center text-[#aeaeb2] py-8" style={{ fontFamily: FONT, fontSize: '12px' }}>
+        No debate data available
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
