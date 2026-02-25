@@ -52,7 +52,7 @@ export default function ChatEngine() {
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState(MODELS[0]);
 
-  const API_BASE_URL = API_BASE;
+  // Use API_BASE directly from config
 
   // Sync selectedModel.category ↔ mode (bidirectional adapter)
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function ChatEngine() {
 
   const checkHealth = useCallback(async () => {
     try {
-      await axios.get(`${API_BASE_URL}/`, { timeout: 3000 });
+      await axios.get(`${API_BASE}/`, { timeout: 3000 });
       setServerStatus('online');
     } catch {
       setServerStatus('offline');
@@ -101,7 +101,7 @@ export default function ChatEngine() {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/history`);
+        const res = await axios.get(`${API_BASE}/api/history`);
         const formatted = res.data.map(item => ({
           id: item.id,
           timestamp: item.updated_at || item.created_at || new Date().toISOString(),
@@ -123,12 +123,12 @@ export default function ChatEngine() {
     if (!activeChatId) { setSessionState(null); return; }
     const fetchSession = async () => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/session/${activeChatId}/descriptive`);
+        const res = await axios.get(`${API_BASE}/api/session/${activeChatId}/descriptive`);
         if (res.data && !res.data.error) setSessionState(res.data);
       } catch {
         // Fall back to legacy endpoint
         try {
-          const res = await axios.get(`${API_BASE_URL}/api/omega/session/${activeChatId}`);
+          const res = await axios.get(`${API_BASE}/api/omega/session/${activeChatId}`);
           if (res.data?.session_state) setSessionState(res.data.session_state);
         } catch { /* ignore */ }
       }
@@ -159,14 +159,14 @@ export default function ChatEngine() {
 
     let endpoint;
     if (mode === 'experimental' && subMode === 'glass' && killActive) {
-      endpoint = `${API_BASE_URL}/run/omega/kill`;
+      endpoint = `${API_BASE}/run/omega/kill`;
     } else if (mode === 'experimental') {
-      endpoint = `${API_BASE_URL}/run/experimental`;
+      endpoint = `${API_BASE}/run/experimental`;
       formData.append('mode', 'experimental');
       formData.append('sub_mode', subMode);
       formData.append('rounds', rounds);
     } else {
-      endpoint = `${API_BASE_URL}/run/standard`;
+      endpoint = `${API_BASE}/run/standard`;
     }
 
     try {
@@ -246,7 +246,7 @@ export default function ChatEngine() {
     setCurrentResult(null);
     setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/chat/${run.id}/messages`);
+      const res = await axios.get(`${API_BASE}/api/chat/${run.id}/messages`);
       const loaded = (res.data || [])
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp || run.timestamp }));

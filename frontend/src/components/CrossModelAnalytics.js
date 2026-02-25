@@ -9,7 +9,7 @@ import {
 /* ─── Helpers ───────────────────────────────────────────────────── */
 const pct = v => v != null ? `${(v * 100).toFixed(0)}%` : '—';
 const fixed2 = v => v != null ? Number(v).toFixed(2) : '—';
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import { API_BASE } from '../config';
 
 const riskColor = (level) => {
   const l = (level || '').toUpperCase();
