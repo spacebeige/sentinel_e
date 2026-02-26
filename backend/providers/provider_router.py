@@ -56,6 +56,10 @@ class ModelSpec:
 
 
 # ── Built-in Model Registry ─────────────────────────────────
+# DEPRECATED: This registry is superseded by COGNITIVE_MODEL_REGISTRY
+# in metacognitive/cognitive_gateway.py. All model execution now routes
+# through CognitiveModelGateway via MCOModelBridge.
+# Retained for FallbackRouter compatibility only.
 
 MODEL_REGISTRY: Dict[str, ModelSpec] = {
     "llama-3.1-8b": ModelSpec(

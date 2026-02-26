@@ -113,13 +113,16 @@ class OmegaCognitiveKernel:
     - Session Intelligence 2.0: cognitive drift, topic stability, confidence volatility
     """
 
-    def __init__(self, sigma_orchestrator=None, knowledge_learner=None):
+    def __init__(self, sigma_orchestrator=None, knowledge_learner=None, cloud_client=None):
         """
         Initialize the Omega Kernel.
 
         Args:
             sigma_orchestrator: The existing SentinelSigmaOrchestratorV4 instance.
             knowledge_learner: KnowledgeLearner instance for adaptive model weighting.
+            cloud_client: Optional override for model client (e.g. MCOModelBridge).
+                          If provided, all engines route through this client
+                          instead of sigma_orchestrator.client.
         """
         self.sigma = sigma_orchestrator
         self.knowledge_learner = knowledge_learner
@@ -137,14 +140,19 @@ class OmegaCognitiveKernel:
         self.audit = None
         self._initialized = False
 
+        # Resolve model client: prefer explicit bridge, fall back to sigma.client
+        effective_client = cloud_client
+        if effective_client is None and self.sigma and hasattr(self.sigma, 'client'):
+            effective_client = self.sigma.client
+
         # Initialize model-dependent engines
-        if self.sigma and hasattr(self.sigma, 'client'):
-            self.debate = DebateOrchestrator(self.sigma.client)
-            self.stress = StressEngine(self.sigma.client)
+        if effective_client:
+            self.debate = DebateOrchestrator(effective_client)
+            self.stress = StressEngine(effective_client)
             # v4 Production Engines
-            self.aggregation = AggregationEngine(self.sigma.client)
-            self.forensic = ForensicEvidenceEngine(self.sigma.client)
-            self.audit = BlindAuditEngine(self.sigma.client)
+            self.aggregation = AggregationEngine(effective_client)
+            self.forensic = ForensicEvidenceEngine(effective_client)
+            self.audit = BlindAuditEngine(effective_client)
 
         logger.info("Omega Cognitive Kernel v4.0 initialized — Production engines active.")
 
@@ -163,10 +171,12 @@ class OmegaCognitiveKernel:
     @classmethod
     def restore_from_session(cls, session_data: Dict[str, Any],
                              sigma_orchestrator=None,
-                             knowledge_learner=None) -> "OmegaCognitiveKernel":
+                             knowledge_learner=None,
+                             cloud_client=None) -> "OmegaCognitiveKernel":
         """Restore kernel from persisted session data."""
         kernel = cls(sigma_orchestrator=sigma_orchestrator,
-                     knowledge_learner=knowledge_learner)
+                     knowledge_learner=knowledge_learner,
+                     cloud_client=cloud_client)
         session_payload = session_data.get("session", {})
         if session_payload:
             kernel.session = SessionIntelligence.from_dict(session_payload)

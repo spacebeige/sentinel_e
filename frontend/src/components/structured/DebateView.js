@@ -87,6 +87,20 @@ export default function DebateView({ data, boundary, confidence }) {
     );
   }
 
+  // PHASE 7: If all models returned empty, show execution failure
+  if (rounds.length === 0 && data) {
+    return (
+      <div className="text-center py-8">
+        <p style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 600, color: '#ef4444' }}>
+          Execution Failure
+        </p>
+        <p style={{ fontFamily: FONT, fontSize: '12px', color: '#6e6e73', marginTop: '4px' }}>
+          All models returned empty responses. Check model API keys and provider status.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       {/* ── Header ── */}

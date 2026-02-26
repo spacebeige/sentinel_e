@@ -163,11 +163,11 @@ class ModelTier:
     cost_weight: float # relative cost (1.0 = baseline)
 
 
-# Default tier chain: cheapest → most capable
+# Default tier chain — aligned with COGNITIVE_MODEL_REGISTRY keys
 DEFAULT_MODEL_TIERS: List[ModelTier] = [
-    ModelTier(name="Groq LLaMA 8B", model_id="llama-3.1-8b", tier="budget", priority=1, cost_weight=0.3),
-    ModelTier(name="Qwen 2.5 7B", model_id="qwen-2.5-7b", tier="standard", priority=2, cost_weight=0.5),
-    ModelTier(name="Groq LLaMA 70B", model_id="llama-3.3-70b", tier="premium", priority=3, cost_weight=1.0),
+    ModelTier(name="Groq LLaMA 8B", model_id="groq-small", tier="budget", priority=1, cost_weight=0.3),
+    ModelTier(name="Qwen 2.5 7B", model_id="qwen-vl-2.5", tier="standard", priority=2, cost_weight=0.5),
+    ModelTier(name="Groq LLaMA 70B", model_id="llama-3.3", tier="premium", priority=3, cost_weight=1.0),
 ]
 
 

@@ -30,11 +30,19 @@ logger = logging.getLogger("CostGovernor")
 # COST RATES (per 1K tokens)
 # ============================================================
 
-# Model cost table — aligned with provider_router.py MODEL_REGISTRY
+# Model cost table — aligned with COGNITIVE_MODEL_REGISTRY
 MODEL_COSTS: Dict[str, Dict[str, float]] = {
+    "groq-small": {"input": 0.00005, "output": 0.00008},
+    "llama-3.3": {"input": 0.00059, "output": 0.00079},
+    "qwen-vl-2.5": {"input": 0.00000, "output": 0.00000},  # OpenRouter free tier
+    "qwen3-coder": {"input": 0.00000, "output": 0.00000},  # OpenRouter free tier
+    "qwen3-vl": {"input": 0.00000, "output": 0.00000},      # OpenRouter free tier
+    "nemotron-nano": {"input": 0.00000, "output": 0.00000},  # OpenRouter free tier
+    "kimi-2.5": {"input": 0.00000, "output": 0.00000},       # OpenRouter free tier
+    # Legacy aliases (backward compat for recorded usage)
     "llama-3.1-8b": {"input": 0.00005, "output": 0.00008},
     "llama-3.3-70b": {"input": 0.00059, "output": 0.00079},
-    "qwen-2.5-7b": {"input": 0.00000, "output": 0.00000},  # OpenRouter free tier
+    "qwen-2.5-7b": {"input": 0.00000, "output": 0.00000},
 }
 
 # Tier cost multipliers (relative)
@@ -243,7 +251,7 @@ class CostGovernor:
         if budget.budget_warning and requested_tier == "premium":
             # Downgrade premium → standard when budget is warning
             recommended_tier = "budget"
-            recommended_model = "llama-3.1-8b"
+            recommended_model = "groq-small"
             downgraded = True
             budget.downgrade_triggered = True
             logger.info(
@@ -253,7 +261,7 @@ class CostGovernor:
         elif budget.token_utilization >= 0.6 and requested_tier == "premium":
             # Downgrade premium → standard at 60%
             recommended_tier = "standard"
-            recommended_model = "qwen-2.5-7b"
+            recommended_model = "qwen-vl-2.5"
             downgraded = True
             budget.downgrade_triggered = True
 

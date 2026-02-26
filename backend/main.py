@@ -107,6 +107,7 @@ cognitive_rag: Optional[CognitiveRAG] = None
 analytics_engine: Optional[DynamicAnalyticsEngine] = None
 mco_orchestrator: Optional[MetaCognitiveOrchestrator] = None
 mco_daemon: Optional[BackgroundDaemon] = None
+mco_bridge = None  # MCOModelBridge — unified model client
 omega_sessions: Dict[str, OmegaCognitiveKernel] = {}
 memory_sessions: Dict[str, MemoryEngine] = {}
 
@@ -117,7 +118,7 @@ MAX_SESSIONS = 500
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global orchestrator, omega_kernel, knowledge_learner, cognitive_rag, analytics_engine
-    global mco_orchestrator, mco_daemon
+    global mco_orchestrator, mco_daemon, mco_bridge
     logger.info("Initializing Sentinel-E v5.0 Production System...")
 
     # Initialize DB
@@ -127,11 +128,6 @@ async def lifespan(app: FastAPI):
     # Initialize core components
     orchestrator = SentinelSigmaOrchestratorV4()
     knowledge_learner = KnowledgeLearner()
-    omega_kernel = OmegaCognitiveKernel(
-        sigma_orchestrator=orchestrator,
-        knowledge_learner=knowledge_learner,
-    )
-    omega_kernel.knowledge_learner = knowledge_learner
 
     # New architecture layers
     cognitive_rag = CognitiveRAG()
@@ -144,12 +140,17 @@ async def lifespan(app: FastAPI):
     get_cost_governor()
     get_observability_hub()
 
-    # ── Meta-Cognitive Orchestrator ────────────────────────
+    # ── Meta-Cognitive Orchestrator (MUST init before OmegaKernel) ─
     try:
         mco_orchestrator = MetaCognitiveOrchestrator()
         if redis_client:
             mco_orchestrator.set_redis(redis_client)
         mco_set_orchestrator(mco_orchestrator)
+
+        # Create MCO bridge — unified model client that routes through gateway
+        from models.mco_bridge import MCOModelBridge
+        mco_bridge = MCOModelBridge(mco_orchestrator.cognitive_gateway)
+        logger.info("MCO Model Bridge created — all model calls route through CognitiveModelGateway")
 
         # Background daemon (starts paused — activate via API)
         mco_daemon = BackgroundDaemon(
@@ -162,6 +163,14 @@ async def lifespan(app: FastAPI):
         logger.info("Meta-Cognitive Orchestrator initialized")
     except Exception as e:
         logger.warning(f"MCO init failed (non-fatal): {e}")
+
+    # ── Omega Kernel (uses MCO bridge if available, else legacy client) ─
+    omega_kernel = OmegaCognitiveKernel(
+        sigma_orchestrator=orchestrator,
+        knowledge_learner=knowledge_learner,
+        cloud_client=mco_bridge,
+    )
+    omega_kernel.knowledge_learner = knowledge_learner
 
     logger.info("Sentinel-E v5.0 online. All systems initialized (with optimization layer + MCO).")
     yield
@@ -244,6 +253,7 @@ async def _restore_session(chat_id: str, user_id: str = ""):
                 data.get("omega", {}),
                 sigma_orchestrator=orchestrator,
                 knowledge_learner=knowledge_learner,
+                cloud_client=mco_bridge,
             )
             memory = MemoryEngine.deserialize(data.get("memory", {}))
             return kernel, memory
@@ -271,6 +281,7 @@ async def _get_session(chat_id: str, user_id: str = ""):
     kernel = OmegaCognitiveKernel(
         sigma_orchestrator=orchestrator,
         knowledge_learner=knowledge_learner,
+        cloud_client=mco_bridge,
     )
     memory = MemoryEngine(user_id=user_id)
     omega_sessions[chat_id] = kernel
@@ -716,7 +727,7 @@ async def run_sentinel(
         est_output_tokens = len(formatted_output) // 4
         governor.record_usage(
             session_id=str(chat.id),
-            model_id=result.get("omega_metadata", {}).get("primary_model", "llama-3.1-8b"),
+            model_id=result.get("omega_metadata", {}).get("primary_model", "groq-small"),
             input_tokens=est_input_tokens,
             output_tokens=est_output_tokens,
             latency_ms=kernel_latency,
@@ -728,7 +739,7 @@ async def run_sentinel(
     try:
         total_latency = tracer.end_span("total")
         tracer.record_model_call(
-            model_id=result.get("omega_metadata", {}).get("primary_model", "llama-3.1-8b"),
+            model_id=result.get("omega_metadata", {}).get("primary_model", "groq-small"),
             input_tokens=est_input_tokens,
             output_tokens=est_output_tokens,
             latency_ms=kernel_latency,

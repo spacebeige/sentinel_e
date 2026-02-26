@@ -25,18 +25,51 @@ import re
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 
+from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+
 logger = logging.getLogger("Debate-Orchestrator")
 
 
 # ============================================================
-# MODEL DEFINITIONS — Named explicitly per spec
+# MODEL DEFINITIONS — Derived from COGNITIVE_MODEL_REGISTRY
 # ============================================================
 
-DEBATE_MODELS = [
-    {"id": "groq", "label": "Groq", "provider": "groq", "name": "LLaMA 3.1 (Groq)", "color": "blue"},
-    {"id": "llama70b", "label": "Llama70B", "provider": "groq", "name": "Llama 3.3 70B", "color": "indigo"},
-    {"id": "qwen", "label": "Qwen", "provider": "qwen", "name": "Qwen 2.5 7B", "color": "purple"},
-]
+# Color palette for debate model cards
+_DEBATE_COLORS = ["blue", "indigo", "purple", "emerald", "amber", "cyan", "rose"]
+
+# Legacy ID mapping: maps legacy caller IDs used by DebateOrchestrator
+# to canonical registry keys
+_LEGACY_ID_MAP = {
+    "groq-small": "groq",
+    "llama-3.3": "llama70b",
+    "qwen-vl-2.5": "qwen",
+    "qwen3-coder": "qwen3-coder",
+    "qwen3-vl": "qwen3-vl",
+    "nemotron-nano": "nemotron",
+    "kimi-2.5": "kimi",
+}
+
+
+def _build_debate_models():
+    """Build debate model list from the authoritative COGNITIVE_MODEL_REGISTRY."""
+    models = []
+    for i, (key, spec) in enumerate(COGNITIVE_MODEL_REGISTRY.items()):
+        if not spec.enabled:
+            continue
+        legacy_id = _LEGACY_ID_MAP.get(key, key)
+        models.append({
+            "id": legacy_id,
+            "registry_key": key,
+            "label": spec.name,
+            "provider": legacy_id,  # Used as key into _model_callers
+            "name": spec.name,
+            "color": _DEBATE_COLORS[i % len(_DEBATE_COLORS)],
+        })
+    return models
+
+
+# Built at import time; refreshed when models change
+DEBATE_MODELS = _build_debate_models()
 
 # Valid debate roles
 DEBATE_ROLES = {"for", "against", "judge", "neutral"}
@@ -261,11 +294,23 @@ class DebateOrchestrator:
 
     def __init__(self, cloud_client):
         self.client = cloud_client
+        # Build callers dynamically from DEBATE_MODELS
+        # The bridge provides call_groq/call_llama70b/call_qwenvl for legacy IDs
         self._model_callers = {
             "groq": self.client.call_groq,
             "llama70b": self.client.call_llama70b,
             "qwen": self.client.call_qwenvl,
         }
+        # For new models routed through MCOModelBridge, add generic callers
+        if hasattr(self.client, '_invoke'):
+            for model in DEBATE_MODELS:
+                mid = model["id"]
+                if mid not in self._model_callers:
+                    rk = model.get("registry_key", mid)
+                    self._model_callers[mid] = (
+                        lambda prompt, system_role="You are a rigorous analytical debater.", _rk=rk:
+                        self.client._invoke(_rk, prompt, system_role)
+                    )
 
     async def run_debate(
         self, query: str, rounds: int = 3,
