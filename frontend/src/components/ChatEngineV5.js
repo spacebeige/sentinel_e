@@ -166,7 +166,7 @@ export default function ChatEngineV5() {
     memoryManager.recordMessage(userMsg, mode, subMode);
 
     // Build context payload (sanitized client-side memory)
-    const context = buildContextPayload(text || '', mode, subMode);
+    //  = buildContextPayload(text || ''const context, mode, subMode);
 
     try {
       let result;
