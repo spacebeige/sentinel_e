@@ -35,7 +35,7 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional
 
-from backend.core.ensemble_schemas import (
+from core.ensemble_schemas import (
     MIN_MODELS,
     MIN_DEBATE_ROUNDS,
     MIN_ANALYTICS_OUTPUTS,
@@ -52,10 +52,10 @@ from backend.core.ensemble_schemas import (
     EnsembleFailure,
     EnsembleFailureCode,
 )
-from backend.core.agreement_matrix import AgreementMatrixEngine
-from backend.core.structured_debate_engine import StructuredDebateEngine
-from backend.core.confidence_calibrator import ConfidenceCalibrator
-from backend.core.ensemble_session import EnsembleSessionEngine
+from core.agreement_matrix import AgreementMatrixEngine
+from core.structured_debate_engine import StructuredDebateEngine
+from core.confidence_calibrator import ConfidenceCalibrator
+from core.ensemble_session import EnsembleSessionEngine
 
 logger = logging.getLogger("CognitiveOrchestrator")
 
