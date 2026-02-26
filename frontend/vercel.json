@@ -1,0 +1,15 @@
+{
+  "routes": [
+    { "handle": "filesystem" },
+
+    {
+      "src": "/api/(.*)",
+      "dest": "https://sentinel-e.onrender.com/api/$1"
+    },
+
+    {
+      "src": "/.*",
+      "dest": "/index.html"
+    }
+  ]
+}
