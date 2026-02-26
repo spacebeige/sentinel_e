@@ -138,13 +138,33 @@ MODEL_NAMES = {
     "groq": "Groq (LLaMA 3.1)",
     "llama70b": "Llama 3.3 70B",
     "qwen": "Qwen 2.5",
+    "qwen3-coder": "Qwen3 Coder 480B",
+    "qwen3-vl": "Qwen3 VL 30B",
+    "nemotron": "Nemotron 3 Nano 30B",
+    "kimi": "Kimi 2.5",
 }
+
+
+def _get_dynamic_model_names(client) -> Dict[str, str]:
+    """
+    Build model names dict dynamically from bridge if available.
+    Falls back to static MODEL_NAMES.
+    """
+    if hasattr(client, 'get_enabled_models_info'):
+        info = client.get_enabled_models_info()
+        names = {m["legacy_id"]: m["name"] for m in info}
+        # Merge with static fallback for any missing
+        for k, v in MODEL_NAMES.items():
+            names.setdefault(k, v)
+        return names
+    return dict(MODEL_NAMES)
 
 
 class BlindAuditEngine:
     """
-    Blind cross-model forensic audit engine.
+    Blind cross-model forensic audit engine (v5.1).
     
+    Dynamically iterates ALL enabled models — no hardcoded model list.
     Each model evaluates another's output without knowing:
     - Which model produced it
     - That it's checking another AI
@@ -153,6 +173,13 @@ class BlindAuditEngine:
 
     def __init__(self, cloud_client):
         self.client = cloud_client
+        self._model_names = _get_dynamic_model_names(cloud_client)
+
+    def _get_model_ids(self) -> List[str]:
+        """Get enabled model IDs dynamically from bridge."""
+        if hasattr(self.client, 'get_enabled_model_ids'):
+            return self.client.get_enabled_model_ids()
+        return ["groq", "llama70b", "qwen"]  # legacy fallback
 
     async def run_blind_audit(
         self, query: str, history: List[Dict[str, str]] = None
@@ -161,30 +188,26 @@ class BlindAuditEngine:
         Execute the full blind audit pipeline.
         
         Steps:
-        1. Generate independent responses from all 3 models
+        1. Generate independent responses from ALL enabled models
         2. Each model blindly audits another's response (circular)
         3. Compute cross-model tactical map
         4. Compute overall trust score
         """
         result = BlindAuditResult(query=query)
         history = history or []
+        model_ids = self._get_model_ids()
 
         try:
-            # Step 1: Independent generation
+            # Step 1: Independent generation from ALL enabled models
             result.phase_log.append({
                 "phase": 1, "name": "Independent Generation",
                 "status": "running", "timestamp": datetime.utcnow().isoformat()
             })
             
             prompt = INDEPENDENT_ANALYSIS_PROMPT.format(query=query)
-            tasks = [
-                self._call_model("groq", prompt),
-                self._call_model("llama70b", prompt),
-                self._call_model("qwen", prompt),
-            ]
+            tasks = [self._call_model(mid, prompt) for mid in model_ids]
             outputs = await asyncio.gather(*tasks, return_exceptions=True)
 
-            model_ids = ["groq", "llama70b", "qwen"]
             for model_id, output in zip(model_ids, outputs):
                 if isinstance(output, Exception):
                     result.model_responses[model_id] = f"Error: {output}"
@@ -193,21 +216,26 @@ class BlindAuditEngine:
 
             result.phase_log[-1]["status"] = "complete"
             result.phase_log[-1]["detail"] = (
-                f"Generated responses: {sum(1 for v in result.model_responses.values() if not v.startswith('Error'))}/3"
+                f"Generated responses: {sum(1 for v in result.model_responses.values() if not v.startswith('Error'))}/{len(model_ids)}"
             )
 
-            # Step 2: Blind cross-audit (circular)
-            # Groq audits Llama70B, Llama70B audits Qwen, Qwen audits Groq
+            # Step 2: Blind cross-audit (circular: each model audits the next)
             result.phase_log.append({
                 "phase": 2, "name": "Blind Cross-Audit",
                 "status": "running", "timestamp": datetime.utcnow().isoformat()
             })
 
-            audit_pairs = [
-                ("groq", "llama70b"),
-                ("llama70b", "qwen"),
-                ("qwen", "groq"),
+            # Build circular audit pairs: model[i] audits model[(i+1) % n]
+            successful_ids = [
+                mid for mid in model_ids
+                if mid in result.model_responses
+                and not result.model_responses[mid].startswith("Error")
             ]
+            audit_pairs = []
+            for i, auditor_id in enumerate(successful_ids):
+                subject_id = successful_ids[(i + 1) % len(successful_ids)]
+                if auditor_id != subject_id:  # Don't self-audit
+                    audit_pairs.append((auditor_id, subject_id))
 
             audit_tasks = []
             for auditor_id, subject_id in audit_pairs:
@@ -258,7 +286,10 @@ class BlindAuditEngine:
     # ============================================================
 
     async def _call_model(self, model_id: str, prompt: str) -> str:
-        """Call a model for independent generation."""
+        """Call a model for independent generation — dynamic dispatch."""
+        if hasattr(self.client, 'call_model'):
+            return await self.client.call_model(model_id=model_id, prompt=prompt)
+        # Legacy fallback
         if model_id == "groq":
             return await self.client.call_groq(prompt=prompt)
         elif model_id == "llama70b":
@@ -284,9 +315,9 @@ class BlindAuditEngine:
 
             return AuditAssessment(
                 auditor_id=auditor_id,
-                auditor_name=MODEL_NAMES.get(auditor_id, auditor_id),
+                auditor_name=self._model_names.get(auditor_id, auditor_id),
                 subject_id=subject_id,
-                subject_name=MODEL_NAMES.get(subject_id, subject_id),
+                subject_name=self._model_names.get(subject_id, subject_id),
                 logical_coherence=float(parsed.get("logical_coherence", 0.5)),
                 hidden_assumptions=float(parsed.get("hidden_assumptions", 0.5)),
                 bias_patterns=float(parsed.get("bias_patterns", 0.0)),
@@ -322,7 +353,7 @@ class BlindAuditEngine:
             subject = assessment.subject_id
             if subject not in model_profiles:
                 model_profiles[subject] = {
-                    "model_name": MODEL_NAMES.get(subject, subject),
+                    "model_name": self._model_names.get(subject, subject),
                     "audit_count": 0,
                     "avg_coherence": 0.0,
                     "avg_assumptions": 0.0,

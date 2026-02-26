@@ -297,7 +297,7 @@ class OmegaCognitiveKernel:
             trace.record_stage(
                 "post_aggregation",
                 aggregation_result.confidence_aggregation,
-                f"Parallel aggregation: {aggregation_result.models_succeeded}/3 succeeded, "
+                f"Parallel aggregation: {aggregation_result.models_succeeded}/{aggregation_result.models_succeeded + aggregation_result.models_failed} succeeded, "
                 f"divergence={aggregation_result.divergence_score:.3f}"
             )
         elif self.sigma:
@@ -413,8 +413,9 @@ class OmegaCognitiveKernel:
         omega_metadata = {}
         if aggregation_result:
             omega_metadata["aggregation_result"] = aggregation_dict
+            total_models = aggregation_result.models_succeeded + aggregation_result.models_failed
             omega_metadata["pipeline_steps"] = [
-                {"step": "parallel_execution", "label": "Running 3 Models in Parallel", "status": "complete"},
+                {"step": "parallel_execution", "label": f"Running {total_models} Models in Parallel", "status": "complete"},
                 {"step": "divergence", "label": "Computing Cross-Model Divergence", "status": "complete"},
                 {"step": "synthesis", "label": "Generating Synthesis", "status": "complete"},
                 {"step": "boundary", "label": "Computing Dynamic Boundary", "status": "complete"},

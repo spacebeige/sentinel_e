@@ -287,16 +287,15 @@ class ForensicEvidenceEngine:
         """
         prompt = CLAIM_EXTRACTION_PROMPT.format(query=query)
 
-        # Parallel execution
+        # Parallel execution — dynamic model list
+        model_ids = self._get_model_ids()
         tasks = [
-            self._extract_model_claims("groq", prompt),
-            self._extract_model_claims("llama70b", prompt),
-            self._extract_model_claims("qwen", prompt),
+            self._extract_model_claims(mid, prompt)
+            for mid in model_ids
         ]
         
         outputs = await asyncio.gather(*tasks, return_exceptions=True)
 
-        model_ids = ["groq", "llama70b", "qwen"]
         for model_id, output in zip(model_ids, outputs):
             if isinstance(output, Exception):
                 logger.error(f"Phase 1: {model_id} failed: {output}")
@@ -306,25 +305,36 @@ class ForensicEvidenceEngine:
             result.model_claims[model_id] = output
             result.all_claims.extend(output)
 
-        result.phase_log[-1]["detail"] = (
-            f"Claims extracted — Groq: {len(result.model_claims.get('groq', []))}, "
-            f"Llama70B: {len(result.model_claims.get('llama70b', []))}, "
-            f"Qwen: {len(result.model_claims.get('qwen', []))}"
+        claims_summary = ", ".join(
+            f"{mid}: {len(result.model_claims.get(mid, []))}"
+            for mid in model_ids
         )
+        result.phase_log[-1]["detail"] = f"Claims extracted — {claims_summary}"
+
+    def _get_model_ids(self) -> List[str]:
+        """Get enabled model IDs dynamically from bridge."""
+        if hasattr(self.client, 'get_enabled_model_ids'):
+            return self.client.get_enabled_model_ids()
+        return ["groq", "llama70b", "qwen"]  # legacy fallback
+
+    async def _call_model_dynamic(self, model_id: str, prompt: str) -> str:
+        """Call any model using dynamic dispatch."""
+        if hasattr(self.client, 'call_model'):
+            return await self.client.call_model(model_id=model_id, prompt=prompt)
+        if model_id == "groq":
+            return await self.client.call_groq(prompt=prompt)
+        elif model_id == "llama70b":
+            return await self.client.call_llama70b(prompt=prompt, temperature=0.3)
+        elif model_id == "qwen":
+            return await self.client.call_qwenvl(prompt=prompt)
+        return ""
 
     async def _extract_model_claims(
         self, model_id: str, prompt: str
     ) -> List[ForensicClaim]:
         """Call a model and parse its claim extraction output."""
         try:
-            if model_id == "groq":
-                raw = await self.client.call_groq(prompt=prompt)
-            elif model_id == "llama70b":
-                raw = await self.client.call_llama70b(prompt=prompt, temperature=0.3)
-            elif model_id == "qwen":
-                raw = await self.client.call_qwenvl(prompt=prompt)
-            else:
-                return []
+            raw = await self._call_model_dynamic(model_id, prompt)
 
             # Parse JSON from response
             parsed = self._parse_json_response(raw)
@@ -361,23 +371,18 @@ class ForensicEvidenceEngine:
         Verification prompt does NOT reveal model identity or that it's 
         checking another AI — uses forensic framing only.
         """
-        verification_groups = [
-            {
-                "verifiers": ["groq", "llama70b"],
-                "subject": "qwen",
-                "label": "Groq + Llama70B verify Qwen",
-            },
-            {
-                "verifiers": ["llama70b", "qwen"],
-                "subject": "groq",
-                "label": "Llama70B + Qwen verify Groq",
-            },
-            {
-                "verifiers": ["groq", "qwen"],
-                "subject": "llama70b",
-                "label": "Groq + Qwen verify Llama70B",
-            },
-        ]
+        # Build verification groups dynamically: each model is verified by all others
+        model_ids = [mid for mid in self._get_model_ids() if mid in result.model_claims]
+        verification_groups = []
+        for subject in model_ids:
+            verifiers = [mid for mid in model_ids if mid != subject]
+            if verifiers:
+                label = " + ".join(verifiers) + f" verify {subject}"
+                verification_groups.append({
+                    "verifiers": verifiers,
+                    "subject": subject,
+                    "label": label,
+                })
 
         for group in verification_groups:
             subject_claims = result.model_claims.get(group["subject"], [])
@@ -430,14 +435,7 @@ class ForensicEvidenceEngine:
     ) -> List[Dict[str, Any]]:
         """Run verification on a single model."""
         try:
-            if model_id == "groq":
-                raw = await self.client.call_groq(prompt=prompt)
-            elif model_id == "llama70b":
-                raw = await self.client.call_llama70b(prompt=prompt, temperature=0.3)
-            elif model_id == "qwen":
-                raw = await self.client.call_qwenvl(prompt=prompt)
-            else:
-                return []
+            raw = await self._call_model_dynamic(model_id, prompt)
 
             parsed = self._parse_json_response(raw)
             return parsed.get("verifications", [])
@@ -615,17 +613,17 @@ class ForensicEvidenceEngine:
         """
         prompt = VERBATIM_CITATION_PROMPT.format(query=query)
 
-        # Get citations from all 3 models in parallel
+        # Get citations from ALL enabled models in parallel
+        model_ids = self._get_model_ids()
         tasks = [
-            self._get_citations("groq", prompt),
-            self._get_citations("llama70b", prompt),
-            self._get_citations("qwen", prompt),
+            self._get_citations(mid, prompt)
+            for mid in model_ids
         ]
 
         outputs = await asyncio.gather(*tasks, return_exceptions=True)
 
         all_citations = []
-        for model_id, output in zip(["groq", "llama70b", "qwen"], outputs):
+        for model_id, output in zip(model_ids, outputs):
             if isinstance(output, Exception):
                 continue
             for citation in output:
@@ -640,14 +638,7 @@ class ForensicEvidenceEngine:
     ) -> List[Dict[str, Any]]:
         """Get verbatim citations from a model."""
         try:
-            if model_id == "groq":
-                raw = await self.client.call_groq(prompt=prompt)
-            elif model_id == "llama70b":
-                raw = await self.client.call_llama70b(prompt=prompt, temperature=0.3)
-            elif model_id == "qwen":
-                raw = await self.client.call_qwenvl(prompt=prompt)
-            else:
-                return []
+            raw = await self._call_model_dynamic(model_id, prompt)
 
             parsed = self._parse_json_response(raw)
             return parsed.get("citations", [])

@@ -1,17 +1,22 @@
 """
-Aggregation Engine — Sentinel-E Standard Mode
+Aggregation Engine — Sentinel-E Standard Mode (v5.1)
 
-TRUE parallel execution of Groq, Llama 3.3 70B, and Qwen.
+TRUE parallel execution of ALL enabled models.
 No debate. No sequential calls. No stale state.
 
 Pipeline:
-1. Run all 3 models via asyncio.gather (true parallelism)
-2. Normalize outputs
-3. Extract core claims from each
-4. Compute divergence score between models
-5. Generate synthesis
-6. Compute confidence aggregation
-7. Return structured AggregationResult
+1. Query model registry for all enabled models
+2. Run all models via asyncio.gather (true parallelism)
+3. Normalize outputs
+4. Extract core claims from each
+5. Compute divergence score between models
+6. Generate synthesis
+7. Compute confidence aggregation
+8. Return structured AggregationResult
+
+v5.1: Dynamically iterates model registry — no hardcoded model list.
+      New models (Nemotron, Qwen3 Coder, Kimi 2.5, etc.) are
+      automatically included when their API key is present.
 
 This engine is the ONLY path for Standard mode.
 Debate mode is separate and must be explicitly selected.
@@ -94,10 +99,10 @@ class AggregationResult:
 
 class AggregationEngine:
     """
-    Parallel 3-model aggregation engine for Standard mode.
+    Dynamic parallel multi-model aggregation engine for Standard mode.
     
-    Runs Groq, Llama 3.3 70B, and Qwen independently and in parallel.
-    Aggregates outputs, computes divergence, generates synthesis.
+    Queries the model registry and runs ALL enabled models in parallel.
+    No hardcoded model list — new providers are automatically included.
     """
 
     STANDARD_SYSTEM_PROMPT = (
@@ -109,7 +114,7 @@ class AggregationEngine:
     def __init__(self, cloud_client):
         """
         Args:
-            cloud_client: CloudModelClient instance with call_groq, call_llama70b, call_qwenvl
+            cloud_client: MCOModelBridge instance with call_model() and get_enabled_model_ids()
         """
         self.client = cloud_client
 
@@ -130,14 +135,25 @@ class AggregationEngine:
         result = AggregationResult(query=query)
         history = history or []
 
-        # Step 1: True parallel execution
+        # Step 1: True parallel execution — dynamically from registry
         logger.info(f"Starting parallel aggregation for: {query[:80]}...")
         
         start_time = datetime.utcnow()
+        
+        # Build model list dynamically from bridge
+        if hasattr(self.client, 'get_enabled_models_info'):
+            models_info = self.client.get_enabled_models_info()
+        else:
+            # Legacy fallback: 3 hardcoded models
+            models_info = [
+                {"legacy_id": "groq", "name": "Groq (LLaMA 3.1)"},
+                {"legacy_id": "llama70b", "name": "Llama 3.3 70B"},
+                {"legacy_id": "qwen", "name": "Qwen 2.5"},
+            ]
+        
         tasks = [
-            self._run_model("groq", "Groq (LLaMA 3.1)", query, history),
-            self._run_model("llama70b", "Llama 3.3 70B", query, history),
-            self._run_model("qwen", "Qwen 2.5", query, history),
+            self._run_model(m["legacy_id"], m["name"], query, history)
+            for m in models_info
         ]
         
         model_outputs = await asyncio.gather(*tasks, return_exceptions=True)
@@ -209,7 +225,14 @@ class AggregationEngine:
         """Run a single model and return structured output."""
         start = datetime.utcnow()
         try:
-            if model_id == "groq":
+            # Dynamic dispatch: use call_model if available, else legacy methods
+            if hasattr(self.client, 'call_model'):
+                raw = await self.client.call_model(
+                    model_id=model_id,
+                    prompt=query,
+                    system_role=self.STANDARD_SYSTEM_PROMPT,
+                )
+            elif model_id == "groq":
                 raw = await self.client.call_groq(
                     prompt=query, system_role=self.STANDARD_SYSTEM_PROMPT
                 )
@@ -227,13 +250,12 @@ class AggregationEngine:
 
             elapsed = (datetime.utcnow() - start).total_seconds() * 1000
             
-            # Check for API error strings
+            # Check for API error strings (provider-agnostic pattern)
             error = None
-            if any(raw.startswith(prefix) for prefix in [
-                "Groq Error", "Llama70B Error", "OpenRouter/Qwen Error",
-                "Groq Exception", "Llama70B Exception", "Qwen/OpenRouter Exception",
-                "Groq API Key missing", "Llama70B API Key missing", "Qwen/OpenRouter API Key missing"
-            ]):
+            if any(marker in raw for marker in [
+                "Error:", "Exception:", "API Key missing", "not available",
+                "not found in registry",
+            ]) and len(raw) < 500:
                 error = raw
 
             return ModelOutput(

@@ -584,9 +584,10 @@ async def run_sentinel(
         if result.get("omega_metadata", {}).get("aggregation_result"):
             agg = result["omega_metadata"]["aggregation_result"]
             if isinstance(agg, dict):
-                for key in ["groq_response", "llama70b_response", "qwen_response"]:
-                    if key in agg:
-                        model_outputs.append(str(agg[key]))
+                for m in agg.get("model_outputs", []):
+                    output_text = m.get("output", "") if isinstance(m, dict) else str(m)
+                    if output_text and (not isinstance(m, dict) or not m.get("error")):
+                        model_outputs.append(output_text)
 
         if model_outputs:
             analytics = analytics_engine.compute(

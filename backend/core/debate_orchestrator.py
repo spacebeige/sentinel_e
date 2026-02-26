@@ -127,7 +127,7 @@ WEAKNESSES_FOUND: [Specific weaknesses in opponents' reasoning]
 CONFIDENCE: [0.0-1.0 updated confidence]"""
 
 ANALYSIS_SYSTEM = """You are an impartial debate analyst. Analyze this multi-round adversarial debate transcript.
-The debaters are: Groq (LLaMA 3.1), Llama 3.3 70B, and Qwen (Qwen 2.5 7B).
+The debaters are: {debater_names}.
 Always refer to them by name.
 
 FULL DEBATE TRANSCRIPT:
@@ -162,7 +162,7 @@ JUDGE_SCORING_SYSTEM = """You are the JUDGE in this multi-model debate. You must
 DEBATE TRANSCRIPT:
 {transcript}
 
-DEBATERS: Groq, Llama70B, Qwen
+DEBATERS: {debater_names}
 
 Your task is to evaluate each debater's performance. Score each on:
 1. Logical Strength (0.0-1.0): How logically sound are their arguments?
@@ -174,9 +174,7 @@ OUTPUT FORMAT (follow exactly):
 STRONGEST_ARGUMENT: [Which model and why]
 WEAKEST_ARGUMENT: [Which model and why]
 SCORING_MATRIX:
-- Groq: logic={score} evidence={score} coherence={score} rebuttal={score} total={score}
-- Llama70B: logic={score} evidence={score} coherence={score} rebuttal={score} total={score}
-- Qwen: logic={score} evidence={score} coherence={score} rebuttal={score} total={score}
+{scoring_entries}
 STABILITY_ASSESSMENT: [How stable is the overall debate? Are positions well-founded or fragile?]
 WINNER: [Which model presents the most compelling overall case]"""
 
@@ -479,7 +477,10 @@ class DebateOrchestrator:
 
     async def _run_analysis(self, transcript: str) -> DebateAnalysis:
         """Run final debate analysis using Llama 3.3 70B (strongest reasoning model)."""
-        system_prompt = ANALYSIS_SYSTEM.format(transcript=transcript)
+        debater_names = ", ".join(m["label"] for m in DEBATE_MODELS)
+        system_prompt = ANALYSIS_SYSTEM.format(
+            transcript=transcript, debater_names=debater_names
+        )
         user_prompt = "Analyze this debate and produce your structured analysis."
         
         try:
@@ -638,7 +639,16 @@ class DebateOrchestrator:
 
     async def _run_judge_scoring(self, transcript: str, judge_model: str) -> Dict[str, Any]:
         """Run judge scoring using the assigned judge model."""
-        system_prompt = JUDGE_SCORING_SYSTEM.format(transcript=transcript)
+        debater_names = ", ".join(m["label"] for m in DEBATE_MODELS)
+        scoring_entries = "\n".join(
+            f"- {m['label']}: logic={{score}} evidence={{score}} coherence={{score}} rebuttal={{score}} total={{score}}"
+            for m in DEBATE_MODELS
+        )
+        system_prompt = JUDGE_SCORING_SYSTEM.format(
+            transcript=transcript,
+            debater_names=debater_names,
+            scoring_entries=scoring_entries,
+        )
         user_prompt = "Score each debater and determine the winner."
         
         caller = self._model_callers.get(judge_model)
