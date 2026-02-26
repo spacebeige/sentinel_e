@@ -16,6 +16,25 @@ export function resolveRenderMode(result) {
 
   const meta = result.omega_metadata;
 
+  // ── Ensemble Mode (v6.0) — highest priority ──────────────
+  if (meta.ensemble_metrics || meta.mode === 'ensemble') {
+    return {
+      mode: 'ensemble',
+      engine: 'CognitiveOrchestrator',
+      data: meta,
+      pipelineSteps: meta.pipeline_steps || [],
+      boundary: result.boundary_result || meta.boundary_result || {},
+      confidence: result.confidence,
+      ensembleMetrics: meta.ensemble_metrics || {},
+      debateRounds: meta.debate_result || [],
+      agreementMatrix: meta.agreement_matrix || {},
+      tacticalMap: meta.tactical_map || [],
+      confidenceGraph: meta.confidence_graph || {},
+      modelStances: meta.model_stances || {},
+      sessionAnalytics: meta.session_analytics || {},
+    };
+  }
+
   if (meta.aggregation_result) {
     return {
       mode: 'aggregation',
@@ -142,6 +161,22 @@ export function getDefaultPipelineSteps(mode, subMode) {
       { id: 2, step: 'tactical', label: 'Computing Tactical Map', status: 'pending', icon: '🔄' },
       { id: 3, step: 'trust', label: 'Computing Trust Score', status: 'pending', icon: '📊' },
       { id: 4, step: 'rendering', label: 'Rendering', status: 'pending', icon: '🧾' },
+    ];
+  }
+
+  // Ensemble mode pipeline (v6.0)
+  if (mode === 'ensemble') {
+    return [
+      { id: 0, step: 'validate', label: 'Validating Models (≥3)', status: 'pending', icon: '🔎' },
+      { id: 1, step: 'parallel', label: 'Parallel Model Execution', status: 'pending', icon: '🧠' },
+      { id: 2, step: 'structure', label: 'Parsing Structured Outputs', status: 'pending', icon: '📋' },
+      { id: 3, step: 'debate', label: 'Running Structured Debate', status: 'pending', icon: '⚔️' },
+      { id: 4, step: 'matrix', label: 'Computing Agreement Matrix', status: 'pending', icon: '🔄' },
+      { id: 5, step: 'metrics', label: 'Computing Ensemble Metrics', status: 'pending', icon: '📊' },
+      { id: 6, step: 'calibrate', label: 'Calibrating Confidence', status: 'pending', icon: '🎯' },
+      { id: 7, step: 'tactical', label: 'Building Tactical Map', status: 'pending', icon: '🗺️' },
+      { id: 8, step: 'synthesis', label: 'Synthesizing Consensus', status: 'pending', icon: '🧩' },
+      { id: 9, step: 'rendering', label: 'Rendering', status: 'pending', icon: '🧾' },
     ];
   }
 

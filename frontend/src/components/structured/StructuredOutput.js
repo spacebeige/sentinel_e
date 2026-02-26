@@ -4,6 +4,7 @@ import StandardView from './StandardView';
 import DebateView from './DebateView';
 import EvidenceView from './EvidenceView';
 import GlassView from './GlassView';
+import EnsembleView from './EnsembleView';
 
 /**
  * StructuredOutput — Strict mode-isolated output router
@@ -32,6 +33,15 @@ export default function StructuredOutput({ result, activeSubMode }) {
     : renderMode.mode;
 
   switch (effectiveMode) {
+    case 'ensemble':
+      return (
+        <EnsembleView
+          data={renderMode.mode === 'ensemble' ? renderMode.data : meta}
+          boundary={renderMode.boundary}
+          confidence={renderMode.confidence}
+        />
+      );
+
     case 'standard':
     case 'aggregation':
       return (

@@ -73,6 +73,9 @@ from memory.memory_engine import MemoryEngine
 from retrieval.cognitive_rag import CognitiveRAG
 from core.dynamic_analytics import DynamicAnalyticsEngine
 
+# ── Ensemble Cognitive Engine v6.0 ───────────────────────────
+from core.cognitive_orchestrator import CognitiveOrchestrator
+
 # ── Optimization Layer ───────────────────────────────────────
 from optimization import (
     get_token_optimizer,
@@ -108,6 +111,7 @@ analytics_engine: Optional[DynamicAnalyticsEngine] = None
 mco_orchestrator: Optional[MetaCognitiveOrchestrator] = None
 mco_daemon: Optional[BackgroundDaemon] = None
 mco_bridge = None  # MCOModelBridge — unified model client
+cognitive_orchestrator_engine: Optional[CognitiveOrchestrator] = None  # Ensemble engine v6.0
 omega_sessions: Dict[str, OmegaCognitiveKernel] = {}
 memory_sessions: Dict[str, MemoryEngine] = {}
 
@@ -151,6 +155,10 @@ async def lifespan(app: FastAPI):
         from models.mco_bridge import MCOModelBridge
         mco_bridge = MCOModelBridge(mco_orchestrator.cognitive_gateway)
         logger.info("MCO Model Bridge created — all model calls route through CognitiveModelGateway")
+
+        # ── Ensemble Cognitive Orchestrator v6.0 ──────────────
+        cognitive_orchestrator_engine = CognitiveOrchestrator(model_bridge=mco_bridge)
+        logger.info("Cognitive Orchestrator v6.0 initialized — ensemble-driven, no mode routing")
 
         # Background daemon (starts paused — activate via API)
         mco_daemon = BackgroundDaemon(
@@ -546,6 +554,155 @@ async def run_sentinel(
             history.append({"role": "system", "content": opt_system})
         history.extend(opt_history_list)
 
+    # ══════════════════════════════════════════════════════════
+    # ENSEMBLE PATH (v6.0) — Always-on multi-model reasoning
+    # ══════════════════════════════════════════════════════════
+    if cognitive_orchestrator_engine is not None:
+        tracer.start_span("kernel")
+        try:
+            ensemble_response = await cognitive_orchestrator_engine.process(
+                query=effective_text,
+                chat_id=str(chat.id),
+                rounds=max(request.rounds, 3),  # enforce minimum 3
+            )
+        except Exception as ens_err:
+            logger.error(f"Ensemble engine failed: {ens_err} — falling back to legacy kernel")
+            cognitive_orchestrator_engine_failed = True
+        else:
+            cognitive_orchestrator_engine_failed = False
+
+        if not cognitive_orchestrator_engine_failed:
+            kernel_latency = tracer.end_span("kernel")
+            ensemble_payload = ensemble_response.to_frontend_payload()
+
+            # Synthesis + RAG citations
+            formatted_output = ensemble_response.synthesis
+            if rag_result and rag_result.retrieval_executed:
+                if rag_result.no_sources_found:
+                    formatted_output += "\n\n*No verified external sources found for this query.*"
+                elif rag_result.citations_text:
+                    formatted_output += "\n\n" + rag_result.citations_text
+
+            confidence = ensemble_response.calibrated_confidence.final_confidence
+
+            # Ensemble omega_metadata — full transparency
+            omega_metadata = {
+                "version": "6.0.0-ensemble",
+                "mode": "ensemble",
+                "sub_mode": "full_debate",
+                "confidence": confidence,
+                "ensemble_metrics": ensemble_payload.get("ensemble_metrics", {}),
+                "debate_result": ensemble_payload.get("debate_rounds", []),
+                "agreement_matrix": ensemble_payload.get("agreement_matrix", {}),
+                "tactical_map": ensemble_payload.get("tactical_map", []),
+                "confidence_graph": ensemble_payload.get("confidence_graph", {}),
+                "model_stances": ensemble_payload.get("model_stances", {}),
+                "session_analytics": ensemble_payload.get("session_analytics", {}),
+                "reasoning_trace": {
+                    "engine": "CognitiveOrchestrator",
+                    "pipeline": "ensemble_v6",
+                    "models_used": len(ensemble_response.model_outputs),
+                    "debate_rounds": len(ensemble_response.debate_rounds),
+                },
+                "boundary_result": {
+                    "risk_level": (
+                        "LOW" if confidence > 0.7
+                        else "MEDIUM" if confidence > 0.4
+                        else "HIGH"
+                    ),
+                    "severity_score": int((1 - confidence) * 100),
+                    "explanation": (
+                        f"Ensemble confidence from {len(ensemble_response.model_outputs)} models, "
+                        f"{len(ensemble_response.debate_rounds)} debate rounds"
+                    ),
+                },
+            }
+
+            # RAG metadata
+            if rag_result and rag_result.retrieval_executed:
+                omega_metadata["rag_result"] = {
+                    "executed": True,
+                    "source_count": rag_result.source_count,
+                    "average_reliability": rag_result.average_reliability,
+                    "contradictions": len(rag_result.contradictions),
+                    "no_sources": rag_result.no_sources_found,
+                }
+
+            # Persist
+            await update_chat_metadata(
+                db, chat.id,
+                priority_answer=formatted_output,
+                machine_metadata=omega_metadata,
+                rounds=request.rounds,
+            )
+            memory.add_message("assistant", formatted_output)
+            await _persist_session(str(chat.id), kernel, memory)
+
+            try:
+                await redis_client.setex(
+                    f"chat:{chat.id}:metadata",
+                    settings.REDIS_SESSION_TTL,
+                    json.dumps(omega_metadata, default=str),
+                )
+            except Exception:
+                pass
+
+            await add_message(db, chat.id, "assistant", formatted_output)
+
+            # Response payload
+            response_payload = {
+                "chat_id": str(chat.id),
+                "chat_name": "",
+                "mode": "ensemble",
+                "sub_mode": "full_debate",
+                "formatted_output": formatted_output,
+                "data": {"priority_answer": formatted_output},
+                "confidence": confidence,
+                "session_state": {},
+                "boundary_result": omega_metadata["boundary_result"],
+                "omega_metadata": omega_metadata,
+            }
+
+            # Cache
+            try:
+                cache.store(effective_text, "ensemble", response_payload)
+            except Exception:
+                pass
+
+            # Cost governor
+            try:
+                est_input_tokens = sum(len(m.get("content", "")) // 4 for m in history)
+                est_output_tokens = len(formatted_output) // 4
+                governor.record_usage(
+                    session_id=str(chat.id),
+                    model_id="ensemble",
+                    input_tokens=est_input_tokens,
+                    output_tokens=est_output_tokens,
+                    latency_ms=kernel_latency,
+                )
+            except Exception:
+                pass
+
+            # Observability
+            try:
+                total_latency = tracer.end_span("total")
+                tracer.record_model_call(
+                    model_id="ensemble",
+                    input_tokens=sum(len(m.get("content", "")) // 4 for m in history),
+                    output_tokens=len(formatted_output) // 4,
+                    latency_ms=kernel_latency,
+                    cost_estimate=0.0,
+                )
+                summary = tracer.finalize()
+                obs_hub.record(summary)
+            except Exception:
+                pass
+
+            return response_payload
+
+    # ══════════════════════════════════════════════════════════
+    # LEGACY KERNEL PATH (fallback if ensemble unavailable)
+    # ══════════════════════════════════════════════════════════
     config = ModeConfig.from_legacy(
         text=effective_text,
         mode=omega_mode,
@@ -558,12 +715,12 @@ async def run_sentinel(
         role_map=role_map,
     )
 
-    # ── Execute ──────────────────────────────────────────────
+    # ── Execute (Legacy) ─────────────────────────────────────
     tracer.start_span("kernel")
     result = await kernel.process(config)
     kernel_latency = tracer.end_span("kernel")
 
-    # ── Extract & Build Response ─────────────────────────────
+    # ── Extract & Build Response (Legacy) ────────────────────
     formatted_output = result.get("formatted_output", "")
     confidence = result.get("confidence", 0.5)
     session_state = result.get("session_state", {})
@@ -840,6 +997,31 @@ async def omega_kill_form(
 ):
     request = SentinelRequest(text=text or "kill", mode="kill", sub_mode="glass", chat_id=chat_id)
     return await run_sentinel(request, db, user)
+
+
+@app.post("/run/ensemble")
+async def run_ensemble_form(
+    text: str = Form(...),
+    rounds: int = Form(3),
+    chat_id: Optional[UUID] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    context: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    """
+    Ensemble endpoint — always-on multi-model reasoning.
+    All requests route through CognitiveOrchestrator.
+    Minimum 3 debate rounds enforced. No single-model fallback.
+    """
+    request = SentinelRequest(
+        text=text,
+        mode="ensemble",
+        sub_mode="full_debate",
+        rounds=max(min(rounds, settings.MAX_ROUNDS), 3),
+        chat_id=chat_id,
+    )
+    return await run_sentinel(request, db, user, frontend_context=context)
 
 
 # ============================================================

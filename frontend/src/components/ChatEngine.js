@@ -158,15 +158,17 @@ export default function ChatEngine() {
     injectContext(formData, text || '', mode, subMode);
 
     let endpoint;
+    // ── ENSEMBLE-FIRST: All requests route through ensemble engine ──
+    endpoint = `${API_BASE}/run/ensemble`;
+    formData.append('rounds', Math.max(rounds, 3));  // enforce minimum 3 rounds
+
+    // Legacy mode params (for backward compat / logging)
     if (mode === 'experimental' && subMode === 'glass' && killActive) {
+      // Kill switch still goes to dedicated endpoint
       endpoint = `${API_BASE}/run/omega/kill`;
     } else if (mode === 'experimental') {
-      endpoint = `${API_BASE}/run/experimental`;
       formData.append('mode', 'experimental');
       formData.append('sub_mode', subMode);
-      formData.append('rounds', rounds);
-    } else {
-      endpoint = `${API_BASE}/run/standard`;
     }
 
     try {

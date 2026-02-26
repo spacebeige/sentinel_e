@@ -1138,9 +1138,12 @@ export default function FigmaChatShell({
                             
                             // Only render structured output if we have engine-specific data
                             const meta = message.omegaMetadata;
-                            const hasStructuredData = meta.aggregation_result || meta.forensic_result || meta.audit_result || meta.debate_result;
+                            const hasStructuredData = meta.aggregation_result || meta.forensic_result || meta.audit_result || meta.debate_result || meta.ensemble_metrics;
                             
                             if (!hasStructuredData) return null;
+                            
+                            // Ensemble mode override — bypass sub_mode isolation
+                            const resolvedSubMode = meta.ensemble_metrics ? 'ensemble' : messageSubMode;
                             
                             return (
                               <div className="mt-3 -mx-4 px-4 pt-3 border-t border-black/5">
@@ -1148,9 +1151,9 @@ export default function FigmaChatShell({
                                   result={{
                                     ...response,
                                     omega_metadata: meta,
-                                    sub_mode: messageSubMode,
+                                    sub_mode: resolvedSubMode,
                                   }}
-                                  activeSubMode={messageSubMode}
+                                  activeSubMode={resolvedSubMode}
                                 />
                               </div>
                             );
