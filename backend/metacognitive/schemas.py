@@ -38,6 +38,8 @@ class ModelRole(str, Enum):
     CONCEPTUAL = "conceptual"
     BASELINE = "baseline"
     LONGCTX = "longctx"
+    FAST = "fast"
+    GENERAL = "general"
 
 
 # ============================================================

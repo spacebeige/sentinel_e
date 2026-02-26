@@ -22,6 +22,8 @@ const ROLE_COLORS = {
   baseline: '#6366f1',
   conceptual: '#8b5cf6',
   longctx: '#f59e0b',
+  fast: '#ef4444',
+  general: '#3b82f6',
 };
 
 const ROLE_LABELS = {
@@ -30,6 +32,8 @@ const ROLE_LABELS = {
   baseline: 'Reasoning',
   conceptual: 'Conceptual',
   longctx: 'Long Context',
+  fast: 'Speed',
+  general: 'General',
 };
 
 /**

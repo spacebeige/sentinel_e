@@ -71,7 +71,6 @@ from utils.chat_naming import generate_chat_name
 # ── New Architecture Layers ──────────────────────────────────
 from memory.memory_engine import MemoryEngine
 from retrieval.cognitive_rag import CognitiveRAG
-from providers.provider_router import get_provider_router
 from core.dynamic_analytics import DynamicAnalyticsEngine
 
 # ── Optimization Layer ───────────────────────────────────────
@@ -1082,12 +1081,19 @@ async def learning_summary(user: Dict = Depends(get_current_user)):
 
 @app.get("/api/providers/status")
 async def provider_status(user: Dict = Depends(get_current_user)):
-    """Provider usage stats (non-sensitive)."""
-    router = get_provider_router()
-    from providers.provider_router import list_active_models
+    """Provider usage stats from unified cognitive registry."""
+    from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
     return {
-        "active_models": [{"id": m.id, "name": m.name, "tier": m.tier} for m in list_active_models()],
-        "usage": router.get_usage_stats(),
+        "active_models": [
+            {
+                "id": key,
+                "name": spec.name,
+                "provider": spec.provider,
+                "enabled": spec.enabled,
+                "active": spec.active,
+            }
+            for key, spec in COGNITIVE_MODEL_REGISTRY.items()
+        ],
     }
 
 

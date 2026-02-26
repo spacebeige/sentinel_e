@@ -24,7 +24,6 @@ import FigmaChatShell from '../figma_shell/FigmaChatShell';
 import useModels, { DEFAULT_CHAT_MODELS } from '../hooks/useModels';
 import { getDefaultPipelineSteps } from '../engines/modeController';
 import memoryManager from '../engines/memoryManager';
-import { buildContextPayload } from '../engines/contextInjector';
 import { evaluateResponse } from '../engines/cognitiveGovernor';
 import {
   initSession, checkHealth as apiCheckHealth,
@@ -39,7 +38,6 @@ export default function ChatEngineV5() {
   const [mode, setMode] = useState('standard');
   const [subMode, setSubMode] = useState(null);
   const [killActive, setKillActive] = useState(false);
-  const [rounds] = useState(3);
   const [history, setHistory] = useState([]);
   const [messages, setMessages] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
@@ -164,9 +162,6 @@ export default function ChatEngineV5() {
     };
     setMessages(prev => [...prev, userMsg]);
     memoryManager.recordMessage(userMsg, mode, subMode);
-
-    // Build context payload (sanitized client-side memory)
-    //  = buildContextPayload(text || ''const context, mode, subMode);
 
     try {
       let result;

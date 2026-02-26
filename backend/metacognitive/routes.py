@@ -146,9 +146,19 @@ async def mco_run(
     # Execute 10-step protocol
     try:
         response = await orch.process(request)
+    except RuntimeError as e:
+        logger.error(f"MCO execution error: {e}")
+        raise HTTPException(status_code=502, detail=str(e))
     except Exception as e:
         logger.error(f"MCO execution failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
+    # Guard: no blank responses
+    if not response.aggregated_answer or not response.aggregated_answer.strip():
+        raise HTTPException(
+            status_code=502,
+            detail=f"Model '{response.winning_model}' returned empty output",
+        )
 
     # Persist assistant response
     await add_message(db, chat.id, "assistant", response.aggregated_answer)

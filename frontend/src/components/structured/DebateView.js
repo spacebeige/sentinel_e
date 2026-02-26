@@ -7,7 +7,7 @@ import BoundaryPanel from './BoundaryPanel';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
-const MODEL_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
+const MODEL_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'];
 
 /**
  * DebateView — Multi-model adversarial debate visualisation

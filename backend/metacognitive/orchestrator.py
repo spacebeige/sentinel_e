@@ -561,10 +561,25 @@ class MetaCognitiveOrchestrator:
         """
         results = self.arbitration.build_results(outputs, scores)
 
+        # Filter to successful outputs for winner selection
+        successful_outputs = [o for o in outputs if o.success and o.raw_output]
+        successful_scores = [s for o, s in zip(outputs, scores) if o.success and o.raw_output]
+
         # Single Model Focus: return that model's output directly
         if request.selected_model:
             solo_output = outputs[0] if outputs else None
             solo_score = scores[0] if scores else None
+
+            # Explicit failure: if model returned error, propagate it
+            if solo_output and not solo_output.success:
+                error_detail = solo_output.error or "Model invocation failed"
+                raise RuntimeError(
+                    f"Model '{request.selected_model}' failed: {error_detail}"
+                )
+            if not solo_output or not solo_output.raw_output:
+                raise RuntimeError(
+                    f"Model '{request.selected_model}' returned empty output"
+                )
 
             return OrchestratorResponse(
                 session_id=session.session_id,
@@ -582,9 +597,13 @@ class MetaCognitiveOrchestrator:
             )
 
         if request.mode == OperatingMode.STANDARD:
-            # Select winner
+            # Select winner from successful outputs only
+            if not successful_outputs:
+                raise RuntimeError(
+                    f"All {len(outputs)} models failed. No output available."
+                )
             winner_output, winner_score = self.arbitration.select_winner(
-                outputs, scores
+                successful_outputs, successful_scores
             )
 
             return OrchestratorResponse(
@@ -605,8 +624,12 @@ class MetaCognitiveOrchestrator:
         else:
             # Experimental: expose everything
             # Still compute best for convenience
+            if not successful_outputs:
+                raise RuntimeError(
+                    f"All {len(outputs)} models failed. No output available."
+                )
             winner_output, winner_score = self.arbitration.select_winner(
-                outputs, scores
+                successful_outputs, successful_scores
             )
 
             divergence = self.arbitration.compute_divergence_metrics(
