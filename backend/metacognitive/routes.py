@@ -77,6 +77,7 @@ def _get_orchestrator() -> MetaCognitiveOrchestrator:
 async def mco_run(
     query: str = Body(...),
     mode: str = Body("standard"),
+    sub_mode: Optional[str] = Body(None),
     chat_id: Optional[str] = Body(None),
     session_id: Optional[str] = Body(None),
     force_retrieval: bool = Body(False),
@@ -136,6 +137,7 @@ async def mco_run(
         session_id=session_id or str(chat.id),
         query=query,
         mode=op_mode,
+        sub_mode=sub_mode,
         chat_id=str(chat.id),
         force_retrieval=force_retrieval,
         selected_model=selected_model,
@@ -172,6 +174,7 @@ async def mco_run(
         "chat_id": str(chat.id),
         "session_id": response.session_id,
         "mode": response.mode.value,
+        "sub_mode": response.sub_mode or sub_mode,
         "aggregated_answer": response.aggregated_answer,
         "formatted_output": response.aggregated_answer,
         "winning_model": response.winning_model,
@@ -183,53 +186,154 @@ async def mco_run(
         "knowledge_bundle_size": len(response.knowledge_bundle),
         "retrieval_confidence": round(response.retrieval_confidence, 4),
         "selected_model": selected_model,
+        "confidence": round(response.winning_score, 4),
     }
 
-    # Single Model Focus: compact response with model identity
+    # ── Build omega_metadata (unified frontend contract) ────
+    all_outputs_serialized = [
+        {
+            "model_name": r.output.model_name,
+            "raw_output": r.output.raw_output,
+            "tokens_used": r.output.tokens_used,
+            "latency_ms": round(r.output.latency_ms, 1),
+            "success": r.output.success,
+            "error": r.output.error,
+            "score": {
+                "topic_alignment": round(r.score.topic_alignment, 4),
+                "knowledge_grounding": round(r.score.knowledge_grounding, 4),
+                "specificity": round(r.score.specificity, 4),
+                "confidence_calibration": round(r.score.confidence_calibration, 4),
+                "drift_penalty": round(r.score.drift_penalty, 4),
+                "final_score": round(r.score.final_score, 4),
+            },
+        }
+        for r in response.all_results
+    ]
+
+    scoring_serialized = [
+        {
+            "model": s.model_name,
+            "T": round(s.topic_alignment, 4),
+            "K": round(s.knowledge_grounding, 4),
+            "S": round(s.specificity, 4),
+            "C": round(s.confidence_calibration, 4),
+            "D": round(s.drift_penalty, 4),
+            "final": round(s.final_score, 4),
+        }
+        for s in (response.scoring_breakdown or [])
+    ]
+
+    divergence = response.divergence_metrics or {}
+
+    omega_metadata = {
+        "mode": response.mode.value,
+        "sub_mode": response.sub_mode or sub_mode,
+        "confidence": round(response.winning_score, 4),
+        "winning_model": response.winning_model,
+        "model_count": len(response.all_results),
+        "latency_ms": round(response.latency_ms, 1),
+        "drift_score": round(response.drift_score, 4),
+        "volatility_score": round(response.volatility_score, 4),
+        "session_state": {
+            "session_id": response.session_id,
+            "refinement_cycles": response.refinement_cycles,
+            "drift_score": round(response.drift_score, 4),
+            "volatility_score": round(response.volatility_score, 4),
+            "inferred_domain": divergence.get("domain_classification", None),
+        },
+        "all_outputs": all_outputs_serialized,
+        "scoring_breakdown": scoring_serialized,
+        "divergence_metrics": divergence,
+    }
+
+    # Build sub-mode-specific structured results for frontend components
+    effective_sub_mode = response.sub_mode or sub_mode
+
+    if response.mode == OperatingMode.EXPERIMENTAL or effective_sub_mode:
+        # Build debate_result (DebateView/DebateArena consumes this)
+        omega_metadata["debate_result"] = {
+            "rounds": [[
+                {
+                    "model_id": r.output.model_name,
+                    "model_label": r.output.model_name,
+                    "argument": r.output.raw_output,
+                    "confidence": round(r.score.final_score, 4),
+                    "role": r.output.model_name,
+                }
+                for r in response.all_results
+            ]],
+            "models_used": [r.output.model_name for r in response.all_results],
+            "scores": {
+                s.model_name: round(s.final_score, 4)
+                for s in (response.scoring_breakdown or [])
+            },
+            "analysis": {
+                "synthesis": response.aggregated_answer[:500] if response.aggregated_answer else "",
+                "conflict_axes": [],
+                "disagreement_strength": divergence.get("max_divergence", 0),
+                "convergence_level": divergence.get("convergence", "moderate"),
+            },
+        }
+
+        # Build aggregation_result (standard structured display)
+        omega_metadata["aggregation_result"] = {
+            "winner": response.winning_model,
+            "winner_score": round(response.winning_score, 4),
+            "answer": response.aggregated_answer,
+            "model_scores": {
+                s.model_name: round(s.final_score, 4)
+                for s in (response.scoring_breakdown or [])
+            },
+        }
+
+        # Build forensic_result (EvidenceConsole consumes this)
+        omega_metadata["forensic_result"] = {
+            "models_analyzed": len(response.all_results),
+            "scoring_breakdown": scoring_serialized,
+            "divergence": divergence,
+            "winning_model": response.winning_model,
+            "winning_score": round(response.winning_score, 4),
+        }
+
+        # Build audit_result (GlassConsole consumes this)
+        omega_metadata["audit_result"] = {
+            "all_outputs": all_outputs_serialized,
+            "scoring_breakdown": scoring_serialized,
+            "divergence_metrics": divergence,
+            "drift_score": round(response.drift_score, 4),
+            "volatility_score": round(response.volatility_score, 4),
+            "refinement_cycles": response.refinement_cycles,
+        }
+
+    elif response.mode == OperatingMode.STANDARD:
+        # Standard mode: minimal aggregation_result
+        omega_metadata["aggregation_result"] = {
+            "winner": response.winning_model,
+            "winner_score": round(response.winning_score, 4),
+            "answer": response.aggregated_answer,
+            "model_scores": {
+                s.model_name: round(s.final_score, 4)
+                for s in (response.scoring_breakdown or [])
+            },
+        }
+
+    result["omega_metadata"] = omega_metadata
+    result["data"] = {"priority_answer": response.aggregated_answer}
+    result["session_state"] = omega_metadata["session_state"]
+    result["boundary_result"] = {
+        "severity_score": 0,
+        "flags": [],
+    }
+
+    # Single Model Focus: add focus_model identifier
     if selected_model:
-        result["data"] = {"priority_answer": response.aggregated_answer}
-        result["confidence"] = round(response.winning_score, 4)
         result["focus_model"] = response.winning_model
 
-    # Standard mode: compact response
-    elif response.mode == OperatingMode.STANDARD:
-        result["data"] = {"priority_answer": response.aggregated_answer}
-        result["confidence"] = round(response.winning_score, 4)
-
-    # Experimental mode: full observability
+    # Experimental mode: also expose flat all_outputs for backward compat
     if response.mode == OperatingMode.EXPERIMENTAL:
-        result["all_outputs"] = [
-            {
-                "model_name": r.output.model_name,
-                "raw_output": r.output.raw_output,
-                "tokens_used": r.output.tokens_used,
-                "latency_ms": round(r.output.latency_ms, 1),
-                "success": r.output.success,
-                "error": r.output.error,
-                "score": {
-                    "topic_alignment": round(r.score.topic_alignment, 4),
-                    "knowledge_grounding": round(r.score.knowledge_grounding, 4),
-                    "specificity": round(r.score.specificity, 4),
-                    "confidence_calibration": round(r.score.confidence_calibration, 4),
-                    "drift_penalty": round(r.score.drift_penalty, 4),
-                    "final_score": round(r.score.final_score, 4),
-                },
-            }
-            for r in response.all_results
-        ]
-        result["divergence_metrics"] = response.divergence_metrics
-        result["scoring_breakdown"] = [
-            {
-                "model": s.model_name,
-                "T": round(s.topic_alignment, 4),
-                "K": round(s.knowledge_grounding, 4),
-                "S": round(s.specificity, 4),
-                "C": round(s.confidence_calibration, 4),
-                "D": round(s.drift_penalty, 4),
-                "final": round(s.final_score, 4),
-            }
-            for s in (response.scoring_breakdown or [])
-        ]
+        result["all_outputs"] = all_outputs_serialized
+        result["divergence_metrics"] = divergence
+        result["scoring_breakdown"] = scoring_serialized
 
     return result
 
@@ -237,6 +341,7 @@ async def mco_run(
 @router.post("/experimental")
 async def mco_experimental(
     query: str = Body(...),
+    sub_mode: Optional[str] = Body(None),
     chat_id: Optional[str] = Body(None),
     session_id: Optional[str] = Body(None),
     force_retrieval: bool = Body(False),
@@ -251,6 +356,7 @@ async def mco_experimental(
     return await mco_run(
         query=query,
         mode="experimental",
+        sub_mode=sub_mode,
         chat_id=chat_id,
         session_id=session_id,
         force_retrieval=force_retrieval,

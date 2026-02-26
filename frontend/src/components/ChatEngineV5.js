@@ -28,7 +28,7 @@ import { buildContextPayload } from '../engines/contextInjector';
 import { evaluateResponse } from '../engines/cognitiveGovernor';
 import {
   initSession, checkHealth as apiCheckHealth,
-  sendStandard, sendExperimental, sendKill, sendMCOQuery,
+  sendMCOQuery,
   getHistory, getChatMessages, getSessionDescriptive, getOmegaSession,
 } from '../services/api';
 
@@ -181,15 +181,19 @@ export default function ChatEngineV5() {
           mode: 'standard',
           selectedModel: selectedModel.id,
         });
-      } else if (mode === 'experimental' && subMode === 'glass' && killActive) {
-        result = await sendKill(text, chatId);
       } else if (mode === 'experimental') {
-        result = await sendExperimental(text, {
-          chatId, file, context, mode: 'experimental',
-          subMode, rounds,
+        // ALL experimental sub-modes (debate, evidence, glass, kill) → MCO
+        result = await sendMCOQuery(text, {
+          chatId,
+          mode: 'experimental',
+          subMode: (subMode === 'glass' && killActive) ? 'glass' : subMode,
         });
       } else {
-        result = await sendStandard(text, chatId, file, context);
+        // Standard mode → MCO
+        result = await sendMCOQuery(text, {
+          chatId,
+          mode: 'standard',
+        });
       }
 
       const returnedChatId = result.chat_id ? String(result.chat_id) : null;

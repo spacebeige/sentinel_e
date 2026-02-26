@@ -672,9 +672,19 @@ async def run_sentinel(
     if memory.needs_summarization():
         try:
             summary_prompt = memory.generate_summary_prompt()
-            if summary_prompt and orchestrator and hasattr(orchestrator, "client"):
-                summary = await orchestrator.client.call_groq(summary_prompt)
-                if summary and not summary.startswith("Groq"):
+            if summary_prompt and mco_orchestrator and mco_orchestrator.cognitive_gateway:
+                from metacognitive.schemas import CognitiveGatewayInput
+                gw_input = CognitiveGatewayInput(
+                    user_query=summary_prompt,
+                    stabilized_context={},
+                    knowledge_bundle=[],
+                    session_summary={},
+                )
+                gw_output = await mco_orchestrator.cognitive_gateway.invoke_model(
+                    "llama-3.3", gw_input
+                )
+                summary = gw_output.raw_output if gw_output.success else None
+                if summary and not summary.startswith("Error"):
                     memory.rolling_summary.add_summary(summary, settings.ROLLING_SUMMARY_INTERVAL)
                     logger.info(f"Rolling summary generated for chat {chat.id}")
         except Exception as e:
@@ -1006,12 +1016,10 @@ async def cross_model_analysis(
     llm_response: str = Body(""),
     user: Dict = Depends(get_current_user),
 ):
-    if not orchestrator or not hasattr(orchestrator, "client"):
+    if not mco_orchestrator or not mco_orchestrator.cognitive_gateway:
         raise HTTPException(status_code=503, detail="System not ready")
 
     try:
-        from core.cross_model_analyzer import run_cross_analysis_on_response
-
         if not llm_response and chat_id and chat_id in omega_sessions:
             kernel = omega_sessions[chat_id]
             session_state = kernel.get_session_state()
@@ -1020,11 +1028,34 @@ async def cross_model_analysis(
         if not llm_response:
             llm_response = "No response available for analysis."
 
-        result = await run_cross_analysis_on_response(
-            cloud_client=orchestrator.client,
-            llm_response=llm_response,
-            query=query,
+        from metacognitive.schemas import CognitiveGatewayInput
+        analysis_prompt = (
+            f"Analyze the following AI response for accuracy, completeness, and potential issues.\n\n"
+            f"Original query: {query}\n\nAI Response:\n{llm_response}\n\n"
+            f"Provide a structured analysis with: factual accuracy, completeness, potential biases, "
+            f"confidence assessment, and suggested improvements."
         )
+        gw_input = CognitiveGatewayInput(
+            user_query=analysis_prompt,
+            stabilized_context={},
+            knowledge_bundle=[],
+            session_summary={},
+        )
+        # Run cross-analysis through MCO cognitive gateway in parallel
+        outputs = await mco_orchestrator.cognitive_gateway.invoke_parallel(gw_input)
+        result = {
+            "analyses": {
+                out.model_name: {
+                    "analysis": out.raw_output,
+                    "success": out.success,
+                    "latency_ms": round(out.latency_ms, 1),
+                }
+                for out in outputs
+                if out.success
+            },
+            "models_used": [out.model_name for out in outputs if out.success],
+            "total_models": len(outputs),
+        }
         return result
     except Exception as e:
         logger.error(f"Cross-analysis error: {e}")

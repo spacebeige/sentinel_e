@@ -257,15 +257,16 @@ export async function runCrossAnalysis(chatId, query, llmResponse) {
 
 /**
  * Send a query through the Meta-Cognitive Orchestrator.
- * Used for single-model focus mode and MCO-based standard/experimental.
+ * ALL model invocations flow through this single pipeline.
  * 
  * @param {string} query       — User query text
- * @param {Object} options     — { chatId, mode, selectedModel, forceRetrieval }
+ * @param {Object} options     — { chatId, mode, subMode, selectedModel, forceRetrieval }
  */
 export async function sendMCOQuery(query, options = {}) {
   const {
     chatId,
     mode = 'standard',
+    subMode = null,
     selectedModel = null,
     forceRetrieval = false,
   } = options;
@@ -277,6 +278,7 @@ export async function sendMCOQuery(query, options = {}) {
     force_retrieval: forceRetrieval,
   };
   if (chatId) body.chat_id = chatId;
+  if (subMode) body.sub_mode = subMode;
 
   const res = await api.post('/api/mco/run', body);
   return res.data;

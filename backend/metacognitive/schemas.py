@@ -217,6 +217,7 @@ class OrchestratorRequest(BaseModel):
     session_id: Optional[str] = None
     query: str
     mode: OperatingMode = OperatingMode.STANDARD
+    sub_mode: Optional[str] = None  # debate | evidence | glass (experimental only)
     chat_id: Optional[str] = None
     attachments: List[str] = Field(default_factory=list)
     force_retrieval: bool = False
@@ -234,6 +235,7 @@ class OrchestratorResponse(BaseModel):
     session_id: str
     chat_id: str = ""
     mode: OperatingMode
+    sub_mode: Optional[str] = None  # debate | evidence | glass
     aggregated_answer: str = ""
     winning_model: str = ""
     winning_score: float = 0.0

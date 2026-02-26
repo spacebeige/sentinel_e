@@ -152,34 +152,16 @@ def get_models_for_task(
     long_context: bool = False,
 ) -> List[str]:
     """
-    Select model subset based on task characteristics.
-    Always includes baseline (Nemotron) for comparison.
+    Return ALL enabled models for every task.
+
+    The arbitration engine (Step 7) handles scoring and selection.
+    No model is excluded based on task type — all enabled models
+    participate in every invocation for fair scoring.
     """
-    selected = set()
-
-    if code_heavy:
-        selected.add("qwen3-coder")
-    if image_heavy:
-        selected.add("qwen3-vl")
-    if conceptual:
-        selected.add("llama-3.3")
-    if long_context:
-        selected.add("kimi-2.5")
-
-    # Always include baseline
-    selected.add("nemotron-nano")
-
-    # If nothing specific selected, use all enabled models
-    if len(selected) <= 1:
-        selected = set(COGNITIVE_MODEL_REGISTRY.keys())
-
     return [
-        k for k in selected
-        if COGNITIVE_MODEL_REGISTRY.get(
-            k, CognitiveModelSpec("", "", "", ModelRole.BASELINE)
-        ).active and COGNITIVE_MODEL_REGISTRY.get(
-            k, CognitiveModelSpec("", "", "", ModelRole.BASELINE)
-        ).enabled
+        k for k in COGNITIVE_MODEL_REGISTRY
+        if COGNITIVE_MODEL_REGISTRY[k].active
+        and COGNITIVE_MODEL_REGISTRY[k].enabled
     ]
 
 
