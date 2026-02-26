@@ -27,13 +27,12 @@
 import React, { useState } from 'react';
 import {
   Brain, Target, Shield, Activity, Layers, GitBranch,
-  ChevronDown, ChevronRight, AlertTriangle, CheckCircle,
+  ChevronDown, ChevronRight, AlertTriangle,
   BarChart3, Grid3X3, Crosshair, TrendingUp, Zap
 } from 'lucide-react';
 
 // ── Utility Helpers ─────────────────────────────────────────
 const pct = v => v != null ? `${(v * 100).toFixed(0)}%` : '—';
-const f2 = v => v != null ? v.toFixed(2) : '—';
 const f3 = v => v != null ? v.toFixed(3) : '—';
 
 const confColor = v => {
@@ -136,7 +135,6 @@ const AgreementHeatmap = ({ matrix }) => {
   if (!matrix || !matrix.matrix || !matrix.model_ids) return null;
 
   const { model_ids, matrix: grid } = matrix;
-  const n = model_ids.length;
 
   const cellColor = v => {
     if (v == null) return 'var(--bg-tertiary)';
@@ -517,7 +515,6 @@ export default function EnsembleView({ data, boundary, confidence }) {
   const matrix = data.agreement_matrix || {};
   const tacticalMap = data.tactical_map || [];
   const confGraph = data.confidence_graph || {};
-  const modelStances = data.model_stances || {};
   const sessionAnalytics = data.session_analytics || {};
 
   const toggle = key => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
