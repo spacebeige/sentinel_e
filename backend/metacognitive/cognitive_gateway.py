@@ -304,9 +304,26 @@ class CognitiveModelGateway:
 
         result.latency_ms = (time.monotonic() - start) * 1000
 
-        # Enforce no-cutoff-disclaimer rule (flag, don't modify)
+        # PHASE 2: Guarantee text output — never return blank on success
         if result.success:
-            self._flag_cutoff_disclaimers(result)
+            if not result.raw_output or result.raw_output.strip() == "":
+                logger.error(f"Model '{model_key}' returned empty response")
+                result.success = False
+                result.error = f"Model '{model_key}' returned empty response"
+                result.raw_output = ""
+            else:
+                # PHASE 5: Set confidence default only after successful text
+                if result.confidence_estimate is None:
+                    result.confidence_estimate = 0.5
+
+                # Enforce no-cutoff-disclaimer rule (flag, don't modify)
+                self._flag_cutoff_disclaimers(result)
+
+        # PHASE 8: Debug logging (temporary)
+        logger.info(
+            f"Calling provider for: {model_key} ({spec.provider}) — "
+            f"success={result.success}, output_len={len(result.raw_output) if result.raw_output else 0}"
+        )
 
         return result
 

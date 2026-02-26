@@ -460,6 +460,14 @@ class MetaCognitiveOrchestrator:
                 long_context=long_context,
             )
 
+        # PHASE 1: Assert at least one model selected
+        if not model_keys:
+            raise RuntimeError(
+                "No models selected for execution. Check model registry and API keys."
+            )
+
+        # PHASE 8: Debug logging (temporary)
+        logger.info(f"Enabled models from registry: {[k for k, v in COGNITIVE_MODEL_REGISTRY.items() if v.enabled]}")
         logger.info(f"Invoking {len(model_keys)} models: {model_keys}")
 
         # Build gateway input (identical for all)
@@ -479,6 +487,20 @@ class MetaCognitiveOrchestrator:
         outputs = await self.cognitive_gateway.invoke_parallel(
             model_keys, gateway_input
         )
+
+        # PHASE 1: Assert outputs exist — no silent empty success
+        if not outputs or len(outputs) == 0:
+            raise RuntimeError(
+                f"Model execution returned no outputs for models: {model_keys}"
+            )
+
+        # PHASE 8: Log invocation results
+        for o in outputs:
+            logger.info(
+                f"  Model '{o.model_name}': success={o.success}, "
+                f"output_len={len(o.raw_output) if o.raw_output else 0}, "
+                f"error={o.error or 'none'}"
+            )
 
         return outputs
 

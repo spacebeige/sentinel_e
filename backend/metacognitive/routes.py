@@ -261,6 +261,11 @@ async def mco_run(
 
     if response.mode == OperatingMode.EXPERIMENTAL or effective_sub_mode:
         # Build debate_result (DebateView/DebateArena consumes this)
+        # PHASE 6: Filter out empty/failed model outputs from debate positions
+        _valid_results = [
+            r for r in response.all_results
+            if r.output.success and r.output.raw_output and r.output.raw_output.strip()
+        ]
         omega_metadata["debate_result"] = {
             "rounds": [[
                 {
@@ -270,9 +275,9 @@ async def mco_run(
                     "confidence": round(r.score.final_score, 4),
                     "role": r.output.model_name,
                 }
-                for r in response.all_results
+                for r in _valid_results
             ]],
-            "models_used": [r.output.model_name for r in response.all_results],
+            "models_used": [r.output.model_name for r in _valid_results],
             "scores": {
                 s.model_name: round(s.final_score, 4)
                 for s in (response.scoring_breakdown or [])

@@ -26,7 +26,15 @@ export default function DebateView({ data, boundary, confidence }) {
   // Safe fallback values — hooks must be called unconditionally
   const safeData = useMemo(() => data || {}, [data]);
 
-  const rounds = useMemo(() => safeData.rounds || [], [safeData.rounds]);
+  // PHASE 6: Filter out models with empty/blank arguments from each round
+  const rounds = useMemo(() => {
+    const raw = safeData.rounds || [];
+    return raw.map(round =>
+      (Array.isArray(round) ? round : [round]).filter(
+        m => m && m.argument && m.argument.trim()
+      )
+    ).filter(round => round.length > 0);
+  }, [safeData.rounds]);
 
   const analysis = useMemo(() => safeData.analysis || {}, [safeData.analysis]);
 
@@ -129,7 +137,8 @@ export default function DebateView({ data, boundary, confidence }) {
                   {(model.argument || '').slice(0, 600)}
                 </p>
                 <div className="mt-3">
-                  <ConfidenceBar value={model.confidence || 0.5} label="Confidence" size="sm" />
+                  {/* PHASE 6: Only show confidence when model returned text */}
+                  <ConfidenceBar value={model.argument ? (model.confidence || 0.5) : 0} label="Confidence" size="sm" />
                 </div>
               </div>
             );
@@ -247,7 +256,8 @@ export default function DebateView({ data, boundary, confidence }) {
                               </span>
                             )}
                           </div>
-                          <ConfidenceBar value={model.confidence || 0.5} label="Confidence" size="sm" />
+                          {/* PHASE 6: Only show confidence when model returned text */}
+                          <ConfidenceBar value={model.argument ? (model.confidence || 0.5) : 0} label="Confidence" size="sm" />
                           {model.position && (
                             <p style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }} className="dark:text-[#f1f5f9]">
                               {model.position}
