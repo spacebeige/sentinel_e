@@ -195,7 +195,7 @@ export default function FigmaChatShell({
 
       return base;
     });
-  }, [messages, response, subMode, activeChatId, localFeedback, selectedModel]);
+  }, [messages, response, subMode, activeChatId, localFeedback]);
 
   // Auto-scroll on new messages
   useEffect(() => {
