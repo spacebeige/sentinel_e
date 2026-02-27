@@ -670,3 +670,7 @@ class CognitiveOrchestrator:
             evidence_reliance=get_dim("evidence_reliance"),
             novelty=get_dim("novelty"),
         )
+
+
+# ── v7.0 alias — main.py imports this name ──────────────────
+CognitiveCoreEngine = CognitiveOrchestrator
