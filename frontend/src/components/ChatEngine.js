@@ -69,7 +69,7 @@ export default function ChatEngine() {
     if (mode === 'standard' && selectedModel.category !== 'standard') {
       setSelectedModel(MODELS[0]); // sentinel-std
     } else if (mode === 'experimental' && selectedModel.category !== 'experimental') {
-      setSelectedModel(MODELS[4]); // sentinel-exp
+      setSelectedModel(MODELS[1]); // sentinel-exp
     }
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -160,10 +160,22 @@ export default function ChatEngine() {
     injectContext(formData, text || '', mode, subMode);
 
     let endpoint;
-    // ── COGNITIVE ENSEMBLE v7.0: Single endpoint, no mode routing ──
-    endpoint = `${API_BASE}/run/ensemble`;
-    formData.append('rounds', Math.max(rounds, 3));  // enforce minimum 3 rounds
-    // No mode-based branching. All requests route through ensemble engine.
+    // ── Mode-based routing ──
+    if (killActive && chatId) {
+      endpoint = `${API_BASE}/run/omega/kill`;
+      formData.append('mode', 'kill');
+    } else if (mode === 'experimental') {
+      endpoint = `${API_BASE}/run/omega/experimental`;
+      formData.append('mode', 'experimental');
+      if (subMode) formData.append('sub_mode', subMode);
+      formData.append('rounds', Math.max(rounds, 3));
+    } else if (mode === 'ensemble') {
+      endpoint = `${API_BASE}/run/ensemble`;
+      formData.append('rounds', Math.max(rounds, 3));
+    } else {
+      endpoint = `${API_BASE}/run/omega/standard`;
+      formData.append('mode', 'standard');
+    }
 
     try {
       const response = await axios.post(endpoint, formData, {

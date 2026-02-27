@@ -7,13 +7,10 @@ import GlassView from './GlassView';
 import EnsembleView from './EnsembleView';
 
 /**
- * StructuredOutput — Sentinel-E Cognitive Engine v7.0
+ * StructuredOutput — Sentinel-E Mode-Based Rendering
  * 
- * ALWAYS renders EnsembleView (CognitiveDashboard).
- * No mode-based routing. No conditional crossover.
- * All requests go through the cognitive ensemble pipeline.
- *
- * Legacy views preserved as fallback for old cached responses only.
+ * Routes to the correct view based on activeSubMode / renderMode.
+ * Supports: standard, debate, evidence, glass, ensemble
  */
 export default function StructuredOutput({ result, activeSubMode }) {
   if (!result) return null;
@@ -21,8 +18,8 @@ export default function StructuredOutput({ result, activeSubMode }) {
   const renderMode = resolveRenderMode(result);
   const meta = result.omega_metadata || {};
 
-  // v7.0: Always render ensemble view - the only mode that exists
-  const effectiveMode = 'ensemble';
+  // Use resolved mode, but allow activeSubMode override
+  const effectiveMode = renderMode.mode === 'ensemble' ? 'ensemble' : (activeSubMode || renderMode.mode || 'standard');
 
   switch (effectiveMode) {
     case 'ensemble':

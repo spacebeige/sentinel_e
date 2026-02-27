@@ -242,6 +242,29 @@ const ModelPositionCard = ({ output }) => {
 
   if (!output) return null;
 
+  // Failed model — render failure badge instead of score
+  if (output.error || output.status === 'failed') {
+    return (
+      <div className="p-3 space-y-2" style={{ opacity: 0.7, borderLeft: '3px solid var(--accent-red, #ef4444)' }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-3 h-3" style={{ color: 'var(--accent-red, #ef4444)' }} />
+            <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
+              {output.model_id || 'Unknown Model'}
+            </span>
+          </div>
+          <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded"
+            style={{ color: '#ef4444', backgroundColor: '#ef444415' }}>
+            FAILED
+          </span>
+        </div>
+        <div className="text-xs leading-relaxed" style={{ color: 'var(--accent-red, #ef4444)' }}>
+          {output.error || 'No response returned'}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-3 space-y-2">
       <div className="flex items-center justify-between">
