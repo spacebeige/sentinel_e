@@ -25,6 +25,7 @@
 
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { CognitiveStoreProvider } from './stores/cognitiveStore';
 import Layout from './layout/Layout';
 import LandingPage from './pages/LandingPage';
 import ChatPage from './pages/ChatPage';
@@ -33,16 +34,18 @@ import ModelsPageWrapper from './pages/ModelsPageWrapper';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/pricing" element={<PricingPageWrapper />} />
-          <Route path="/models" element={<ModelsPageWrapper />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <CognitiveStoreProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/pricing" element={<PricingPageWrapper />} />
+            <Route path="/models" element={<ModelsPageWrapper />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </CognitiveStoreProvider>
   );
 }
 

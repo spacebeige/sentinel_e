@@ -28,10 +28,12 @@ import { getDefaultPipelineSteps } from '../engines/modeController';
 import memoryManager from '../engines/memoryManager';
 import { injectContext } from '../engines/contextInjector';
 import { evaluateResponse } from '../engines/cognitiveGovernor';
+import { useCognitiveStore } from '../stores/cognitiveStore';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function ChatEngine() {
+  const { addDebateResult } = useCognitiveStore();
   const [mode, setMode] = useState('standard');
   const [subMode, setSubMode] = useState(null);
   const [killActive, setKillActive] = useState(false);
@@ -158,18 +160,10 @@ export default function ChatEngine() {
     injectContext(formData, text || '', mode, subMode);
 
     let endpoint;
-    // ── ENSEMBLE-FIRST: All requests route through ensemble engine ──
+    // ── COGNITIVE ENSEMBLE v7.0: Single endpoint, no mode routing ──
     endpoint = `${API_BASE}/run/ensemble`;
     formData.append('rounds', Math.max(rounds, 3));  // enforce minimum 3 rounds
-
-    // Legacy mode params (for backward compat / logging)
-    if (mode === 'experimental' && subMode === 'glass' && killActive) {
-      // Kill switch still goes to dedicated endpoint
-      endpoint = `${API_BASE}/run/omega/kill`;
-    } else if (mode === 'experimental') {
-      formData.append('mode', 'experimental');
-      formData.append('sub_mode', subMode);
-    }
+    // No mode-based branching. All requests route through ensemble engine.
 
     try {
       const response = await axios.post(endpoint, formData, {
@@ -193,6 +187,9 @@ export default function ChatEngine() {
       // Record assistant response in memory layer
       memoryManager.recordMessage(assistantMsg, mode, subMode);
       memoryManager.recordAnalytics(result);
+
+      // Pipe ensemble results into global cognitive store (v7.0)
+      addDebateResult(result);
 
       // Self-governance evaluation (Section XII)
       const verdict = evaluateResponse({

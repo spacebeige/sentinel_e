@@ -18,7 +18,7 @@ import re
 from collections import defaultdict
 from typing import Dict, List, Optional, Set
 
-from backend.core.ensemble_schemas import (
+from core.ensemble_schemas import (
     SessionIntelligenceSnapshot,
     EnsembleMetrics,
     AgreementMatrix,

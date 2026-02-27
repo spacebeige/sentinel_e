@@ -28,12 +28,12 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Send, Sparkles, ChevronDown, Plus, Paperclip,
-  Swords, Gem, FileSearch, X,
+  Send, Plus, Paperclip,
+  FileSearch, X,
   Wifi, WifiOff, AlertCircle, ThumbsUp, ThumbsDown,
   History, ChevronRight,
   Activity, Brain, Shield, BarChart3, Zap,
-  Skull, Loader2,
+  Loader2,
   MessageSquare, PanelRightOpen,
 } from 'lucide-react';
 import StructuredOutput from '../components/structured/StructuredOutput';
@@ -47,23 +47,16 @@ import { getVisibility, hasAnyVisibleAnalytics } from '../engines/analyticsVisib
 // Visual Constants (from Figma design system)
 // ============================================================
 
-/** Legacy static fallback — only used when chatModels prop is absent */
+/** Cognitive Ensemble — always-on multi-model reasoning */
 export const MODELS = [
-  { id: 'sentinel-std', name: 'Sentinel-E Standard', provider: 'Standard', color: '#3b82f6', category: 'standard', enabled: true },
-  { id: 'sentinel-exp', name: 'Sentinel-E Pro', provider: 'Experimental', color: '#8b5cf6', category: 'experimental', enabled: true },
+  { id: 'cognitive-ensemble', name: 'Cognitive Ensemble', provider: 'Multi-Model', color: '#8b5cf6', category: 'ensemble', enabled: true },
 ];
 
-const PRO_SUB_MODES = [
-  { id: 'debate', label: 'Debate Mode', iconKey: 'swords', color: '#ef4444', description: 'Argues both sides of a topic so you can decide', placeholder: 'Give me a topic to debate...' },
-  { id: 'glass', label: 'Glass Mode', iconKey: 'gem', color: '#8b5cf6', description: 'Shows its full reasoning chain — nothing hidden', placeholder: "Ask something and I'll show my thinking..." },
-  { id: 'evidence', label: 'Evidence Mode', iconKey: 'filesearch', color: '#06b6d4', description: 'Every claim backed by a cited source', placeholder: 'What do you need evidence for...' },
-];
+/** @deprecated — kept as empty array for backward compat; no sub-modes in v7.0 */
+const PRO_SUB_MODES = [];
 
-const SUB_MODE_ICONS = {
-  swords: (cls) => <Swords className={cls} />,
-  gem: (cls) => <Gem className={cls} />,
-  filesearch: (cls) => <FileSearch className={cls} />,
-};
+/** @deprecated — sub-mode icons removed in v7.0 */
+const SUB_MODE_ICONS = {};
 
 /** Font stack matching Figma design system */
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -116,14 +109,8 @@ export default function FigmaChatShell({
   mcoModels,
 }) {
   // ============================================================
-  // RESOLVED MODELS — Dynamic from props, fallback to static
-  // ============================================================
-  const resolvedModels = chatModelsProp && chatModelsProp.length > 0 ? chatModelsProp : MODELS;
-
-  // ============================================================
   // LOCAL UI STATE (visual concerns only — no data flow impact)
   // ============================================================
-  const [showModelPicker, setShowModelPicker] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showSessionPanel, setShowSessionPanel] = useState(false);
   const [expandedMeta, setExpandedMeta] = useState(null);
@@ -140,7 +127,8 @@ export default function FigmaChatShell({
   const inputRef = useRef(null);
 
   const backendOnline = serverStatus === 'online';
-  const activeSubMode = selectedModel?.category === 'experimental' ? subMode : null;
+  // v7.0: Always ensemble — no sub-mode gating
+  const activeSubMode = 'ensemble';
 
   // ============================================================
   // MESSAGE TRANSFORMATION
@@ -148,9 +136,8 @@ export default function FigmaChatShell({
   // sentinel_e: { role, content, timestamp }
   // Figma:      { id, role, content, timestamp: Date, mode?, confidence?, omegaMetadata?, ... }
   //
-  // MODE ISOLATION: Standard mode messages are NEVER enriched with
-  // debate/evidence/glass metadata. Only experimental mode with active
-  // subMode gets engine-specific enrichment.
+  // v7.0: ALL messages enriched with cognitive ensemble metadata.
+  // No mode isolation — single cognitive pipeline.
   // ============================================================
   const enhancedMessages = useMemo(() => {
     const welcome = {
@@ -171,14 +158,11 @@ export default function FigmaChatShell({
         feedbackGiven: localFeedback[`msg-${i}`] || null,
       };
 
-      // Enrich the LAST assistant message with omega metadata from response
-      // MODE ISOLATION: Only attach sub_mode enrichment for experimental mode
+      // v7.0: Always enrich the LAST assistant message with cognitive ensemble metadata
       if (msg.role === 'assistant' && i === messages.length - 1 && response) {
-        const isExperimental = selectedModel?.category === 'experimental';
         return {
           ...base,
-          // Only set mode for experimental — standard gets null
-          mode: isExperimental ? (response.sub_mode || response.omega_metadata?.sub_mode || subMode) : null,
+          mode: 'ensemble',
           chatId: response.chat_id || activeChatId,
           confidence: response.confidence,
           boundaryResult: response.boundary_result || response.omega_metadata?.boundary_result,
@@ -190,7 +174,7 @@ export default function FigmaChatShell({
 
       return base;
     });
-  }, [messages, response, subMode, activeChatId, localFeedback, selectedModel]);
+  }, [messages, response, activeChatId, localFeedback]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -215,21 +199,6 @@ export default function FigmaChatShell({
       handleSendLocal();
     }
   }, [handleSendLocal]);
-
-  const handleModelSelect = useCallback((model) => {
-    setSelectedModel(model);
-    setShowModelPicker(false);
-    if (model.category === 'standard') {
-      setMode('standard');
-      setSubMode(null);
-    } else if (model.category === 'experimental') {
-      setMode('experimental');
-    }
-  }, [setSelectedModel, setMode, setSubMode]);
-
-  const handleSubModeToggle = useCallback((modeId) => {
-    setSubMode(activeSubMode === modeId ? null : modeId);
-  }, [setSubMode, activeSubMode]);
 
   const handleNewChatLocal = useCallback(() => {
     setExpandedMeta(null);
@@ -848,43 +817,22 @@ export default function FigmaChatShell({
               <History className="w-4 h-4 text-[#6e6e73] dark:text-[#94a3b8]" />
             </button>
 
-            {/* Model picker trigger */}
-            <button
-              onClick={() => setShowModelPicker(!showModelPicker)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-            >
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: selectedModel.color }} />
+            {/* Cognitive Ensemble — always-on label (v7.0) */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl">
+              <Brain className="w-4 h-4 text-[#8b5cf6]" />
               <span className="text-[#1d1d1f] dark:text-[#f1f5f9]"
                 style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 600 }}>
-                {selectedModel.name}
+                Cognitive Ensemble
               </span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#6e6e73] dark:text-[#94a3b8]" />
-            </button>
+            </div>
 
-            {/* Mode badge — shows active mode/model */}
-            {selectedModel && !selectedModel.isMeta && selectedModel.id !== 'sentinel-std' && selectedModel.id !== 'sentinel-exp' ? (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
-                style={{ backgroundColor: selectedModel.color + '15' }}>
-                <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: selectedModel.color }} />
-                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: selectedModel.color }}>
-                  Running: {selectedModel.name}
-                </span>
-              </div>
-            ) : selectedModel.id === 'sentinel-exp' ? (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#8b5cf6]/10">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]" />
-                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#8b5cf6' }}>
-                  Sentinel-E Pro{activeSubMode ? ` — ${PRO_SUB_MODES.find(m => m.id === activeSubMode)?.label || ''}` : ''}
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#3b82f6]/10">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
-                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#3b82f6' }}>
-                  Sentinel-E Standard
-                </span>
-              </div>
-            )}
+            {/* Ensemble badge */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#8b5cf6]/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6] animate-pulse" />
+              <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#8b5cf6' }}>
+                Always Active
+              </span>
+            </div>
 
             {/* Connection Status */}
             <div className="flex items-center gap-1.5">
@@ -925,17 +873,6 @@ export default function FigmaChatShell({
               </button>
             )}
 
-            {/* Kill switch (Pro mode only) */}
-            {selectedModel.id === 'sentinel-exp' && activeChatId && (
-              <button
-                onClick={() => setKillActive(!killActive)}
-                className={`p-2 rounded-xl transition-colors ${killActive ? 'bg-[#fef2f2]' : 'hover:bg-[#fef2f2]'}`}
-                title={killActive ? 'Kill Mode Active — next send uses kill endpoint' : 'Activate Kill Diagnostic'}
-              >
-                <Skull className={`w-4 h-4 ${killActive ? 'text-[#ef4444]' : 'text-[#6e6e73]'}`} />
-              </button>
-            )}
-
             {/* New Chat */}
             <button onClick={handleNewChatLocal}
               className="p-2 rounded-xl hover:bg-black/5 transition-colors" title="New Chat">
@@ -961,124 +898,15 @@ export default function FigmaChatShell({
           )}
         </AnimatePresence>
 
-        {/* ---------- MODEL PICKER DROPDOWN ---------- */}
-        <AnimatePresence>
-          {showModelPicker && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowModelPicker(false)} />
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute top-16 left-16 z-50 w-72 p-2 rounded-2xl bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-xl shadow-2xl shadow-black/10 border border-black/5 dark:border-white/10"
-              >
-                {/* Standard models */}
-                <div className="px-3 pt-2 pb-1 text-[#6e6e73] dark:text-[#94a3b8]"
-                  style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                  Standard
-                </div>
-                {resolvedModels.filter(m => m.category === 'standard').map((model) => {
-                  const isDisabled = model.enabled === false;
-                  return (
-                    <div key={model.id} className="relative group">
-                      <button
-                        onClick={() => !isDisabled && handleModelSelect(model)}
-                        disabled={isDisabled}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
-                          isDisabled
-                            ? 'opacity-40 cursor-not-allowed'
-                            : selectedModel.id === model.id ? 'bg-[#f5f5f7] dark:bg-white/10' : 'hover:bg-[#f5f5f7] dark:hover:bg-white/5'
-                        }`}
-                      >
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                          style={{ backgroundColor: (isDisabled ? '#9ca3af' : model.color) + '20' }}>
-                          <Sparkles className="w-4 h-4" style={{ color: isDisabled ? '#9ca3af' : model.color }} />
-                        </div>
-                        <div className="text-left flex-1 min-w-0">
-                          <div className="text-[#1d1d1f] dark:text-[#f1f5f9] truncate"
-                            style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}>
-                            {model.name}
-                          </div>
-                          {model.provider && !model.isMeta && (
-                            <div className="text-[#6e6e73] dark:text-[#94a3b8] truncate"
-                              style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 400 }}>
-                              {model.provider}{model.role ? ` · ${model.role}` : ''}
-                            </div>
-                          )}
-                        </div>
-                        {isDisabled && (
-                          <span className="px-1.5 py-0.5 rounded-md bg-[#fef2f2] dark:bg-red-500/10 text-[#ef4444] flex-shrink-0"
-                            style={{ fontFamily: FONT, fontSize: '9px', fontWeight: 600 }}>
-                            OFF
-                          </span>
-                        )}
-                        {!isDisabled && selectedModel.id === model.id && (
-                          <div className="ml-auto w-5 h-5 rounded-full bg-[#007aff] flex items-center justify-center flex-shrink-0">
-                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </div>
-                        )}
-                      </button>
-                      {/* Tooltip for disabled models */}
-                      {isDisabled && (
-                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block z-50 pointer-events-none">
-                          <div className="px-3 py-1.5 rounded-lg bg-[#1d1d1f] text-white shadow-lg whitespace-nowrap"
-                            style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500 }}>
-                            API key not configured
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                <div className="my-1.5 mx-3 border-t border-black/5 dark:border-white/10" />
-
-                {/* Experimental models */}
-                <div className="px-3 pt-2 pb-1 text-[#6e6e73] dark:text-[#94a3b8]"
-                  style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                  Experimental
-                </div>
-                {resolvedModels.filter(m => m.category === 'experimental').map((model) => (
-                  <button
-                    key={model.id}
-                    onClick={() => handleModelSelect(model)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
-                      selectedModel.id === model.id ? 'bg-[#f5f5f7] dark:bg-white/10' : 'hover:bg-[#f5f5f7] dark:hover:bg-white/5'
-                    }`}
-                  >
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: model.color + '20' }}>
-                      <Sparkles className="w-4 h-4" style={{ color: model.color }} />
-                    </div>
-                    <div className="text-left">
-                      <div className="text-[#1d1d1f] dark:text-[#f1f5f9]"
-                        style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}>
-                        {model.name}
-                      </div>
-                    </div>
-                    {selectedModel.id === model.id && (
-                      <div className="ml-auto w-5 h-5 rounded-full bg-[#007aff] flex items-center justify-center">
-                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                          <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
+        {/* ---------- MODEL PICKER REMOVED (v7.0) — always Cognitive Ensemble ---------- */}
 
         {/* ---------- MESSAGES ---------- */}
         <div className="flex-1 overflow-y-auto px-4 py-6">
           <div className="max-w-3xl mx-auto space-y-4">
             <AnimatePresence>
               {enhancedMessages.map((message) => {
-                const msgMode = message.mode
-                  ? PRO_SUB_MODES.find(m => m.id === message.mode) : null;
+                // v7.0: Always ensemble mode — no per-message mode badges
+                const msgMode = null;
 
                 return (
                   <motion.div
@@ -1129,21 +957,13 @@ export default function FigmaChatShell({
                           {renderCleanContent(message.content)}
                         </div>
 
-                        {/* Structured Output — mode-isolated engine views */}
+                        {/* Structured Output — always Cognitive Ensemble (v7.0) */}
                         {message.role === 'assistant' && message.omegaMetadata && (
                           (() => {
-                            // MODE ISOLATION: Determine active mode for this message
-                            const isStandardMode = selectedModel?.category === 'standard';
-                            const messageSubMode = isStandardMode ? 'standard' : (message.mode || activeSubMode || 'standard');
-                            
-                            // Only render structured output if we have engine-specific data
                             const meta = message.omegaMetadata;
                             const hasStructuredData = meta.aggregation_result || meta.forensic_result || meta.audit_result || meta.debate_result || meta.ensemble_metrics;
                             
                             if (!hasStructuredData) return null;
-                            
-                            // Ensemble mode override — bypass sub_mode isolation
-                            const resolvedSubMode = meta.ensemble_metrics ? 'ensemble' : messageSubMode;
                             
                             return (
                               <div className="mt-3 -mx-4 px-4 pt-3 border-t border-black/5">
@@ -1151,19 +971,18 @@ export default function FigmaChatShell({
                                   result={{
                                     ...response,
                                     omega_metadata: meta,
-                                    sub_mode: resolvedSubMode,
+                                    sub_mode: 'ensemble',
                                   }}
-                                  activeSubMode={resolvedSubMode}
+                                  activeSubMode="ensemble"
                                 />
                               </div>
                             );
                           })()
                         )}
 
-                        {/* Boundary warning — professional card style, visibility-gated */}
+                        {/* Boundary warning — always shown when divergence detected (v7.0) */}
                         {message.role === 'assistant' && message.boundaryResult &&
                           message.boundaryResult.severity_score > 40 &&
-                          selectedModel?.category === 'experimental' &&
                           (() => {
                             const vis = getVisibility({
                               userQuery: lastQueryText || '',
@@ -1246,20 +1065,14 @@ export default function FigmaChatShell({
                 <div
                   className="max-w-[85%] sm:max-w-[70%] rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border shadow-sm overflow-hidden"
                   style={{
-                    borderColor: activeSubMode
-                      ? (PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color || '#6e6e73') + '30'
-                      : 'rgba(0,0,0,0.05)',
-                    borderLeftWidth: activeSubMode ? '3px' : '1px',
-                    borderLeftColor: activeSubMode
-                      ? PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color
-                      : 'rgba(0,0,0,0.05)',
+                    borderColor: '#8b5cf620',
+                    borderLeftWidth: '3px',
+                    borderLeftColor: '#8b5cf6',
                   }}
                 >
                   <ThinkingAnimation
                     steps={pipelineSteps || []}
-                    activeColor={activeSubMode
-                      ? PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color
-                      : '#3b82f6'}
+                    activeColor="#8b5cf6"
                   />
                 </div>
               </motion.div>
@@ -1342,69 +1155,9 @@ export default function FigmaChatShell({
                 )}
               </AnimatePresence>
 
-              {/* Sentinel-E Pro Submodes (shown when experimental model selected) */}
-              <AnimatePresence>
-                {selectedModel.id === 'sentinel-exp' && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.25, ease: 'easeOut' }}
-                    className="overflow-hidden"
-                  >
-                    <div className="flex flex-col gap-2 px-1 pb-2 pt-1">
-                      <div className="flex items-center gap-1.5">
-                        {PRO_SUB_MODES.map((sm) => {
-                          const isActive = activeSubMode === sm.id;
-                          return (
-                            <button
-                              key={sm.id}
-                              onClick={() => handleSubModeToggle(sm.id)}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 ${
-                                isActive ? 'text-white shadow-md' : 'bg-[#f5f5f7] dark:bg-white/10 text-[#6e6e73] dark:text-[#94a3b8] hover:bg-[#e8e8ed] dark:hover:bg-white/15'
-                              }`}
-                              style={isActive ? {
-                                backgroundColor: sm.color,
-                                boxShadow: `0 2px 8px ${sm.color}40`,
-                              } : undefined}
-                            >
-                              {getSubModeIcon(sm.iconKey, 'w-3.5 h-3.5')}
-                              <span style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 600 }}>
-                                {sm.label}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
+              {/* v7.0: Sub-mode toggles removed — always Cognitive Ensemble */}
 
-                      {/* Active mode description */}
-                      <AnimatePresence mode="wait">
-                        {activeSubMode && (
-                          <motion.div
-                            key={activeSubMode}
-                            initial={{ opacity: 0, y: -4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -4 }}
-                            transition={{ duration: 0.15 }}
-                            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl"
-                            style={{
-                              backgroundColor: (PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color || '#007aff') + '08',
-                            }}
-                          >
-                            <div className="w-1 h-4 rounded-full"
-                              style={{ backgroundColor: PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color }} />
-                            <span style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 400, color: '#6e6e73' }}>
-                              {PRO_SUB_MODES.find(m => m.id === activeSubMode)?.description}
-                            </span>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Input Row */}
+              {/* Input Row */}}
               <div className="flex items-end gap-2">
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -1428,11 +1181,7 @@ export default function FigmaChatShell({
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={
-                    activeSubMode
-                      ? PRO_SUB_MODES.find(m => m.id === activeSubMode)?.placeholder
-                      : 'Message Sentinel-E...'
-                  }
+                  placeholder="Message Sentinel-E Cognitive Ensemble..."
                   rows={1}
                   className="flex-1 resize-none bg-transparent outline-none py-2 px-1 max-h-32 text-[#1d1d1f] dark:text-[#f1f5f9] placeholder-[#aeaeb2] dark:placeholder-[#64748b]"
                   style={{ fontFamily: FONT, fontSize: '16px', lineHeight: 1.5, fontWeight: 400 }}
@@ -1445,15 +1194,11 @@ export default function FigmaChatShell({
                   style={{
                     backgroundColor: (!input.trim() && !attachedFile) || loading
                       ? '#e5e5ea'
-                      : activeSubMode
-                        ? PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color
-                        : '#007aff',
+                      : '#8b5cf6',
                     color: (input.trim() || attachedFile) && !loading ? 'white' : '#aeaeb2',
-                    boxShadow: (input.trim() || attachedFile) && !loading && activeSubMode
-                      ? `0 4px 12px ${PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color}40`
-                      : (input.trim() || attachedFile) && !loading
-                        ? '0 4px 12px rgba(0,122,255,0.3)'
-                        : 'none',
+                    boxShadow: (input.trim() || attachedFile) && !loading
+                      ? '0 4px 12px rgba(139,92,246,0.3)'
+                      : 'none',
                   }}
                 >
                   <Send className="w-5 h-5" />

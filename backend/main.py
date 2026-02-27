@@ -73,8 +73,8 @@ from memory.memory_engine import MemoryEngine
 from retrieval.cognitive_rag import CognitiveRAG
 from core.dynamic_analytics import DynamicAnalyticsEngine
 
-# ── Ensemble Cognitive Engine v6.0 ───────────────────────────
-from core.cognitive_orchestrator import CognitiveOrchestrator
+# ── Cognitive Core Engine v7.0 ────────────────────────────────
+from core.cognitive_orchestrator import CognitiveCoreEngine
 
 # ── Optimization Layer ───────────────────────────────────────
 from optimization import (
@@ -111,7 +111,7 @@ analytics_engine: Optional[DynamicAnalyticsEngine] = None
 mco_orchestrator: Optional[MetaCognitiveOrchestrator] = None
 mco_daemon: Optional[BackgroundDaemon] = None
 mco_bridge = None  # MCOModelBridge — unified model client
-cognitive_orchestrator_engine: Optional[CognitiveOrchestrator] = None  # Ensemble engine v6.0
+cognitive_orchestrator_engine: Optional[CognitiveCoreEngine] = None  # Cognitive Engine v7.0
 omega_sessions: Dict[str, OmegaCognitiveKernel] = {}
 memory_sessions: Dict[str, MemoryEngine] = {}
 
@@ -156,9 +156,9 @@ async def lifespan(app: FastAPI):
         mco_bridge = MCOModelBridge(mco_orchestrator.cognitive_gateway)
         logger.info("MCO Model Bridge created — all model calls route through CognitiveModelGateway")
 
-        # ── Ensemble Cognitive Orchestrator v6.0 ──────────────
-        cognitive_orchestrator_engine = CognitiveOrchestrator(model_bridge=mco_bridge)
-        logger.info("Cognitive Orchestrator v6.0 initialized — ensemble-driven, no mode routing")
+        # ── Cognitive Core Engine v7.0 ────────────────────────
+        cognitive_orchestrator_engine = CognitiveCoreEngine(model_bridge=mco_bridge)
+        logger.info("Cognitive Core Engine v7.0 initialized — ensemble-only, no mode routing")
 
         # Background daemon (starts paused — activate via API)
         mco_daemon = BackgroundDaemon(
@@ -555,54 +555,66 @@ async def run_sentinel(
         history.extend(opt_history_list)
 
     # ══════════════════════════════════════════════════════════
-    # ENSEMBLE PATH (v6.0) — Always-on multi-model reasoning
+    # COGNITIVE ENSEMBLE (v7.0) — Always-on, no mode routing
     # ══════════════════════════════════════════════════════════
     if cognitive_orchestrator_engine is not None:
         tracer.start_span("kernel")
         try:
-            ensemble_response = await cognitive_orchestrator_engine.process(
+            from core.ensemble_schemas import EnsembleFailure
+            ensemble_response = await cognitive_orchestrator_engine.execute_cognitive_cycle(
                 query=effective_text,
                 chat_id=str(chat.id),
-                rounds=max(request.rounds, 3),  # enforce minimum 3
+                rounds=max(request.rounds, 3),
             )
+        except EnsembleFailure as ef:
+            logger.error(f"Ensemble hard failure: {ef}")
+            ensemble_response = ef.to_response()
+            cognitive_orchestrator_engine_failed = False  # still return structured error
         except Exception as ens_err:
-            logger.error(f"Ensemble engine failed: {ens_err} — falling back to legacy kernel")
+            logger.error(f"Ensemble engine crashed: {ens_err} — falling back to legacy kernel")
             cognitive_orchestrator_engine_failed = True
         else:
             cognitive_orchestrator_engine_failed = False
 
         if not cognitive_orchestrator_engine_failed:
             kernel_latency = tracer.end_span("kernel")
-            ensemble_payload = ensemble_response.to_frontend_payload()
+            payload = ensemble_response.to_frontend_payload()
 
-            # Synthesis + RAG citations
-            formatted_output = ensemble_response.synthesis
+            formatted_output = ensemble_response.final_answer
             if rag_result and rag_result.retrieval_executed:
                 if rag_result.no_sources_found:
                     formatted_output += "\n\n*No verified external sources found for this query.*"
                 elif rag_result.citations_text:
                     formatted_output += "\n\n" + rag_result.citations_text
+                payload["formatted_output"] = formatted_output
+                payload["final_answer"] = formatted_output
 
-            confidence = ensemble_response.calibrated_confidence.final_confidence
+            confidence = ensemble_response.confidence
 
-            # Ensemble omega_metadata — full transparency
-            omega_metadata = {
-                "version": "6.0.0-ensemble",
+            omega_metadata = payload.get("omega_metadata", {})
+            omega_metadata.update({
+                "version": "7.0.0-cognitive",
                 "mode": "ensemble",
-                "sub_mode": "full_debate",
+                "sub_mode": "cognitive",
                 "confidence": confidence,
-                "ensemble_metrics": ensemble_payload.get("ensemble_metrics", {}),
-                "debate_result": ensemble_payload.get("debate_rounds", []),
-                "agreement_matrix": ensemble_payload.get("agreement_matrix", {}),
-                "tactical_map": ensemble_payload.get("tactical_map", []),
-                "confidence_graph": ensemble_payload.get("confidence_graph", {}),
-                "model_stances": ensemble_payload.get("model_stances", {}),
-                "session_analytics": ensemble_payload.get("session_analytics", {}),
+                "entropy": ensemble_response.entropy,
+                "fragility": ensemble_response.fragility,
+                "ensemble_metrics": payload.get("ensemble_metrics", {}),
+                "debate_rounds": payload.get("debate_rounds", []),
+                "model_outputs": payload.get("model_outputs", []),
+                "agreement_matrix": payload.get("agreement_matrix", {}),
+                "drift_metrics": payload.get("drift_metrics", {}),
+                "tactical_map": payload.get("tactical_map", {}),
+                "confidence_graph": payload.get("calibrated_confidence", {}),
+                "session_intelligence": payload.get("session_intelligence", {}),
+                "model_status": payload.get("model_status", []),
                 "reasoning_trace": {
-                    "engine": "CognitiveOrchestrator",
-                    "pipeline": "ensemble_v6",
-                    "models_used": len(ensemble_response.model_outputs),
-                    "debate_rounds": len(ensemble_response.debate_rounds),
+                    "engine": "CognitiveCoreEngine",
+                    "pipeline": "cognitive_v7",
+                    "models_executed": ensemble_response.models_executed,
+                    "models_succeeded": ensemble_response.models_succeeded,
+                    "models_failed": ensemble_response.models_failed,
+                    "debate_rounds": ensemble_response.debate_total_rounds,
                 },
                 "boundary_result": {
                     "risk_level": (
@@ -612,13 +624,12 @@ async def run_sentinel(
                     ),
                     "severity_score": int((1 - confidence) * 100),
                     "explanation": (
-                        f"Ensemble confidence from {len(ensemble_response.model_outputs)} models, "
-                        f"{len(ensemble_response.debate_rounds)} debate rounds"
+                        f"Ensemble confidence from {ensemble_response.models_executed} models, "
+                        f"{ensemble_response.debate_total_rounds} debate rounds"
                     ),
                 },
-            }
+            })
 
-            # RAG metadata
             if rag_result and rag_result.retrieval_executed:
                 omega_metadata["rag_result"] = {
                     "executed": True,
@@ -628,7 +639,6 @@ async def run_sentinel(
                     "no_sources": rag_result.no_sources_found,
                 }
 
-            # Persist
             await update_chat_metadata(
                 db, chat.id,
                 priority_answer=formatted_output,
@@ -649,27 +659,24 @@ async def run_sentinel(
 
             await add_message(db, chat.id, "assistant", formatted_output)
 
-            # Response payload
             response_payload = {
+                **payload,
                 "chat_id": str(chat.id),
-                "chat_name": "",
                 "mode": "ensemble",
-                "sub_mode": "full_debate",
+                "sub_mode": "cognitive",
                 "formatted_output": formatted_output,
-                "data": {"priority_answer": formatted_output},
                 "confidence": confidence,
-                "session_state": {},
+                "entropy": ensemble_response.entropy,
+                "fragility": ensemble_response.fragility,
                 "boundary_result": omega_metadata["boundary_result"],
                 "omega_metadata": omega_metadata,
             }
 
-            # Cache
             try:
                 cache.store(effective_text, "ensemble", response_payload)
             except Exception:
                 pass
 
-            # Cost governor
             try:
                 est_input_tokens = sum(len(m.get("content", "")) // 4 for m in history)
                 est_output_tokens = len(formatted_output) // 4
@@ -683,7 +690,6 @@ async def run_sentinel(
             except Exception:
                 pass
 
-            # Observability
             try:
                 total_latency = tracer.end_span("total")
                 tracer.record_model_call(

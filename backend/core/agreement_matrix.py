@@ -16,7 +16,7 @@ import logging
 import re
 from typing import Dict, List, Set, Tuple
 
-from backend.core.ensemble_schemas import (
+from core.ensemble_schemas import (
     AgreementMatrix,
     PairwiseScore,
     StructuredModelOutput,

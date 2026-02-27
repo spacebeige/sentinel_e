@@ -24,7 +24,7 @@ import re
 import time
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple
 
-from backend.core.ensemble_schemas import (
+from core.ensemble_schemas import (
     MIN_DEBATE_ROUNDS,
     DebatePosition,
     DebateResult,

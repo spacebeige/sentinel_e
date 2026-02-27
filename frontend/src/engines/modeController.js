@@ -1,98 +1,43 @@
 /**
- * Mode Controller — Frontend Engine Layer
- * 
- * Processes structured response data from backend v4 engines.
- * Determines which output component to render based on response metadata.
- * No mode logic in UI — this layer routes to the correct renderer.
+ * Mode Controller - Sentinel-E Cognitive Engine v7.0
+ *
+ * All responses are ensemble mode. No mode-based routing.
+ * Always renders CognitiveDashboard (via EnsembleView).
  */
 
 /**
- * Determin which rendering mode to use based on omega_metadata
+ * Resolve rendering mode from backend response.
+ * Always returns ensemble - there is no other mode.
  */
 export function resolveRenderMode(result) {
   if (!result || !result.omega_metadata) {
-    return { mode: 'standard', engine: null, data: null };
+    return { mode: 'ensemble', engine: 'CognitiveCoreEngine', data: null };
   }
 
   const meta = result.omega_metadata;
 
-  // ── Ensemble Mode (v6.0) — highest priority ──────────────
-  if (meta.ensemble_metrics || meta.mode === 'ensemble') {
-    return {
-      mode: 'ensemble',
-      engine: 'CognitiveOrchestrator',
-      data: meta,
-      pipelineSteps: meta.pipeline_steps || [],
-      boundary: result.boundary_result || meta.boundary_result || {},
-      confidence: result.confidence,
-      ensembleMetrics: meta.ensemble_metrics || {},
-      debateRounds: meta.debate_result || [],
-      agreementMatrix: meta.agreement_matrix || {},
-      tacticalMap: meta.tactical_map || [],
-      confidenceGraph: meta.confidence_graph || {},
-      modelStances: meta.model_stances || {},
-      sessionAnalytics: meta.session_analytics || {},
-    };
-  }
-
-  if (meta.aggregation_result) {
-    return {
-      mode: 'aggregation',
-      engine: 'AggregationEngine',
-      data: meta.aggregation_result,
-      pipelineSteps: meta.pipeline_steps || [],
-      boundary: result.boundary_result || meta.boundary_result || {},
-      confidence: result.confidence,
-    };
-  }
-
-  if (meta.forensic_result) {
-    return {
-      mode: 'evidence',
-      engine: 'ForensicEvidenceEngine',
-      data: meta.forensic_result,
-      pipelineSteps: meta.pipeline_steps || [],
-      boundary: result.boundary_result || meta.boundary_result || {},
-      confidence: result.confidence,
-    };
-  }
-
-  if (meta.audit_result) {
-    return {
-      mode: 'glass',
-      engine: 'BlindAuditEngine',
-      data: meta.audit_result,
-      pipelineSteps: meta.pipeline_steps || [],
-      boundary: result.boundary_result || meta.boundary_result || {},
-      confidence: result.confidence,
-    };
-  }
-
-  if (meta.debate_result) {
-    return {
-      mode: 'debate',
-      engine: 'DebateOrchestrator',
-      data: meta.debate_result,
-      boundary: result.boundary_result || meta.boundary_result || {},
-      confidence: result.confidence,
-    };
-  }
-
-  if (meta.kill_active) {
-    return {
-      mode: 'kill',
-      engine: 'KillDiagnostic',
-      data: meta,
-      confidence: result.confidence,
-    };
-  }
-
   return {
-    mode: 'standard',
-    engine: null,
-    data: null,
+    mode: 'ensemble',
+    engine: 'CognitiveCoreEngine',
+    data: meta,
     boundary: result.boundary_result || meta.boundary_result || {},
-    confidence: result.confidence,
+    confidence: result.confidence ?? meta.confidence ?? 0.5,
+    entropy: result.entropy ?? meta.entropy ?? 0,
+    fragility: result.fragility ?? meta.fragility ?? 0,
+    ensembleMetrics: meta.ensemble_metrics || {},
+    debateRounds: meta.debate_rounds || [],
+    agreementMatrix: meta.agreement_matrix || {},
+    driftMetrics: meta.drift_metrics || {},
+    modelStatus: meta.model_status || [],
+    sessionIntelligence: meta.session_intelligence || {},
+    tacticalMap: meta.tactical_map || {},
+    calibratedConfidence: meta.confidence_graph || meta.calibrated_confidence || {},
+    modelOutputs: meta.model_outputs || [],
+    modelsExecuted: result.models_executed ?? meta.ensemble_metrics?.model_count ?? 0,
+    modelsSucceeded: result.models_succeeded ?? meta.ensemble_metrics?.successful_models ?? 0,
+    modelsFailed: result.models_failed ?? meta.ensemble_metrics?.failed_models ?? 0,
+    error: result.error || meta.error || null,
+    errorCode: result.error_code || meta.error_code || null,
   };
 }
 
@@ -101,11 +46,8 @@ export function resolveRenderMode(result) {
  */
 export function extractPipelineSteps(result) {
   if (!result) return [];
-
   const meta = result.omega_metadata;
   if (!meta) return [];
-
-  // From v4 engines
   if (meta.pipeline_steps) {
     return meta.pipeline_steps.map((step, i) => ({
       id: i,
@@ -114,75 +56,26 @@ export function extractPipelineSteps(result) {
       status: step.status || 'pending',
     }));
   }
-
   return [];
 }
 
 /**
- * Determine the default pipeline steps for a given mode (for pre-loading animation)
+ * Default pipeline steps - always the cognitive ensemble pipeline.
  */
-export function getDefaultPipelineSteps(mode, subMode) {
-  if (mode === 'standard') {
-    return [
-      { id: 0, step: 'retrieval', label: 'Retrieving Models', status: 'pending', icon: '🔎' },
-      { id: 1, step: 'generation', label: 'Generating Independent Outputs', status: 'pending', icon: '🧠' },
-      { id: 2, step: 'verification', label: 'Cross-Verifying', status: 'pending', icon: '🔄' },
-      { id: 3, step: 'risk', label: 'Computing Risk', status: 'pending', icon: '📊' },
-      { id: 4, step: 'synthesis', label: 'Synthesizing', status: 'pending', icon: '🧩' },
-      { id: 5, step: 'rendering', label: 'Rendering', status: 'pending', icon: '🧾' },
-    ];
-  }
-
-  if (subMode === 'debate') {
-    return [
-      { id: 0, step: 'setup', label: 'Assigning Model Roles', status: 'pending', icon: '🔎' },
-      { id: 1, step: 'rounds', label: 'Running Debate Rounds', status: 'pending', icon: '🧠' },
-      { id: 2, step: 'analysis', label: 'Analyzing Positions', status: 'pending', icon: '🔄' },
-      { id: 3, step: 'consensus', label: 'Computing Consensus', status: 'pending', icon: '📊' },
-      { id: 4, step: 'rendering', label: 'Rendering', status: 'pending', icon: '🧾' },
-    ];
-  }
-
-  if (subMode === 'evidence') {
-    return [
-      { id: 0, step: 'retrieval', label: 'Independent Model Retrieval', status: 'pending', icon: '🔎' },
-      { id: 1, step: 'extraction', label: 'Extracting Structured Claims', status: 'pending', icon: '🧠' },
-      { id: 2, step: 'triangulation', label: 'Triangular Cross-Verification', status: 'pending', icon: '🔄' },
-      { id: 3, step: 'contradiction', label: 'Contradiction Detection', status: 'pending', icon: '📊' },
-      { id: 4, step: 'bayesian', label: 'Bayesian Confidence Update', status: 'pending', icon: '🧩' },
-      { id: 5, step: 'rendering', label: 'Rendering', status: 'pending', icon: '🧾' },
-    ];
-  }
-
-  if (subMode === 'glass') {
-    return [
-      { id: 0, step: 'generation', label: 'Independent Generation', status: 'pending', icon: '🔎' },
-      { id: 1, step: 'audit', label: 'Blind Cross-Model Audit', status: 'pending', icon: '🧠' },
-      { id: 2, step: 'tactical', label: 'Computing Tactical Map', status: 'pending', icon: '🔄' },
-      { id: 3, step: 'trust', label: 'Computing Trust Score', status: 'pending', icon: '📊' },
-      { id: 4, step: 'rendering', label: 'Rendering', status: 'pending', icon: '🧾' },
-    ];
-  }
-
-  // Ensemble mode pipeline (v6.0)
-  if (mode === 'ensemble') {
-    return [
-      { id: 0, step: 'validate', label: 'Validating Models (≥3)', status: 'pending', icon: '🔎' },
-      { id: 1, step: 'parallel', label: 'Parallel Model Execution', status: 'pending', icon: '🧠' },
-      { id: 2, step: 'structure', label: 'Parsing Structured Outputs', status: 'pending', icon: '📋' },
-      { id: 3, step: 'debate', label: 'Running Structured Debate', status: 'pending', icon: '⚔️' },
-      { id: 4, step: 'matrix', label: 'Computing Agreement Matrix', status: 'pending', icon: '🔄' },
-      { id: 5, step: 'metrics', label: 'Computing Ensemble Metrics', status: 'pending', icon: '📊' },
-      { id: 6, step: 'calibrate', label: 'Calibrating Confidence', status: 'pending', icon: '🎯' },
-      { id: 7, step: 'tactical', label: 'Building Tactical Map', status: 'pending', icon: '🗺️' },
-      { id: 8, step: 'synthesis', label: 'Synthesizing Consensus', status: 'pending', icon: '🧩' },
-      { id: 9, step: 'rendering', label: 'Rendering', status: 'pending', icon: '🧾' },
-    ];
-  }
-
+export function getDefaultPipelineSteps() {
   return [
-    { id: 0, step: 'processing', label: 'Processing', status: 'pending', icon: '🔎' },
-    { id: 1, step: 'rendering', label: 'Rendering', status: 'pending', icon: '🧾' },
+    { id: 0, step: 'validate', label: 'Validating Providers (4+ models)', status: 'pending' },
+    { id: 1, step: 'execute', label: 'Executing All Models', status: 'pending' },
+    { id: 2, step: 'structure', label: 'Parsing Structured Outputs', status: 'pending' },
+    { id: 3, step: 'debate', label: 'Running Structured Debate (3+ rounds)', status: 'pending' },
+    { id: 4, step: 'agreement', label: 'Computing Agreement Matrix', status: 'pending' },
+    { id: 5, step: 'drift', label: 'Tracking Stance Drift', status: 'pending' },
+    { id: 6, step: 'metrics', label: 'Computing Ensemble Metrics', status: 'pending' },
+    { id: 7, step: 'calibrate', label: 'Calibrating Confidence', status: 'pending' },
+    { id: 8, step: 'tactical', label: 'Building Tactical Map', status: 'pending' },
+    { id: 9, step: 'synthesis', label: 'Synthesizing Consensus', status: 'pending' },
+    { id: 10, step: 'session', label: 'Updating Session Intelligence', status: 'pending' },
+    { id: 11, step: 'rendering', label: 'Rendering', status: 'pending' },
   ];
 }
 

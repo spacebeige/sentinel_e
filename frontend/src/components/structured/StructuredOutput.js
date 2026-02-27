@@ -7,17 +7,13 @@ import GlassView from './GlassView';
 import EnsembleView from './EnsembleView';
 
 /**
- * StructuredOutput — Strict mode-isolated output router
+ * StructuredOutput — Sentinel-E Cognitive Engine v7.0
  * 
- * ARCHITECTURE:
- *   Each mode renders ONLY its own component.
- *   No shared render blocks. No conditional crossover.
- *   Standard mode NEVER shows debate elements.
- *   Debate mode NEVER shows aggregation summary.
+ * ALWAYS renders EnsembleView (CognitiveDashboard).
+ * No mode-based routing. No conditional crossover.
+ * All requests go through the cognitive ensemble pipeline.
  *
- * Mode routing is determined by omega_metadata from the backend.
- * The frontend sub_mode prop acts as a strict constraint — if present,
- * it overrides metadata-based detection to prevent mode leakage.
+ * Legacy views preserved as fallback for old cached responses only.
  */
 export default function StructuredOutput({ result, activeSubMode }) {
   if (!result) return null;
@@ -25,18 +21,14 @@ export default function StructuredOutput({ result, activeSubMode }) {
   const renderMode = resolveRenderMode(result);
   const meta = result.omega_metadata || {};
 
-  // STRICT MODE ISOLATION:
-  // If the user selected a specific sub_mode, ONLY render that mode's view.
-  // This prevents the backend returning debate_result when standard was selected.
-  const effectiveMode = activeSubMode
-    ? activeSubMode  // User's explicit selection takes precedence
-    : renderMode.mode;
+  // v7.0: Always render ensemble view - the only mode that exists
+  const effectiveMode = 'ensemble';
 
   switch (effectiveMode) {
     case 'ensemble':
       return (
         <EnsembleView
-          data={renderMode.mode === 'ensemble' ? renderMode.data : meta}
+          data={renderMode.data || meta}
           boundary={renderMode.boundary}
           confidence={renderMode.confidence}
         />
