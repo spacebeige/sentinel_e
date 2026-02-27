@@ -98,6 +98,7 @@ class CognitiveGatewayInput(BaseModel):
     session_summary: Dict[str, Any] = Field(default_factory=dict)
     user_query: str
     mode: QueryMode = QueryMode.RAW
+    image_b64: Optional[str] = Field(None, description="Base64-encoded image for vision models")
 
 
 class CognitiveGatewayOutput(BaseModel):

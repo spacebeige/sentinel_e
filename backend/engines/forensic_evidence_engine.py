@@ -313,21 +313,11 @@ class ForensicEvidenceEngine:
 
     def _get_model_ids(self) -> List[str]:
         """Get enabled model IDs dynamically from bridge."""
-        if hasattr(self.client, 'get_enabled_model_ids'):
-            return self.client.get_enabled_model_ids()
-        return ["groq", "llama70b", "qwen"]  # legacy fallback
+        return self.client.get_enabled_model_ids()
 
     async def _call_model_dynamic(self, model_id: str, prompt: str) -> str:
-        """Call any model using dynamic dispatch."""
-        if hasattr(self.client, 'call_model'):
-            return await self.client.call_model(model_id=model_id, prompt=prompt)
-        if model_id == "groq":
-            return await self.client.call_groq(prompt=prompt)
-        elif model_id == "llama70b":
-            return await self.client.call_llama70b(prompt=prompt, temperature=0.3)
-        elif model_id == "qwen":
-            return await self.client.call_qwenvl(prompt=prompt)
-        return ""
+        """Call any model through unified MCOModelBridge dispatch."""
+        return await self.client.call_model(model_id=model_id, prompt=prompt)
 
     async def _extract_model_claims(
         self, model_id: str, prompt: str

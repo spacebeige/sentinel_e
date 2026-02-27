@@ -82,6 +82,7 @@ class MCOModelBridge:
         system_role: str = "",
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        image_b64: Optional[str] = None,
     ) -> str:
         """
         Core invocation: route through CognitiveModelGateway.invoke_model().
@@ -100,6 +101,7 @@ class MCOModelBridge:
             },
             knowledge_bundle=[],
             session_summary={},
+            image_b64=image_b64,
         )
 
         result = await self.gateway.invoke_model(registry_key, gw_input)
@@ -120,15 +122,17 @@ class MCOModelBridge:
         system_role: str = "You are a rigorous analytical reasoning assistant.",
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        image_b64: Optional[str] = None,
     ) -> str:
         """
         Invoke ANY registered model by its legacy ID or registry key.
         This is the universal entry point for dynamic model invocation.
+        Supports optional image_b64 for vision-capable models.
         """
         registry_key = self._resolve_registry_key(model_id)
         if not registry_key:
             return f"Model '{model_id}' not found in registry"
-        return await self._invoke(registry_key, prompt, system_role, temperature, max_tokens)
+        return await self._invoke(registry_key, prompt, system_role, temperature, max_tokens, image_b64)
 
     def get_enabled_model_ids(self) -> List[str]:
         """
@@ -145,17 +149,23 @@ class MCOModelBridge:
     def get_enabled_models_info(self) -> List[Dict[str, Any]]:
         """
         Return info dicts for all enabled models.
-        Includes legacy_id, registry_key, name, provider, role.
+        Includes id (legacy_id alias), legacy_id, registry_key, name, provider, role,
+        supports_vision, supports_debate.
         """
         models = []
         for key, spec in COGNITIVE_MODEL_REGISTRY.items():
             if spec.enabled and spec.active:
+                legacy_id = REGISTRY_TO_LEGACY.get(key, key)
+                role_val = spec.role.value if hasattr(spec.role, 'value') else str(spec.role)
                 models.append({
-                    "legacy_id": REGISTRY_TO_LEGACY.get(key, key),
+                    "id": legacy_id,               # canonical ID used by orchestrator
+                    "legacy_id": legacy_id,
                     "registry_key": key,
                     "name": spec.name,
                     "provider": spec.provider,
-                    "role": spec.role.value if hasattr(spec.role, 'value') else str(spec.role),
+                    "role": role_val,
+                    "supports_vision": role_val == "vision",
+                    "supports_debate": True,        # all enabled models participate in debate
                 })
         return models
 

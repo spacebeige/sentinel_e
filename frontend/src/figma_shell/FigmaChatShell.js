@@ -140,7 +140,8 @@ export default function FigmaChatShell({
   const inputRef = useRef(null);
 
   const backendOnline = serverStatus === 'online';
-  const activeSubMode = selectedModel?.category === 'experimental' ? subMode : null;
+  // Ensemble is always active — sub_mode enrichment applies to all modes
+  const activeSubMode = subMode || (response?.omega_metadata?.sub_mode) || null;
 
   const getSubModeIcon = (iconKey, cls) => {
     const iconFn = SUB_MODE_ICONS[iconKey];
@@ -177,13 +178,12 @@ export default function FigmaChatShell({
       };
 
       // Enrich the LAST assistant message with omega metadata from response
-      // MODE ISOLATION: Only attach sub_mode enrichment for experimental mode
+      // Ensemble is always active — always attach metadata
       if (msg.role === 'assistant' && i === messages.length - 1 && response) {
-        const isExperimental = selectedModel?.category === 'experimental';
+        const resolvedMode = response.mode || response.omega_metadata?.mode || response.sub_mode || response.omega_metadata?.sub_mode || subMode || 'standard';
         return {
           ...base,
-          // Only set mode for experimental — standard gets null
-          mode: isExperimental ? (response.sub_mode || response.omega_metadata?.sub_mode || subMode) : null,
+          mode: resolvedMode,
           chatId: response.chat_id || activeChatId,
           confidence: response.confidence,
           boundaryResult: response.boundary_result || response.omega_metadata?.boundary_result,
@@ -1120,21 +1120,17 @@ export default function FigmaChatShell({
                           {renderCleanContent(message.content)}
                         </div>
 
-                        {/* Structured Output — mode-isolated engine views */}
+                        {/* Structured Output — renders for all modes (ensemble always active) */}
                         {message.role === 'assistant' && message.omegaMetadata && (
                           (() => {
-                            // MODE ISOLATION: Determine active mode for this message
-                            const isStandardMode = selectedModel?.category === 'standard';
-                            const messageSubMode = isStandardMode ? 'standard' : (message.mode || activeSubMode || 'standard');
-                            
-                            // Only render structured output if we have engine-specific data
                             const meta = message.omegaMetadata;
-                            const hasStructuredData = meta.aggregation_result || meta.forensic_result || meta.audit_result || meta.debate_result || meta.ensemble_metrics;
+                            const hasStructuredData = meta.aggregation_result || meta.forensic_result || meta.audit_result || meta.debate_result || meta.ensemble_metrics || meta.model_outputs;
                             
                             if (!hasStructuredData) return null;
                             
-                            // Ensemble mode override — bypass sub_mode isolation
-                            const resolvedSubMode = meta.ensemble_metrics ? 'ensemble' : messageSubMode;
+                            // Determine rendering mode from metadata
+                            const messageMode = message.mode || activeSubMode || 'standard';
+                            const resolvedSubMode = meta.ensemble_metrics ? 'ensemble' : messageMode;
                             
                             return (
                               <div className="mt-3 -mx-4 px-4 pt-3 border-t border-black/5">
@@ -1151,10 +1147,9 @@ export default function FigmaChatShell({
                           })()
                         )}
 
-                        {/* Boundary warning — professional card style, visibility-gated */}
+                        {/* Boundary warning — professional card style */}
                         {message.role === 'assistant' && message.boundaryResult &&
                           message.boundaryResult.severity_score > 40 &&
-                          selectedModel?.category === 'experimental' &&
                           (() => {
                             const vis = getVisibility({
                               userQuery: lastQueryText || '',

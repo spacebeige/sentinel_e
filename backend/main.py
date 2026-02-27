@@ -555,16 +555,19 @@ async def run_sentinel(
         history.extend(opt_history_list)
 
     # ══════════════════════════════════════════════════════════
-    # COGNITIVE ENSEMBLE (v7.0) — Always-on, no mode routing
+    # COGNITIVE ENSEMBLE — Always active when orchestrator available
+    # All modes benefit from multi-model reasoning
     # ══════════════════════════════════════════════════════════
-    if cognitive_orchestrator_engine is not None:
+    use_ensemble = cognitive_orchestrator_engine is not None
+    if use_ensemble:
         tracer.start_span("kernel")
         try:
             from core.ensemble_schemas import EnsembleFailure
-            ensemble_response = await cognitive_orchestrator_engine.execute_cognitive_cycle(
+            ensemble_response = await cognitive_orchestrator_engine.process(
                 query=effective_text,
                 chat_id=str(chat.id),
                 rounds=max(request.rounds, 3),
+                history=history,
             )
         except EnsembleFailure as ef:
             logger.error(f"Ensemble hard failure: {ef}")
@@ -580,7 +583,7 @@ async def run_sentinel(
             kernel_latency = tracer.end_span("kernel")
             payload = ensemble_response.to_frontend_payload()
 
-            formatted_output = ensemble_response.final_answer
+            formatted_output = ensemble_response.formatted_output
             if rag_result and rag_result.retrieval_executed:
                 if rag_result.no_sources_found:
                     formatted_output += "\n\n*No verified external sources found for this query.*"
@@ -589,16 +592,19 @@ async def run_sentinel(
                 payload["formatted_output"] = formatted_output
                 payload["final_answer"] = formatted_output
 
-            confidence = ensemble_response.confidence
+            confidence = ensemble_response.confidence.final_confidence
+            ens_entropy = ensemble_response.ensemble_metrics.disagreement_entropy
+            ens_fragility = ensemble_response.ensemble_metrics.fragility_score
+            ens_debate_rounds = ensemble_response.debate_result.total_rounds
 
             omega_metadata = payload.get("omega_metadata", {})
             omega_metadata.update({
-                "version": "7.0.0-cognitive",
-                "mode": "ensemble",
-                "sub_mode": "cognitive",
+                "version": "7.1.0-cognitive",
+                "mode": omega_mode,
+                "sub_mode": sub_mode,
                 "confidence": confidence,
-                "entropy": ensemble_response.entropy,
-                "fragility": ensemble_response.fragility,
+                "entropy": ens_entropy,
+                "fragility": ens_fragility,
                 "ensemble_metrics": payload.get("ensemble_metrics", {}),
                 "debate_rounds": payload.get("debate_rounds", []),
                 "model_outputs": payload.get("model_outputs", []),
@@ -614,7 +620,7 @@ async def run_sentinel(
                     "models_executed": ensemble_response.models_executed,
                     "models_succeeded": ensemble_response.models_succeeded,
                     "models_failed": ensemble_response.models_failed,
-                    "debate_rounds": ensemble_response.debate_total_rounds,
+                    "debate_rounds": ens_debate_rounds,
                 },
                 "boundary_result": {
                     "risk_level": (
@@ -625,7 +631,7 @@ async def run_sentinel(
                     "severity_score": int((1 - confidence) * 100),
                     "explanation": (
                         f"Ensemble confidence from {ensemble_response.models_executed} models, "
-                        f"{ensemble_response.debate_total_rounds} debate rounds"
+                        f"{ens_debate_rounds} debate rounds"
                     ),
                 },
             })
@@ -662,12 +668,12 @@ async def run_sentinel(
             response_payload = {
                 **payload,
                 "chat_id": str(chat.id),
-                "mode": "ensemble",
-                "sub_mode": "cognitive",
+                "mode": omega_mode,
+                "sub_mode": sub_mode,
                 "formatted_output": formatted_output,
                 "confidence": confidence,
-                "entropy": ensemble_response.entropy,
-                "fragility": ensemble_response.fragility,
+                "entropy": ens_entropy,
+                "fragility": ens_fragility,
                 "boundary_result": omega_metadata["boundary_result"],
                 "omega_metadata": omega_metadata,
             }
@@ -744,13 +750,22 @@ async def run_sentinel(
     analytics = None
     if analytics_engine:
         model_outputs = []
+        failed_model_ids = []
         if result.get("omega_metadata", {}).get("aggregation_result"):
             agg = result["omega_metadata"]["aggregation_result"]
             if isinstance(agg, dict):
                 for m in agg.get("model_outputs", []):
-                    output_text = m.get("output", "") if isinstance(m, dict) else str(m)
-                    if output_text and (not isinstance(m, dict) or not m.get("error")):
-                        model_outputs.append(output_text)
+                    if isinstance(m, dict):
+                        output_text = m.get("output", "")
+                        if m.get("error") or m.get("status") == "failed":
+                            failed_model_ids.append(m.get("model_id", "unknown"))
+                            continue  # don't score failed models, but track them
+                        if output_text:
+                            model_outputs.append(output_text)
+                    else:
+                        text = str(m)
+                        if text:
+                            model_outputs.append(text)
 
         if model_outputs:
             analytics = analytics_engine.compute(

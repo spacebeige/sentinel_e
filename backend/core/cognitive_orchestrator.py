@@ -351,6 +351,14 @@ class CognitiveOrchestrator:
                 ))
             elif result is not None:
                 outputs.append(result)
+            else:
+                # Never silently drop a model — record explicit failure
+                logger.error(f"Model {models[i]['id']} returned None")
+                outputs.append(StructuredModelOutput(
+                    model_id=models[i]["id"],
+                    model_name=models[i].get("name", models[i]["id"]),
+                    error="No response returned",
+                ))
 
         return outputs
 

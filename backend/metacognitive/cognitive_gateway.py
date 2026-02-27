@@ -361,10 +361,12 @@ class CognitiveModelGateway:
         self,
         inp: CognitiveGatewayInput,
         spec: CognitiveModelSpec,
-    ) -> List[Dict[str, str]]:
+    ) -> List[Dict]:
         """
         Build message array from stabilized context.
         Injects knowledge bundle and session summary as system context.
+        Supports multimodal (vision) payloads when image_b64 is provided
+        and the model has role == VISION.
         """
         messages = []
 
@@ -402,7 +404,23 @@ class CognitiveModelGateway:
             system_parts.append(ctx_text)
 
         messages.append({"role": "system", "content": "\n".join(system_parts)})
-        messages.append({"role": "user", "content": inp.user_query})
+
+        # User message — multimodal if image provided and model supports vision
+        if inp.image_b64 and spec.role == ModelRole.VISION:
+            messages.append({
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": inp.user_query},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{inp.image_b64}"
+                        },
+                    },
+                ],
+            })
+        else:
+            messages.append({"role": "user", "content": inp.user_query})
 
         return messages
 

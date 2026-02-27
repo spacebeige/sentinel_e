@@ -140,16 +140,8 @@ class AggregationEngine:
         
         start_time = datetime.utcnow()
         
-        # Build model list dynamically from bridge
-        if hasattr(self.client, 'get_enabled_models_info'):
-            models_info = self.client.get_enabled_models_info()
-        else:
-            # Legacy fallback: 3 hardcoded models
-            models_info = [
-                {"legacy_id": "groq", "name": "Groq (LLaMA 3.1)"},
-                {"legacy_id": "llama70b", "name": "Llama 3.3 70B"},
-                {"legacy_id": "qwen", "name": "Qwen 2.5"},
-            ]
+        # Build model list dynamically from bridge — all enabled models participate
+        models_info = self.client.get_enabled_models_info()
         
         tasks = [
             self._run_model(m["legacy_id"], m["name"], query, history)
@@ -225,28 +217,12 @@ class AggregationEngine:
         """Run a single model and return structured output."""
         start = datetime.utcnow()
         try:
-            # Dynamic dispatch: use call_model if available, else legacy methods
-            if hasattr(self.client, 'call_model'):
-                raw = await self.client.call_model(
-                    model_id=model_id,
-                    prompt=query,
-                    system_role=self.STANDARD_SYSTEM_PROMPT,
-                )
-            elif model_id == "groq":
-                raw = await self.client.call_groq(
-                    prompt=query, system_role=self.STANDARD_SYSTEM_PROMPT
-                )
-            elif model_id == "llama70b":
-                raw = await self.client.call_llama70b(
-                    prompt=query, system_role=self.STANDARD_SYSTEM_PROMPT,
-                    temperature=0.4
-                )
-            elif model_id == "qwen":
-                raw = await self.client.call_qwenvl(
-                    prompt=query, system_role=self.STANDARD_SYSTEM_PROMPT
-                )
-            else:
-                raw = f"Unknown model: {model_id}"
+            # Unified model dispatch through MCOModelBridge
+            raw = await self.client.call_model(
+                model_id=model_id,
+                prompt=query,
+                system_role=self.STANDARD_SYSTEM_PROMPT,
+            )
 
             elapsed = (datetime.utcnow() - start).total_seconds() * 1000
             

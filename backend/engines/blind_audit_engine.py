@@ -147,17 +147,14 @@ MODEL_NAMES = {
 
 def _get_dynamic_model_names(client) -> Dict[str, str]:
     """
-    Build model names dict dynamically from bridge if available.
-    Falls back to static MODEL_NAMES.
+    Build model names dict dynamically from bridge.
     """
-    if hasattr(client, 'get_enabled_models_info'):
-        info = client.get_enabled_models_info()
-        names = {m["legacy_id"]: m["name"] for m in info}
-        # Merge with static fallback for any missing
-        for k, v in MODEL_NAMES.items():
-            names.setdefault(k, v)
-        return names
-    return dict(MODEL_NAMES)
+    info = client.get_enabled_models_info()
+    names = {m["legacy_id"]: m["name"] for m in info}
+    # Merge with static fallback for any missing
+    for k, v in MODEL_NAMES.items():
+        names.setdefault(k, v)
+    return names
 
 
 class BlindAuditEngine:
@@ -177,9 +174,7 @@ class BlindAuditEngine:
 
     def _get_model_ids(self) -> List[str]:
         """Get enabled model IDs dynamically from bridge."""
-        if hasattr(self.client, 'get_enabled_model_ids'):
-            return self.client.get_enabled_model_ids()
-        return ["groq", "llama70b", "qwen"]  # legacy fallback
+        return self.client.get_enabled_model_ids()
 
     async def run_blind_audit(
         self, query: str, history: List[Dict[str, str]] = None
@@ -286,17 +281,8 @@ class BlindAuditEngine:
     # ============================================================
 
     async def _call_model(self, model_id: str, prompt: str) -> str:
-        """Call a model for independent generation — dynamic dispatch."""
-        if hasattr(self.client, 'call_model'):
-            return await self.client.call_model(model_id=model_id, prompt=prompt)
-        # Legacy fallback
-        if model_id == "groq":
-            return await self.client.call_groq(prompt=prompt)
-        elif model_id == "llama70b":
-            return await self.client.call_llama70b(prompt=prompt, temperature=0.3)
-        elif model_id == "qwen":
-            return await self.client.call_qwenvl(prompt=prompt)
-        return ""
+        """Call a model through unified MCOModelBridge dispatch."""
+        return await self.client.call_model(model_id=model_id, prompt=prompt)
 
     async def _run_audit(
         self, auditor_id: str, subject_id: str, subject_response: str

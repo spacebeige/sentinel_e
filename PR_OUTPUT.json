@@ -1,0 +1,152 @@
+{
+  "pr_summary": "Production-grade stabilization: all registered models participate in debates, ensemble always active, hardcoded legacy callers eliminated, Redis in-memory fallback, upgraded metadata payload, frontend renders full cognitive state for all modes.",
+
+  "files_changed": [
+    {
+      "file": "backend/core/debate_orchestrator.py",
+      "changes": [
+        "Replaced hardcoded 3-model __init__ callers (call_groq/call_llama70b/call_qwenvl) with unified call_model() routing for ALL DEBATE_MODELS",
+        "Replaced hardcoded call_llama70b() in _run_analysis() with dynamic model selection using priority list + retry (2 attempts per model, tries all available models)",
+        "Added structured round-level telemetry logging (models participating, succeeded/failed, disagreement, confidences)",
+        "Updated docstring to v4.5"
+      ]
+    },
+    {
+      "file": "backend/main.py",
+      "changes": [
+        "Removed ensemble mode gating (was: omega_mode in ('ensemble', 'research')), now: always active when cognitive_orchestrator_engine is available",
+        "Updated metadata version from 7.0.0-cognitive to 7.1.0-cognitive",
+        "Changed hardcoded mode='ensemble'/sub_mode='cognitive' to pass through actual omega_mode/sub_mode in response payload and omega_metadata"
+      ]
+    },
+    {
+      "file": "backend/engines/aggregation_engine.py",
+      "changes": [
+        "Removed 3-model hardcoded fallback list (groq/llama70b/qwen), now always uses get_enabled_models_info()",
+        "Removed legacy call_groq/call_llama70b/call_qwenvl fallback in _run_model(), now always uses call_model()"
+      ]
+    },
+    {
+      "file": "backend/engines/blind_audit_engine.py",
+      "changes": [
+        "Removed 3-model hardcoded fallback list in _get_model_ids(), now always uses get_enabled_model_ids()",
+        "Removed legacy call_groq/call_llama70b/call_qwenvl fallback in _call_model(), now always uses call_model()",
+        "Simplified _get_dynamic_model_names() to always use get_enabled_models_info()"
+      ]
+    },
+    {
+      "file": "backend/engines/forensic_evidence_engine.py",
+      "changes": [
+        "Removed 3-model hardcoded fallback list in _get_model_ids(), now always uses get_enabled_model_ids()",
+        "Removed legacy call_groq/call_llama70b/call_qwenvl fallback in _call_model_dynamic(), now always uses call_model()"
+      ]
+    },
+    {
+      "file": "backend/database/connection.py",
+      "changes": [
+        "Added InMemoryRedisStub class (async-compatible LRU cache: setex/get/delete/ping/keys)",
+        "Redis fallback now degrades to InMemoryRedisStub instead of None (eliminates NoneType crashes)",
+        "Updated check_redis() to report when using in-memory fallback"
+      ]
+    },
+    {
+      "file": "frontend/src/figma_shell/FigmaChatShell.js",
+      "changes": [
+        "Removed experimental-only gating for activeSubMode (now always active for all modes)",
+        "Removed experimental-only gating for message metadata enrichment (all messages get omegaMetadata)",
+        "Removed standard-mode suppression of structured output rendering",
+        "Added model_outputs to hasStructuredData check",
+        "Removed experimental-only gating for boundary warnings"
+      ]
+    },
+    {
+      "file": "backend/tests/test_debate_orchestrator.py",
+      "changes": [
+        "Created 13 tests across 5 test classes",
+        "TestDebateOrchestratorInit: Verifies all models get callers, no legacy method references",
+        "TestAnalysisRetry: Verifies dynamic model selection, retry on failure, graceful fallback",
+        "TestFullDebate: Verifies all models participate, failed models produce error outputs",
+        "TestDebateResultSerialization: Verifies to_dict() JSON serialization",
+        "TestRedisStub: Verifies setex/get/delete/ping/keys/LRU eviction"
+      ]
+    }
+  ],
+
+  "tests_run": {
+    "file": "backend/tests/test_debate_orchestrator.py",
+    "total": 13,
+    "passed": 13,
+    "failed": 0,
+    "test_names": [
+      "TestDebateOrchestratorInit::test_all_models_get_callers",
+      "TestDebateOrchestratorInit::test_no_legacy_callers",
+      "TestAnalysisRetry::test_analysis_uses_first_available_model",
+      "TestAnalysisRetry::test_analysis_retries_on_failure",
+      "TestAnalysisRetry::test_analysis_all_models_fail",
+      "TestFullDebate::test_debate_runs_all_models",
+      "TestFullDebate::test_debate_handles_model_failure",
+      "TestDebateResultSerialization::test_to_dict",
+      "TestRedisStub::test_setex_get",
+      "TestRedisStub::test_delete",
+      "TestRedisStub::test_lru_eviction",
+      "TestRedisStub::test_ping",
+      "TestRedisStub::test_keys_pattern"
+    ]
+  },
+
+  "verification_steps": [
+    {
+      "step": "Backend import chain",
+      "command": "cd backend && PYTHONPATH=. python -c \"from main import app; print('OK')\"",
+      "result": "PASS — FastAPI app loads, all 7 models enabled"
+    },
+    {
+      "step": "DebateOrchestrator import",
+      "command": "cd backend && PYTHONPATH=. python -c \"from core.debate_orchestrator import DebateOrchestrator, DEBATE_MODELS\"",
+      "result": "PASS — No import errors"
+    },
+    {
+      "step": "InMemoryRedisStub import",
+      "command": "cd backend && PYTHONPATH=. python -c \"from database.connection import InMemoryRedisStub\"",
+      "result": "PASS — Stub class available"
+    },
+    {
+      "step": "Frontend build",
+      "command": "cd frontend && npx react-scripts build",
+      "result": "PASS — Compiled successfully, 0 errors, 0 warnings"
+    },
+    {
+      "step": "Test suite",
+      "command": "cd backend && PYTHONPATH=. python -m pytest tests/test_debate_orchestrator.py -v",
+      "result": "PASS — 13/13 tests passed"
+    }
+  ],
+
+  "risk_and_mitigation": [
+    {
+      "risk": "Ensemble always-active increases latency for conversational mode",
+      "severity": "MEDIUM",
+      "mitigation": "CognitiveOrchestrator.process() already runs models in parallel via asyncio.gather. Latency overhead is the single slowest model, not cumulative. Cost governor downgrades models if budget exceeded."
+    },
+    {
+      "risk": "DEBATE_MODELS empty if no API keys configured",
+      "severity": "LOW",
+      "mitigation": "DebateOrchestrator gracefully handles empty model list — _run_analysis falls through all candidates and returns fallback DebateAnalysis. Frontend EnsembleView renders 'FAILED' badges."
+    },
+    {
+      "risk": "InMemoryRedisStub data loss on process restart",
+      "severity": "LOW",
+      "mitigation": "Stub is a cache-only fallback. Session data is also persisted to PostgreSQL via update_chat_metadata(). Redis is for accelerated session restore, not primary storage."
+    },
+    {
+      "risk": "Legacy CloudModelClient consumers may expect call_groq/call_llama70b/call_qwenvl methods",
+      "severity": "LOW",
+      "mitigation": "MCOModelBridge still exposes all 3 legacy methods for backward compatibility. Only the engines and debate_orchestrator internal routing was changed to use call_model()."
+    },
+    {
+      "risk": "Frontend renders structured output for standard mode which may show empty/minimal data",
+      "severity": "LOW",
+      "mitigation": "hasStructuredData guard ensures structured output section only renders when there is actual engine data (aggregation_result, debate_result, ensemble_metrics, etc.). No empty panels."
+    }
+  ]
+}

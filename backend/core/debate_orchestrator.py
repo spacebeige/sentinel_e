@@ -277,10 +277,11 @@ class DebateResult:
 
 class DebateOrchestrator:
     """
-    True multi-round adversarial debate engine (v3.X).
+    True multi-round adversarial debate engine (v4.5).
     
-    Uses CloudModelClient to call 3 named models (Groq, Llama 3.3 70B, Qwen)
-    in parallel per round, with full transcript injection for rounds 2+.
+    Routes ALL model calls through MCOModelBridge.call_model(), eliminating
+    hardcoded legacy callers. Every enabled model in COGNITIVE_MODEL_REGISTRY
+    participates in debate automatically.
     
     Supports:
     - Role assignment (for, against, judge, neutral)
@@ -288,27 +289,26 @@ class DebateOrchestrator:
     - Semantic disagreement quantification
     - Judge scoring matrix
     - Disagreement trend tracking across rounds
+    - Dynamic analysis model selection with retry
     """
+
+    # Preferred models for analysis (in priority order)
+    _ANALYSIS_MODEL_PRIORITY = ["llama70b", "qwen3-coder", "groq", "nemotron", "kimi"]
 
     def __init__(self, cloud_client):
         self.client = cloud_client
-        # Build callers dynamically from DEBATE_MODELS
-        # The bridge provides call_groq/call_llama70b/call_qwenvl for legacy IDs
-        self._model_callers = {
-            "groq": self.client.call_groq,
-            "llama70b": self.client.call_llama70b,
-            "qwen": self.client.call_qwenvl,
-        }
-        # For new models routed through MCOModelBridge, add generic callers
-        if hasattr(self.client, '_invoke'):
-            for model in DEBATE_MODELS:
-                mid = model["id"]
-                if mid not in self._model_callers:
-                    rk = model.get("registry_key", mid)
-                    self._model_callers[mid] = (
-                        lambda prompt, system_role="You are a rigorous analytical debater.", _rk=rk:
-                        self.client._invoke(_rk, prompt, system_role)
-                    )
+        # ALL models route through call_model() — no hardcoded callers
+        self._model_callers = {}
+        for model in DEBATE_MODELS:
+            mid = model["id"]
+            self._model_callers[mid] = (
+                lambda prompt, system_role="You are a rigorous analytical debater.", _mid=mid:
+                self.client.call_model(_mid, prompt, system_role)
+            )
+        logger.info(
+            f"DebateOrchestrator initialized with {len(self._model_callers)} models: "
+            f"{list(self._model_callers.keys())}"
+        )
 
     async def run_debate(
         self, query: str, rounds: int = 3,
@@ -342,7 +342,7 @@ class DebateOrchestrator:
         disagreement_trend = []
 
         for round_num in range(1, rounds + 1):
-            logger.info(f"Debate Round {round_num}/{rounds}")
+            logger.info(f"Debate Round {round_num}/{rounds} — {len(DEBATE_MODELS)} models participating")
             
             if round_num == 1:
                 round_outputs = await self._execute_round_1(query, role_map)
@@ -357,6 +357,15 @@ class DebateOrchestrator:
             # Track per-round disagreement
             round_disagreement = self._compute_round_disagreement(round_outputs)
             disagreement_trend.append(round_disagreement)
+
+            # Structured round telemetry
+            succeeded = sum(1 for o in round_outputs if o.confidence > 0)
+            failed = len(round_outputs) - succeeded
+            logger.info(
+                f"Round {round_num} complete: succeeded={succeeded}, failed={failed}, "
+                f"disagreement={round_disagreement:.4f}, "
+                f"confidences={[round(o.confidence, 3) for o in round_outputs]}"
+            )
             
             # Add this round to transcript
             round_transcript = self._format_round_transcript(round_num, round_outputs)
@@ -476,22 +485,44 @@ class DebateOrchestrator:
         return results
 
     async def _run_analysis(self, transcript: str) -> DebateAnalysis:
-        """Run final debate analysis using Llama 3.3 70B (strongest reasoning model)."""
+        """
+        Run final debate analysis using the best available reasoning model.
+        
+        Tries models in priority order with retry logic. Falls back gracefully
+        if all models fail.
+        """
         debater_names = ", ".join(m["label"] for m in DEBATE_MODELS)
         system_prompt = ANALYSIS_SYSTEM.format(
             transcript=transcript, debater_names=debater_names
         )
         user_prompt = "Analyze this debate and produce your structured analysis."
-        
-        try:
-            raw = await self.client.call_llama70b(user_prompt, system_prompt, temperature=0.3)
-            return self._parse_analysis(raw)
-        except Exception as e:
-            logger.error(f"Debate analysis failed: {e}")
-            return DebateAnalysis(
-                synthesis="Analysis generation failed. Review individual round outputs.",
-                confidence_recalibration=0.5,
-            )
+
+        # Try analysis models in priority order
+        available_ids = list(self._model_callers.keys())
+        candidates = [m for m in self._ANALYSIS_MODEL_PRIORITY if m in available_ids]
+        # Append any remaining models not in the priority list
+        candidates.extend(m for m in available_ids if m not in candidates)
+
+        last_error = None
+        for model_id in candidates:
+            for attempt in range(2):  # 2 attempts per model
+                try:
+                    raw = await self._model_callers[model_id](user_prompt, system_prompt)
+                    if raw and not raw.strip().startswith(("Error", "Model '")):
+                        logger.info(f"Debate analysis completed by {model_id} (attempt {attempt + 1})")
+                        return self._parse_analysis(raw)
+                    else:
+                        logger.warning(f"Analysis model {model_id} returned error: {raw[:100] if raw else 'empty'}")
+                        last_error = raw
+                except Exception as e:
+                    logger.warning(f"Analysis model {model_id} attempt {attempt + 1} failed: {e}")
+                    last_error = str(e)
+
+        logger.error(f"All analysis models failed. Last error: {last_error}")
+        return DebateAnalysis(
+            synthesis="Analysis generation failed across all models. Review individual round outputs.",
+            confidence_recalibration=0.5,
+        )
 
     # ============================================================
     # LLM CALL + PARSE HELPERS

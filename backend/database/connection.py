@@ -78,7 +78,42 @@ AsyncSessionLocal = sessionmaker(
 )
 
 # Redis Client — prefer REDIS_URL (Render/Railway), fallback to host/port,
-# gracefully degrade to None if Redis is unavailable.
+# gracefully degrade to in-memory LRU cache if Redis is unavailable.
+
+
+class InMemoryRedisStub:
+    """
+    In-memory LRU fallback when Redis is unavailable.
+    Supports setex/get/ping/delete — enough for session + metadata caching.
+    NOT a full Redis replacement — no pub/sub, no persistence.
+    """
+    _MAX_KEYS = 512
+
+    def __init__(self):
+        from collections import OrderedDict
+        self._store: 'OrderedDict[str, str]' = OrderedDict()
+        self._is_stub = True
+
+    async def ping(self):
+        return True
+
+    async def setex(self, key: str, ttl: int, value: str):
+        if len(self._store) >= self._MAX_KEYS:
+            self._store.popitem(last=False)  # evict oldest
+        self._store[key] = value
+        self._store.move_to_end(key)
+
+    async def get(self, key: str):
+        return self._store.get(key)
+
+    async def delete(self, key: str):
+        self._store.pop(key, None)
+
+    async def keys(self, pattern: str = "*"):
+        import fnmatch
+        return [k for k in self._store if fnmatch.fnmatch(k, pattern)]
+
+
 try:
     if REDIS_URL:
         redis_client = redis.from_url(REDIS_URL, decode_responses=True)
@@ -90,7 +125,7 @@ try:
             decode_responses=True,
         )
 except Exception:
-    redis_client = None
+    redis_client = InMemoryRedisStub()
 
 async def get_db():
     async with AsyncSessionLocal() as session:
@@ -109,7 +144,10 @@ async def init_db():
 async def check_redis():
     try:
         await redis_client.ping()
-        print("Redis connection successful.")
+        if getattr(redis_client, '_is_stub', False):
+            print("Redis unavailable — using in-memory LRU fallback.")
+        else:
+            print("Redis connection successful.")
         return True
     except Exception as e:
         print(f"Redis connection failed: {e}")

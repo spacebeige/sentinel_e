@@ -16,7 +16,7 @@ class SentinelRequest(BaseModel):
     @field_validator("mode")
     @classmethod
     def validate_mode(cls, v):
-        valid = {"conversational", "standard", "research", "experimental", "kill", "forensic"}
+        valid = {"conversational", "standard", "research", "experimental", "kill", "forensic", "ensemble"}
         if v not in valid:
             return "standard"
         return v
