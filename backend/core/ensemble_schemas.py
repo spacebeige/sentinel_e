@@ -140,7 +140,7 @@ class DebatePosition(BaseModel):
     latency_ms: float = 0.0
     model_color: str = ""
     risks: List[str] = Field(default_factory=list)
-    weaknesses_found: str = ""
+    weaknesses_found: List[str] = Field(default_factory=list)
     position_shift: str = "none"
 
 

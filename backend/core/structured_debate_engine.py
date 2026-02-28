@@ -46,71 +46,89 @@ logger = logging.getLogger("StructuredDebateEngine")
 # System Prompts — Structured Output Enforcement
 # ============================================================
 
-STRUCTURED_ROUND_1 = """You are a rigorous analytical model participating in a structured multi-model debate.
+STRUCTURED_ROUND_1 = """You are one model in a multi-model adversarial reasoning system.
+Your job is to think INDEPENDENTLY, argue your position, challenge others, and refine under pressure.
 
-QUERY: {query}
+DEBATE TOPIC: {query}
 
-You must respond with EXACTLY this structure (use these exact headers):
+RULES:
+- Think for yourself. Do NOT echo or defer to other models.
+- Be adversarial but rational. Attack weak reasoning, not models.
+- State your assumptions explicitly so others can challenge them.
+- Identify risks in your own position before opponents do.
+- Confidence must reflect genuine certainty — do NOT inflate.
 
-POSITION: [Your clear thesis statement in 1-2 sentences]
+Respond with EXACTLY this structure (use these exact headers):
 
-REASONING: [Step-by-step reasoning chain supporting your position. Be specific and evidence-based.]
+POSITION: [Your clear thesis in 1-2 sentences — what you believe and why]
 
-ASSUMPTIONS: [List each assumption on its own line, prefixed with "- "]
+ARGUMENT: [Step-by-step reasoning chain. Be specific, evidence-based, and logically rigorous.]
+
+ASSUMPTIONS: [List each assumption explicitly, prefixed with "- "]
 - assumption 1
 - assumption 2
 
-VULNERABILITIES: [Self-identify weaknesses in your position, prefixed with "- "]
+RISKS: [What could go wrong if your position is adopted? Prefixed with "- "]
+- risk 1
+- risk 2
+
+VULNERABILITIES: [Self-identified weaknesses in your reasoning, prefixed with "- "]
 - vulnerability 1
 - vulnerability 2
 
-CONFIDENCE: [A number between 0.0 and 1.0 representing your confidence]
+CONFIDENCE: [A number between 0.0 and 1.0 — honest self-assessed certainty]
 
 STANCE: [Rate each dimension 0.0-1.0]
 certainty: [0.0-1.0]
 specificity: [0.0-1.0]
 risk_tolerance: [0.0-1.0]
 evidence_reliance: [0.0-1.0]
-novelty: [0.0-1.0]
+novelty: [0.0-1.0]"""
 
-Be honest about uncertainties. Do not inflate confidence."""
+STRUCTURED_ROUND_N = """You are in round {round_number} of a multi-model adversarial debate.
 
-STRUCTURED_ROUND_N = """You are participating in round {round_number} of a structured multi-model debate.
-
-QUERY: {query}
+DEBATE TOPIC: {query}
 
 PREVIOUS DEBATE TRANSCRIPT:
 {transcript}
 
 YOUR PREVIOUS POSITION: {own_previous}
 
-Review other models' arguments carefully. You MUST:
-1. Address specific arguments from opponents
-2. Identify weaknesses in their reasoning
-3. Update your position if warranted (with explanation)
-4. Maintain or revise your confidence based on the debate
+RULES FOR THIS ROUND:
+- Read every other model's argument. Find what is weak, missing, or wrong.
+- Rebut specific claims with logic and evidence — not dismissal.
+- If an opponent made a strong point, ACKNOWLEDGE it and adjust.
+- Track whether your position shifted and why (or why not).
+- Your confidence MUST change if evidence warrants it.
 
 Respond with EXACTLY this structure:
 
 REBUTTALS: [Address specific opponent arguments, prefixed with "- "]
-- [Model X] claimed Y, but this fails because Z
-- [Model W] assumed V, which is incorrect because...
+- [Model X] claimed Y — this fails because Z
+- [Model W] assumed V — this is incorrect because...
 
-POSITION: [Your current thesis — may be updated based on debate]
+WEAKNESSES_FOUND: [Weaknesses you identified in OTHER models' reasoning, prefixed with "- "]
+- [Model X]: weakness description
+- [Model W]: weakness description
 
-REASONING: [Updated reasoning incorporating debate insights]
+POSITION: [Your current thesis — updated if the debate warrants it]
+
+ARGUMENT: [Updated reasoning incorporating debate insights and rebuttal responses]
 
 ASSUMPTIONS: [Current assumptions, prefixed with "- "]
 - assumption 1
 
+RISKS: [Current risks if your position is adopted, prefixed with "- "]
+- risk 1
+
 VULNERABILITIES: [Current self-identified weaknesses, prefixed with "- "]
 - vulnerability 1
 
-POSITION_SHIFTED: [YES or NO — did your position change?]
+POSITION_SHIFTED: [YES or NO — did your position change from last round?]
 
-SHIFT_REASON: [If shifted, explain why. If not, explain why your position held.]
+SHIFT_REASON: [If shifted, explain what argument convinced you. If not, explain why your position held under pressure.]
 
-CONFIDENCE: [Updated confidence 0.0-1.0]
+CONFIDENCE: [Updated confidence 0.0-1.0 — must reflect debate dynamics]
 
 STANCE: [Updated dimensional ratings]
 certainty: [0.0-1.0]
@@ -404,18 +422,22 @@ class StructuredDebateEngine:
     ) -> DebatePosition:
         """Parse model output into DebatePosition."""
         position = self._extract_section(raw, "POSITION")
-        reasoning = self._extract_section(raw, "REASONING")
+        # Support both ARGUMENT (new) and REASONING (legacy) headers
+        reasoning = self._extract_section(raw, "ARGUMENT") or self._extract_section(raw, "REASONING")
         assumptions = self._extract_list(raw, "ASSUMPTIONS")
         vulnerabilities = self._extract_list(raw, "VULNERABILITIES")
+        risks = self._extract_list(raw, "RISKS")
         confidence = self._extract_float(raw, "CONFIDENCE", default=0.5)
         stance = self._extract_stance(raw)
 
         rebuttals = []
+        weaknesses_found = []
         position_shifted = False
         shift_reason = None
 
         if is_rebuttal:
             rebuttals = self._extract_list(raw, "REBUTTALS")
+            weaknesses_found = self._extract_list(raw, "WEAKNESSES_FOUND")
             shifted_text = self._extract_section(raw, "POSITION_SHIFTED")
             position_shifted = shifted_text.upper().startswith("YES") if shifted_text else False
             shift_reason = self._extract_section(raw, "SHIFT_REASON")
@@ -435,6 +457,8 @@ class StructuredDebateEngine:
             rebuttals=rebuttals,
             assumptions=assumptions,
             vulnerabilities_found=vulnerabilities,
+            risks=risks,
+            weaknesses_found=weaknesses_found,
             confidence=confidence,
             stance_vector=stance,
             position_shifted=position_shifted,

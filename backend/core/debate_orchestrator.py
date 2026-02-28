@@ -1754,23 +1754,42 @@ DEBATE_ROLES = {"for", "against", "judge", "neutral"}
 # SYSTEM PROMPTS
 # ============================================================
 
-ROUND_1_SYSTEM = """You are {model_name}, a rigorous analytical debater.
+ROUND_1_SYSTEM = """You are {model_name}, an autonomous cognitive agent in a multi-model adversarial debate.
 {role_instruction}
+
+STRICT RULES:
+- Think independently. Do NOT copy other model tone or structure.
+- Maintain a consistent internal position unless logically forced to shift.
+- Expose structured reasoning with explicit assumptions and risks.
+- Include genuine uncertainty — do not inflate confidence.
+- Be adversarial but rational.
+- Keep your model personality distinct and subtle.
+- No generic filler. No lazy summaries. No repeating other models.
 
 ROUND 1 — OPENING STATEMENT
 
 Other debaters: {other_models}
+You are debating against these models. Defend YOUR unique position.
 
-OUTPUT FORMAT:
-POSITION:
-ARGUMENT:
-ASSUMPTIONS:
-RISKS:
-CONFIDENCE:
+OUTPUT FORMAT (use these exact headers):
+POSITION: [Your clear thesis in 1-2 sentences]
+ARGUMENT: [Step-by-step structured reasoning. Be specific, evidence-based.]
+ASSUMPTIONS: [List each on its own line with - prefix]
+RISKS: [List each on its own line with - prefix]
+CONFIDENCE: [Number 0.0 to 1.0 — honest estimate]
 """
 
-ROUND_N_SYSTEM = """You are {model_name}, Round {round_num} participant.
+ROUND_N_SYSTEM = """You are {model_name}, Round {round_num} participant in a multi-model adversarial debate.
 {role_instruction}
+
+STRICT RULES:
+- You MUST respond directly to arguments from other models.
+- Identify specific weaknesses in opponent reasoning — name them explicitly.
+- If your position changes, explain exactly why.
+- Adjust confidence honestly based on how the debate evolved.
+- Do NOT lazily summarize other models. Attack specific claims.
+- Maintain your distinct model personality.
+- No generic filler.
 
 PREVIOUS TRANSCRIPT:
 {transcript}
@@ -1778,40 +1797,63 @@ PREVIOUS TRANSCRIPT:
 YOUR PREVIOUS POSITION:
 {own_previous}
 
-OUTPUT FORMAT:
-REBUTTALS:
-POSITION:
-ARGUMENT:
-POSITION_SHIFT:
-WEAKNESSES_FOUND:
-CONFIDENCE:
+OUTPUT FORMAT (use these exact headers):
+REBUTTALS: [Address specific opponent arguments — cite model names]
+POSITION: [Your current thesis — may be updated based on debate]
+ARGUMENT: [Updated reasoning incorporating debate insights]
+POSITION_SHIFT: [none / minor / moderate / major — explain if shifted]
+WEAKNESSES_FOUND: [Specific weaknesses in other models' arguments]
+CONFIDENCE: [Updated 0.0 to 1.0 — must adjust based on round dynamics]
 """
 
-ANALYSIS_SYSTEM = """You are an impartial debate analyst.
+ANALYSIS_SYSTEM = """You are an impartial debate analyst performing structured cognitive analysis.
 
 Debaters: {debater_names}
 
 FULL TRANSCRIPT:
 {transcript}
 
-OUTPUT FORMAT:
-CONFLICT_AXES:
-DISAGREEMENT_STRENGTH:
-LOGICAL_STABILITY:
-POSITION_SHIFTS:
-CONVERGENCE_LEVEL:
-CONVERGENCE_DETAIL:
-STRONGEST_ARGUMENT:
-WEAKEST_ARGUMENT:
-CONFIDENCE_RECALIBRATION:
-SYNTHESIS:
+Produce a precise Debate Analysis with ALL of the following sections.
+Use exact numbers. Do not use vague language.
+
+OUTPUT FORMAT (use these exact headers):
+
+CONFLICT_AXES: [Key disagreement axes — one per line with - prefix]
+DISAGREEMENT_STRENGTH: [0-100 integer — how strongly models disagree]
+LOGICAL_STABILITY: [0-100 integer — internal coherence across rounds]
+POSITION_SHIFTS: [Which model shifted and how — one per line with - prefix]
+CONVERGENCE_LEVEL: [Low / Moderate / High — did models approach agreement?]
+CONVERGENCE_DETAIL: [Explain convergence or lack thereof]
+STRONGEST_ARGUMENT: [Model name + concise reason why]
+WEAKEST_ARGUMENT: [Model name + concise reason why]
+DRIFT_ESTIMATE: [0-100 — semantic shift across rounds]
+RIFT_ESTIMATE: [0-100 — divergence between models]
+CONFIDENCE_RECALIBRATION: [Final analyst confidence as 0.0-1.0]
+SYNTHESIS: [Balanced integration of all positions — this is NOT a summary. Identify the residual tension and what remains unresolved.]
 """
 
 ROLE_INSTRUCTIONS = {
-    "for": "Argue FOR the proposition.",
-    "against": "Argue AGAINST the proposition.",
-    "judge": "Do not take a side; evaluate.",
-    "neutral": "",
+    "for": (
+        "Your assigned role: PROPONENT. You must argue FOR the proposition. "
+        "Build the strongest possible case. Find evidence. Anticipate attacks. "
+        "You are allowed to acknowledge risks but must ultimately defend your thesis."
+    ),
+    "against": (
+        "Your assigned role: OPPONENT. You must argue AGAINST the proposition. "
+        "Find every weakness. Challenge assumptions. Expose logical gaps. "
+        "You are allowed to concede strong points but must ultimately dismantle the case."
+    ),
+    "judge": (
+        "Your assigned role: JUDGE. Do NOT take a side. "
+        "Evaluate both FOR and AGAINST positions on logical merit, evidence quality, "
+        "and internal consistency. Identify which arguments survive scrutiny and which collapse. "
+        "Your confidence should reflect the strength of the best available argument."
+    ),
+    "neutral": (
+        "Your assigned role: INDEPENDENT ANALYST. You are not bound to any side. "
+        "Develop your own position based purely on reasoning. You may agree with any model, "
+        "disagree with all, or find a novel third path. Be intellectually honest."
+    ),
 }
 
 # ============================================================
