@@ -1721,8 +1721,12 @@ Architecture:
 import asyncio
 import logging
 import re
+import time
+import numpy as np
 from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
 
@@ -1829,7 +1833,26 @@ class ModelRoundOutput:
     position_shift: str = "none"
     weaknesses_found: str = ""
     confidence: float = 0.5
+    latency_ms: float = 0.0
     raw_output: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "model_id": self.model_id,
+            "model_label": self.model_label,
+            "model_name": self.model_name,
+            "model_color": self.model_color,
+            "round_num": self.round_num,
+            "position": self.position,
+            "argument": self.argument,
+            "assumptions": self.assumptions or [],
+            "risks": self.risks or [],
+            "rebuttals": self.rebuttals,
+            "position_shift": self.position_shift,
+            "weaknesses_found": self.weaknesses_found,
+            "confidence": float(self.confidence),
+            "latency_ms": float(self.latency_ms),
+        }
 
 @dataclass
 class DebateAnalysis:
@@ -1845,6 +1868,39 @@ class DebateAnalysis:
     synthesis: str = ""
     disagreement_trend: List[float] = field(default_factory=list)
     judge_scoring: Optional[Dict[str, Any]] = None
+    # Drift/Rift analytics
+    drift_index: float = 0.0
+    rift_index: float = 0.0
+    confidence_spread: float = 0.0
+    fragility_score: float = 0.0
+    per_model_drift: Dict[str, List[float]] = field(default_factory=dict)
+    per_round_rift: List[float] = field(default_factory=list)
+    per_round_disagreement: List[float] = field(default_factory=list)
+    overall_confidence: float = 0.5
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "conflict_axes": self.conflict_axes or [],
+            "disagreement_strength": float(self.disagreement_strength),
+            "logical_stability": float(self.logical_stability),
+            "position_shifts": self.position_shifts or [],
+            "convergence_level": self.convergence_level or "none",
+            "convergence_detail": self.convergence_detail or "",
+            "strongest_argument": self.strongest_argument or "",
+            "weakest_argument": self.weakest_argument or "",
+            "confidence_recalibration": float(self.confidence_recalibration),
+            "synthesis": self.synthesis or "",
+            "disagreement_trend": [float(d) for d in (self.disagreement_trend or [])],
+            "judge_scoring": self.judge_scoring,
+            "drift_index": float(self.drift_index),
+            "rift_index": float(self.rift_index),
+            "confidence_spread": float(self.confidence_spread),
+            "fragility_score": float(self.fragility_score),
+            "per_model_drift": {k: [float(v) for v in vals] for k, vals in (self.per_model_drift or {}).items()},
+            "per_round_rift": [float(r) for r in (self.per_round_rift or [])],
+            "per_round_disagreement": [float(d) for d in (self.per_round_disagreement or [])],
+            "overall_confidence": float(self.overall_confidence),
+        }
 
 @dataclass
 class DebateResult:
@@ -1853,6 +1909,18 @@ class DebateResult:
     analysis: Optional[DebateAnalysis] = None
     total_rounds: int = 0
     models_used: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "query": self.query,
+            "rounds": [
+                [mo.to_dict() for mo in round_outputs]
+                for round_outputs in (self.rounds or [])
+            ],
+            "analysis": self.analysis.to_dict() if self.analysis else None,
+            "total_rounds": self.total_rounds,
+            "models_used": self.models_used or [],
+        }
 
 # ============================================================
 # ORCHESTRATOR
@@ -1922,6 +1990,19 @@ class DebateOrchestrator:
         full_transcript = "\n\n".join(transcript_parts)
 
         result.analysis = await self._run_analysis(full_transcript)
+
+        # Compute drift/rift metrics and inject into analysis
+        metrics = self._compute_drift_rift(result.rounds)
+        if result.analysis:
+            result.analysis.drift_index = metrics["drift_index"]
+            result.analysis.rift_index = metrics["rift_index"]
+            result.analysis.confidence_spread = metrics["confidence_spread"]
+            result.analysis.fragility_score = metrics["fragility_score"]
+            result.analysis.per_model_drift = metrics["per_model_drift"]
+            result.analysis.per_round_rift = metrics["per_round_rift"]
+            result.analysis.per_round_disagreement = metrics["per_round_disagreement"]
+            result.analysis.overall_confidence = metrics["overall_confidence"]
+            result.analysis.disagreement_trend = metrics["per_round_disagreement"]
 
         return result
 
@@ -2023,3 +2104,305 @@ class DebateOrchestrator:
             parts.append(f"Argument: {mo.argument}")
             parts.append(f"Confidence: {mo.confidence:.2f}")
         return "\n".join(parts)
+
+    # ============================================================
+    # ROUND EXECUTION (RESTORED)
+    # ============================================================
+
+    async def _execute_round_1(self, query: str, role_map: Dict[str, str] = None) -> List[ModelRoundOutput]:
+        """Round 1: All models respond independently to user query with role awareness."""
+        role_map = role_map or {}
+        roles = ["for", "against", "judge", "neutral"]
+        for i, model in enumerate(self.models):
+            if model["id"] not in role_map:
+                role_map[model["id"]] = roles[i % len(roles)]
+
+        tasks = []
+        for model in self.models:
+            role = role_map.get(model["id"], "neutral")
+            role_instruction = ROLE_INSTRUCTIONS.get(role, "")
+            other_models = ", ".join(
+                m["label"] for m in self.models if m["id"] != model["id"]
+            )
+            system_prompt = ROUND_1_SYSTEM.format(
+                model_name=model["label"],
+                role_instruction=role_instruction,
+                other_models=other_models,
+            )
+            user_prompt = f"DEBATE TOPIC:\n{query}\n\nPresent your opening statement."
+            caller = self._model_callers[model["id"]]
+            tasks.append(self._call_and_parse_round1(caller, user_prompt, system_prompt, model))
+
+        outputs = await asyncio.gather(*tasks, return_exceptions=True)
+
+        results = []
+        for i, output in enumerate(outputs):
+            if isinstance(output, Exception):
+                logger.error(f"{self.models[i]['label']} Round 1 failed: {output}")
+                results.append(ModelRoundOutput(
+                    model_id=self.models[i]["id"],
+                    model_label=self.models[i]["label"],
+                    model_name=self.models[i]["name"],
+                    model_color=self.models[i]["color"],
+                    round_num=1,
+                    position="[Model unavailable this round]",
+                    argument="Model failed to respond. Continuing debate without this participant.",
+                    confidence=0.0,
+                    raw_output=str(output),
+                ))
+            else:
+                results.append(output)
+        return results
+
+    async def _execute_round_n(
+        self, query: str, round_num: int,
+        transcript: str, previous_rounds: List[List[ModelRoundOutput]],
+        role_map: Dict[str, str] = None,
+    ) -> List[ModelRoundOutput]:
+        """Round 2+: Each model gets full transcript + must rebut opponents with role enforcement."""
+        role_map = role_map or {}
+        roles = ["for", "against", "judge", "neutral"]
+        for i, model in enumerate(self.models):
+            if model["id"] not in role_map:
+                role_map[model["id"]] = roles[i % len(roles)]
+
+        tasks = []
+        for model in self.models:
+            own_previous = self._get_model_previous(model["id"], previous_rounds)
+            role = role_map.get(model["id"], "neutral")
+            role_instruction = ROLE_INSTRUCTIONS.get(role, "")
+            system_prompt = ROUND_N_SYSTEM.format(
+                model_name=model["label"],
+                round_num=round_num,
+                transcript=transcript,
+                own_previous=own_previous,
+                role_instruction=role_instruction,
+            )
+            user_prompt = (
+                f"ORIGINAL TOPIC:\n{query}\n\n"
+                f"This is Round {round_num}. You must rebut your opponents and strengthen your position."
+            )
+            caller = self._model_callers[model["id"]]
+            tasks.append(self._call_and_parse_round_n(caller, user_prompt, system_prompt, model, round_num))
+
+        outputs = await asyncio.gather(*tasks, return_exceptions=True)
+
+        results = []
+        for i, output in enumerate(outputs):
+            if isinstance(output, Exception):
+                logger.error(f"{self.models[i]['label']} Round {round_num} failed: {output}")
+                results.append(ModelRoundOutput(
+                    model_id=self.models[i]["id"],
+                    model_label=self.models[i]["label"],
+                    model_name=self.models[i]["name"],
+                    model_color=self.models[i]["color"],
+                    round_num=round_num,
+                    position="[Model unavailable this round]",
+                    argument="Model failed to respond.",
+                    confidence=0.0,
+                    raw_output=str(output),
+                ))
+            else:
+                results.append(output)
+        return results
+
+    # ============================================================
+    # CALL + PARSE HELPERS
+    # ============================================================
+
+    async def _call_and_parse_round1(
+        self, caller, user_prompt: str, system_prompt: str, model: dict
+    ) -> ModelRoundOutput:
+        """Call a model for Round 1 and parse the structured output."""
+        t0 = time.perf_counter()
+        raw = await caller(user_prompt, system_prompt)
+        latency = (time.perf_counter() - t0) * 1000
+        parsed = self._parse_round1_output(raw)
+
+        return ModelRoundOutput(
+            model_id=model["id"],
+            model_label=model["label"],
+            model_name=model["name"],
+            model_color=model["color"],
+            round_num=1,
+            position=parsed.get("position", ""),
+            argument=parsed.get("argument", ""),
+            assumptions=parsed.get("assumptions", []),
+            risks=parsed.get("risks", []),
+            confidence=parsed.get("confidence", 0.5),
+            latency_ms=latency,
+            raw_output=raw,
+        )
+
+    async def _call_and_parse_round_n(
+        self, caller, user_prompt: str, system_prompt: str, model: dict, round_num: int
+    ) -> ModelRoundOutput:
+        """Call a model for Round N and parse the structured output."""
+        t0 = time.perf_counter()
+        raw = await caller(user_prompt, system_prompt)
+        latency = (time.perf_counter() - t0) * 1000
+        parsed = self._parse_round_n_output(raw)
+
+        return ModelRoundOutput(
+            model_id=model["id"],
+            model_label=model["label"],
+            model_name=model["name"],
+            model_color=model["color"],
+            round_num=round_num,
+            position=parsed.get("position", ""),
+            argument=parsed.get("argument", ""),
+            rebuttals=parsed.get("rebuttals", ""),
+            position_shift=parsed.get("position_shift", "none"),
+            weaknesses_found=parsed.get("weaknesses_found", ""),
+            confidence=parsed.get("confidence", 0.5),
+            latency_ms=latency,
+            raw_output=raw,
+        )
+
+    # ============================================================
+    # OUTPUT PARSERS
+    # ============================================================
+
+    def _parse_round1_output(self, raw: str) -> Dict[str, Any]:
+        result = {
+            "position": "", "argument": "", "assumptions": [],
+            "risks": [], "confidence": 0.5,
+        }
+        result["position"] = self._extract_section(raw, "POSITION")
+        result["argument"] = self._extract_section(raw, "ARGUMENT")
+        result["assumptions"] = self._parse_bullets(self._extract_section(raw, "ASSUMPTIONS"))
+        result["risks"] = self._parse_bullets(self._extract_section(raw, "RISKS"))
+        result["confidence"] = self._parse_float(self._extract_section(raw, "CONFIDENCE"), 0.5)
+        if not result["position"] and not result["argument"]:
+            result["position"] = raw[:200] if raw else "[No response]"
+            result["argument"] = raw if raw else "[No response]"
+        return result
+
+    def _parse_round_n_output(self, raw: str) -> Dict[str, Any]:
+        result = {
+            "rebuttals": "", "position": "", "argument": "",
+            "position_shift": "none", "weaknesses_found": "", "confidence": 0.5,
+        }
+        result["rebuttals"] = self._extract_section(raw, "REBUTTALS")
+        result["position"] = self._extract_section(raw, "POSITION")
+        result["argument"] = self._extract_section(raw, "ARGUMENT")
+        result["position_shift"] = self._extract_section(raw, "POSITION_SHIFT") or "none"
+        result["weaknesses_found"] = self._extract_section(raw, "WEAKNESSES_FOUND")
+        result["confidence"] = self._parse_float(self._extract_section(raw, "CONFIDENCE"), 0.5)
+        if not result["position"] and not result["rebuttals"]:
+            result["position"] = raw[:200] if raw else "[No response]"
+            result["argument"] = raw if raw else "[No response]"
+        return result
+
+    def _get_model_previous(self, model_id: str, previous_rounds: List[List[ModelRoundOutput]]) -> str:
+        """Get a model's most recent output for transcript injection."""
+        if not previous_rounds:
+            return "[No previous output]"
+        last_round = previous_rounds[-1]
+        for mo in last_round:
+            if mo.model_id == model_id:
+                parts = []
+                if mo.position:
+                    parts.append(f"Position: {mo.position}")
+                if mo.argument:
+                    parts.append(f"Argument: {mo.argument}")
+                if mo.confidence:
+                    parts.append(f"Confidence: {mo.confidence}")
+                return "\n".join(parts) if parts else "[No substantive output]"
+        return "[No previous output found]"
+
+    # ============================================================
+    # DRIFT / RIFT / FRAGILITY COMPUTATION
+    # ============================================================
+
+    def _compute_drift_rift(self, rounds: List[List[ModelRoundOutput]]) -> Dict[str, Any]:
+        """Compute drift, rift, confidence spread, fragility from debate rounds."""
+        if len(rounds) < 1:
+            return {"drift_index": 0.0, "rift_index": 0.0, "confidence_spread": 0.0,
+                    "fragility_score": 0.0, "per_model_drift": {}, "per_round_rift": [],
+                    "per_round_disagreement": [], "overall_confidence": 0.5}
+
+        # Collect per-model positions across rounds
+        model_ids = list({mo.model_id for rnd in rounds for mo in rnd})
+        model_positions = {mid: [] for mid in model_ids}
+        for rnd in rounds:
+            for mo in rnd:
+                model_positions[mo.model_id].append(mo.position or "")
+
+        # --- Drift: cosine distance between rounds per model ---
+        per_model_drift = {}
+        all_drift_values = []
+        for mid, positions in model_positions.items():
+            drifts = []
+            for i in range(len(positions) - 1):
+                if positions[i] and positions[i + 1]:
+                    try:
+                        vec = TfidfVectorizer()
+                        tfidf = vec.fit_transform([positions[i], positions[i + 1]])
+                        sim = cosine_similarity(tfidf[0:1], tfidf[1:2])[0][0]
+                        drift_val = 1.0 - float(sim)
+                    except Exception:
+                        drift_val = 0.5
+                else:
+                    drift_val = 0.5
+                drifts.append(round(drift_val, 4))
+                all_drift_values.append(drift_val)
+            per_model_drift[mid] = drifts
+
+        drift_index = float(np.mean(all_drift_values)) if all_drift_values else 0.0
+
+        # --- Rift: mean pairwise distance within each round ---
+        per_round_rift = []
+        for rnd in rounds:
+            positions = [mo.position for mo in rnd if mo.position]
+            if len(positions) < 2:
+                per_round_rift.append(0.0)
+                continue
+            try:
+                vec = TfidfVectorizer()
+                tfidf = vec.fit_transform(positions)
+                sim_matrix = cosine_similarity(tfidf)
+                n = sim_matrix.shape[0]
+                distances = []
+                for i in range(n):
+                    for j in range(i + 1, n):
+                        distances.append(1.0 - sim_matrix[i][j])
+                rift_val = float(np.mean(distances)) if distances else 0.0
+            except Exception:
+                rift_val = 0.5
+            per_round_rift.append(round(rift_val, 4))
+
+        rift_index = float(np.mean(per_round_rift)) if per_round_rift else 0.0
+
+        # --- Confidence spread ---
+        all_confs = [mo.confidence for rnd in rounds for mo in rnd if mo.confidence is not None]
+        confidence_spread = float(np.std(all_confs)) if len(all_confs) > 1 else 0.0
+        overall_confidence = float(np.mean(all_confs)) if all_confs else 0.5
+
+        # --- Per-round disagreement (Jaccard-inspired + confidence variance) ---
+        per_round_disagreement = []
+        for rnd in rounds:
+            confs = [mo.confidence for mo in rnd if mo.confidence is not None]
+            if len(confs) > 1:
+                conf_var = float(np.std(confs))
+                # Combine rift for this round with confidence variance
+                rnd_idx = rnd[0].round_num - 1 if rnd else 0
+                rnd_rift = per_round_rift[rnd_idx] if rnd_idx < len(per_round_rift) else 0.0
+                disagreement = min(1.0, rnd_rift * 0.6 + conf_var * 0.4)
+            else:
+                disagreement = 0.0
+            per_round_disagreement.append(round(disagreement, 4))
+
+        # --- Fragility: weighted composite ---
+        fragility_score = drift_index * 0.35 + rift_index * 0.35 + confidence_spread * 0.30
+
+        return {
+            "drift_index": round(drift_index, 4),
+            "rift_index": round(rift_index, 4),
+            "confidence_spread": round(confidence_spread, 4),
+            "fragility_score": round(fragility_score, 4),
+            "per_model_drift": per_model_drift,
+            "per_round_rift": per_round_rift,
+            "per_round_disagreement": per_round_disagreement,
+            "overall_confidence": round(overall_confidence, 4),
+        }

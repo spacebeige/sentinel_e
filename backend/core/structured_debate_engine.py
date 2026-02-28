@@ -22,7 +22,10 @@ import json
 import logging
 import re
 import time
+import numpy as np
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity as sk_cosine_similarity
 
 from core.ensemble_schemas import (
     MIN_DEBATE_ROUNDS,
@@ -241,6 +244,12 @@ class StructuredDebateEngine:
         # Unresolved conflicts
         unresolved = self._find_unresolved_conflicts(debate_rounds)
 
+        # Compute drift/rift analytics
+        drift_rift = self._compute_debate_drift_rift(debate_rounds)
+
+        # Build analysis summary
+        analysis_fields = self._build_analysis_summary(debate_rounds, all_shifts)
+
         return DebateResult(
             rounds=debate_rounds,
             total_rounds=len(debate_rounds),
@@ -248,6 +257,22 @@ class StructuredDebateEngine:
             final_consensus=final_consensus,
             consensus_strength=consensus_strength,
             unresolved_conflicts=unresolved,
+            drift_index=drift_rift["drift_index"],
+            rift_index=drift_rift["rift_index"],
+            confidence_spread=drift_rift["confidence_spread"],
+            fragility_score=drift_rift["fragility_score"],
+            per_model_drift=drift_rift["per_model_drift"],
+            per_round_rift=drift_rift["per_round_rift"],
+            per_round_disagreement=drift_rift["per_round_disagreement"],
+            overall_confidence=drift_rift["overall_confidence"],
+            conflict_axes=analysis_fields.get("conflict_axes", []),
+            disagreement_strength=analysis_fields.get("disagreement_strength", 0.0),
+            logical_stability=analysis_fields.get("logical_stability", 0.5),
+            convergence_level=analysis_fields.get("convergence_level", "none"),
+            convergence_detail=analysis_fields.get("convergence_detail", ""),
+            strongest_argument=analysis_fields.get("strongest_argument", ""),
+            weakest_argument=analysis_fields.get("weakest_argument", ""),
+            synthesis=analysis_fields.get("synthesis", ""),
         )
 
     # ── Round Execution ──────────────────────────────────────
@@ -335,6 +360,7 @@ class StructuredDebateEngine:
                 return None
 
             parsed = self._parse_structured_output(raw, model, round_number=1)
+            parsed.latency_ms = latency
             return parsed
 
         except Exception as e:
@@ -360,6 +386,7 @@ class StructuredDebateEngine:
             parsed = self._parse_structured_output(
                 raw, model, round_number=round_num, is_rebuttal=True
             )
+            parsed.latency_ms = latency
             return parsed
 
         except Exception as e:
@@ -669,3 +696,172 @@ class StructuredDebateEngine:
             if pos.rebuttals:
                 parts.append(f"Rebuttals: {'; '.join(pos.rebuttals[:3])}")
         return "\n".join(parts)
+
+    # ── Drift / Rift / Fragility Computation ─────────────────
+
+    def _compute_debate_drift_rift(self, rounds: List[DebateRound]) -> Dict[str, Any]:
+        """
+        Compute drift, rift, confidence spread, and fragility from debate rounds.
+
+        Drift: cosine distance of each model's position between consecutive rounds (TF-IDF).
+        Rift: mean pairwise cosine distance between all models within each round.
+        Fragility: weighted composite of drift + rift + confidence spread.
+        """
+        if not rounds:
+            return {
+                "drift_index": 0.0, "rift_index": 0.0, "confidence_spread": 0.0,
+                "fragility_score": 0.0, "per_model_drift": {}, "per_round_rift": [],
+                "per_round_disagreement": [], "overall_confidence": 0.5,
+            }
+
+        # Collect per-model positions across rounds
+        model_ids = list({pos.model_id for rnd in rounds for pos in rnd.positions})
+        model_positions: Dict[str, List[str]] = {mid: [] for mid in model_ids}
+        for rnd in rounds:
+            round_model_ids = set()
+            for pos in rnd.positions:
+                model_positions[pos.model_id].append(pos.position or "")
+                round_model_ids.add(pos.model_id)
+            # Fill gaps for models that didn't respond in this round
+            for mid in model_ids:
+                if mid not in round_model_ids:
+                    model_positions[mid].append("")
+
+        # --- Drift: cosine distance between rounds per model ---
+        per_model_drift: Dict[str, List[float]] = {}
+        all_drift_values = []
+        for mid, positions in model_positions.items():
+            drifts = []
+            for i in range(len(positions) - 1):
+                if positions[i] and positions[i + 1]:
+                    try:
+                        vec = TfidfVectorizer()
+                        tfidf = vec.fit_transform([positions[i], positions[i + 1]])
+                        sim = sk_cosine_similarity(tfidf[0:1], tfidf[1:2])[0][0]
+                        drift_val = 1.0 - float(sim)
+                    except Exception:
+                        drift_val = 0.5
+                else:
+                    drift_val = 0.5
+                drifts.append(round(drift_val, 4))
+                all_drift_values.append(drift_val)
+            per_model_drift[mid] = drifts
+
+        drift_index = float(np.mean(all_drift_values)) if all_drift_values else 0.0
+
+        # --- Rift: mean pairwise distance within each round ---
+        per_round_rift = []
+        for rnd in rounds:
+            positions_text = [pos.position for pos in rnd.positions if pos.position]
+            if len(positions_text) < 2:
+                per_round_rift.append(0.0)
+                continue
+            try:
+                vec = TfidfVectorizer()
+                tfidf = vec.fit_transform(positions_text)
+                sim_matrix = sk_cosine_similarity(tfidf)
+                n = sim_matrix.shape[0]
+                distances = []
+                for i in range(n):
+                    for j in range(i + 1, n):
+                        distances.append(1.0 - sim_matrix[i][j])
+                rift_val = float(np.mean(distances)) if distances else 0.0
+            except Exception:
+                rift_val = 0.5
+            per_round_rift.append(round(rift_val, 4))
+
+        rift_index = float(np.mean(per_round_rift)) if per_round_rift else 0.0
+
+        # --- Confidence spread ---
+        all_confs = [pos.confidence for rnd in rounds for pos in rnd.positions]
+        confidence_spread = float(np.std(all_confs)) if len(all_confs) > 1 else 0.0
+        overall_confidence = float(np.mean(all_confs)) if all_confs else 0.5
+
+        # --- Per-round disagreement ---
+        per_round_disagreement = [
+            round(rnd.round_disagreement, 4) for rnd in rounds
+        ]
+
+        # --- Fragility ---
+        fragility_score = drift_index * 0.35 + rift_index * 0.35 + confidence_spread * 0.30
+
+        return {
+            "drift_index": round(drift_index, 4),
+            "rift_index": round(rift_index, 4),
+            "confidence_spread": round(confidence_spread, 4),
+            "fragility_score": round(fragility_score, 4),
+            "per_model_drift": per_model_drift,
+            "per_round_rift": per_round_rift,
+            "per_round_disagreement": per_round_disagreement,
+            "overall_confidence": round(overall_confidence, 4),
+        }
+
+    def _build_analysis_summary(
+        self, rounds: List[DebateRound], shifts: List[ShiftRecord]
+    ) -> Dict[str, Any]:
+        """
+        Build a structured analysis summary from debate rounds.
+        Populates conflict_axes, strongest/weakest, convergence, synthesis.
+        """
+        if not rounds:
+            return {}
+
+        # Conflict axes: collect all key_conflicts across rounds
+        all_conflicts = []
+        for rnd in rounds:
+            all_conflicts.extend(rnd.key_conflicts or [])
+        conflict_axes = list(set(all_conflicts))[:10]
+
+        # Disagreement strength: mean disagreement across rounds
+        disagreements = [rnd.round_disagreement for rnd in rounds]
+        disagreement_strength = float(np.mean(disagreements)) if disagreements else 0.0
+
+        # Logical stability: inverse of convergence_delta variance
+        deltas = [abs(rnd.convergence_delta) for rnd in rounds if rnd.convergence_delta != 0]
+        logical_stability = 1.0 - min(1.0, float(np.std(deltas))) if deltas else 0.5
+
+        # Convergence level
+        final_disagreement = rounds[-1].round_disagreement if rounds else 0.0
+        if final_disagreement < 0.2:
+            convergence_level = "strong"
+        elif final_disagreement < 0.4:
+            convergence_level = "moderate"
+        elif final_disagreement < 0.6:
+            convergence_level = "partial"
+        else:
+            convergence_level = "none"
+
+        convergence_detail = (
+            f"Final round disagreement: {final_disagreement:.2f}. "
+            f"{len(shifts)} position shifts detected across {len(rounds)} rounds."
+        )
+
+        # Strongest/weakest by confidence
+        all_positions = [pos for rnd in rounds for pos in rnd.positions]
+        strongest = ""
+        weakest = ""
+        if all_positions:
+            sorted_by_conf = sorted(all_positions, key=lambda p: p.confidence, reverse=True)
+            top = sorted_by_conf[0]
+            bottom = sorted_by_conf[-1]
+            strongest = f"{top.model_name} (confidence: {top.confidence:.2f})"
+            weakest = f"{bottom.model_name} (confidence: {bottom.confidence:.2f})"
+
+        # Synthesis from final round
+        synthesis_parts = []
+        if rounds:
+            final = rounds[-1]
+            for pos in final.positions:
+                synthesis_parts.append(f"{pos.model_name}: {pos.position[:150]}")
+        synthesis = " | ".join(synthesis_parts)
+
+        return {
+            "conflict_axes": conflict_axes,
+            "disagreement_strength": round(disagreement_strength, 4),
+            "logical_stability": round(logical_stability, 4),
+            "convergence_level": convergence_level,
+            "convergence_detail": convergence_detail,
+            "strongest_argument": strongest,
+            "weakest_argument": weakest,
+            "synthesis": synthesis,
+        }

@@ -77,13 +77,27 @@ class SessionPersistenceEngine:
         self,
         session_id: Optional[str] = None,
         mode: OperatingMode = OperatingMode.STANDARD,
+        model_id: Optional[str] = None,
     ) -> SessionState:
-        """Create a new session."""
-        state = SessionState(mode=mode)
+        """Create a new session, optionally bound to a specific model."""
+        state = SessionState(mode=mode, model_id=model_id)
         if session_id:
             state.session_id = session_id
+        state.analytics = {
+            "total_messages": 0,
+            "user_messages": 0,
+            "assistant_messages": 0,
+            "avg_confidence": 0.0,
+            "model_switches": 0,
+            "disagreement_trend": [],
+            "drift_trend": [],
+            "rift_trend": [],
+            "latency_history": [],
+            "tokens_estimated": 0,
+            "mode_counts": {"standard": 0, "debate": 0, "experimental": 0},
+        }
         self._sessions[state.session_id] = state
-        logger.info(f"Session created: {state.session_id} (mode={mode.value})")
+        logger.info(f"Session created: {state.session_id} (mode={mode.value}, model={model_id})")
         return state
 
     def get_session(self, session_id: str) -> Optional[SessionState]:
@@ -450,3 +464,205 @@ class SessionPersistenceEngine:
             embeddings, session.topic_centroid_embedding
         )
         return variance < epsilon
+
+    # ── Model-Bound Session Management ───────────────────────
+
+    CONTEXT_WINDOW_SIZE = 20
+    COMPRESSION_THRESHOLD = 30
+
+    def create_model_session(
+        self,
+        model_id: str,
+        session_id: Optional[str] = None,
+        mode: OperatingMode = OperatingMode.STANDARD,
+    ) -> SessionState:
+        """Create a model-bound session. Switching models must create a new session."""
+        return self.create_session(
+            session_id=session_id,
+            mode=mode,
+            model_id=model_id,
+        )
+
+    def get_or_create_model_session(
+        self,
+        session_id: str,
+        model_id: str,
+        mode: OperatingMode = OperatingMode.STANDARD,
+    ) -> SessionState:
+        """
+        Get existing session if model matches, otherwise create a new one.
+        Enforces model-bound session isolation.
+        """
+        existing = self.get_session(session_id)
+        if existing:
+            if existing.model_id == model_id:
+                return existing
+            # Model switch detected — create a new session
+            logger.info(
+                f"Model switch detected: {existing.model_id} → {model_id}. "
+                f"Creating new session (old: {session_id})"
+            )
+            new_session = self.create_model_session(model_id=model_id, mode=mode)
+            # Track the switch in analytics
+            if existing.analytics:
+                existing.analytics["model_switches"] = existing.analytics.get("model_switches", 0) + 1
+            return new_session
+        return self.create_model_session(model_id=model_id, session_id=session_id, mode=mode)
+
+    # ── Conversation History ─────────────────────────────────
+
+    def add_conversation_message(
+        self,
+        session_id: str,
+        role: str,
+        content: str,
+        confidence: float = 0.0,
+        latency_ms: float = 0.0,
+    ) -> bool:
+        """Add a message to the session conversation history."""
+        session = self.get_session(session_id)
+        if not session:
+            return False
+
+        msg = {
+            "role": role,
+            "content": content,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        if role == "assistant":
+            msg["confidence"] = confidence
+            msg["latency_ms"] = latency_ms
+
+        session.conversation_history.append(msg)
+
+        # Update analytics
+        analytics = session.analytics or {}
+        analytics["total_messages"] = analytics.get("total_messages", 0) + 1
+        if role == "user":
+            analytics["user_messages"] = analytics.get("user_messages", 0) + 1
+        elif role == "assistant":
+            analytics["assistant_messages"] = analytics.get("assistant_messages", 0) + 1
+            if latency_ms > 0:
+                latency_hist = analytics.get("latency_history", [])
+                latency_hist.append(round(latency_ms, 2))
+                analytics["latency_history"] = latency_hist[-50]  if isinstance(latency_hist, list) and len(latency_hist) > 50 else latency_hist
+            # Running average confidence
+            prev_avg = analytics.get("avg_confidence", 0.0)
+            n = analytics.get("assistant_messages", 1)
+            analytics["avg_confidence"] = round(((prev_avg * (n - 1)) + confidence) / n, 4)
+
+        # Estimate tokens (rough: ~4 chars/token)
+        analytics["tokens_estimated"] = analytics.get("tokens_estimated", 0) + len(content) // 4
+
+        session.analytics = analytics
+        session.updated_at = datetime.now(timezone.utc).isoformat()
+
+        # Trigger compression if needed
+        if len(session.conversation_history) > self.COMPRESSION_THRESHOLD:
+            self.compress_history(session_id)
+
+        return True
+
+    def get_conversation_context(
+        self,
+        session_id: str,
+        window: Optional[int] = None,
+    ) -> List[Dict[str, str]]:
+        """Get rolling conversation context for model injection."""
+        session = self.get_session(session_id)
+        if not session:
+            return []
+        w = window or self.CONTEXT_WINDOW_SIZE
+        return session.conversation_history[-w:]
+
+    def compress_history(self, session_id: str) -> bool:
+        """
+        Compress conversation history by summarizing older messages.
+        Keeps the most recent CONTEXT_WINDOW_SIZE messages intact and
+        collapses older messages into a summary prefix.
+        """
+        session = self.get_session(session_id)
+        if not session or len(session.conversation_history) <= self.CONTEXT_WINDOW_SIZE:
+            return False
+
+        # Split into old (to compress) and recent (to keep)
+        cutoff = len(session.conversation_history) - self.CONTEXT_WINDOW_SIZE
+        old_messages = session.conversation_history[:cutoff]
+        recent_messages = session.conversation_history[cutoff:]
+
+        # Build summary of old messages
+        summary_parts = []
+        for msg in old_messages:
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")
+            # Truncate each message to 100 chars for summary
+            summary_parts.append(f"[{role}]: {content[:100]}{'...' if len(content) > 100 else ''}")
+
+        summary_text = "\n".join(summary_parts)
+        summary_msg = {
+            "role": "system",
+            "content": f"[Conversation summary - {len(old_messages)} messages compressed]\n{summary_text[:2000]}",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "compressed": True,
+        }
+
+        session.conversation_history = [summary_msg] + recent_messages
+        logger.info(f"Compressed {len(old_messages)} messages in session {session_id}")
+        return True
+
+    # ── Session Analytics ────────────────────────────────────
+
+    def update_analytics(
+        self,
+        session_id: str,
+        mode: Optional[str] = None,
+        drift_value: Optional[float] = None,
+        rift_value: Optional[float] = None,
+        disagreement_value: Optional[float] = None,
+    ):
+        """Update session analytics with new data points."""
+        session = self.get_session(session_id)
+        if not session:
+            return
+
+        analytics = session.analytics or {}
+
+        if mode:
+            mode_counts = analytics.get("mode_counts", {})
+            mode_counts[mode] = mode_counts.get(mode, 0) + 1
+            analytics["mode_counts"] = mode_counts
+
+        if drift_value is not None:
+            drift_trend = analytics.get("drift_trend", [])
+            drift_trend.append(round(drift_value, 4))
+            analytics["drift_trend"] = drift_trend[-20:]
+
+        if rift_value is not None:
+            rift_trend = analytics.get("rift_trend", [])
+            rift_trend.append(round(rift_value, 4))
+            analytics["rift_trend"] = rift_trend[-20:]
+
+        if disagreement_value is not None:
+            disagreement_trend = analytics.get("disagreement_trend", [])
+            disagreement_trend.append(round(disagreement_value, 4))
+            analytics["disagreement_trend"] = disagreement_trend[-20:]
+
+        session.analytics = analytics
+        session.updated_at = datetime.now(timezone.utc).isoformat()
+
+    def get_session_analytics(self, session_id: str) -> Dict[str, Any]:
+        """Get full session analytics."""
+        session = self.get_session(session_id)
+        if not session:
+            return {}
+
+        analytics = dict(session.analytics or {})
+        analytics["session_id"] = session.session_id
+        analytics["model_id"] = session.model_id
+        analytics["mode"] = session.mode.value
+        analytics["turn_count"] = session.turn_count
+        analytics["drift_score"] = round(session.drift_score, 4)
+        analytics["volatility_score"] = round(session.volatility_score, 4)
+        analytics["created_at"] = session.created_at
+        analytics["updated_at"] = session.updated_at
+        return analytics

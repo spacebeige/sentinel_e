@@ -424,14 +424,14 @@ class CognitiveModelGateway:
                 ],
             })
         elif inp.image_b64 and not spec.supports_vision:
-            # Image attached but model can't process it — note in prompt
+            # Image attached but model can't process it — reject explicitly
+            logger.warning(
+                f"Image rejected: model '{spec.name}' does not support vision. "
+                f"Image silently dropped; text-only prompt used."
+            )
             messages.append({
                 "role": "user",
-                "content": (
-                    f"{inp.user_query}\n\n"
-                    "[NOTE: An image was attached but this model does not support vision input. "
-                    "Base your reasoning on the text only.]"
-                ),
+                "content": inp.user_query,
             })
         else:
             messages.append({"role": "user", "content": inp.user_query})

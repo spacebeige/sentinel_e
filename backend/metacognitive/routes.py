@@ -271,8 +271,18 @@ async def mco_run(
                 {
                     "model_id": r.output.model_name,
                     "model_label": r.output.model_name,
+                    "model_name": r.output.model_name,
+                    "model_color": "",
+                    "round_num": 1,
+                    "position": r.output.raw_output[:300] if r.output.raw_output else "",
                     "argument": r.output.raw_output,
+                    "assumptions": [],
+                    "risks": [],
+                    "rebuttals": "",
+                    "position_shift": "none",
+                    "weaknesses_found": "",
                     "confidence": round(r.score.final_score, 4),
+                    "latency_ms": round(r.output.latency_ms, 2) if hasattr(r.output, 'latency_ms') else 0.0,
                     "role": r.output.model_name,
                 }
                 for r in _valid_results
@@ -287,6 +297,21 @@ async def mco_run(
                 "conflict_axes": [],
                 "disagreement_strength": divergence.get("max_divergence", 0),
                 "convergence_level": divergence.get("convergence", "moderate"),
+                "convergence_detail": "",
+                "logical_stability": 0.5,
+                "strongest_argument": response.winning_model or "",
+                "weakest_argument": "",
+                "confidence_recalibration": round(response.winning_score, 4) if response.winning_score else 0.5,
+                "drift_index": round(response.drift_score, 4),
+                "rift_index": 0.0,
+                "confidence_spread": 0.0,
+                "fragility_score": 0.0,
+                "per_model_drift": {},
+                "per_round_rift": [],
+                "per_round_disagreement": [],
+                "overall_confidence": round(
+                    sum(r.score.final_score for r in _valid_results) / len(_valid_results), 4
+                ) if _valid_results else 0.5,
             },
         }
 
@@ -421,6 +446,21 @@ async def mco_session_state(
         "created_at": session.created_at,
         "updated_at": session.updated_at,
     }
+
+
+@router.get("/session/{session_id}/analytics")
+async def mco_session_analytics(
+    session_id: str,
+    user: Dict = Depends(get_current_user),
+):
+    """Get rich session analytics including drift/rift trends, latency history, and confidence metrics."""
+    orch = _get_orchestrator()
+    analytics = orch.session_engine.get_session_analytics(session_id)
+
+    if not analytics:
+        raise HTTPException(status_code=404, detail="Session not found or no analytics available")
+
+    return analytics
 
 
 # ============================================================

@@ -157,6 +157,17 @@ async def lifespan(app: FastAPI):
         mco_bridge = MCOModelBridge(mco_orchestrator.cognitive_gateway)
         logger.info("MCO Model Bridge created — all model calls route through CognitiveModelGateway")
 
+        # Log environment validation summary
+        enabled = mco_bridge.get_enabled_models_info()
+        from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+        total = len(COGNITIVE_MODEL_REGISTRY)
+        logger.info(f"Model registry: {len(enabled)}/{total} models enabled")
+        for m in enabled:
+            logger.info(f"  ✓ {m['name']} ({m['registry_key']}) — provider={m['provider']}, vision={m['supports_vision']}")
+        disabled_keys = [k for k, s in COGNITIVE_MODEL_REGISTRY.items() if not s.enabled]
+        for dk in disabled_keys:
+            logger.warning(f"  ✗ {dk} — DISABLED (missing API key)")
+
         # ── Cognitive Core Engine v7.0 ────────────────────────
         cognitive_orchestrator_engine = CognitiveCoreEngine(model_bridge=mco_bridge)
         logger.info("Cognitive Core Engine v7.0 initialized — ensemble-only, no mode routing")

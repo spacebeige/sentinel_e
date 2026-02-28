@@ -137,6 +137,11 @@ class DebatePosition(BaseModel):
     stance_vector: StanceVector = Field(default_factory=StanceVector)
     position_shifted: bool = False
     shift_reason: Optional[str] = None
+    latency_ms: float = 0.0
+    model_color: str = ""
+    risks: List[str] = Field(default_factory=list)
+    weaknesses_found: str = ""
+    position_shift: str = "none"
 
 
 class DebateRound(BaseModel):
@@ -163,13 +168,31 @@ class ShiftRecord(BaseModel):
 
 
 class DebateResult(BaseModel):
-    """Complete debate result with all rounds."""
+    """Complete debate result with all rounds and drift/rift analytics."""
     rounds: List[DebateRound] = Field(default_factory=list)
     total_rounds: int = 0
     shift_table: List[ShiftRecord] = Field(default_factory=list)
     final_consensus: Optional[str] = None
     consensus_strength: float = 0.0
     unresolved_conflicts: List[str] = Field(default_factory=list)
+    # Drift/Rift analytics
+    drift_index: float = 0.0
+    rift_index: float = 0.0
+    confidence_spread: float = 0.0
+    fragility_score: float = 0.0
+    per_model_drift: Dict[str, List[float]] = Field(default_factory=dict)
+    per_round_rift: List[float] = Field(default_factory=list)
+    per_round_disagreement: List[float] = Field(default_factory=list)
+    overall_confidence: float = 0.5
+    # Analysis fields
+    conflict_axes: List[str] = Field(default_factory=list)
+    disagreement_strength: float = 0.0
+    logical_stability: float = 0.5
+    convergence_level: str = "none"
+    convergence_detail: str = ""
+    strongest_argument: str = ""
+    weakest_argument: str = ""
+    synthesis: str = ""
 
 
 # ============================================================

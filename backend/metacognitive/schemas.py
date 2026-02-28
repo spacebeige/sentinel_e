@@ -166,11 +166,14 @@ class UnresolvedQuestion(BaseModel):
 class SessionState(BaseModel):
     """Full session object for API 3."""
     session_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    model_id: Optional[str] = None
     topic_centroid_embedding: List[float] = Field(default_factory=list)
     structured_goals: List[StructuredGoal] = Field(default_factory=list)
     unresolved_questions: List[UnresolvedQuestion] = Field(default_factory=list)
     memory_blocks: List[MemoryBlock] = Field(default_factory=list)
     behavioral_history: List[BehavioralRecord] = Field(default_factory=list)
+    conversation_history: List[Dict[str, str]] = Field(default_factory=list)
+    analytics: Dict[str, Any] = Field(default_factory=dict)
     drift_score: float = 0.0
     volatility_score: float = 0.0
     refinement_cycles: int = 0

@@ -75,6 +75,8 @@ class MCOModelBridge:
             return LEGACY_TO_REGISTRY[legacy_or_registry_id]
         return None
 
+    ALLOWED_IMAGE_MIMES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+
     async def _invoke(
         self,
         registry_key: str,
@@ -88,32 +90,59 @@ class MCOModelBridge:
         """
         Core invocation: route through CognitiveModelGateway.invoke_model().
 
+        Strict validation:
+        - Model must exist and be enabled
+        - API key must be present (enforced by gateway)
+        - Vision-capable check: rejects images for non-vision models
+        - MIME validation: only allows jpeg, png, gif, webp
+
         Returns raw text on success, or error string matching the legacy
         format that consumers already handle (e.g. "Groq Error ...").
         """
         spec = COGNITIVE_MODEL_REGISTRY.get(registry_key)
-        if not spec or not spec.enabled:
-            return f"Model '{registry_key}' not available (disabled or missing key)"
+        if not spec:
+            return f"Error: Model '{registry_key}' not found in registry"
+        if not spec.enabled:
+            return f"Error: Model '{registry_key}' is disabled (missing API key or explicitly disabled)"
 
-        gw_input = CognitiveGatewayInput(
-            user_query=prompt,
-            stabilized_context={
-                "system_role": system_role,
-            },
-            knowledge_bundle=[],
-            session_summary={},
-            image_b64=image_b64,
-            image_mime=image_mime,
-        )
+        # Strict multimodal validation
+        if image_b64:
+            if not spec.supports_vision:
+                return (
+                    f"Error: Model '{spec.name}' does not support vision/image input. "
+                    f"Use a vision-capable model (e.g., qwen3-vl, qwen-vl-2.5)."
+                )
+            if image_mime and image_mime not in self.ALLOWED_IMAGE_MIMES:
+                return (
+                    f"Error: Invalid image MIME type '{image_mime}'. "
+                    f"Allowed types: {', '.join(sorted(self.ALLOWED_IMAGE_MIMES))}"
+                )
+            if not image_mime:
+                return "Error: Image provided without MIME type. Include image_mime (e.g., 'image/png')."
 
-        result = await self.gateway.invoke_model(registry_key, gw_input)
+        try:
+            gw_input = CognitiveGatewayInput(
+                user_query=prompt,
+                stabilized_context={
+                    "system_role": system_role,
+                },
+                knowledge_bundle=[],
+                session_summary={},
+                image_b64=image_b64,
+                image_mime=image_mime,
+            )
 
-        if result.success and result.raw_output and result.raw_output.strip():
-            return result.raw_output
-        else:
-            error_msg = result.error or "Empty response"
-            logger.warning(f"MCOModelBridge: {registry_key} failed — {error_msg}")
-            return f"{spec.name} Error: {error_msg}"
+            result = await self.gateway.invoke_model(registry_key, gw_input)
+
+            if result.success and result.raw_output and result.raw_output.strip():
+                return result.raw_output
+            else:
+                error_msg = result.error or "Empty response"
+                logger.warning(f"MCOModelBridge: {registry_key} failed — {error_msg}")
+                return f"{spec.name} Error: {error_msg}"
+        except Exception as e:
+            logger.error(f"MCOModelBridge: {registry_key} invocation crashed — {e}")
+            return f"Error: Model invocation failed for '{registry_key}': {str(e)}"
 
     # ── Dynamic Model Interface ───────────────────────────────
 
