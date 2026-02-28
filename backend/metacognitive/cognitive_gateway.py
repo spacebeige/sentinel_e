@@ -153,7 +153,8 @@ def _initialize_registry():
         api_key = os.getenv(spec.api_key_env, "")
         if api_key:
             spec.enabled = True
-            logger.info(f"Model '{key}' ({spec.provider}): enabled")
+            spec.active = True
+            logger.info(f"Model '{key}' ({spec.provider}): enabled and active")
         else:
             spec.enabled = False
             spec.active = False
