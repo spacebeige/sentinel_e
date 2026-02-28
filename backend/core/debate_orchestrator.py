@@ -892,17 +892,830 @@
         
 #         return "\n".join(parts)
 
+# """
+# Debate Orchestrator — Sentinel-E Omega v4.5
+# True multi-round adversarial debate engine.
+
+# Architecture:
+# - Round 1: Parallel independent opening arguments
+# - Round N: Cross-model rebuttal with full transcript injection
+# - No merging until final analysis
+# - Every model preserved independently
+# - Dynamic model registry participation
+# - Structured output enforced
+# """
+
+# import asyncio
+# import logging
+# import re
+# from typing import Dict, Any, List, Optional
+# from dataclasses import dataclass, field
+
+# from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+
+# logger = logging.getLogger("Debate-Orchestrator")
+
+
+# # ============================================================
+# # MODEL DEFINITIONS
+# # ============================================================
+
+# _DEBATE_COLORS = ["blue", "indigo", "purple", "emerald", "amber", "cyan", "rose"]
+
+# _LEGACY_ID_MAP = {
+#     "groq-small": "groq",
+#     "llama-3.3": "llama70b",
+#     "qwen-vl-2.5": "qwen",
+#     "qwen3-coder": "qwen3-coder",
+#     "qwen3-vl": "qwen3-vl",
+#     "nemotron-nano": "nemotron",
+#     "kimi-2.5": "kimi",
+# }
+
+# DEBATE_ROLES = {"for", "against", "judge", "neutral"}
+
+
+# # ============================================================
+# # SYSTEM PROMPTS
+# # ============================================================
+
+# ROUND_1_SYSTEM = """You are {model_name}, a rigorous analytical debater in a multi-model adversarial reasoning system.
+# {role_instruction}
+
+# ROUND 1 — OPENING STATEMENT
+
+# You are presenting your INDEPENDENT analysis.
+# No other model has spoken yet.
+
+# Other debaters: {other_models}
+
+# RULES:
+# 1. State POSITION clearly.
+# 2. Present structured ARGUMENT.
+# 3. List ASSUMPTIONS explicitly.
+# 4. Identify RISKS in your reasoning.
+# 5. Commit to a stance.
+
+# OUTPUT FORMAT:
+# POSITION:
+# ARGUMENT:
+# ASSUMPTIONS:
+# RISKS:
+# CONFIDENCE:
+# """
+
+# ROUND_N_SYSTEM = """You are {model_name}, Round {round_num} participant in a multi-model adversarial debate.
+# {role_instruction}
+
+# PREVIOUS TRANSCRIPT:
+# {transcript}
+
+# YOUR LAST POSITION:
+# {own_previous}
+
+# RULES:
+# 1. Directly rebut specific opponents by name.
+# 2. Identify logical weaknesses.
+# 3. Strengthen or revise your position.
+# 4. Explain any shift clearly.
+# 5. Do not repeat verbatim.
+
+# OUTPUT FORMAT:
+# REBUTTALS:
+# POSITION:
+# ARGUMENT:
+# POSITION_SHIFT:
+# WEAKNESSES_FOUND:
+# CONFIDENCE:
+# """
+
+# ANALYSIS_SYSTEM = """You are an impartial debate analyst.
+
+# Debaters:
+# {debater_names}
+
+# FULL TRANSCRIPT:
+# {transcript}
+
+# Provide structured analysis.
+
+# OUTPUT FORMAT:
+# CONFLICT_AXES:
+# DISAGREEMENT_STRENGTH:
+# LOGICAL_STABILITY:
+# POSITION_SHIFTS:
+# CONVERGENCE_LEVEL:
+# CONVERGENCE_DETAIL:
+# STRONGEST_ARGUMENT:
+# WEAKEST_ARGUMENT:
+# CONFIDENCE_RECALIBRATION:
+# SYNTHESIS:
+# """
+
+# JUDGE_SCORING_SYSTEM = """You are the JUDGE.
+
+# TRANSCRIPT:
+# {transcript}
+
+# DEBATERS:
+# {debater_names}
+
+# Score each debater on:
+# logic
+# evidence
+# coherence
+# rebuttal
+
+# OUTPUT FORMAT:
+# STRONGEST_ARGUMENT:
+# WEAKEST_ARGUMENT:
+# SCORING_MATRIX:
+# STABILITY_ASSESSMENT:
+# WINNER:
+# """
+
+
+# ROLE_INSTRUCTIONS = {
+#     "for": "You must argue FOR the proposition.",
+#     "against": "You must argue AGAINST the proposition.",
+#     "judge": "You must not take a side; evaluate others.",
+#     "neutral": "",
+# }
+
+
+# # ============================================================
+# # DATA MODELS
+# # ============================================================
+
+# @dataclass
+# class ModelRoundOutput:
+#     model_id: str
+#     model_label: str
+#     model_name: str
+#     model_color: str
+#     round_num: int
+#     position: str = ""
+#     argument: str = ""
+#     assumptions: List[str] = field(default_factory=list)
+#     risks: List[str] = field(default_factory=list)
+#     rebuttals: str = ""
+#     position_shift: str = "none"
+#     weaknesses_found: str = ""
+#     confidence: float = 0.5
+#     raw_output: str = ""
+
+
+# @dataclass
+# class DebateAnalysis:
+#     conflict_axes: List[str] = field(default_factory=list)
+#     disagreement_strength: float = 0.0
+#     logical_stability: float = 0.5
+#     position_shifts: List[str] = field(default_factory=list)
+#     convergence_level: str = "none"
+#     convergence_detail: str = ""
+#     strongest_argument: str = ""
+#     weakest_argument: str = ""
+#     confidence_recalibration: float = 0.5
+#     synthesis: str = ""
+#     disagreement_trend: List[float] = field(default_factory=list)
+#     judge_scoring: Optional[Dict[str, Any]] = None
+#     semantic_divergence: float = 0.0
+
+
+# @dataclass
+# class DebateResult:
+#     query: str
+#     rounds: List[List[ModelRoundOutput]] = field(default_factory=list)
+#     analysis: Optional[DebateAnalysis] = None
+#     total_rounds: int = 0
+#     models_used: List[str] = field(default_factory=list)
+
+#     def to_dict(self) -> Dict[str, Any]:
+#         return {
+#             "query": self.query,
+#             "rounds": [
+#                 [mo.__dict__ for mo in round_outputs]
+#                 for round_outputs in self.rounds
+#             ],
+#             "analysis": None if not self.analysis else self.analysis.__dict__,
+#             "total_rounds": self.total_rounds,
+#             "models_used": self.models_used,
+#         }
+# # ============================================================
+# # ORCHESTRATOR
+# # ============================================================
+
+# class DebateOrchestrator:
+
+#     _ANALYSIS_MODEL_PRIORITY = [
+#         "llama70b",
+#         "qwen3-coder",
+#         "groq",
+#         "nemotron",
+#         "kimi",
+#     ]
+
+#     def __init__(self, cloud_client):
+#         self.client = cloud_client
+#         self.models = self._build_live_models()
+
+#         # Dynamic call_model binding
+#         self._model_callers = {}
+#         for model in self.models:
+#             mid = model["id"]
+
+#             async def _caller(prompt, system_role="", _mid=mid):
+#                 return await self.client.call_model(
+#                     _mid,
+#                     prompt,
+#                     system_role
+#                 )
+
+#             self._model_callers[mid] = _caller
+
+#         logger.info(
+#             f"DebateOrchestrator initialized with models: "
+#             f"{[m['id'] for m in self.models]}"
+#         )
+
+#     # ============================================================
+#     # MODEL REGISTRY BUILD
+#     # ============================================================
+
+#     def _build_live_models(self):
+#         models = []
+
+#         for i, (key, spec) in enumerate(COGNITIVE_MODEL_REGISTRY.items()):
+#             if not spec.enabled:
+#                 continue
+
+#             legacy_id = _LEGACY_ID_MAP.get(key, key)
+
+#             models.append({
+#                 "id": legacy_id,
+#                 "registry_key": key,
+#                 "label": spec.name,
+#                 "provider": legacy_id,
+#                 "name": spec.name,
+#                 "color": _DEBATE_COLORS[i % len(_DEBATE_COLORS)],
+#             })
+
+#         if len(models) < 2:
+#             raise RuntimeError("Debate requires at least 2 enabled models.")
+
+#         return models
+
+#     # ============================================================
+#     # PUBLIC ENTRY
+#     # ============================================================
+
+#     async def run_debate(
+#         self,
+#         query: str,
+#         rounds: int = 3,
+#         role_map: Dict[str, str] = None,
+#     ) -> DebateResult:
+
+#         rounds = max(1, min(rounds, 10))
+#         role_map = role_map or {}
+
+#         # Validate roles
+#         for model_id, role in role_map.items():
+#             if role not in DEBATE_ROLES:
+#                 logger.warning(
+#                     f"Invalid role '{role}' for {model_id}, defaulting to neutral"
+#                 )
+#                 role_map[model_id] = "neutral"
+
+#         result = DebateResult(
+#             query=query,
+#             total_rounds=rounds,
+#             models_used=[m["name"] for m in self.models],
+#         )
+
+#         transcript_parts = []
+#         disagreement_trend = []
+
+#         for round_num in range(1, rounds + 1):
+
+#             logger.info(f"Starting Round {round_num}")
+
+#             if round_num == 1:
+#                 round_outputs = await self._execute_round_1(
+#                     query,
+#                     role_map
+#                 )
+#             else:
+#                 transcript = "\n\n".join(transcript_parts)
+#                 round_outputs = await self._execute_round_n(
+#                     query,
+#                     round_num,
+#                     transcript,
+#                     result.rounds,
+#                     role_map
+#                 )
+
+#             result.rounds.append(round_outputs)
+
+#             disagreement = self._compute_round_disagreement(
+#                 round_outputs
+#             )
+#             disagreement_trend.append(disagreement)
+
+#             transcript_parts.append(
+#                 self._format_round_transcript(
+#                     round_num,
+#                     round_outputs
+#                 )
+#             )
+
+#             logger.info(
+#                 f"Round {round_num} completed — disagreement={disagreement}"
+#             )
+
+#         # Final analysis
+#         full_transcript = "\n\n".join(transcript_parts)
+
+#         result.analysis = await self._run_analysis(
+#             full_transcript
+#         )
+
+#         result.analysis.disagreement_trend = disagreement_trend
+
+#         # Optional judge scoring
+#         judge_model = None
+#         for mid, role in role_map.items():
+#             if role == "judge":
+#                 judge_model = mid
+#                 break
+
+#         if judge_model:
+#             result.analysis.judge_scoring = await self._run_judge_scoring(
+#                 full_transcript,
+#                 judge_model
+#             )
+
+#         return result
+
+#     # ============================================================
+#     # ROUND 1
+#     # ============================================================
+
+#     async def _execute_round_1(
+#         self,
+#         query: str,
+#         role_map: Dict[str, str]
+#     ) -> List[ModelRoundOutput]:
+
+#         tasks = []
+
+#         for model in self.models:
+
+#             role = role_map.get(model["id"], "neutral")
+#             role_instruction = ROLE_INSTRUCTIONS.get(role, "")
+
+#             other_models = ", ".join(
+#                 m["label"]
+#                 for m in self.models
+#                 if m["id"] != model["id"]
+#             )
+
+#             system_prompt = ROUND_1_SYSTEM.format(
+#                 model_name=model["label"],
+#                 role_instruction=role_instruction,
+#                 other_models=other_models,
+#             )
+
+#             user_prompt = (
+#                 f"DEBATE TOPIC:\n{query}\n\n"
+#                 "Provide your opening statement."
+#             )
+
+#             caller = self._model_callers[model["id"]]
+
+#             tasks.append(
+#                 self._call_and_parse_round1(
+#                     caller,
+#                     user_prompt,
+#                     system_prompt,
+#                     model
+#                 )
+#             )
+
+#         outputs = await asyncio.gather(
+#             *tasks,
+#             return_exceptions=True
+#         )
+
+#         return self._normalize_outputs(outputs, 1)
+
+#     # ============================================================
+#     # ROUND N
+#     # ============================================================
+
+#     async def _execute_round_n(
+#         self,
+#         query: str,
+#         round_num: int,
+#         transcript: str,
+#         previous_rounds: List[List[ModelRoundOutput]],
+#         role_map: Dict[str, str],
+#     ) -> List[ModelRoundOutput]:
+
+#         tasks = []
+
+#         for model in self.models:
+
+#             role = role_map.get(model["id"], "neutral")
+#             role_instruction = ROLE_INSTRUCTIONS.get(role, "")
+
+#             own_previous = self._get_model_previous(
+#                 model["id"],
+#                 previous_rounds
+#             )
+
+#             system_prompt = ROUND_N_SYSTEM.format(
+#                 model_name=model["label"],
+#                 round_num=round_num,
+#                 transcript=transcript,
+#                 own_previous=own_previous,
+#                 role_instruction=role_instruction,
+#             )
+
+#             user_prompt = (
+#                 f"ORIGINAL TOPIC:\n{query}\n\n"
+#                 f"This is Round {round_num}. Respond accordingly."
+#             )
+
+#             caller = self._model_callers[model["id"]]
+
+#             tasks.append(
+#                 self._call_and_parse_round_n(
+#                     caller,
+#                     user_prompt,
+#                     system_prompt,
+#                     model,
+#                     round_num
+#                 )
+#             )
+
+#         outputs = await asyncio.gather(
+#             *tasks,
+#             return_exceptions=True
+#         )
+
+#         return self._normalize_outputs(outputs, round_num)
+
+#     # ============================================================
+#     # NORMALIZATION
+#     # ============================================================
+
+#     def _normalize_outputs(
+#         self,
+#         outputs,
+#         round_num: int
+#     ) -> List[ModelRoundOutput]:
+
+#         results = []
+
+#         for i, output in enumerate(outputs):
+
+#             model = self.models[i]
+
+#             if isinstance(output, Exception):
+
+#                 logger.error(
+#                     f"{model['label']} failed in Round {round_num}: {output}"
+#                 )
+
+#                 results.append(
+#                     ModelRoundOutput(
+#                         model_id=model["id"],
+#                         model_label=model["label"],
+#                         model_name=model["name"],
+#                         model_color=model["color"],
+#                         round_num=round_num,
+#                         position="[Model failure]",
+#                         argument=str(output),
+#                         confidence=0.0,
+#                         raw_output=str(output),
+#                     )
+#                 )
+#             else:
+#                 results.append(output)
+
+#         return results
+    
+#         # ============================================================
+#     # MODEL CALL + PARSE HELPERS
+#     # ============================================================
+
+#     async def _call_and_parse_round1(
+#         self,
+#         caller,
+#         user_prompt: str,
+#         system_prompt: str,
+#         model: dict
+#     ) -> ModelRoundOutput:
+
+#         raw = await caller(user_prompt, system_prompt)
+#         parsed = self._parse_round1_output(raw)
+
+#         return ModelRoundOutput(
+#             model_id=model["id"],
+#             model_label=model["label"],
+#             model_name=model["name"],
+#             model_color=model["color"],
+#             round_num=1,
+#             position=parsed.get("position", ""),
+#             argument=parsed.get("argument", ""),
+#             assumptions=parsed.get("assumptions", []),
+#             risks=parsed.get("risks", []),
+#             confidence=parsed.get("confidence", 0.5),
+#             raw_output=raw,
+#         )
+
+#     async def _call_and_parse_round_n(
+#         self,
+#         caller,
+#         user_prompt: str,
+#         system_prompt: str,
+#         model: dict,
+#         round_num: int
+#     ) -> ModelRoundOutput:
+
+#         raw = await caller(user_prompt, system_prompt)
+#         parsed = self._parse_round_n_output(raw)
+
+#         return ModelRoundOutput(
+#             model_id=model["id"],
+#             model_label=model["label"],
+#             model_name=model["name"],
+#             model_color=model["color"],
+#             round_num=round_num,
+#             position=parsed.get("position", ""),
+#             argument=parsed.get("argument", ""),
+#             rebuttals=parsed.get("rebuttals", ""),
+#             position_shift=parsed.get("position_shift", "none"),
+#             weaknesses_found=parsed.get("weaknesses_found", ""),
+#             confidence=parsed.get("confidence", 0.5),
+#             raw_output=raw,
+#         )
+
+#     # ============================================================
+#     # PARSERS
+#     # ============================================================
+
+#     def _parse_round1_output(self, raw: str) -> Dict[str, Any]:
+
+#         result = {
+#             "position": self._extract_section(raw, "POSITION"),
+#             "argument": self._extract_section(raw, "ARGUMENT"),
+#             "assumptions": self._parse_bullets(
+#                 self._extract_section(raw, "ASSUMPTIONS")
+#             ),
+#             "risks": self._parse_bullets(
+#                 self._extract_section(raw, "RISKS")
+#             ),
+#             "confidence": self._parse_float(
+#                 self._extract_section(raw, "CONFIDENCE"),
+#                 0.5
+#             ),
+#         }
+
+#         if not result["position"] and raw:
+#             result["position"] = raw[:200]
+#             result["argument"] = raw
+
+#         return result
+
+#     def _parse_round_n_output(self, raw: str) -> Dict[str, Any]:
+
+#         result = {
+#             "rebuttals": self._extract_section(raw, "REBUTTALS"),
+#             "position": self._extract_section(raw, "POSITION"),
+#             "argument": self._extract_section(raw, "ARGUMENT"),
+#             "position_shift": self._extract_section(raw, "POSITION_SHIFT") or "none",
+#             "weaknesses_found": self._extract_section(raw, "WEAKNESSES_FOUND"),
+#             "confidence": self._parse_float(
+#                 self._extract_section(raw, "CONFIDENCE"),
+#                 0.5
+#             ),
+#         }
+
+#         if not result["position"] and raw:
+#             result["position"] = raw[:200]
+#             result["argument"] = raw
+
+#         return result
+
+#     def _parse_analysis(self, raw: str) -> DebateAnalysis:
+
+#         analysis = DebateAnalysis()
+
+#         analysis.conflict_axes = self._parse_bullets(
+#             self._extract_section(raw, "CONFLICT_AXES")
+#         )
+
+#         analysis.disagreement_strength = self._parse_float(
+#             self._extract_section(raw, "DISAGREEMENT_STRENGTH"),
+#             0.5
+#         )
+
+#         analysis.logical_stability = self._parse_float(
+#             self._extract_section(raw, "LOGICAL_STABILITY"),
+#             0.5
+#         )
+
+#         analysis.position_shifts = self._parse_bullets(
+#             self._extract_section(raw, "POSITION_SHIFTS")
+#         )
+
+#         analysis.convergence_level = (
+#             self._extract_section(raw, "CONVERGENCE_LEVEL") or "none"
+#         ).lower()
+
+#         analysis.convergence_detail = self._extract_section(
+#             raw,
+#             "CONVERGENCE_DETAIL"
+#         )
+
+#         analysis.strongest_argument = self._extract_section(
+#             raw,
+#             "STRONGEST_ARGUMENT"
+#         )
+
+#         analysis.weakest_argument = self._extract_section(
+#             raw,
+#             "WEAKEST_ARGUMENT"
+#         )
+
+#         analysis.confidence_recalibration = self._parse_float(
+#             self._extract_section(raw, "CONFIDENCE_RECALIBRATION"),
+#             0.5
+#         )
+
+#         analysis.synthesis = (
+#             self._extract_section(raw, "SYNTHESIS")
+#             or (raw[-500:] if raw else "")
+#         )
+
+#         return analysis
+
+#     # ============================================================
+#     # JUDGE SCORING
+#     # ============================================================
+
+#     async def _run_judge_scoring(
+#         self,
+#         transcript: str,
+#         judge_model: str
+#     ) -> Dict[str, Any]:
+
+#         debater_names = ", ".join(
+#             m["label"] for m in self.models
+#         )
+
+#         system_prompt = JUDGE_SCORING_SYSTEM.format(
+#             transcript=transcript,
+#             debater_names=debater_names,
+#         )
+
+#         caller = self._model_callers.get(judge_model)
+
+#         if not caller:
+#             return {"error": "Judge model not available"}
+
+#         raw = await caller(
+#             "Score this debate.",
+#             system_prompt
+#         )
+
+#         return {
+#             "strongest_argument": self._extract_section(raw, "STRONGEST_ARGUMENT"),
+#             "weakest_argument": self._extract_section(raw, "WEAKEST_ARGUMENT"),
+#             "winner": self._extract_section(raw, "WINNER"),
+#             "raw_scoring": self._extract_section(raw, "SCORING_MATRIX"),
+#         }
+
+#     # ============================================================
+#     # DISAGREEMENT METRIC
+#     # ============================================================
+
+#     def _compute_round_disagreement(
+#         self,
+#         round_outputs: List[ModelRoundOutput]
+#     ) -> float:
+
+#         if len(round_outputs) < 2:
+#             return 0.0
+
+#         confidences = [
+#             mo.confidence for mo in round_outputs
+#         ]
+
+#         mean_conf = sum(confidences) / len(confidences)
+
+#         variance = sum(
+#             (c - mean_conf) ** 2 for c in confidences
+#         ) / len(confidences)
+
+#         return round(min(1.0, variance ** 0.5), 4)
+
+#     # ============================================================
+#     # TEXT UTILITIES
+#     # ============================================================
+
+#     def _extract_section(self, text: str, label: str) -> str:
+
+#         if not text:
+#             return ""
+
+#         pattern = rf"(?:^|\n)\s*\**{re.escape(label)}\**\s*:\s*(.*?)(?=\n\s*\**[A-Z_]+\**\s*:|$)"
+
+#         match = re.search(
+#             pattern,
+#             text,
+#             re.DOTALL | re.IGNORECASE
+#         )
+
+#         return match.group(1).strip() if match else ""
+
+#     def _parse_bullets(self, text: str) -> List[str]:
+
+#         if not text:
+#             return []
+
+#         bullets = []
+
+#         for line in text.split("\n"):
+#             line = line.strip()
+#             if line.startswith(("-", "•", "*", "–")):
+#                 item = line.lstrip("-•*– ").strip()
+#                 if item:
+#                     bullets.append(item)
+
+#         return bullets
+
+#     def _parse_float(self, text: str, default: float) -> float:
+
+#         if not text:
+#             return default
+
+#         match = re.search(r"(\d+\.?\d*)", text)
+
+#         if match:
+#             try:
+#                 value = float(match.group(1))
+#                 return max(0.0, min(1.0, value))
+#             except:
+#                 return default
+
+#         return default
+
+#     def _get_model_previous(
+#         self,
+#         model_id: str,
+#         previous_rounds: List[List[ModelRoundOutput]]
+#     ) -> str:
+
+#         if not previous_rounds:
+#             return "[No previous output]"
+
+#         last_round = previous_rounds[-1]
+
+#         for mo in last_round:
+#             if mo.model_id == model_id:
+#                 return f"Position: {mo.position}\nArgument: {mo.argument}"
+
+#         return "[No previous output]"
+
+#     def _format_round_transcript(
+#         self,
+#         round_num: int,
+#         outputs: List[ModelRoundOutput]
+#     ) -> str:
+
+#         parts = [f"=== ROUND {round_num} ==="]
+
+#         for mo in outputs:
+#             parts.append(f"\n--- {mo.model_label} ---")
+#             parts.append(f"Position: {mo.position}")
+#             parts.append(f"Argument: {mo.argument}")
+#             parts.append(f"Confidence: {mo.confidence:.2f}")
+
+#         return "\n".join(parts)
 """
 Debate Orchestrator — Sentinel-E Omega v4.5
+
 True multi-round adversarial debate engine.
+Each model runs independently per round with full transcript injection.
 
 Architecture:
-- Round 1: Parallel independent opening arguments
-- Round N: Cross-model rebuttal with full transcript injection
-- No merging until final analysis
-- Every model preserved independently
-- Dynamic model registry participation
-- Structured output enforced
+- Round 1: All models receive user query simultaneously (parallel via asyncio.gather)
+- Round 2+: Each model receives its own previous answer + all opponents' answers + full transcript
+- No merging. No synthesis until final analysis.
+- Each model's output is preserved independently per round.
 """
 
 import asyncio
@@ -914,7 +1727,6 @@ from dataclasses import dataclass, field
 from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
 
 logger = logging.getLogger("Debate-Orchestrator")
-
 
 # ============================================================
 # MODEL DEFINITIONS
@@ -934,27 +1746,16 @@ _LEGACY_ID_MAP = {
 
 DEBATE_ROLES = {"for", "against", "judge", "neutral"}
 
-
 # ============================================================
 # SYSTEM PROMPTS
 # ============================================================
 
-ROUND_1_SYSTEM = """You are {model_name}, a rigorous analytical debater in a multi-model adversarial reasoning system.
+ROUND_1_SYSTEM = """You are {model_name}, a rigorous analytical debater.
 {role_instruction}
 
 ROUND 1 — OPENING STATEMENT
 
-You are presenting your INDEPENDENT analysis.
-No other model has spoken yet.
-
 Other debaters: {other_models}
-
-RULES:
-1. State POSITION clearly.
-2. Present structured ARGUMENT.
-3. List ASSUMPTIONS explicitly.
-4. Identify RISKS in your reasoning.
-5. Commit to a stance.
 
 OUTPUT FORMAT:
 POSITION:
@@ -964,21 +1765,14 @@ RISKS:
 CONFIDENCE:
 """
 
-ROUND_N_SYSTEM = """You are {model_name}, Round {round_num} participant in a multi-model adversarial debate.
+ROUND_N_SYSTEM = """You are {model_name}, Round {round_num} participant.
 {role_instruction}
 
 PREVIOUS TRANSCRIPT:
 {transcript}
 
-YOUR LAST POSITION:
+YOUR PREVIOUS POSITION:
 {own_previous}
-
-RULES:
-1. Directly rebut specific opponents by name.
-2. Identify logical weaknesses.
-3. Strengthen or revise your position.
-4. Explain any shift clearly.
-5. Do not repeat verbatim.
 
 OUTPUT FORMAT:
 REBUTTALS:
@@ -991,13 +1785,10 @@ CONFIDENCE:
 
 ANALYSIS_SYSTEM = """You are an impartial debate analyst.
 
-Debaters:
-{debater_names}
+Debaters: {debater_names}
 
 FULL TRANSCRIPT:
 {transcript}
-
-Provide structured analysis.
 
 OUTPUT FORMAT:
 CONFLICT_AXES:
@@ -1012,39 +1803,15 @@ CONFIDENCE_RECALIBRATION:
 SYNTHESIS:
 """
 
-JUDGE_SCORING_SYSTEM = """You are the JUDGE.
-
-TRANSCRIPT:
-{transcript}
-
-DEBATERS:
-{debater_names}
-
-Score each debater on:
-logic
-evidence
-coherence
-rebuttal
-
-OUTPUT FORMAT:
-STRONGEST_ARGUMENT:
-WEAKEST_ARGUMENT:
-SCORING_MATRIX:
-STABILITY_ASSESSMENT:
-WINNER:
-"""
-
-
 ROLE_INSTRUCTIONS = {
-    "for": "You must argue FOR the proposition.",
-    "against": "You must argue AGAINST the proposition.",
-    "judge": "You must not take a side; evaluate others.",
+    "for": "Argue FOR the proposition.",
+    "against": "Argue AGAINST the proposition.",
+    "judge": "Do not take a side; evaluate.",
     "neutral": "",
 }
 
-
 # ============================================================
-# DATA MODELS
+# DATA STRUCTURES
 # ============================================================
 
 @dataclass
@@ -1064,7 +1831,6 @@ class ModelRoundOutput:
     confidence: float = 0.5
     raw_output: str = ""
 
-
 @dataclass
 class DebateAnalysis:
     conflict_axes: List[str] = field(default_factory=list)
@@ -1079,8 +1845,6 @@ class DebateAnalysis:
     synthesis: str = ""
     disagreement_trend: List[float] = field(default_factory=list)
     judge_scoring: Optional[Dict[str, Any]] = None
-    semantic_divergence: float = 0.0
-
 
 @dataclass
 class DebateResult:
@@ -1090,67 +1854,33 @@ class DebateResult:
     total_rounds: int = 0
     models_used: List[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "query": self.query,
-            "rounds": [
-                [mo.__dict__ for mo in round_outputs]
-                for round_outputs in self.rounds
-            ],
-            "analysis": None if not self.analysis else self.analysis.__dict__,
-            "total_rounds": self.total_rounds,
-            "models_used": self.models_used,
-        }
 # ============================================================
 # ORCHESTRATOR
 # ============================================================
 
 class DebateOrchestrator:
 
-    _ANALYSIS_MODEL_PRIORITY = [
-        "llama70b",
-        "qwen3-coder",
-        "groq",
-        "nemotron",
-        "kimi",
-    ]
+    _ANALYSIS_MODEL_PRIORITY = ["llama70b", "qwen3-coder", "groq", "nemotron", "kimi"]
 
     def __init__(self, cloud_client):
         self.client = cloud_client
         self.models = self._build_live_models()
 
-        # Dynamic call_model binding
         self._model_callers = {}
         for model in self.models:
             mid = model["id"]
 
             async def _caller(prompt, system_role="", _mid=mid):
-                return await self.client.call_model(
-                    _mid,
-                    prompt,
-                    system_role
-                )
+                return await self.client.call_model(_mid, prompt, system_role)
 
             self._model_callers[mid] = _caller
 
-        logger.info(
-            f"DebateOrchestrator initialized with models: "
-            f"{[m['id'] for m in self.models]}"
-        )
-
-    # ============================================================
-    # MODEL REGISTRY BUILD
-    # ============================================================
-
     def _build_live_models(self):
         models = []
-
         for i, (key, spec) in enumerate(COGNITIVE_MODEL_REGISTRY.items()):
             if not spec.enabled:
                 continue
-
             legacy_id = _LEGACY_ID_MAP.get(key, key)
-
             models.append({
                 "id": legacy_id,
                 "registry_key": key,
@@ -1159,33 +1889,11 @@ class DebateOrchestrator:
                 "name": spec.name,
                 "color": _DEBATE_COLORS[i % len(_DEBATE_COLORS)],
             })
-
         if len(models) < 2:
             raise RuntimeError("Debate requires at least 2 enabled models.")
-
         return models
 
-    # ============================================================
-    # PUBLIC ENTRY
-    # ============================================================
-
-    async def run_debate(
-        self,
-        query: str,
-        rounds: int = 3,
-        role_map: Dict[str, str] = None,
-    ) -> DebateResult:
-
-        rounds = max(1, min(rounds, 10))
-        role_map = role_map or {}
-
-        # Validate roles
-        for model_id, role in role_map.items():
-            if role not in DEBATE_ROLES:
-                logger.warning(
-                    f"Invalid role '{role}' for {model_id}, defaulting to neutral"
-                )
-                role_map[model_id] = "neutral"
+    async def run_debate(self, query: str, rounds: int = 3) -> DebateResult:
 
         result = DebateResult(
             query=query,
@@ -1194,214 +1902,124 @@ class DebateOrchestrator:
         )
 
         transcript_parts = []
-        disagreement_trend = []
 
         for round_num in range(1, rounds + 1):
 
-            logger.info(f"Starting Round {round_num}")
-
             if round_num == 1:
-                round_outputs = await self._execute_round_1(
-                    query,
-                    role_map
-                )
+                round_outputs = await self._execute_round_1(query)
             else:
                 transcript = "\n\n".join(transcript_parts)
                 round_outputs = await self._execute_round_n(
-                    query,
-                    round_num,
-                    transcript,
-                    result.rounds,
-                    role_map
+                    query, round_num, transcript, result.rounds
                 )
 
             result.rounds.append(round_outputs)
 
-            disagreement = self._compute_round_disagreement(
-                round_outputs
-            )
-            disagreement_trend.append(disagreement)
-
             transcript_parts.append(
-                self._format_round_transcript(
-                    round_num,
-                    round_outputs
-                )
+                self._format_round_transcript(round_num, round_outputs)
             )
 
-            logger.info(
-                f"Round {round_num} completed — disagreement={disagreement}"
-            )
-
-        # Final analysis
         full_transcript = "\n\n".join(transcript_parts)
 
-        result.analysis = await self._run_analysis(
-            full_transcript
-        )
-
-        result.analysis.disagreement_trend = disagreement_trend
-
-        # Optional judge scoring
-        judge_model = None
-        for mid, role in role_map.items():
-            if role == "judge":
-                judge_model = mid
-                break
-
-        if judge_model:
-            result.analysis.judge_scoring = await self._run_judge_scoring(
-                full_transcript,
-                judge_model
-            )
+        result.analysis = await self._run_analysis(full_transcript)
 
         return result
 
-    # ============================================================
-    # ROUND 1
-    # ============================================================
+    async def _run_analysis(self, transcript: str) -> DebateAnalysis:
 
-    async def _execute_round_1(
-        self,
-        query: str,
-        role_map: Dict[str, str]
-    ) -> List[ModelRoundOutput]:
+        debater_names = ", ".join(m["label"] for m in self.models)
 
-        tasks = []
-
-        for model in self.models:
-
-            role = role_map.get(model["id"], "neutral")
-            role_instruction = ROLE_INSTRUCTIONS.get(role, "")
-
-            other_models = ", ".join(
-                m["label"]
-                for m in self.models
-                if m["id"] != model["id"]
-            )
-
-            system_prompt = ROUND_1_SYSTEM.format(
-                model_name=model["label"],
-                role_instruction=role_instruction,
-                other_models=other_models,
-            )
-
-            user_prompt = (
-                f"DEBATE TOPIC:\n{query}\n\n"
-                "Provide your opening statement."
-            )
-
-            caller = self._model_callers[model["id"]]
-
-            tasks.append(
-                self._call_and_parse_round1(
-                    caller,
-                    user_prompt,
-                    system_prompt,
-                    model
-                )
-            )
-
-        outputs = await asyncio.gather(
-            *tasks,
-            return_exceptions=True
+        system_prompt = ANALYSIS_SYSTEM.format(
+            transcript=transcript,
+            debater_names=debater_names
         )
 
-        return self._normalize_outputs(outputs, 1)
+        user_prompt = "Provide structured debate analysis."
 
-    # ============================================================
-    # ROUND N
-    # ============================================================
+        for model_id in self._model_callers:
+            raw = await self._model_callers[model_id](user_prompt, system_prompt)
+            if raw and not raw.startswith("Error"):
+                return self._parse_analysis(raw)
 
-    async def _execute_round_n(
-        self,
-        query: str,
-        round_num: int,
-        transcript: str,
-        previous_rounds: List[List[ModelRoundOutput]],
-        role_map: Dict[str, str],
-    ) -> List[ModelRoundOutput]:
-
-        tasks = []
-
-        for model in self.models:
-
-            role = role_map.get(model["id"], "neutral")
-            role_instruction = ROLE_INSTRUCTIONS.get(role, "")
-
-            own_previous = self._get_model_previous(
-                model["id"],
-                previous_rounds
-            )
-
-            system_prompt = ROUND_N_SYSTEM.format(
-                model_name=model["label"],
-                round_num=round_num,
-                transcript=transcript,
-                own_previous=own_previous,
-                role_instruction=role_instruction,
-            )
-
-            user_prompt = (
-                f"ORIGINAL TOPIC:\n{query}\n\n"
-                f"This is Round {round_num}. Respond accordingly."
-            )
-
-            caller = self._model_callers[model["id"]]
-
-            tasks.append(
-                self._call_and_parse_round_n(
-                    caller,
-                    user_prompt,
-                    system_prompt,
-                    model,
-                    round_num
-                )
-            )
-
-        outputs = await asyncio.gather(
-            *tasks,
-            return_exceptions=True
+        return DebateAnalysis(
+            synthesis="Analysis failed.",
+            confidence_recalibration=0.5
         )
 
-        return self._normalize_outputs(outputs, round_num)
+    def _parse_analysis(self, raw: str) -> DebateAnalysis:
 
-    # ============================================================
-    # NORMALIZATION
-    # ============================================================
+        analysis = DebateAnalysis()
 
-    def _normalize_outputs(
-        self,
-        outputs,
-        round_num: int
-    ) -> List[ModelRoundOutput]:
+        analysis.conflict_axes = self._parse_bullets(
+            self._extract_section(raw, "CONFLICT_AXES")
+        )
 
-        results = []
+        analysis.disagreement_strength = self._parse_float(
+            self._extract_section(raw, "DISAGREEMENT_STRENGTH"), 0.5
+        )
 
-        for i, output in enumerate(outputs):
+        analysis.logical_stability = self._parse_float(
+            self._extract_section(raw, "LOGICAL_STABILITY"), 0.5
+        )
 
-            model = self.models[i]
+        analysis.position_shifts = self._parse_bullets(
+            self._extract_section(raw, "POSITION_SHIFTS")
+        )
 
-            if isinstance(output, Exception):
+        analysis.convergence_level = (
+            self._extract_section(raw, "CONVERGENCE_LEVEL") or "none"
+        )
 
-                logger.error(
-                    f"{model['label']} failed in Round {round_num}: {output}"
-                )
+        analysis.convergence_detail = self._extract_section(
+            raw, "CONVERGENCE_DETAIL"
+        )
 
-                results.append(
-                    ModelRoundOutput(
-                        model_id=model["id"],
-                        model_label=model["label"],
-                        model_name=model["name"],
-                        model_color=model["color"],
-                        round_num=round_num,
-                        position="[Model failure]",
-                        argument=str(output),
-                        confidence=0.0,
-                        raw_output=str(output),
-                    )
-                )
-            else:
-                results.append(output)
+        analysis.strongest_argument = self._extract_section(
+            raw, "STRONGEST_ARGUMENT"
+        )
 
-        return results
+        analysis.weakest_argument = self._extract_section(
+            raw, "WEAKEST_ARGUMENT"
+        )
+
+        analysis.confidence_recalibration = self._parse_float(
+            self._extract_section(raw, "CONFIDENCE_RECALIBRATION"), 0.5
+        )
+
+        analysis.synthesis = self._extract_section(raw, "SYNTHESIS")
+
+        return analysis
+
+    def _extract_section(self, text: str, label: str) -> str:
+        if not text:
+            return ""
+        pattern = rf"{label}\s*:\s*(.*?)(?=\n[A-Z_]+\s*:|$)"
+        match = re.search(pattern, text, re.DOTALL)
+        return match.group(1).strip() if match else ""
+
+    def _parse_bullets(self, text: str) -> List[str]:
+        if not text:
+            return []
+        bullets = []
+        for line in text.split("\n"):
+            line = line.strip()
+            if line.startswith(("-", "•", "*", "–")):
+                bullets.append(line.lstrip("-•*– ").strip())
+        return bullets
+
+    def _parse_float(self, text: str, default: float) -> float:
+        if not text:
+            return default
+        match = re.search(r"(\d+\.?\d*)", text)
+        if match:
+            return max(0.0, min(1.0, float(match.group(1))))
+        return default
+
+    def _format_round_transcript(self, round_num: int, outputs: List[ModelRoundOutput]) -> str:
+        parts = [f"=== ROUND {round_num} ==="]
+        for mo in outputs:
+            parts.append(f"\n--- {mo.model_label} ---")
+            parts.append(f"Position: {mo.position}")
+            parts.append(f"Argument: {mo.argument}")
+            parts.append(f"Confidence: {mo.confidence:.2f}")
+        return "\n".join(parts)
