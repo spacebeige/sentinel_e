@@ -31,8 +31,9 @@ from core.ensemble_schemas import (
 logger = logging.getLogger("sentinel.provider_validator")
 
 # Vision-capable model IDs
+# NOTE: kimi-2.5 (moonshotai/kimi-k2) is text-only — NOT vision-capable
 VISION_CAPABLE_MODELS = {
-    "qwen-vl-2.5", "qwen3-vl", "kimi-2.5",
+    "qwen3-vl",
 }
 
 # Provider → required env var mapping

@@ -83,6 +83,7 @@ class MCOModelBridge:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         image_b64: Optional[str] = None,
+        image_mime: Optional[str] = None,
     ) -> str:
         """
         Core invocation: route through CognitiveModelGateway.invoke_model().
@@ -102,6 +103,7 @@ class MCOModelBridge:
             knowledge_bundle=[],
             session_summary={},
             image_b64=image_b64,
+            image_mime=image_mime,
         )
 
         result = await self.gateway.invoke_model(registry_key, gw_input)
@@ -123,6 +125,7 @@ class MCOModelBridge:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         image_b64: Optional[str] = None,
+        image_mime: Optional[str] = None,
     ) -> str:
         """
         Invoke ANY registered model by its legacy ID or registry key.
@@ -132,7 +135,7 @@ class MCOModelBridge:
         registry_key = self._resolve_registry_key(model_id)
         if not registry_key:
             return f"Model '{model_id}' not found in registry"
-        return await self._invoke(registry_key, prompt, system_role, temperature, max_tokens, image_b64)
+        return await self._invoke(registry_key, prompt, system_role, temperature, max_tokens, image_b64, image_mime)
 
     def get_enabled_model_ids(self) -> List[str]:
         """
@@ -164,7 +167,7 @@ class MCOModelBridge:
                     "name": spec.name,
                     "provider": spec.provider,
                     "role": role_val,
-                    "supports_vision": role_val == "vision",
+                    "supports_vision": spec.supports_vision,
                     "supports_debate": True,        # all enabled models participate in debate
                 })
         return models

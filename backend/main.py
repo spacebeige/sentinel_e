@@ -26,6 +26,7 @@ import sys
 import os
 import json
 import logging
+import base64
 import uuid as uuid_lib
 from contextlib import asynccontextmanager
 from typing import Optional, Dict, Any
@@ -367,6 +368,23 @@ async def health_check():
 
 
 # ============================================================
+# IMAGE UPLOAD HELPER
+# ============================================================
+
+async def _read_upload_as_b64(file) -> tuple:
+    """Read UploadFile to base64 with size validation for 512MB Render safety."""
+    from sentinel.schemas import MAX_IMAGE_BYTES
+    contents = await file.read()
+    if len(contents) > MAX_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Image exceeds {MAX_IMAGE_BYTES // (1024*1024)}MB limit.",
+        )
+    mime = file.content_type or "image/png"
+    return base64.b64encode(contents).decode("utf-8"), mime
+
+
+# ============================================================
 # MAIN EXECUTION ENDPOINT
 # ============================================================
 
@@ -568,6 +586,8 @@ async def run_sentinel(
                 chat_id=str(chat.id),
                 rounds=max(request.rounds, 3),
                 history=history,
+                image_b64=request.image_b64,
+                image_mime=request.image_mime,
             )
         except EnsembleFailure as ef:
             logger.error(f"Ensemble hard failure: {ef}")
@@ -948,6 +968,10 @@ async def run_standard_form(
 ):
     """Standard mode via FormData."""
     request = SentinelRequest(text=text, mode="standard", chat_id=chat_id)
+    if file:
+        img_b64, img_mime = await _read_upload_as_b64(file)
+        request.image_b64 = img_b64
+        request.image_mime = img_mime
     return await run_sentinel(request, db, user, frontend_context=context)
 
 
@@ -978,6 +1002,10 @@ async def run_experimental_form(
         text=text, mode=mode, sub_mode=sub_mode,
         rounds=min(rounds, settings.MAX_ROUNDS), chat_id=chat_id,
     )
+    if file:
+        img_b64, img_mime = await _read_upload_as_b64(file)
+        request.image_b64 = img_b64
+        request.image_mime = img_mime
     return await run_sentinel(request, db, user, frontend_context=context)
 
 
@@ -990,6 +1018,10 @@ async def omega_standard_form(
     user: Dict = Depends(get_current_user),
 ):
     request = SentinelRequest(text=text, mode="standard", chat_id=chat_id)
+    if file:
+        img_b64, img_mime = await _read_upload_as_b64(file)
+        request.image_b64 = img_b64
+        request.image_mime = img_mime
     return await run_sentinel(request, db, user)
 
 
@@ -1006,6 +1038,10 @@ async def omega_experimental_form(
     valid_sub_modes = {"debate", "glass", "evidence"}
     sub_mode = sub_mode if sub_mode in valid_sub_modes else "debate"
     request = SentinelRequest(text=text, mode="experimental", sub_mode=sub_mode, rounds=min(rounds, settings.MAX_ROUNDS), chat_id=chat_id)
+    if file:
+        img_b64, img_mime = await _read_upload_as_b64(file)
+        request.image_b64 = img_b64
+        request.image_mime = img_mime
     return await run_sentinel(request, db, user)
 
 
@@ -1042,6 +1078,10 @@ async def run_ensemble_form(
         rounds=max(min(rounds, settings.MAX_ROUNDS), 3),
         chat_id=chat_id,
     )
+    if file:
+        img_b64, img_mime = await _read_upload_as_b64(file)
+        request.image_b64 = img_b64
+        request.image_mime = img_mime
     return await run_sentinel(request, db, user, frontend_context=context)
 
 

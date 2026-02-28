@@ -123,6 +123,8 @@ class CognitiveOrchestrator:
         chat_name: str = "",
         rounds: int = MIN_DEBATE_ROUNDS,
         history: Optional[List[Dict[str, str]]] = None,
+        image_b64: Optional[str] = None,
+        image_mime: Optional[str] = None,
     ) -> EnsembleResponse:
         """
         THE SINGLE ENTRY POINT.
@@ -155,7 +157,7 @@ class CognitiveOrchestrator:
             self._validate_minimum_models(models)
 
             structured_outputs = await self._phase1_parallel_execution(
-                query, models
+                query, models, image_b64=image_b64, image_mime=image_mime
             )
 
             # Validate sufficient successful outputs
@@ -329,13 +331,17 @@ class CognitiveOrchestrator:
     # ── Phase 1: Parallel Execution ──────────────────────────
 
     async def _phase1_parallel_execution(
-        self, query: str, models: List[Dict[str, str]]
+        self, query: str, models: List[Dict[str, str]],
+        image_b64: Optional[str] = None, image_mime: Optional[str] = None,
     ) -> List[StructuredModelOutput]:
         """Execute all models in parallel with structured output extraction."""
         system_prompt = STRUCTURED_EXTRACTION_SYSTEM.format(query=query)
 
         tasks = [
-            self._call_and_extract(model, query, system_prompt)
+            self._call_and_extract(
+                model, query, system_prompt,
+                image_b64=image_b64, image_mime=image_mime,
+            )
             for model in models
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -367,11 +373,16 @@ class CognitiveOrchestrator:
         model: Dict[str, str],
         query: str,
         system_prompt: str,
+        image_b64: Optional[str] = None,
+        image_mime: Optional[str] = None,
     ) -> StructuredModelOutput:
         """Call a single model and extract structured output."""
         start = time.monotonic()
         try:
-            raw = await self._call_model(model["id"], query, system_prompt)
+            raw = await self._call_model(
+                model["id"], query, system_prompt,
+                image_b64=image_b64, image_mime=image_mime,
+            )
             latency = (time.monotonic() - start) * 1000
 
             if not raw or len(raw.strip()) < 10:
@@ -584,10 +595,14 @@ class CognitiveOrchestrator:
     # ── Model Bridge Wrappers ────────────────────────────────
 
     async def _call_model(
-        self, model_id: str, prompt: str, system_role: str
+        self, model_id: str, prompt: str, system_role: str,
+        image_b64: Optional[str] = None, image_mime: Optional[str] = None,
     ) -> str:
         """Call a model through the bridge."""
-        return await self._bridge.call_model(model_id, prompt, system_role)
+        return await self._bridge.call_model(
+            model_id, prompt, system_role,
+            image_b64=image_b64, image_mime=image_mime,
+        )
 
     def _get_models(self) -> List[Dict[str, str]]:
         """Get enabled models from bridge."""

@@ -54,6 +54,7 @@ class CognitiveModelSpec:
     api_key_env: str = ""   # Environment variable name for this model's key
     active: bool = True     # Structural flag (can be toggled manually)
     enabled: bool = True    # Runtime flag (auto-set based on key availability)
+    supports_vision: bool = False  # Whether this model accepts image inputs
 
 
 # ── Model Registry ───────────────────────────────────────────
@@ -81,6 +82,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="QWEN3_VL_API_KEY",
+        supports_vision=True,
     ),
     "nemotron-nano": CognitiveModelSpec(
         name="Nemotron 3 Nano 30B A3B",
@@ -407,7 +409,8 @@ class CognitiveModelGateway:
         messages.append({"role": "system", "content": "\n".join(system_parts)})
 
         # User message — multimodal if image provided and model supports vision
-        if inp.image_b64 and spec.role == ModelRole.VISION:
+        if inp.image_b64 and spec.supports_vision:
+            mime = inp.image_mime or "image/png"
             messages.append({
                 "role": "user",
                 "content": [
@@ -415,10 +418,20 @@ class CognitiveModelGateway:
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": f"data:image/png;base64,{inp.image_b64}"
+                            "url": f"data:{mime};base64,{inp.image_b64}"
                         },
                     },
                 ],
+            })
+        elif inp.image_b64 and not spec.supports_vision:
+            # Image attached but model can't process it — note in prompt
+            messages.append({
+                "role": "user",
+                "content": (
+                    f"{inp.user_query}\n\n"
+                    "[NOTE: An image was attached but this model does not support vision input. "
+                    "Base your reasoning on the text only.]"
+                ),
             })
         else:
             messages.append({"role": "user", "content": inp.user_query})

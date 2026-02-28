@@ -3,6 +3,10 @@ from typing import List, Optional, Dict, Any, Union
 from uuid import UUID
 from datetime import datetime
 
+# Maximum image size in bytes (10MB) — safe for 512MB Render instances
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+
+
 class SentinelRequest(BaseModel):
     text: str = Field(..., max_length=50000, description="User query text")
     mode: str = Field(default="conversational", description="conversational | standard | research | experimental | kill")
@@ -12,6 +16,8 @@ class SentinelRequest(BaseModel):
     chat_id: Optional[UUID] = None
     role_map: Optional[Dict[str, str]] = None
     kill: bool = False
+    image_b64: Optional[str] = Field(default=None, description="Base64-encoded image for vision models")
+    image_mime: Optional[str] = Field(default=None, description="MIME type of attached image (e.g. image/png)")
 
     @field_validator("mode")
     @classmethod

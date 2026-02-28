@@ -99,6 +99,7 @@ class CognitiveGatewayInput(BaseModel):
     user_query: str
     mode: QueryMode = QueryMode.RAW
     image_b64: Optional[str] = Field(None, description="Base64-encoded image for vision models")
+    image_mime: Optional[str] = Field(None, description="MIME type of the attached image")
 
 
 class CognitiveGatewayOutput(BaseModel):
