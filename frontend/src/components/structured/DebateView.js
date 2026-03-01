@@ -155,16 +155,187 @@ export default function DebateView({ data, boundary, confidence }) {
             {failedModels.map((m, i) => (
               <div key={i} className="flex items-center gap-2">
                 <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#991b1b' }}>
-                  {m.model_label || m.model_id || `Model ${i + 1}`}
+                  {m.model_label || m.model_name || m.model_id || `Model ${i + 1}`}
                 </span>
                 <span style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73' }}>
-                  — Round {(m._roundIdx || 0) + 1} · No response received
+                  — Round {(m._roundIdx || 0) + 1} · {m.argument && m.argument !== '[MODEL FAILED]' ? m.argument.slice(0, 80) : 'No response received'}
                 </span>
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════
+          STRUCTURED ROUND DISPLAY (NEW LAYER)
+          Shows each round expanded with per-model blocks.
+          This layer appears ABOVE the existing Sentinel Pro UI.
+          The old UI (Left/Right panels, Charts, Accordion) remains below.
+         ══════════════════════════════════════════════════════════ */}
+      <details open className="group">
+        <summary className="cursor-pointer flex items-center gap-2 px-1 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+          <span className="transform group-open:rotate-90 transition-transform text-xs text-[#aeaeb2]">▶</span>
+          <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Structured Round View
+          </span>
+        </summary>
+
+        <div className="mt-2 space-y-4">
+          {rounds.map((round, roundIdx) => {
+            const models = Array.isArray(round) ? round : [round];
+            return (
+              <div key={roundIdx}>
+                {/* Round Header */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span style={{ fontFamily: FONT, fontSize: '14px' }}>🧠</span>
+                  <span className="dark:text-[#f1f5f9]" style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 700, color: '#1d1d1f' }}>
+                    Round {roundIdx + 1}
+                  </span>
+                  <div className="flex-1 h-px bg-black/10 dark:bg-white/10" />
+                </div>
+
+                {/* Per-model blocks */}
+                <div className="space-y-3 pl-2 border-l-2 border-[#e5e7eb] dark:border-[#3f3f46] ml-2">
+                  {models.map((model, mi) => {
+                    const clr = MODEL_COLORS[mi % MODEL_COLORS.length];
+                    const modelName = model.model_label || model.model_name || model.model_id || `Model ${mi + 1}`;
+                    const conf = model.confidence != null ? Math.round(model.confidence * 100) : null;
+
+                    return (
+                      <div key={mi} className="pl-3 pb-3">
+                        {/* Model name with color dot */}
+                        <div className="flex items-center gap-2 mb-1">
+                          <span style={{ fontSize: '13px' }}>🔵</span>
+                          <span style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 700, color: clr }}>
+                            {modelName}
+                          </span>
+                          {model.role && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-[#f5f5f7] dark:bg-white/10" style={{
+                              fontFamily: FONT, fontSize: '9px', fontWeight: 600, color: '#6e6e73',
+                            }}>{model.role}</span>
+                          )}
+                        </div>
+
+                        {/* Position */}
+                        {model.position && model.position !== '[MODEL FAILED]' && (
+                          <div className="mb-1">
+                            <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#6e6e73', textTransform: 'uppercase' }}>
+                              Position:
+                            </span>
+                            <p className="dark:text-[#f1f5f9]" style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 600, color: '#1d1d1f', marginTop: '2px' }}>
+                              {model.position}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Argument */}
+                        {model.argument && (
+                          <p className="dark:text-[#e2e8f0]" style={{ fontFamily: FONT, fontSize: '13px', lineHeight: 1.6, color: '#3b3b3f' }}>
+                            {(model.argument || '').slice(0, 1000)}
+                          </p>
+                        )}
+
+                        {/* Confidence */}
+                        {conf != null && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#6e6e73' }}>
+                              Confidence:
+                            </span>
+                            <span style={{
+                              fontFamily: FONT, fontSize: '12px', fontWeight: 700,
+                              color: conf >= 80 ? '#10b981' : conf >= 60 ? '#3b82f6' : conf >= 40 ? '#f59e0b' : '#ef4444',
+                            }}>
+                              {conf}%
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Weaknesses (if rebuttal round) */}
+                        {model.weaknesses_found && model.weaknesses_found.length > 0 && (
+                          <div className="mt-1.5">
+                            <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#f59e0b', textTransform: 'uppercase' }}>
+                              Weaknesses Found:
+                            </span>
+                            {model.weaknesses_found.map((w, wi) => (
+                              <p key={wi} className="dark:text-[#94a3b8]" style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73', marginTop: '2px' }}>· {w}</p>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Rebuttals (if rebuttal round) */}
+                        {model.rebuttals && model.rebuttals.length > 0 && (
+                          <div className="mt-1.5">
+                            <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#8b5cf6', textTransform: 'uppercase' }}>
+                              Rebuttals:
+                            </span>
+                            {model.rebuttals.map((r, ri) => (
+                              <p key={ri} className="dark:text-[#94a3b8]" style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73', marginTop: '2px' }}>· {r}</p>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Position shift indicator */}
+                        {model.position_shifted && (
+                          <div className="mt-1.5 flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#f0fdf4] dark:bg-[#065f46]/20">
+                            <span style={{ fontSize: '11px' }}>↻</span>
+                            <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#10b981' }}>
+                              Position shifted
+                            </span>
+                            {model.shift_reason && (
+                              <span style={{ fontFamily: FONT, fontSize: '10px', color: '#6e6e73' }}>
+                                — {model.shift_reason}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* ── Post-debate Summary ── */}
+          {analysis.synthesis && (
+            <div className="mt-2">
+              <div className="flex items-center gap-2 mb-1">
+                <span style={{ fontSize: '13px' }}>⚖️</span>
+                <span style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  Synthesis
+                </span>
+              </div>
+              <p className="dark:text-[#e2e8f0] pl-6" style={{ fontFamily: FONT, fontSize: '13px', lineHeight: 1.7, color: '#1d1d1f' }}>
+                {analysis.synthesis}
+              </p>
+            </div>
+          )}
+
+          {/* Stability + Drift/Rift + Consensus mini-row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+            {[
+              { icon: '📊', label: 'Stability', value: analysis.confidence_recalibration || confidence, fmt: v => confidenceLabel(v) },
+              { icon: '📉', label: 'Drift', value: analysis.disagreement_strength, fmt: v => v != null ? `${Math.round(v * 100)}%` : '—' },
+              { icon: '🧩', label: 'Consensus', value: analysis.convergence_level, fmt: v => v || '—', isText: true },
+              { icon: '🔀', label: 'Conflict Axes', value: (analysis.conflict_axes || []).length, fmt: v => `${v}`, isText: true },
+            ].map(item => (
+              <div key={item.label} className="rounded-xl bg-[#f5f5f7] dark:bg-[#1c1c1e] p-2 text-center">
+                <span style={{ fontSize: '12px' }}>{item.icon}</span>
+                <span className="block" style={{ fontFamily: FONT, fontSize: '9px', fontWeight: 500, color: '#6e6e73', textTransform: 'uppercase', marginTop: '2px' }}>
+                  {item.label}
+                </span>
+                <span className="block dark:text-white" style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 700, color: '#1d1d1f', marginTop: '2px' }}>
+                  {item.fmt(item.value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </details>
+
+      {/* ══════════════════════════════════════════════════════════
+          SENTINEL PRO DEBATE UI (PRESERVED — existing UI below)
+         ══════════════════════════════════════════════════════════ */}
 
       {/* ── Left / Right Debate Panel (first round, first 2 models) ── */}
       {leftModel && rightModel && (

@@ -199,10 +199,15 @@ export default function FigmaChatShell({
     });
   }, [messages, response, subMode, activeChatId, localFeedback]);
 
-  // Auto-scroll on new messages
+  // Auto-scroll only on new message count (not metadata enrichment)
+  const prevMsgCount = useRef(0);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [enhancedMessages, loading]);
+    const count = enhancedMessages.length;
+    if (count !== prevMsgCount.current || loading) {
+      prevMsgCount.current = count;
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [enhancedMessages.length, loading]);
 
   // ============================================================
   // LOCAL HANDLERS (delegate to sentinel_e logic authority)
@@ -419,7 +424,7 @@ export default function FigmaChatShell({
         {label}
       </span>
       <div className="flex-1 h-1.5 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-500"
+        <div className="h-full rounded-full"
           style={{ width: `${Math.round(value * 100)}%`, backgroundColor: color }} />
       </div>
       <span className="text-[#1d1d1f] dark:text-white w-10 text-right flex-shrink-0"
@@ -472,11 +477,10 @@ export default function FigmaChatShell({
         <AnimatePresence>
           {isExpanded && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
             >
               <div className="mt-2 p-3 rounded-xl bg-[#f5f5f7]/80 dark:bg-[#1c1c1e]/80 space-y-3">
 
@@ -986,9 +990,10 @@ export default function FigmaChatShell({
         <AnimatePresence>
           {!backendOnline && serverStatus !== 'unknown' && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
               className="bg-[#fffbeb] border-b border-[#f59e0b]/20 px-4 py-2 flex items-center gap-2"
             >
               <AlertCircle className="w-3.5 h-3.5 text-[#f59e0b] flex-shrink-0" />
@@ -1112,9 +1117,9 @@ export default function FigmaChatShell({
                 return (
                   <motion.div
                     key={message.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.15 }}
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
@@ -1304,7 +1309,7 @@ export default function FigmaChatShell({
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`relative flex flex-col gap-0 p-2 rounded-[28px] bg-white dark:bg-[#1c1c1e] shadow-lg transition-all duration-300 ${
+              className={`relative flex flex-col gap-0 p-2 rounded-[28px] bg-white dark:bg-[#1c1c1e] shadow-lg transition-colors duration-200 ${
                 isDragging ? 'ring-2 ring-[#3b82f6] ring-offset-2 dark:ring-offset-[#0f0f10]' : ''
               }`}
               style={{
@@ -1339,10 +1344,10 @@ export default function FigmaChatShell({
               <AnimatePresence>
                 {attachedFile && (
                   <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
                   >
                     <div className="flex items-center gap-2 px-3 py-2 mx-1 mt-1 rounded-xl bg-[#f5f5f7] dark:bg-white/10">
                       {attachedPreview ? (
@@ -1373,11 +1378,10 @@ export default function FigmaChatShell({
               <AnimatePresence>
                 {selectedModel.id === 'sentinel-exp' && (
                   <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.25, ease: 'easeOut' }}
-                    className="overflow-hidden"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
                   >
                     <div className="flex flex-col gap-2 px-1 pb-2 pt-1">
                       <div className="flex items-center gap-1.5">
