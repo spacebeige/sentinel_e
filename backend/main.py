@@ -89,7 +89,7 @@ from optimization import (
 # ── Meta-Cognitive Orchestrator ──────────────────────────────
 from metacognitive.orchestrator import MetaCognitiveOrchestrator
 from metacognitive.background_daemon import BackgroundDaemon
-from metacognitive.routes import router as mco_router, set_orchestrator as mco_set_orchestrator, set_daemon as mco_set_daemon
+from metacognitive.routes import router as mco_router, set_orchestrator as mco_set_orchestrator, set_daemon as mco_set_daemon, set_cognitive_engine as mco_set_cognitive_engine
 
 # ── Logging ──────────────────────────────────────────────────
 settings = get_settings()
@@ -123,7 +123,7 @@ MAX_SESSIONS = 500
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global orchestrator, omega_kernel, knowledge_learner, cognitive_rag, analytics_engine
-    global mco_orchestrator, mco_daemon, mco_bridge
+    global mco_orchestrator, mco_daemon, mco_bridge, cognitive_orchestrator_engine
     logger.info("Initializing Sentinel-E v5.0 Production System...")
 
     # Initialize DB
@@ -170,6 +170,7 @@ async def lifespan(app: FastAPI):
 
         # ── Cognitive Core Engine v7.0 ────────────────────────
         cognitive_orchestrator_engine = CognitiveCoreEngine(model_bridge=mco_bridge)
+        mco_set_cognitive_engine(cognitive_orchestrator_engine)
         logger.info("Cognitive Core Engine v7.0 initialized — ensemble-only, no mode routing")
 
         # Background daemon (starts paused — activate via API)
@@ -502,7 +503,7 @@ async def run_sentinel(
     mode_map = {"conversational": "standard", "forensic": "standard", "experimental": "research"}
     omega_mode = mode_map.get(omega_mode, omega_mode)
 
-    sub_mode = getattr(request, "sub_mode", None) or "debate"
+    sub_mode = getattr(request, "sub_mode", None) or omega_mode
     kill = getattr(request, "kill", False)
     role_map = getattr(request, "role_map", None) or {}
 

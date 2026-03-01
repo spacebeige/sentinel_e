@@ -24,6 +24,34 @@ export function resolveRenderMode(result) {
     confidence: result.confidence ?? meta.confidence ?? 0.5,
   };
 
+  // Debate mode — MUST check before ensemble so sub_mode="debate" isn't overridden
+  if (mode === 'debate') {
+    // Debate responses from CognitiveOrchestrator also carry ensemble_metrics.
+    // Merge ensemble data into the debate payload so DebateView has full access.
+    // DebateView reads data.rounds, data.analysis, data.scores, data.models_used
+    // so data MUST be the debate_result object, not the raw omega_metadata.
+    const debateResult = meta.debate_result || meta.aggregation_result || {};
+    return {
+      ...base,
+      mode: 'debate',
+      engine: 'DebateEngine',
+      data: debateResult,
+      debateResult: debateResult,
+      rounds: debateResult.rounds || [],
+      analysis: debateResult.analysis || {},
+      modelOutputs: meta.model_outputs || meta.aggregation_result?.model_outputs || [],
+      // Ensemble-level data (available when CognitiveOrchestrator ran)
+      ensembleMetrics: meta.ensemble_metrics || {},
+      debateRounds: meta.debate_rounds || [],
+      agreementMatrix: meta.agreement_matrix || {},
+      driftMetrics: meta.drift_metrics || {},
+      modelStatus: meta.model_status || [],
+      sessionIntelligence: meta.session_intelligence || {},
+      calibratedConfidence: meta.confidence_graph || meta.calibrated_confidence || {},
+      tacticalMap: meta.tactical_map || {},
+    };
+  }
+
   // Ensemble mode — full cognitive pipeline data
   if (mode === 'ensemble' || mode === 'cognitive' || meta.ensemble_metrics) {
     return {
@@ -46,17 +74,6 @@ export function resolveRenderMode(result) {
       modelsFailed: result.models_failed ?? meta.ensemble_metrics?.failed_models ?? 0,
       error: result.error || meta.error || null,
       errorCode: result.error_code || meta.error_code || null,
-    };
-  }
-
-  // Debate mode
-  if (mode === 'debate') {
-    return {
-      ...base,
-      engine: 'DebateEngine',
-      debateResult: meta.debate_result || meta.aggregation_result || {},
-      rounds: meta.debate_result?.rounds || [],
-      modelOutputs: meta.model_outputs || meta.aggregation_result?.model_outputs || [],
     };
   }
 

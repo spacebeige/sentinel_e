@@ -48,6 +48,7 @@ router = APIRouter(prefix="/api/mco", tags=["Meta-Cognitive Orchestrator"])
 # ── Global references (set during app startup) ──────────────
 _orchestrator: Optional[MetaCognitiveOrchestrator] = None
 _daemon: Optional[BackgroundDaemon] = None
+_cognitive_engine = None  # CognitiveCoreEngine for debate mode
 
 
 def set_orchestrator(orch: MetaCognitiveOrchestrator):
@@ -58,6 +59,12 @@ def set_orchestrator(orch: MetaCognitiveOrchestrator):
 def set_daemon(daemon: BackgroundDaemon):
     global _daemon
     _daemon = daemon
+
+
+def set_cognitive_engine(engine):
+    """Wire the CognitiveCoreEngine for debate sub-mode delegation."""
+    global _cognitive_engine
+    _cognitive_engine = engine
 
 
 def _get_orchestrator() -> MetaCognitiveOrchestrator:
@@ -131,6 +138,126 @@ async def mco_run(
         )
 
     await add_message(db, chat.id, "user", query)
+
+    # ══════════════════════════════════════════════════════════
+    # DEBATE MODE DELEGATION
+    # When sub_mode is "debate" and CognitiveOrchestrator is available,
+    # delegate to it for multi-round structured debate (StructuredDebateEngine).
+    # This produces real rounds with rebuttals, drift/rift metrics, etc.
+    # ══════════════════════════════════════════════════════════
+    effective_sub_mode = sub_mode
+    if effective_sub_mode == "debate" and _cognitive_engine is not None:
+        logger.info(f"Debate mode: delegating to CognitiveOrchestrator for chat {chat.id}")
+        try:
+            from core.ensemble_schemas import EnsembleFailure
+            ensemble_response = await _cognitive_engine.process(
+                query=query,
+                chat_id=str(chat.id),
+                rounds=3,
+            )
+        except EnsembleFailure as ef:
+            logger.error(f"Debate ensemble hard failure: {ef}")
+            ensemble_response = ef.to_response()
+        except Exception as debate_err:
+            logger.error(f"Debate delegation failed, falling back to MCO: {debate_err}")
+            ensemble_response = None
+
+        if ensemble_response is not None:
+            payload = ensemble_response.to_frontend_payload()
+            formatted_output = ensemble_response.formatted_output
+
+            # Persist
+            await add_message(db, chat.id, "assistant", formatted_output)
+            await update_chat_metadata(
+                db, chat.id,
+                priority_answer=formatted_output,
+                machine_metadata={
+                    "engine": "CognitiveCoreEngine",
+                    "mode": mode,
+                    "sub_mode": "debate",
+                    "models_executed": ensemble_response.models_executed,
+                    "debate_rounds": ensemble_response.debate_result.total_rounds,
+                },
+                rounds=ensemble_response.debate_result.total_rounds,
+            )
+
+            confidence = ensemble_response.confidence.final_confidence
+            ens_entropy = ensemble_response.ensemble_metrics.disagreement_entropy
+            ens_fragility = ensemble_response.ensemble_metrics.fragility_score
+
+            omega_metadata = payload.get("omega_metadata", {})
+            omega_metadata.update({
+                "version": "7.1.0-cognitive",
+                "mode": mode,
+                "sub_mode": "debate",
+                "confidence": confidence,
+                "entropy": ens_entropy,
+                "fragility": ens_fragility,
+                "ensemble_metrics": payload.get("ensemble_metrics", {}),
+                "debate_result": payload.get("debate_result", {}),
+                "debate_rounds": payload.get("debate_rounds", []),
+                "model_outputs": payload.get("model_outputs", []),
+                "agreement_matrix": payload.get("agreement_matrix", {}),
+                "drift_metrics": payload.get("drift_metrics", {}),
+                "tactical_map": payload.get("tactical_map", []),
+                "confidence_graph": payload.get("confidence_graph", payload.get("calibrated_confidence", {})),
+                "session_intelligence": payload.get("session_intelligence", {}),
+                "session_analytics": payload.get("session_analytics", {}),
+                "model_status": payload.get("model_status", []),
+                "reasoning_trace": {
+                    "engine": "CognitiveCoreEngine",
+                    "pipeline": "cognitive_v7_debate",
+                    "models_executed": ensemble_response.models_executed,
+                    "models_succeeded": ensemble_response.models_succeeded,
+                    "models_failed": ensemble_response.models_failed,
+                    "debate_rounds": ensemble_response.debate_result.total_rounds,
+                },
+            })
+
+            # Update MCO session analytics
+            if _orchestrator and hasattr(_orchestrator, 'session_engine'):
+                try:
+                    _orchestrator.session_engine.update_analytics(
+                        session_id=str(chat.id),
+                        mode="debate",
+                        drift_value=ensemble_response.debate_result.drift_index,
+                        rift_value=ensemble_response.debate_result.rift_index,
+                        disagreement_value=ens_entropy,
+                    )
+                except Exception:
+                    pass
+
+            return {
+                "chat_id": str(chat.id),
+                "session_id": str(chat.id),
+                "mode": mode,
+                "sub_mode": "debate",
+                "formatted_output": formatted_output,
+                "aggregated_answer": formatted_output,
+                "confidence": round(confidence, 4),
+                "data": {"priority_answer": formatted_output},
+                "omega_metadata": omega_metadata,
+                "session_state": {
+                    "session_id": str(chat.id),
+                    "debate_rounds": ensemble_response.debate_result.total_rounds,
+                    "drift_score": round(ensemble_response.debate_result.drift_index, 4),
+                },
+                "boundary_result": {
+                    "risk_level": (
+                        "LOW" if confidence > 0.7
+                        else "MEDIUM" if confidence > 0.4
+                        else "HIGH"
+                    ),
+                    "severity_score": int((1 - confidence) * 100),
+                },
+                "models_executed": ensemble_response.models_executed,
+                "models_succeeded": ensemble_response.models_succeeded,
+                "models_failed": ensemble_response.models_failed,
+            }
+
+    # ══════════════════════════════════════════════════════════
+    # STANDARD MCO PIPELINE (non-debate modes)
+    # ══════════════════════════════════════════════════════════
 
     # Build request
     request = OrchestratorRequest(
