@@ -100,6 +100,7 @@ class CognitiveGatewayInput(BaseModel):
     mode: QueryMode = QueryMode.RAW
     image_b64: Optional[str] = Field(None, description="Base64-encoded image for vision models")
     image_mime: Optional[str] = Field(None, description="MIME type of the attached image")
+    max_tokens_override: Optional[int] = Field(None, description="Budget governor cap — overrides registry max_output_tokens if lower")
 
 
 class CognitiveGatewayOutput(BaseModel):

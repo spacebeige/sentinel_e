@@ -320,6 +320,11 @@ class CognitiveModelGateway:
         # Apply pressure-based dynamic scaling
         pf = self.pressure_factor
         scaled_cap = max(512, int(spec.max_output_tokens * pf))
+
+        # Apply budget governor override (from debate token budget)
+        if gateway_input.max_tokens_override is not None:
+            scaled_cap = min(scaled_cap, gateway_input.max_tokens_override)
+
         governed_max_tokens = min(scaled_cap, max(0, _available))
 
         if pf < 1.0:

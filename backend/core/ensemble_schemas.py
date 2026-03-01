@@ -31,6 +31,8 @@ from pydantic import BaseModel, Field, field_validator
 MIN_MODELS = 3
 MIN_DEBATE_ROUNDS = 2
 MIN_ANALYTICS_OUTPUTS = 2
+TOTAL_DEBATE_TOKEN_BUDGET = 6000
+ROUND_BUDGET_SPLIT = [0.50, 0.30, 0.20]
 
 
 # ============================================================
@@ -172,6 +174,8 @@ class DebateResult(BaseModel):
     """Complete debate result with all rounds and drift/rift analytics."""
     rounds: List[DebateRound] = Field(default_factory=list)
     total_rounds: int = 0
+    budget_constrained: bool = Field(False, description="True if debate stopped early due to token budget")
+    tokens_spent: int = Field(0, description="Estimated total debate tokens consumed")
     shift_table: List[ShiftRecord] = Field(default_factory=list)
     final_consensus: Optional[str] = None
     consensus_strength: float = 0.0

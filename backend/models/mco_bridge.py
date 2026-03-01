@@ -130,6 +130,7 @@ class MCOModelBridge:
                 session_summary={},
                 image_b64=image_b64,
                 image_mime=image_mime,
+                max_tokens_override=max_tokens,
             )
 
             result = await self.gateway.invoke_model(registry_key, gw_input)

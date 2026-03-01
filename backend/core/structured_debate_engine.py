@@ -29,6 +29,8 @@ from sklearn.metrics.pairwise import cosine_similarity as sk_cosine_similarity
 
 from core.ensemble_schemas import (
     MIN_DEBATE_ROUNDS,
+    TOTAL_DEBATE_TOKEN_BUDGET,
+    ROUND_BUDGET_SPLIT,
     DebatePosition,
     DebateResult,
     DebateRound,
@@ -138,16 +140,20 @@ evidence_reliance: [0.0-1.0]
 novelty: [0.0-1.0]"""
 
 
-# Type for model caller function
-ModelCaller = Callable[[str, str, str], Coroutine[Any, Any, str]]
+# Type for model caller function (accepts optional max_tokens kwarg)
+ModelCaller = Callable[..., Coroutine[Any, Any, str]]
 
 
 class StructuredDebateEngine:
     """
-    Executes structured multi-model debate with minimum 3 rounds.
+    Executes structured multi-model debate with budget governance.
+
+    Token budget is divided across rounds (50/30/20 split) and
+    equally among participating models within each round.
+    Rounds stop early if remaining budget falls below 1000.
 
     Args:
-        call_model: async function(model_id, prompt, system_role) -> str
+        call_model: async function(model_id, prompt, system_role, *, max_tokens=None) -> str
         get_enabled_models: function() -> List[dict] with {id, name, role}
     """
 
@@ -166,12 +172,14 @@ class StructuredDebateEngine:
         initial_outputs: Optional[List[StructuredModelOutput]] = None,
     ) -> DebateResult:
         """
-        Execute structured debate with minimum 2 rounds.
+        Execute structured debate with global token budget governance.
 
-        A 3rd round is added conditionally if:
-          - All models succeeded in rounds 1-2
-          - No 402/429 (credit/rate) failures occurred
-          - Disagreement remains above 0.3 after round 2
+        Budget allocation:
+          Round 1 → 50% of TOTAL_DEBATE_TOKEN_BUDGET
+          Round 2 → 30%
+          Round 3 → 20%
+        Within each round, budget is split equally across models.
+        If remaining_budget < 1000 after a round, stop early.
 
         Args:
             query: The user's question
@@ -194,28 +202,68 @@ class StructuredDebateEngine:
                 models_available=len(models),
             )
 
+        # ── Global Debate Token Budget ─────────────────────────
+        remaining_budget = TOTAL_DEBATE_TOKEN_BUDGET
+        total_tokens_spent = 0
+        budget_constrained = False
+        num_models = len(models)
+
         debate_rounds: List[DebateRound] = []
         all_shifts: List[ShiftRecord] = []
         transcript_parts: List[str] = []
         prev_positions: Dict[str, DebatePosition] = {}
 
         for round_num in range(1, rounds + 1):
-            logger.info(f"Debate round {round_num}/{rounds} with {len(models)} models")
+            # ── Budget gate: stop if exhausted ─────────────────
+            if remaining_budget < 1000 and len(debate_rounds) >= MIN_DEBATE_ROUNDS:
+                logger.warning(
+                    f"Budget exhausted after round {round_num - 1}: "
+                    f"remaining={remaining_budget}, spent={total_tokens_spent}. "
+                    f"Returning Budget-Constrained Completion."
+                )
+                budget_constrained = True
+                break
+
+            # Compute per-model token cap for this round
+            split_idx = min(round_num - 1, len(ROUND_BUDGET_SPLIT) - 1)
+            round_budget = int(TOTAL_DEBATE_TOKEN_BUDGET * ROUND_BUDGET_SPLIT[split_idx])
+            per_model_budget = max(128, round_budget // num_models)
+
+            logger.info(
+                f"Debate round {round_num}/{rounds}: budget={round_budget}, "
+                f"per_model={per_model_budget}, remaining={remaining_budget}"
+            )
 
             if round_num == 1 and initial_outputs:
-                # Use pre-computed Phase 1 outputs
+                # Use pre-computed Phase 1 outputs (no extra tokens spent)
                 round_result = self._convert_initial_outputs(
                     initial_outputs, round_num
                 )
-            elif round_num == 1:
-                # Fresh round 1
-                round_result = await self._run_round_1(query, models)
-            else:
-                # Subsequent rounds with transcript
-                transcript = "\n\n".join(transcript_parts)
-                round_result = await self._run_round_n(
-                    query, models, round_num, transcript, prev_positions
+                # Estimate tokens from initial outputs
+                round_tokens = sum(
+                    len(p.argument or "") // 4
+                    for p in round_result.positions
+                    if p.status != "failed"
                 )
+            elif round_num == 1:
+                round_result = await self._run_round_1(
+                    query, models, max_tokens=per_model_budget
+                )
+                round_tokens = self._estimate_round_tokens(round_result)
+            else:
+                # Compress transcript for token efficiency
+                transcript = self._compress_transcript(
+                    debate_rounds, prev_positions
+                )
+                round_result = await self._run_round_n(
+                    query, models, round_num, transcript, prev_positions,
+                    max_tokens=per_model_budget,
+                )
+                round_tokens = self._estimate_round_tokens(round_result)
+
+            # Track budget
+            total_tokens_spent += round_tokens
+            remaining_budget -= round_tokens
 
             # Track disagreement
             round_result.round_disagreement = self._compute_disagreement(
@@ -239,7 +287,7 @@ class StructuredDebateEngine:
                 )
                 all_shifts.extend(round_shifts)
 
-            # Update transcript
+            # Update transcript (full version for internal use)
             transcript_parts.append(
                 self._format_round_transcript(round_result)
             )
@@ -251,11 +299,13 @@ class StructuredDebateEngine:
             debate_rounds.append(round_result)
 
         # ── Conditional 3rd round ──────────────────────────────
-        # Only extend if: all models succeeded, no credit/rate failures,
-        # and disagreement remains high (>0.3) after round 2
+        # Only extend if: budget allows, all models succeeded,
+        # no credit/rate failures, and disagreement remains high
         if (
             len(debate_rounds) == 2
-            and rounds <= 2  # caller didn't explicitly request 3+
+            and rounds <= 2
+            and remaining_budget >= 1000
+            and not budget_constrained
         ):
             last_round = debate_rounds[-1]
             all_succeeded = all(
@@ -271,14 +321,25 @@ class StructuredDebateEngine:
             high_disagreement = last_round.round_disagreement > 0.3
 
             if all_succeeded and not has_credit_failures and high_disagreement:
+                r3_budget = int(TOTAL_DEBATE_TOKEN_BUDGET * ROUND_BUDGET_SPLIT[2])
+                per_model_r3 = max(128, r3_budget // num_models)
+
                 logger.info(
-                    "Conditional 3rd round triggered: "
-                    f"disagreement={last_round.round_disagreement:.3f}"
+                    f"Conditional 3rd round triggered: "
+                    f"disagreement={last_round.round_disagreement:.3f}, "
+                    f"budget={r3_budget}, per_model={per_model_r3}"
                 )
-                transcript = "\n\n".join(transcript_parts)
+                transcript = self._compress_transcript(
+                    debate_rounds, prev_positions
+                )
                 round_result = await self._run_round_n(
-                    query, models, 3, transcript, prev_positions
+                    query, models, 3, transcript, prev_positions,
+                    max_tokens=per_model_r3,
                 )
+                round_tokens = self._estimate_round_tokens(round_result)
+                total_tokens_spent += round_tokens
+                remaining_budget -= round_tokens
+
                 round_result.round_disagreement = self._compute_disagreement(
                     round_result
                 )
@@ -321,9 +382,18 @@ class StructuredDebateEngine:
         # Build analysis summary
         analysis_fields = self._build_analysis_summary(debate_rounds, all_shifts)
 
+        # Append budget status if constrained
+        if budget_constrained:
+            logger.info(
+                f"Budget-Constrained Completion: {total_tokens_spent} tokens "
+                f"spent across {len(debate_rounds)} rounds"
+            )
+
         return DebateResult(
             rounds=debate_rounds,
             total_rounds=len(debate_rounds),
+            budget_constrained=budget_constrained,
+            tokens_spent=total_tokens_spent,
             shift_table=all_shifts,
             final_consensus=final_consensus,
             consensus_strength=consensus_strength,
@@ -349,13 +419,14 @@ class StructuredDebateEngine:
     # ── Round Execution ──────────────────────────────────────
 
     async def _run_round_1(
-        self, query: str, models: List[Dict[str, str]]
+        self, query: str, models: List[Dict[str, str]],
+        max_tokens: Optional[int] = None,
     ) -> DebateRound:
         """Execute round 1: independent positions."""
         system_prompt = STRUCTURED_ROUND_1.format(query=query)
 
         tasks = [
-            self._call_and_parse_round_1(model, query, system_prompt)
+            self._call_and_parse_round_1(model, query, system_prompt, max_tokens=max_tokens)
             for model in models
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -387,6 +458,7 @@ class StructuredDebateEngine:
         round_num: int,
         transcript: str,
         prev_positions: Dict[str, DebatePosition],
+        max_tokens: Optional[int] = None,
     ) -> DebateRound:
         """Execute round N: rebuttals and position updates."""
         tasks = []
@@ -405,7 +477,7 @@ class StructuredDebateEngine:
                 own_previous=own_prev,
             )
             tasks.append(
-                self._call_and_parse_round_n(model, query, system_prompt, round_num)
+                self._call_and_parse_round_n(model, query, system_prompt, round_num, max_tokens=max_tokens)
             )
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -439,11 +511,12 @@ class StructuredDebateEngine:
         model: Dict[str, str],
         query: str,
         system_prompt: str,
+        max_tokens: Optional[int] = None,
     ) -> Optional[DebatePosition]:
         """Call model and parse round 1 structured output."""
         try:
             start = time.monotonic()
-            raw = await self._call_model(model["id"], query, system_prompt)
+            raw = await self._call_model(model["id"], query, system_prompt, max_tokens=max_tokens)
             latency = (time.monotonic() - start) * 1000
 
             if not raw or len(raw.strip()) < 10:
@@ -464,11 +537,12 @@ class StructuredDebateEngine:
         query: str,
         system_prompt: str,
         round_num: int,
+        max_tokens: Optional[int] = None,
     ) -> Optional[DebatePosition]:
         """Call model and parse round N structured output."""
         try:
             start = time.monotonic()
-            raw = await self._call_model(model["id"], query, system_prompt)
+            raw = await self._call_model(model["id"], query, system_prompt, max_tokens=max_tokens)
             latency = (time.monotonic() - start) * 1000
 
             if not raw or len(raw.strip()) < 10:
@@ -776,6 +850,70 @@ class StructuredDebateEngine:
 
         # Conflicts in last round = unresolved
         return rounds[-1].key_conflicts
+
+    # ── Budget Estimation ──────────────────────────────────────
+
+    @staticmethod
+    def _estimate_round_tokens(round_data: DebateRound) -> int:
+        """Estimate total tokens consumed by a debate round.
+
+        Uses char/4 heuristic for both position and argument text.
+        Only counts successful model outputs.
+        """
+        total = 0
+        for pos in round_data.positions:
+            if pos.status == "failed":
+                continue
+            text = (pos.position or "") + (pos.argument or "")
+            total += len(text) // 4
+        return total
+
+    # ── Transcript Compression ───────────────────────────────
+
+    def _compress_transcript(
+        self,
+        debate_rounds: List[DebateRound],
+        prev_positions: Dict[str, DebatePosition],
+    ) -> str:
+        """Build a compressed transcript for subsequent rounds.
+
+        Instead of the full prior output, sends only:
+          - Summarized consensus direction
+          - Top 3 disagreements
+          - Each model's position headline (max 100 chars)
+
+        This drastically reduces input tokens for rounds 2+.
+        """
+        parts: List[str] = []
+
+        for rnd in debate_rounds:
+            parts.append(f"=== ROUND {rnd.round_number} SUMMARY ===")
+
+            # Model position headlines
+            for pos in rnd.positions:
+                if pos.status == "failed":
+                    parts.append(f"- {pos.model_name}: [FAILED]")
+                    continue
+                headline = (pos.position or "")[:100]
+                parts.append(
+                    f"- {pos.model_name} (conf={pos.confidence:.2f}): {headline}"
+                )
+
+            # Top conflicts for this round
+            conflicts = rnd.key_conflicts or []
+            if conflicts:
+                parts.append("Key disagreements:")
+                for c in conflicts[:3]:
+                    parts.append(f"  * {c[:120]}")
+
+            # Convergence signal
+            if rnd.convergence_delta != 0:
+                direction = "converging" if rnd.convergence_delta > 0 else "diverging"
+                parts.append(
+                    f"Trend: {direction} (delta={rnd.convergence_delta:.3f})"
+                )
+
+        return "\n".join(parts)
 
     # ── Transcript Formatting ────────────────────────────────
 

@@ -686,11 +686,13 @@ class CognitiveOrchestrator:
     async def _call_model(
         self, model_id: str, prompt: str, system_role: str,
         image_b64: Optional[str] = None, image_mime: Optional[str] = None,
+        max_tokens: Optional[int] = None,
     ) -> str:
         """Call a model through the bridge."""
         return await self._bridge.call_model(
             model_id, prompt, system_role,
             image_b64=image_b64, image_mime=image_mime,
+            max_tokens=max_tokens,
         )
 
     def _get_models(self) -> List[Dict[str, str]]:
