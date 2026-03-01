@@ -180,7 +180,7 @@ export default function FigmaChatShell({
       // Enrich the LAST assistant message with omega metadata from response
       // Ensemble is always active — always attach metadata
       if (msg.role === 'assistant' && i === messages.length - 1 && response) {
-        const resolvedMode = response.mode || response.omega_metadata?.mode || response.sub_mode || response.omega_metadata?.sub_mode || subMode || 'standard';
+        const resolvedMode = response.omega_metadata?.sub_mode || response.sub_mode || response.mode || response.omega_metadata?.mode || subMode || 'standard';
         return {
           ...base,
           mode: resolvedMode,
@@ -1130,7 +1130,7 @@ export default function FigmaChatShell({
                             
                             // Determine rendering mode from metadata
                             const messageMode = message.mode || activeSubMode || 'standard';
-                            const resolvedSubMode = meta.ensemble_metrics ? 'ensemble' : messageMode;
+                            const resolvedSubMode = messageMode === 'debate' ? 'debate' : (meta.ensemble_metrics ? 'ensemble' : messageMode);
                             
                             return (
                               <div className="mt-3 -mx-4 px-4 pt-3 border-t border-black/5">

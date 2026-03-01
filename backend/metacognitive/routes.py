@@ -173,7 +173,7 @@ async def mco_run(
                 priority_answer=formatted_output,
                 machine_metadata={
                     "engine": "CognitiveCoreEngine",
-                    "mode": mode,
+                    "mode": "debate",
                     "sub_mode": "debate",
                     "models_executed": ensemble_response.models_executed,
                     "debate_rounds": ensemble_response.debate_result.total_rounds,
@@ -188,11 +188,12 @@ async def mco_run(
             omega_metadata = payload.get("omega_metadata", {})
             omega_metadata.update({
                 "version": "7.1.0-cognitive",
-                "mode": mode,
+                "mode": "debate",
                 "sub_mode": "debate",
                 "confidence": confidence,
                 "entropy": ens_entropy,
                 "fragility": ens_fragility,
+                "fragility_index": ens_fragility,
                 "ensemble_metrics": payload.get("ensemble_metrics", {}),
                 "debate_result": payload.get("debate_result", {}),
                 "debate_rounds": payload.get("debate_rounds", []),
@@ -230,7 +231,7 @@ async def mco_run(
             return {
                 "chat_id": str(chat.id),
                 "session_id": str(chat.id),
-                "mode": mode,
+                "mode": "debate",
                 "sub_mode": "debate",
                 "formatted_output": formatted_output,
                 "aggregated_answer": formatted_output,
@@ -241,6 +242,9 @@ async def mco_run(
                     "session_id": str(chat.id),
                     "debate_rounds": ensemble_response.debate_result.total_rounds,
                     "drift_score": round(ensemble_response.debate_result.drift_index, 4),
+                    "message_count": ensemble_response.session_intelligence.message_count,
+                    "boundary_history_count": ensemble_response.session_intelligence.boundary_hits,
+                    "reasoning_depth": ensemble_response.session_intelligence.depth or "N/A",
                 },
                 "boundary_result": {
                     "risk_level": (

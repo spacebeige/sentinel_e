@@ -637,6 +637,7 @@ async def run_sentinel(
                 "confidence": confidence,
                 "entropy": ens_entropy,
                 "fragility": ens_fragility,
+                "fragility_index": ens_fragility,
                 "ensemble_metrics": payload.get("ensemble_metrics", {}),
                 "debate_result": payload.get("debate_result", {}),
                 "debate_rounds": payload.get("debate_rounds", []),
@@ -728,6 +729,7 @@ async def run_sentinel(
                 "confidence": confidence,
                 "entropy": ens_entropy,
                 "fragility": ens_fragility,
+                "fragility_index": ens_fragility,
                 "boundary_result": omega_metadata["boundary_result"],
                 "omega_metadata": omega_metadata,
             }
