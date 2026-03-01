@@ -62,8 +62,8 @@ class CognitiveModelSpec:
 
 COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     "qwen3-coder": CognitiveModelSpec(
-        name="Qwen3 Coder 480B A35B",
-        model_id="qwen/qwen3-coder-480b-a35b",
+        name="Qwen3 235B A22B",
+        model_id="qwen/qwen3-235b-a22b",
         provider="qwen",
         role=ModelRole.CODE,
         context_window=131072,
@@ -73,8 +73,8 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_key_env="QWEN3_CODER_API_KEY",
     ),
     "qwen3-vl": CognitiveModelSpec(
-        name="Qwen3 VL 30B A3B Thinking",
-        model_id="qwen/qwen3-vl-30b-a3b",
+        name="QVQ 72B Preview",
+        model_id="qwen/qvq-72b-preview",
         provider="qwen",
         role=ModelRole.VISION,
         context_window=32768,
@@ -85,8 +85,8 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         supports_vision=True,
     ),
     "nemotron-nano": CognitiveModelSpec(
-        name="Nemotron 3 Nano 30B A3B",
-        model_id="nvidia/nemotron-3-nano-30b-a3b",
+        name="Nemotron 70B Instruct",
+        model_id="nvidia/llama-3.1-nemotron-70b-instruct",
         provider="nvidia",
         role=ModelRole.BASELINE,
         context_window=32768,
@@ -97,7 +97,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     ),
     "llama-3.3": CognitiveModelSpec(
         name="Llama 3.3 70B",
-        model_id="meta-llama/llama-3.3-70b-instruct",
+        model_id="llama-3.3-70b-versatile",
         provider="groq",
         role=ModelRole.CONCEPTUAL,
         context_window=131072,

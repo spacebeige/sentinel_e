@@ -311,6 +311,16 @@ class StructuredDebateEngine:
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 logger.error(f"Model {models[i]['id']} failed in round 1: {result}")
+                positions.append(DebatePosition(
+                    model_id=models[i]["id"],
+                    model_name=models[i].get("name", models[i]["id"]),
+                    round_number=1,
+                    position="[MODEL FAILED]",
+                    argument=f"Model did not respond: {result}",
+                    confidence=0.0,
+                    latency_ms=0.0,
+                    status="failed",
+                ))
                 continue
             if result is not None:
                 positions.append(result)
@@ -353,6 +363,16 @@ class StructuredDebateEngine:
                 logger.error(
                     f"Model {models[i]['id']} failed in round {round_num}: {result}"
                 )
+                positions.append(DebatePosition(
+                    model_id=models[i]["id"],
+                    model_name=models[i].get("name", models[i]["id"]),
+                    round_number=round_num,
+                    position="[MODEL FAILED]",
+                    argument=f"Model did not respond: {result}",
+                    confidence=0.0,
+                    latency_ms=0.0,
+                    status="failed",
+                ))
                 continue
             if result is not None:
                 positions.append(result)
@@ -552,7 +572,8 @@ class StructuredDebateEngine:
 
     def _compute_disagreement(self, round_data: DebateRound) -> float:
         """Compute disagreement score for a round."""
-        positions = round_data.positions
+        # Exclude failed models from disagreement computation
+        positions = [p for p in round_data.positions if p.status != "failed"]
         if len(positions) < 2:
             return 0.0
 
@@ -582,7 +603,8 @@ class StructuredDebateEngine:
     def _extract_conflicts(self, round_data: DebateRound) -> List[str]:
         """Extract key conflict descriptions from a round."""
         conflicts = []
-        positions = round_data.positions
+        # Exclude failed models from conflict analysis
+        positions = [p for p in round_data.positions if p.status != "failed"]
 
         for i in range(len(positions)):
             for j in range(i + 1, len(positions)):
@@ -659,7 +681,8 @@ class StructuredDebateEngine:
             return None, 0.0
 
         final_round = rounds[-1]
-        positions = final_round.positions
+        # Exclude failed models from consensus computation
+        positions = [p for p in final_round.positions if p.status != "failed"]
 
         if not positions:
             return None, 0.0
@@ -707,6 +730,9 @@ class StructuredDebateEngine:
         """Format a round into a text transcript for subsequent rounds."""
         parts = [f"=== ROUND {round_data.round_number} ==="]
         for pos in round_data.positions:
+            if pos.status == "failed":
+                parts.append(f"\n--- {pos.model_name} [FAILED] ---")
+                continue
             parts.append(f"\n--- {pos.model_name} ---")
             parts.append(f"Position: {pos.position}")
             parts.append(f"Argument: {pos.argument[:500]}")
@@ -738,12 +764,17 @@ class StructuredDebateEngine:
                 "per_round_disagreement": [], "overall_confidence": 0.5,
             }
 
-        # Collect per-model positions across rounds
-        model_ids = list({pos.model_id for rnd in rounds for pos in rnd.positions})
+        # Collect per-model positions across rounds — exclude failed models
+        model_ids = list({
+            pos.model_id for rnd in rounds for pos in rnd.positions
+            if pos.status != "failed"
+        })
         model_positions: Dict[str, List[str]] = {mid: [] for mid in model_ids}
         for rnd in rounds:
             round_model_ids = set()
             for pos in rnd.positions:
+                if pos.status == "failed":
+                    continue
                 model_positions[pos.model_id].append(pos.position or "")
                 round_model_ids.add(pos.model_id)
             # Fill gaps for models that didn't respond in this round
@@ -776,7 +807,10 @@ class StructuredDebateEngine:
         # --- Rift: mean pairwise distance within each round ---
         per_round_rift = []
         for rnd in rounds:
-            positions_text = [pos.position for pos in rnd.positions if pos.position]
+            positions_text = [
+                pos.position for pos in rnd.positions
+                if pos.position and pos.status != "failed"
+            ]
             if len(positions_text) < 2:
                 per_round_rift.append(0.0)
                 continue
@@ -796,8 +830,11 @@ class StructuredDebateEngine:
 
         rift_index = float(np.mean(per_round_rift)) if per_round_rift else 0.0
 
-        # --- Confidence spread ---
-        all_confs = [pos.confidence for rnd in rounds for pos in rnd.positions]
+        # --- Confidence spread (exclude failed models) ---
+        all_confs = [
+            pos.confidence for rnd in rounds for pos in rnd.positions
+            if pos.status != "failed"
+        ]
         confidence_spread = float(np.std(all_confs)) if len(all_confs) > 1 else 0.0
         overall_confidence = float(np.mean(all_confs)) if all_confs else 0.5
 

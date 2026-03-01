@@ -142,6 +142,7 @@ class DebatePosition(BaseModel):
     risks: List[str] = Field(default_factory=list)
     weaknesses_found: List[str] = Field(default_factory=list)
     position_shift: str = "none"
+    status: str = "success"  # "success" or "failed"
 
 
 class DebateRound(BaseModel):
@@ -405,6 +406,7 @@ class EnsembleResponse(BaseModel):
                     "latency_ms": round(pos.latency_ms, 2),
                     "role": pos.model_name,
                     "vulnerabilities_found": pos.vulnerabilities_found,
+                    "status": pos.status,
                 })
                 if pos.model_name not in all_model_names:
                     all_model_names.append(pos.model_name)
@@ -467,8 +469,8 @@ class EnsembleResponse(BaseModel):
                     "rebuttals": pos.rebuttals,
                     "risks": pos.risks,
                     "weaknesses_found": pos.weaknesses_found,
-                    "status": "success",
-                    "error": None,
+                    "status": pos.status or "success",
+                    "error": None if pos.status != "failed" else pos.argument,
                 })
             rounds_list.append({
                 "round": rnd.round_number,

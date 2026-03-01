@@ -267,6 +267,25 @@ class CognitiveOrchestrator:
                 "final": calibrated_confidence.final_confidence,
             }
 
+            # ── PHASE 9b: Metadata Integrity ───────────────────
+            # Cap confidence if insufficient model coverage
+            if ensemble_metrics.successful_models < 4 and calibrated_confidence.final_confidence > 0.7:
+                calibrated_confidence.final_confidence = min(
+                    calibrated_confidence.final_confidence, 0.65
+                )
+                calibrated_confidence.explanation += (
+                    " [Confidence capped: fewer than 4 models succeeded.]"
+                )
+                conf_evolution["post_calibration"] = calibrated_confidence.final_confidence
+                conf_evolution["final"] = calibrated_confidence.final_confidence
+
+            # Flag if drift/rift metrics are unreliable
+            successful_in_debate = len([
+                p for rnd in debate_result.rounds for p in rnd.positions
+                if getattr(p, 'status', 'success') != 'failed'
+            ])
+            metrics_reliable = successful_in_debate >= 2 * len(debate_result.rounds)
+
             # ── PHASE 10: Assembly ─────────────────────────────
             total_latency = (time.monotonic() - start_time) * 1000
 
@@ -285,6 +304,7 @@ class CognitiveOrchestrator:
                 "fragility_score": round(ensemble_metrics.fragility_score, 4),
                 "calibrated_confidence": round(calibrated_confidence.final_confidence, 4),
                 "confidence_method": calibrated_confidence.calibration_method,
+                "metrics_reliable": metrics_reliable,
             }
 
             response = EnsembleResponse(
