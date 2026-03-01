@@ -637,13 +637,15 @@ async def run_sentinel(
                 "entropy": ens_entropy,
                 "fragility": ens_fragility,
                 "ensemble_metrics": payload.get("ensemble_metrics", {}),
+                "debate_result": payload.get("debate_result", {}),
                 "debate_rounds": payload.get("debate_rounds", []),
                 "model_outputs": payload.get("model_outputs", []),
                 "agreement_matrix": payload.get("agreement_matrix", {}),
                 "drift_metrics": payload.get("drift_metrics", {}),
-                "tactical_map": payload.get("tactical_map", {}),
-                "confidence_graph": payload.get("calibrated_confidence", {}),
+                "tactical_map": payload.get("tactical_map", []),
+                "confidence_graph": payload.get("confidence_graph", payload.get("calibrated_confidence", {})),
                 "session_intelligence": payload.get("session_intelligence", {}),
+                "session_analytics": payload.get("session_analytics", {}),
                 "model_status": payload.get("model_status", []),
                 "reasoning_trace": {
                     "engine": "CognitiveCoreEngine",
@@ -684,6 +686,26 @@ async def run_sentinel(
             )
             memory.add_message("assistant", formatted_output)
             await _persist_session(str(chat.id), kernel, memory)
+
+            # Update MCO session analytics with drift/rift metrics
+            if mco_orchestrator and hasattr(mco_orchestrator, 'session_engine'):
+                try:
+                    mco_orchestrator.session_engine.update_analytics(
+                        session_id=str(chat.id),
+                        mode=omega_mode,
+                        drift_value=ensemble_response.debate_result.drift_index,
+                        rift_value=ensemble_response.debate_result.rift_index,
+                        disagreement_value=ensemble_response.ensemble_metrics.disagreement_entropy,
+                    )
+                    mco_orchestrator.session_engine.add_conversation_message(
+                        session_id=str(chat.id),
+                        role="assistant",
+                        content=formatted_output[:500],
+                        confidence=confidence,
+                        latency_ms=kernel_latency,
+                    )
+                except Exception:
+                    pass
 
             try:
                 await redis_client.setex(

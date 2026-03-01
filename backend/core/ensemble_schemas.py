@@ -367,8 +367,234 @@ class EnsembleResponse(BaseModel):
     error: Optional[str] = None
     error_code: Optional[str] = None
 
+    def _build_debate_result_for_frontend(self) -> Dict[str, Any]:
+        """
+        Build debate_result in the shape DebateView.js expects:
+          { rounds: [[{model_id, model_label, model_name, position, argument,
+                        assumptions, risks, rebuttals, weaknesses_found,
+                        confidence, latency_ms, role, ...}, ...], ...],
+            analysis: { drift_index, rift_index, fragility_score,
+                        confidence_spread, strongest_argument, weakest_argument,
+                        synthesis, conflict_axes, disagreement_strength,
+                        convergence_level, convergence_detail,
+                        confidence_recalibration, overall_confidence, ... },
+            models_used: [...],
+            scores: { model_name: score, ... } }
+        """
+        dr = self.debate_result
+        frontend_rounds: List[List[Dict[str, Any]]] = []
+        all_model_names: List[str] = []
+
+        for rnd in dr.rounds:
+            round_models = []
+            for pos in rnd.positions:
+                round_models.append({
+                    "model_id": pos.model_id,
+                    "model_label": pos.model_name,
+                    "model_name": pos.model_name,
+                    "model_color": pos.model_color or "",
+                    "round_num": pos.round_number,
+                    "position": pos.position,
+                    "argument": pos.argument,
+                    "assumptions": pos.assumptions,
+                    "risks": pos.risks,
+                    "rebuttals": pos.rebuttals if isinstance(pos.rebuttals, list) else ([pos.rebuttals] if pos.rebuttals else []),
+                    "position_shift": pos.position_shift or ("yes" if pos.position_shifted else "none"),
+                    "weaknesses_found": pos.weaknesses_found if isinstance(pos.weaknesses_found, list) else ([pos.weaknesses_found] if pos.weaknesses_found else []),
+                    "confidence": pos.confidence,
+                    "latency_ms": round(pos.latency_ms, 2),
+                    "role": pos.model_name,
+                    "vulnerabilities_found": pos.vulnerabilities_found,
+                })
+                if pos.model_name not in all_model_names:
+                    all_model_names.append(pos.model_name)
+            frontend_rounds.append(round_models)
+
+        # Build scores from model outputs (confidence as score proxy)
+        scores: Dict[str, float] = {}
+        for m in self.model_outputs:
+            if m.succeeded:
+                scores[m.model_name] = round(m.confidence, 4)
+
+        analysis = {
+            "synthesis": dr.synthesis or "",
+            "conflict_axes": dr.conflict_axes or [],
+            "disagreement_strength": dr.disagreement_strength,
+            "convergence_level": dr.convergence_level or "moderate",
+            "convergence_detail": dr.convergence_detail or "",
+            "logical_stability": dr.logical_stability,
+            "strongest_argument": dr.strongest_argument or "",
+            "weakest_argument": dr.weakest_argument or "",
+            "confidence_recalibration": round(self.confidence.final_confidence, 4),
+            "drift_index": dr.drift_index,
+            "rift_index": dr.rift_index,
+            "confidence_spread": dr.confidence_spread,
+            "fragility_score": dr.fragility_score,
+            "per_model_drift": dr.per_model_drift,
+            "per_round_rift": dr.per_round_rift,
+            "per_round_disagreement": dr.per_round_disagreement,
+            "overall_confidence": dr.overall_confidence,
+        }
+
+        return {
+            "rounds": frontend_rounds,
+            "models_used": all_model_names,
+            "scores": scores,
+            "analysis": analysis,
+        }
+
+    def _build_debate_rounds_for_ensemble_view(self) -> List[Dict[str, Any]]:
+        """
+        Build debate_rounds in the shape EnsembleView.js expects:
+          [{ round: N, model_outputs: [{model_id, position, reasoning,
+             assumptions, vulnerabilities, confidence, stance_vector,
+             error, status, latency_ms}, ...] }, ...]
+        """
+        rounds_list: List[Dict[str, Any]] = []
+        for rnd in self.debate_result.rounds:
+            model_outputs = []
+            for pos in rnd.positions:
+                model_outputs.append({
+                    "model_id": pos.model_name,
+                    "model_name": pos.model_name,
+                    "position": pos.position,
+                    "reasoning": pos.argument,
+                    "assumptions": pos.assumptions,
+                    "vulnerabilities": pos.vulnerabilities_found,
+                    "confidence": pos.confidence,
+                    "stance_vector": pos.stance_vector.model_dump() if pos.stance_vector else {},
+                    "latency_ms": round(pos.latency_ms, 2),
+                    "rebuttals": pos.rebuttals,
+                    "risks": pos.risks,
+                    "weaknesses_found": pos.weaknesses_found,
+                    "status": "success",
+                    "error": None,
+                })
+            rounds_list.append({
+                "round": rnd.round_number,
+                "model_outputs": model_outputs,
+                "round_disagreement": rnd.round_disagreement,
+                "convergence_delta": rnd.convergence_delta,
+                "key_conflicts": rnd.key_conflicts,
+            })
+        return rounds_list
+
+    def _build_agreement_matrix_for_frontend(self) -> Dict[str, Any]:
+        """
+        Build agreement_matrix in the shape EnsembleView AgreementHeatmap expects:
+          { matrix: [[float, ...], ...], model_ids: [str, ...], clusters: [[str, ...], ...] }
+        """
+        am = self.agreement_matrix
+        dict_form = am.to_matrix_dict()
+        model_ids = sorted(dict_form.keys())
+
+        if not model_ids:
+            return {"matrix": [], "model_ids": [], "clusters": []}
+
+        grid: List[List[float]] = []
+        for row_id in model_ids:
+            row = []
+            for col_id in model_ids:
+                row.append(round(dict_form.get(row_id, {}).get(col_id, 0.0), 4))
+            grid.append(row)
+
+        return {
+            "matrix": grid,
+            "model_ids": model_ids,
+            "clusters": am.agreement_clusters,
+            "mean_agreement": am.mean_agreement,
+            "dissenting_models": am.dissenting_models,
+        }
+
+    def _build_tactical_map_for_frontend(self) -> List[Dict[str, Any]]:
+        """
+        Build tactical_map as flat array EnsembleView TacticalMapView expects:
+          [{ finding, confidence, category, evidence_models, dissenting_models }, ...]
+        """
+        tm = self.tactical_map
+        if not tm.entries:
+            return []
+
+        result: List[Dict[str, Any]] = []
+        for entry in tm.entries:
+            finding = entry.position_summary
+            if entry.key_differentiator:
+                finding = f"{entry.position_summary} — {entry.key_differentiator}"
+
+            evidence_models = [
+                e.model_name for e in tm.entries
+                if e.model_id != entry.model_id and e.agreement_with_consensus > 0.5
+            ]
+            dissenting_models = self.agreement_matrix.dissenting_models or []
+
+            result.append({
+                "finding": finding,
+                "confidence": entry.confidence,
+                "category": "position",
+                "evidence_models": [entry.model_name],
+                "dissenting_models": [
+                    m for m in dissenting_models if m != entry.model_name
+                ],
+                "model_id": entry.model_id,
+                "model_name": entry.model_name,
+                "position_summary": entry.position_summary,
+                "agreement_with_consensus": entry.agreement_with_consensus,
+                "vulnerabilities": entry.vulnerabilities,
+            })
+        return result
+
     def to_frontend_payload(self) -> Dict[str, Any]:
         """Serialize to the single frontend contract."""
+        # Build all frontend-friendly structures
+        debate_result = self._build_debate_result_for_frontend()
+        debate_rounds = self._build_debate_rounds_for_ensemble_view()
+        agreement_matrix = self._build_agreement_matrix_for_frontend()
+        tactical_map = self._build_tactical_map_for_frontend()
+
+        confidence_graph = {
+            "final_confidence": self.confidence.final_confidence,
+            "calibration_method": self.confidence.calibration_method,
+            "components": self.confidence.components,
+            "evolution": self.confidence.evolution,
+            "explanation": self.confidence.explanation,
+        }
+
+        drift_metrics = {
+            "drift_index": self.debate_result.drift_index,
+            "rift_index": self.debate_result.rift_index,
+            "fragility_score": self.debate_result.fragility_score,
+            "confidence_spread": self.debate_result.confidence_spread,
+            "per_model_drift": self.debate_result.per_model_drift,
+            "per_round_rift": self.debate_result.per_round_rift,
+            "per_round_disagreement": self.debate_result.per_round_disagreement,
+        }
+
+        session_analytics = {
+            "message_count": self.session_intelligence.message_count,
+            "avg_confidence": (
+                sum(self.session_intelligence.confidence_history)
+                / len(self.session_intelligence.confidence_history)
+                if self.session_intelligence.confidence_history else 0.0
+            ),
+            "topic_clusters": self.session_intelligence.topic_clusters,
+            "boundary_hits": self.session_intelligence.boundary_hits,
+            "depth": self.session_intelligence.depth,
+            "volatility": self.session_intelligence.volatility,
+            "model_reliability": self.session_intelligence.model_reliability,
+            "inferred_domain": self.session_intelligence.inferred_domain,
+        }
+
+        model_status = []
+        for m in self.model_outputs:
+            model_status.append({
+                "model_id": m.model_id,
+                "model_name": m.model_name,
+                "status": "success" if m.succeeded else "failed",
+                "confidence": m.confidence,
+                "latency_ms": round(m.latency_ms, 1),
+                "error": m.error,
+            })
+
         return {
             "response_id": self.response_id,
             "chat_id": self.chat_id,
@@ -380,15 +606,32 @@ class EnsembleResponse(BaseModel):
             "models_executed": self.models_executed,
             "models_succeeded": self.models_succeeded,
             "models_failed": self.models_failed,
-            "debate_result": self.debate_result.model_dump(),
-            "agreement_matrix": self.agreement_matrix.to_matrix_dict(),
+            # DebateView.js contract
+            "debate_result": debate_result,
+            # EnsembleView.js contract
+            "debate_rounds": debate_rounds,
+            # Agreement matrix (2D grid + model_ids)
+            "agreement_matrix": agreement_matrix,
             "agreement_matrix_raw": self.agreement_matrix.model_dump(),
+            # Ensemble metrics
             "ensemble_metrics": self.ensemble_metrics.model_dump(),
-            "confidence": self.confidence.model_dump(),
-            "tactical_map": self.tactical_map.model_dump(),
+            # Confidence graph (for EnsembleView ConfidenceDisplay)
+            "calibrated_confidence": confidence_graph,
+            "confidence_graph": confidence_graph,
+            # Tactical map (flat array)
+            "tactical_map": tactical_map,
+            # Drift/rift metrics
+            "drift_metrics": drift_metrics,
+            # Session analytics
             "session_intelligence": self.session_intelligence.model_dump(),
+            "session_analytics": session_analytics,
+            # Model status
+            "model_status": model_status,
+            # Confidence evolution
             "confidence_evolution": self.confidence_evolution,
+            # Raw omega metadata
             "omega_metadata": self.omega_metadata,
+            # Error state
             "error": self.error,
             "error_code": self.error_code,
         }
