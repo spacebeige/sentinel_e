@@ -56,10 +56,14 @@ const UserBubble = ({ message }) => (
 /* ─── Assistant message ─────────────────────────────────────────── */
 const AssistantBubble = ({ message, mode, subMode }) => {
   const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      console.warn('Clipboard access denied');
+    }
   };
 
   const labelText = mode === 'experimental' ? `Omega · ${subMode || 'debate'}` : 'Sentinel';

@@ -545,7 +545,7 @@ class SessionPersistenceEngine:
             if latency_ms > 0:
                 latency_hist = analytics.get("latency_history", [])
                 latency_hist.append(round(latency_ms, 2))
-                analytics["latency_history"] = latency_hist[-50]  if isinstance(latency_hist, list) and len(latency_hist) > 50 else latency_hist
+                analytics["latency_history"] = latency_hist[-50:] if isinstance(latency_hist, list) and len(latency_hist) > 50 else latency_hist
             # Running average confidence
             prev_avg = analytics.get("avg_confidence", 0.0)
             n = analytics.get("assistant_messages", 1)
@@ -623,7 +623,8 @@ class SessionPersistenceEngine:
         """Update session analytics with new data points."""
         session = self.get_session(session_id)
         if not session:
-            return
+            # Auto-create session so analytics are never silently dropped
+            session = self.create_session(session_id=session_id)
 
         analytics = session.analytics or {}
 

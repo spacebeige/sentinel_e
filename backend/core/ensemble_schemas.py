@@ -250,9 +250,9 @@ class CalibratedConfidence(BaseModel):
     final_confidence: float = Field(0.5, ge=0.05, le=0.95)
     calibration_method: str = "entropy_weighted_ensemble"
     components: Dict[str, float] = Field(default_factory=dict)
-    evolution: List[Dict[str, float]] = Field(
+    evolution: List[Dict[str, Any]] = Field(
         default_factory=list,
-        description="Confidence at each stage: [initial, post_debate, post_calibration]"
+        description="Confidence at each stage: [{stage: str, value: float}, ...]"
     )
     explanation: str = ""
 
