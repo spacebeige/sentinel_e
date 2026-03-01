@@ -107,6 +107,13 @@ class CognitiveOrchestrator:
                           get_enabled_model_ids(), get_enabled_models_info()
         """
         self._bridge = model_bridge
+
+        # Resolve gateway reference for pressure/constrained-execution tracking
+        _gw = getattr(model_bridge, 'gateway', None)
+        if _gw is None:
+            raise RuntimeError("Gateway initialization failure")
+        self._gateway = _gw
+
         self._agreement_engine = AgreementMatrixEngine()
         self._confidence_calibrator = ConfidenceCalibrator()
         self._debate_engine = StructuredDebateEngine(
