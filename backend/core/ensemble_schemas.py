@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field, field_validator
 # ============================================================
 
 MIN_MODELS = 3
-MIN_DEBATE_ROUNDS = 3
+MIN_DEBATE_ROUNDS = 2
 MIN_ANALYTICS_OUTPUTS = 2
 
 

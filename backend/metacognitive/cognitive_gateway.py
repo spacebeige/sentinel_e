@@ -67,7 +67,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         provider="qwen",
         role=ModelRole.CODE,
         context_window=131072,
-        max_output_tokens=2059,
+        max_output_tokens=1200,
         default_temperature=0.2,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="QWEN3_CODER_API_KEY",
@@ -78,7 +78,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         provider="qwen",
         role=ModelRole.VISION,
         context_window=32768,
-        max_output_tokens=4096,
+        max_output_tokens=1500,
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="QWEN3_VL_API_KEY",
@@ -90,7 +90,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         provider="nvidia",
         role=ModelRole.BASELINE,
         context_window=32768,
-        max_output_tokens=3123,
+        max_output_tokens=1500,
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="NEMOTRON_API_KEY",
@@ -101,7 +101,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         provider="groq",
         role=ModelRole.CONCEPTUAL,
         context_window=131072,
-        max_output_tokens=8192,
+        max_output_tokens=2000,
         default_temperature=0.4,
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
         api_key_env="GROQ_API_KEY",
@@ -112,7 +112,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         provider="groq",
         role=ModelRole.FAST,
         context_window=131072,
-        max_output_tokens=8192,
+        max_output_tokens=1500,
         default_temperature=0.3,
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
         api_key_env="GROQ_API_KEY",
@@ -123,7 +123,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         provider="openrouter",
         role=ModelRole.GENERAL,
         context_window=32768,
-        max_output_tokens=4096,
+        max_output_tokens=1500,
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="OPENROUTER_API_KEY",
@@ -134,7 +134,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         provider="kimi",
         role=ModelRole.LONGCTX,
         context_window=262144,
-        max_output_tokens=1499,
+        max_output_tokens=1200,
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="KIMI_API_KEY",
@@ -221,6 +221,37 @@ class CognitiveModelGateway:
     def __init__(self):
         self.settings = get_settings()
         self._session: Optional[aiohttp.ClientSession] = None
+        # ── Pressure tracking for dynamic token scaling ──
+        # Records timestamps of recent 402/429 failures
+        self._recent_failures: List[float] = []
+        self._pressure_window: float = 300.0  # 5-minute sliding window
+
+    @property
+    def pressure_factor(self) -> float:
+        """
+        Returns a multiplier in (0.5, 1.0] based on recent 402/429 failures.
+        0 failures → 1.0 (full budget)
+        1 failure  → 0.85
+        2 failures → 0.70
+        3+ failures → 0.50
+        """
+        now = time.monotonic()
+        self._recent_failures = [
+            t for t in self._recent_failures
+            if now - t < self._pressure_window
+        ]
+        n = len(self._recent_failures)
+        if n == 0:
+            return 1.0
+        if n == 1:
+            return 0.85
+        if n == 2:
+            return 0.70
+        return 0.50
+
+    def _record_failure(self):
+        """Record a 402/429 failure timestamp for pressure tracking."""
+        self._recent_failures.append(time.monotonic())
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Lazy HTTP session."""
@@ -285,7 +316,18 @@ class CognitiveModelGateway:
             len(str(m.get("content", ""))) for m in messages
         ) // 4  # rough char-to-token ratio
         _available = spec.context_window - _prompt_estimate - 300
-        governed_max_tokens = min(spec.max_output_tokens, max(0, _available))
+
+        # Apply pressure-based dynamic scaling
+        pf = self.pressure_factor
+        scaled_cap = max(512, int(spec.max_output_tokens * pf))
+        governed_max_tokens = min(scaled_cap, max(0, _available))
+
+        if pf < 1.0:
+            logger.info(
+                f"Pressure scaling [{model_key}]: factor={pf:.2f}, "
+                f"base={spec.max_output_tokens}, scaled={scaled_cap}, "
+                f"governed={governed_max_tokens}"
+            )
 
         if governed_max_tokens < 500:
             logger.warning(
@@ -394,29 +436,43 @@ class CognitiveModelGateway:
         """
         messages = []
 
-        # System prompt — role-specific, no cutoff framing
+        # System prompt — dual conversational / analytical mode
         system_parts = [
-            "You are a rigorous analytical reasoning assistant. "
-            "Provide precise, well-structured answers grounded in the provided context. "
-            "Never mention knowledge cutoffs or training data limitations."
+            "You are Sentinel-E.\n\n"
+            "You operate in two adaptive modes:\n\n"
+            "1. Conversational Mode:\n"
+            "   - Respond naturally in first person.\n"
+            "   - Maintain continuity.\n"
+            "   - Speak directly to the user.\n"
+            "   - Handle emotional or personal language appropriately.\n\n"
+            "2. Analytical Mode:\n"
+            "   - Provide structured reasoning.\n"
+            "   - Break down assumptions.\n"
+            "   - Present clear logical steps.\n\n"
+            "Automatically choose the mode based on user tone.\n"
+            "Never mention knowledge cutoffs or training data."
         ]
 
-        # Inject knowledge bundle
+        # Inject knowledge bundle (capped at ~2000 chars to save tokens)
         if inp.knowledge_bundle:
             kb_text = "\n\n[KNOWLEDGE CONTEXT]\n"
             for block in inp.knowledge_bundle:
                 kb_text += f"Source: {block.source}\n"
                 kb_text += f"Content: {block.content}\n\n"
+            if len(kb_text) > 2000:
+                kb_text = kb_text[:1950] + "\n...[truncated]"
             system_parts.append(kb_text)
 
-        # Inject session summary
+        # Inject session summary (capped at ~1500 chars)
         if inp.session_summary:
             summary_text = "\n\n[SESSION CONTEXT]\n"
             for key, val in inp.session_summary.items():
                 summary_text += f"{key}: {val}\n"
+            if len(summary_text) > 1500:
+                summary_text = summary_text[:1450] + "\n...[truncated]"
             system_parts.append(summary_text)
 
-        # Inject stabilized context
+        # Inject stabilized context (capped at ~2000 chars)
         if inp.stabilized_context:
             ctx_text = "\n\n[STABILIZED CONTEXT]\n"
             for key, val in inp.stabilized_context.items():
@@ -425,6 +481,8 @@ class CognitiveModelGateway:
                     ctx_text += f"{key}: {json.dumps(val, default=str)}\n"
                 else:
                     ctx_text += f"{key}: {val}\n"
+            if len(ctx_text) > 2000:
+                ctx_text = ctx_text[:1950] + "\n...[truncated]"
             system_parts.append(ctx_text)
 
         messages.append({"role": "system", "content": "\n".join(system_parts)})
@@ -491,6 +549,8 @@ class CognitiveModelGateway:
         async with session.post(url, headers=headers, json=payload) as resp:
             if resp.status != 200:
                 text = await resp.text()
+                if resp.status in (402, 429):
+                    self._record_failure()
                 return CognitiveGatewayOutput(
                     model_name=spec.name, raw_output="",
                     success=False, error=self._sanitize_provider_error(resp.status, text),
@@ -544,6 +604,8 @@ class CognitiveModelGateway:
         async with session.post(url, headers=headers, json=payload) as resp:
             if resp.status != 200:
                 text = await resp.text()
+                if resp.status in (402, 429):
+                    self._record_failure()
                 return CognitiveGatewayOutput(
                     model_name=spec.name, raw_output="",
                     success=False, error=self._sanitize_provider_error(resp.status, text),

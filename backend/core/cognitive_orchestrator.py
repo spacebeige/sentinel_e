@@ -297,6 +297,10 @@ class CognitiveOrchestrator:
             # ── PHASE 10: Assembly ─────────────────────────────
             total_latency = (time.monotonic() - start_time) * 1000
 
+            # Pressure-aware constrained execution detection
+            gateway_pressure = getattr(self._gateway, 'pressure_factor', 1.0)
+            constrained_execution = gateway_pressure < 1.0 or len(successful) < 4
+
             omega_metadata = {
                 "omega_version": "6.0.0",
                 "pipeline": "ensemble_cognitive",
@@ -313,7 +317,19 @@ class CognitiveOrchestrator:
                 "calibrated_confidence": round(calibrated_confidence.final_confidence, 4),
                 "confidence_method": calibrated_confidence.calibration_method,
                 "metrics_reliable": metrics_reliable,
+                "constrained_execution": constrained_execution,
+                "pressure_factor": round(gateway_pressure, 2),
             }
+
+            # ── Analytics Integrity Gate ───────────────────────
+            # If fewer than 3 models succeeded, mark limited ensemble
+            # and note that drift/rift/consensus metrics are unreliable
+            if len(successful) < 3:
+                omega_metadata["limited_ensemble"] = True
+                omega_metadata["limited_ensemble_reason"] = (
+                    f"Only {len(successful)} models succeeded; "
+                    f"drift, rift, and consensus metrics may be unreliable."
+                )
 
             response = EnsembleResponse(
                 chat_id=chat_id,

@@ -166,18 +166,23 @@ class StructuredDebateEngine:
         initial_outputs: Optional[List[StructuredModelOutput]] = None,
     ) -> DebateResult:
         """
-        Execute structured debate with mandatory minimum 3 rounds.
+        Execute structured debate with minimum 2 rounds.
+
+        A 3rd round is added conditionally if:
+          - All models succeeded in rounds 1-2
+          - No 402/429 (credit/rate) failures occurred
+          - Disagreement remains above 0.3 after round 2
 
         Args:
             query: The user's question
-            rounds: Number of rounds (minimum 3, enforced)
+            rounds: Number of rounds (minimum 2, enforced)
             initial_outputs: Pre-computed structured outputs from Phase 1
 
         Returns:
             DebateResult with all rounds, shifts, and consensus.
 
         Raises:
-            EnsembleFailure if <3 models or <3 rounds complete.
+            EnsembleFailure if <3 models or <2 rounds complete.
         """
         rounds = max(rounds, MIN_DEBATE_ROUNDS)
         models = self._get_enabled_models()
@@ -244,6 +249,54 @@ class StructuredDebateEngine:
                 prev_positions[pos.model_id] = pos
 
             debate_rounds.append(round_result)
+
+        # ── Conditional 3rd round ──────────────────────────────
+        # Only extend if: all models succeeded, no credit/rate failures,
+        # and disagreement remains high (>0.3) after round 2
+        if (
+            len(debate_rounds) == 2
+            and rounds <= 2  # caller didn't explicitly request 3+
+        ):
+            last_round = debate_rounds[-1]
+            all_succeeded = all(
+                getattr(p, 'status', 'success') != 'failed'
+                for p in last_round.positions
+            )
+            has_credit_failures = any(
+                'credit' in (getattr(p, 'argument', '') or '').lower()
+                or 'rate limit' in (getattr(p, 'argument', '') or '').lower()
+                for rnd in debate_rounds for p in rnd.positions
+                if getattr(p, 'status', 'success') == 'failed'
+            )
+            high_disagreement = last_round.round_disagreement > 0.3
+
+            if all_succeeded and not has_credit_failures and high_disagreement:
+                logger.info(
+                    "Conditional 3rd round triggered: "
+                    f"disagreement={last_round.round_disagreement:.3f}"
+                )
+                transcript = "\n\n".join(transcript_parts)
+                round_result = await self._run_round_n(
+                    query, models, 3, transcript, prev_positions
+                )
+                round_result.round_disagreement = self._compute_disagreement(
+                    round_result
+                )
+                prev_disagreement = debate_rounds[-1].round_disagreement
+                round_result.convergence_delta = (
+                    prev_disagreement - round_result.round_disagreement
+                )
+                round_result.key_conflicts = self._extract_conflicts(round_result)
+                round_shifts = self._detect_shifts(
+                    prev_positions, round_result, 3
+                )
+                all_shifts.extend(round_shifts)
+                transcript_parts.append(
+                    self._format_round_transcript(round_result)
+                )
+                for pos in round_result.positions:
+                    prev_positions[pos.model_id] = pos
+                debate_rounds.append(round_result)
 
         # Validate minimum rounds completed
         if len(debate_rounds) < MIN_DEBATE_ROUNDS:
