@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronDown, ChevronUp, ShieldAlert, ShieldCheck, Zap } from 'lucide-react';
+import { ChevronDown, ChevronUp, ShieldAlert, ShieldCheck, Zap, AlertTriangle } from 'lucide-react';
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer,
          BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 import ConfidenceBar from './ConfidenceBar';
@@ -9,15 +9,26 @@ const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 const MODEL_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'];
 
+/** Qualitative label for a 0-1 confidence value */
+function confidenceLabel(value) {
+  if (value == null) return 'N/A';
+  const pct = Math.round(value * 100);
+  if (value >= 0.85) return `${pct}% (High Stability)`;
+  if (value >= 0.65) return `${pct}% (Moderate Stability)`;
+  if (value >= 0.40) return `${pct}% (Low Stability)`;
+  return `${pct}% (Unstable)`;
+}
+
 /**
  * DebateView — Multi-model adversarial debate visualisation
  *
  * Features:
- * - Left / right debate panels (first two models)
- * - Round-by-round accordion with model columns
+ * - Clear round headers with model count
+ * - Per-model blocks with name, role, confidence, argument
+ * - Failed models shown as isolated warning cards
  * - Divergence radar chart (per-dimension comparison)
  * - Score bar-graph breakdown (T, K, S, C, D components)
- * - Conflicting vs supported claim markers
+ * - Rich analysis section with synthesis, conflict axes, metrics
  * - Dark-mode aware
  */
 export default function DebateView({ data, boundary, confidence }) {
@@ -26,14 +37,26 @@ export default function DebateView({ data, boundary, confidence }) {
   // Safe fallback values — hooks must be called unconditionally
   const safeData = useMemo(() => data || {}, [data]);
 
-  // PHASE 6: Filter out models with empty/blank arguments from each round
-  const rounds = useMemo(() => {
+  // Separate successful and failed models per round
+  const { rounds, failedModels } = useMemo(() => {
     const raw = safeData.rounds || [];
-    return raw.map(round =>
-      (Array.isArray(round) ? round : [round]).filter(
-        m => m && m.argument && m.argument.trim()
-      )
-    ).filter(round => round.length > 0);
+    const allFailed = [];
+    const cleanRounds = raw.map((round, roundIdx) => {
+      const models = Array.isArray(round) ? round : [round];
+      const ok = [];
+      const bad = [];
+      models.forEach(m => {
+        if (!m) return;
+        if (m.status === 'failed' || m.position === '[MODEL FAILED]' || (!m.argument?.trim() && !m.position?.trim())) {
+          bad.push({ ...m, _roundIdx: roundIdx });
+        } else {
+          ok.push(m);
+        }
+      });
+      allFailed.push(...bad);
+      return ok;
+    }).filter(round => round.length > 0);
+    return { rounds: cleanRounds, failedModels: allFailed };
   }, [safeData.rounds]);
 
   const analysis = useMemo(() => safeData.analysis || {}, [safeData.analysis]);
@@ -47,6 +70,7 @@ export default function DebateView({ data, boundary, confidence }) {
     () => safeData.scores || safeData.score_breakdown || {},
     [safeData.scores, safeData.score_breakdown]
   );
+
   // ── Radar data: each "axis" shows how much models diverge ──
   const radarData = useMemo(() => {
     const axes = analysis.conflict_axes || [];
@@ -58,7 +82,7 @@ export default function DebateView({ data, boundary, confidence }) {
         const key = typeof m === 'string' ? m : m.model_id || `M${mi}`;
         entry[key] = typeof axis === 'object' && axis.scores?.[mi] != null
           ? axis.scores[mi]
-          : 0.5 + Math.random() * 0.3; // fallback if no per-axis scores
+          : 0.5 + Math.random() * 0.3;
       });
       return entry;
     });
@@ -87,7 +111,6 @@ export default function DebateView({ data, boundary, confidence }) {
     );
   }
 
-  // PHASE 7: If all models returned empty, show execution failure
   if (rounds.length === 0 && data) {
     return (
       <div className="text-center py-8">
@@ -119,6 +142,30 @@ export default function DebateView({ data, boundary, confidence }) {
         </div>
       </div>
 
+      {/* ── Failed Models Summary (isolated) ── */}
+      {failedModels.length > 0 && (
+        <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] dark:bg-[#991b1b]/20 dark:border-[#991b1b] p-3">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-[#ef4444]" />
+            <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {failedModels.length} Model{failedModels.length > 1 ? 's' : ''} Failed
+            </span>
+          </div>
+          <div className="space-y-1">
+            {failedModels.map((m, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#991b1b' }}>
+                  {m.model_label || m.model_id || `Model ${i + 1}`}
+                </span>
+                <span style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73' }}>
+                  — Round {(m._roundIdx || 0) + 1} · No response received
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Left / Right Debate Panel (first round, first 2 models) ── */}
       {leftModel && rightModel && (
         <div className="grid grid-cols-2 gap-3">
@@ -147,11 +194,10 @@ export default function DebateView({ data, boundary, confidence }) {
                     {model.position}
                   </p>
                 )}
-                <p className="dark:text-[#e2e8f0]" style={{ fontFamily: FONT, fontSize: '12px', lineHeight: 1.6, color: '#3b3b3f' }}>
-                  {(model.argument || '').slice(0, 600)}
+                <p className="dark:text-[#e2e8f0]" style={{ fontFamily: FONT, fontSize: '13px', lineHeight: 1.6, color: '#3b3b3f' }}>
+                  {(model.argument || '').slice(0, 800)}
                 </p>
                 <div className="mt-3">
-                  {/* PHASE 6: Only show confidence when model returned text */}
                   <ConfidenceBar value={model.argument ? (model.confidence || 0.5) : 0} label="Confidence" size="sm" />
                 </div>
               </div>
@@ -166,7 +212,7 @@ export default function DebateView({ data, boundary, confidence }) {
           <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Consensus Synthesis
           </span>
-          <p className="mt-2 dark:text-[#e2e8f0]" style={{ fontFamily: FONT, fontSize: '14px', lineHeight: 1.6, color: '#1d1d1f' }}>
+          <p className="mt-2 dark:text-[#e2e8f0]" style={{ fontFamily: FONT, fontSize: '14px', lineHeight: 1.7, color: '#1d1d1f' }}>
             {analysis.synthesis}
           </p>
         </div>
@@ -237,9 +283,11 @@ export default function DebateView({ data, boundary, confidence }) {
                 onClick={() => setExpandedRound(isExpanded ? null : roundIdx)}
                 className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#f5f5f7] dark:hover:bg-white/10 transition-colors"
               >
-                <span className="dark:text-[#f1f5f9]" style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 600, color: '#1d1d1f' }}>
-                  Round {roundIdx + 1}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="dark:text-[#f1f5f9]" style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 700, color: '#1d1d1f' }}>
+                    Round {roundIdx + 1}
+                  </span>
+                </div>
                 <div className="flex items-center gap-2">
                   <span style={{ fontFamily: FONT, fontSize: '11px', color: '#aeaeb2' }}>
                     {models.length} model{models.length !== 1 ? 's' : ''}
@@ -253,32 +301,38 @@ export default function DebateView({ data, boundary, confidence }) {
 
               {isExpanded && (
                 <div className="border-t border-black/5 dark:border-white/5">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-0 divide-y md:divide-y-0 md:divide-x divide-black/5 dark:divide-white/5">
+                  <div className="divide-y divide-black/5 dark:divide-white/5">
                     {models.map((model, mi) => {
                       const clr = MODEL_COLORS[mi % MODEL_COLORS.length];
                       return (
                         <div key={mi} className="p-4 space-y-2">
                           <div className="flex items-center justify-between">
-                            <span style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 600, color: clr }}>
-                              {model.model_label || model.model_id || `Model ${mi + 1}`}
-                            </span>
-                            {model.role && (
-                              <span className="px-1.5 py-0.5 rounded-md bg-[#f5f5f7] dark:bg-white/10" style={{
-                                fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#6e6e73',
-                              }}>
-                                {model.role}
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: clr }} />
+                              <span style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 600, color: clr }}>
+                                {model.model_label || model.model_id || `Model ${mi + 1}`}
                               </span>
-                            )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {model.role && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-[#f5f5f7] dark:bg-white/10" style={{
+                                  fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#6e6e73',
+                                }}>
+                                  {model.role}
+                                </span>
+                              )}
+                              <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500, color: '#6e6e73' }}>
+                                {confidenceLabel(model.argument ? (model.confidence || 0.5) : null)}
+                              </span>
+                            </div>
                           </div>
-                          {/* PHASE 6: Only show confidence when model returned text */}
-                          <ConfidenceBar value={model.argument ? (model.confidence || 0.5) : 0} label="Confidence" size="sm" />
                           {model.position && (
-                            <p style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }} className="dark:text-[#f1f5f9]">
+                            <p style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 600, color: '#1d1d1f' }} className="dark:text-[#f1f5f9]">
                               {model.position}
                             </p>
                           )}
-                          <p className="dark:text-[#e2e8f0]" style={{ fontFamily: FONT, fontSize: '12px', lineHeight: 1.5, color: '#3b3b3f' }}>
-                            {(model.argument || '').slice(0, 500)}
+                          <p className="dark:text-[#e2e8f0]" style={{ fontFamily: FONT, fontSize: '13px', lineHeight: 1.6, color: '#3b3b3f' }}>
+                            {(model.argument || '').slice(0, 800)}
                           </p>
                           {model.weaknesses && model.weaknesses.length > 0 && (
                             <div className="mt-1.5 pt-1.5 border-t border-black/5 dark:border-white/5">
@@ -301,7 +355,7 @@ export default function DebateView({ data, boundary, confidence }) {
         })}
       </div>
 
-      {/* ── Conflict Axes (text listing) ── */}
+      {/* ── Conflict Axes ── */}
       {analysis.conflict_axes && analysis.conflict_axes.length > 0 && (
         <div className="rounded-2xl border border-[#fde68a] dark:border-[#92400e] bg-[#fffbeb] dark:bg-[#78350f]/30 p-4">
           <div className="flex items-center gap-1.5 mb-2">
@@ -323,18 +377,40 @@ export default function DebateView({ data, boundary, confidence }) {
       {/* ── Metrics ── */}
       <div className="grid grid-cols-3 gap-2">
         {[
-          { label: 'Disagreement', value: analysis.disagreement_strength, color: '#f59e0b' },
-          { label: 'Convergence', value: analysis.convergence_level, isText: true, color: '#3b82f6' },
-          { label: 'Confidence', value: analysis.confidence_recalibration || confidence, color: '#10b981' },
+          {
+            label: 'Disagreement',
+            value: analysis.disagreement_strength,
+            color: '#f59e0b',
+            display: analysis.disagreement_strength != null
+              ? `${Math.round(analysis.disagreement_strength * 100)}%`
+              : 'Incomplete',
+          },
+          {
+            label: 'Convergence',
+            value: analysis.convergence_level,
+            isText: true,
+            color: '#3b82f6',
+            display: analysis.convergence_level || 'Incomplete',
+          },
+          {
+            label: 'Confidence',
+            value: analysis.confidence_recalibration || confidence,
+            color: '#10b981',
+            display: confidenceLabel(analysis.confidence_recalibration || confidence),
+          },
         ].map(metric => (
           <div key={metric.label} className="rounded-2xl bg-[#f5f5f7] dark:bg-[#1c1c1e] p-3 text-center">
             <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 500, color: '#6e6e73' }}>
               {metric.label}
             </span>
-            <p style={{ fontFamily: FONT, fontSize: '16px', fontWeight: 700, color: metric.color, marginTop: '4px' }}>
-              {metric.isText
-                ? (metric.value || 'N/A')
-                : metric.value != null ? `${Math.round(metric.value * 100)}%` : 'N/A'}
+            <p style={{
+              fontFamily: FONT,
+              fontSize: metric.display === 'Incomplete' ? '12px' : '14px',
+              fontWeight: metric.display === 'Incomplete' ? 500 : 700,
+              color: metric.display === 'Incomplete' ? '#aeaeb2' : metric.color,
+              marginTop: '4px',
+            }}>
+              {metric.display}
             </p>
           </div>
         ))}

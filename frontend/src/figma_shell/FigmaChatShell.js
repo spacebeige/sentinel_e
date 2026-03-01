@@ -36,6 +36,8 @@ import {
   Skull, Loader2,
   MessageSquare, PanelRightOpen,
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import StructuredOutput from '../components/structured/StructuredOutput';
 import ThinkingAnimation from '../components/structured/ThinkingAnimation';
 import AdvancedCopyMenu from '../components/AdvancedCopyMenu';
@@ -313,65 +315,101 @@ export default function FigmaChatShell({
   // ============================================================
 
   /**
-   * renderCleanContent — Structured text renderer
-   * Handles code blocks, paragraphs, and list items.
-   * NO raw markdown symbols are ever rendered.
+   * renderCleanContent — Markdown-aware text renderer
+   * Handles headings, bold, italic, lists, code blocks, links, and tables
+   * via react-markdown with remark-gfm.
    */
   const renderCleanContent = (text) => {
     if (!text) return null;
 
-    // Split on code blocks first
-    const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
-    const parts = [];
-    let lastIndex = 0;
-    let match;
-
-    while ((match = codeBlockRegex.exec(text)) !== null) {
-      // Text before code block
-      if (match.index > lastIndex) {
-        parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
-      }
-      parts.push({ type: 'code', language: match[1], content: match[2].trim() });
-      lastIndex = match.index + match[0].length;
-    }
-
-    // Remaining text after last code block
-    if (lastIndex < text.length) {
-      parts.push({ type: 'text', content: text.slice(lastIndex) });
-    }
-
-    // If no code blocks found, render as plain text
-    if (parts.length === 0) {
-      parts.push({ type: 'text', content: text });
-    }
-
-    return parts.map((part, idx) => {
-      if (part.type === 'code') {
-        return (
-          <div key={idx} className="my-3 rounded-xl overflow-hidden border border-black/5 dark:border-white/10">
-            {part.language && (
-              <div className="px-4 py-1.5 bg-[#f5f5f7] dark:bg-[#2a2a2e] border-b border-black/5 dark:border-white/10">
-                <span className="text-[#6e6e73] dark:text-[#94a3b8]" style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                  {part.language}
-                </span>
+    return (
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // Headings
+          h1: ({ children }) => (
+            <h1 style={{ fontFamily: FONT, fontSize: '20px', fontWeight: 700, lineHeight: 1.3, marginTop: '16px', marginBottom: '8px', color: 'inherit' }}>{children}</h1>
+          ),
+          h2: ({ children }) => (
+            <h2 style={{ fontFamily: FONT, fontSize: '17px', fontWeight: 700, lineHeight: 1.3, marginTop: '14px', marginBottom: '6px', color: 'inherit' }}>{children}</h2>
+          ),
+          h3: ({ children }) => (
+            <h3 style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 700, lineHeight: 1.3, marginTop: '12px', marginBottom: '4px', color: 'inherit' }}>{children}</h3>
+          ),
+          // Paragraphs
+          p: ({ children }) => (
+            <p style={{ fontFamily: FONT, fontSize: '15px', lineHeight: 1.6, marginTop: '6px', marginBottom: '6px', color: 'inherit' }}>{children}</p>
+          ),
+          // Lists
+          ul: ({ children }) => (
+            <ul style={{ fontFamily: FONT, fontSize: '15px', lineHeight: 1.6, paddingLeft: '20px', marginTop: '4px', marginBottom: '4px', listStyleType: 'disc', color: 'inherit' }}>{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol style={{ fontFamily: FONT, fontSize: '15px', lineHeight: 1.6, paddingLeft: '20px', marginTop: '4px', marginBottom: '4px', listStyleType: 'decimal', color: 'inherit' }}>{children}</ol>
+          ),
+          li: ({ children }) => (
+            <li style={{ marginBottom: '2px', color: 'inherit' }}>{children}</li>
+          ),
+          // Inline code
+          code: ({ inline, className, children }) => {
+            if (inline) {
+              return (
+                <code style={{
+                  fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
+                  fontSize: '13px', backgroundColor: 'rgba(0,0,0,0.05)',
+                  padding: '1px 5px', borderRadius: '4px', color: 'inherit',
+                }}>{children}</code>
+              );
+            }
+            const lang = (className || '').replace('language-', '');
+            return (
+              <div className="my-3 rounded-xl overflow-hidden border border-black/5 dark:border-white/10">
+                {lang && (
+                  <div className="px-4 py-1.5 bg-[#f5f5f7] dark:bg-[#2a2a2e] border-b border-black/5 dark:border-white/10">
+                    <span className="text-[#6e6e73] dark:text-[#94a3b8]" style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      {lang}
+                    </span>
+                  </div>
+                )}
+                <pre className="p-4 bg-[#fafafa] dark:bg-[#1a1a1e] overflow-x-auto" style={{ margin: 0 }}>
+                  <code className="text-[#1d1d1f] dark:text-[#e2e8f0]" style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace", fontSize: '13px', lineHeight: 1.5 }}>
+                    {children}
+                  </code>
+                </pre>
               </div>
-            )}
-            <pre className="p-4 bg-[#fafafa] dark:bg-[#1a1a1e] overflow-x-auto">
-              <code className="text-[#1d1d1f] dark:text-[#e2e8f0]" style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace", fontSize: '13px', lineHeight: 1.5 }}>
-                {part.content}
-              </code>
-            </pre>
-          </div>
-        );
-      }
-
-      // Render clean text — split paragraphs
-      return (
-        <div key={idx} className="whitespace-pre-wrap text-inherit">
-          {part.content}
-        </div>
-      );
-    });
+            );
+          },
+          pre: ({ children }) => <>{children}</>,
+          // Bold / italic
+          strong: ({ children }) => <strong style={{ fontWeight: 700, color: 'inherit' }}>{children}</strong>,
+          em: ({ children }) => <em style={{ fontStyle: 'italic', color: 'inherit' }}>{children}</em>,
+          // Links
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline' }}>{children}</a>
+          ),
+          // Blockquote
+          blockquote: ({ children }) => (
+            <blockquote style={{ borderLeft: '3px solid #d1d5db', paddingLeft: '12px', margin: '8px 0', color: '#6e6e73', fontStyle: 'italic' }}>{children}</blockquote>
+          ),
+          // Table
+          table: ({ children }) => (
+            <div className="overflow-x-auto my-3">
+              <table style={{ fontFamily: FONT, fontSize: '13px', borderCollapse: 'collapse', width: '100%' }}>{children}</table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th style={{ textAlign: 'left', padding: '6px 10px', borderBottom: '2px solid #e5e7eb', fontWeight: 600, fontSize: '12px', color: '#6e6e73' }}>{children}</th>
+          ),
+          td: ({ children }) => (
+            <td style={{ padding: '6px 10px', borderBottom: '1px solid #f3f4f6', color: 'inherit' }}>{children}</td>
+          ),
+          // Horizontal rule
+          hr: () => <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '12px 0' }} />,
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    );
   };
 
   const renderConfidenceBar = (value, label, color) => (
@@ -1065,7 +1103,7 @@ export default function FigmaChatShell({
 
         {/* ---------- MESSAGES ---------- */}
         <div className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="max-w-3xl mx-auto space-y-4">
+          <div className="max-w-5xl mx-auto space-y-4">
             <AnimatePresence>
               {enhancedMessages.map((message) => {
                 const msgMode = message.mode
@@ -1080,10 +1118,10 @@ export default function FigmaChatShell({
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[85%] sm:max-w-[70%] ${
+                      className={`${
                         message.role === 'user'
-                          ? 'rounded-[20px] rounded-br-md bg-blue-600 dark:bg-blue-500 text-white px-4 py-3'
-                          : 'rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/10 text-[#1d1d1f] dark:text-white shadow-sm overflow-hidden'
+                          ? 'max-w-[85%] sm:max-w-[70%] rounded-[20px] rounded-br-md bg-blue-600 dark:bg-blue-500 text-white px-4 py-3'
+                          : 'max-w-[95%] sm:max-w-[85%] rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/10 text-[#1d1d1f] dark:text-white shadow-sm overflow-hidden'
                       }`}
                       style={
                         message.role === 'assistant' && msgMode
@@ -1108,7 +1146,10 @@ export default function FigmaChatShell({
                           {message.confidence != null && (
                             <span className="ml-auto"
                               style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 500, color: '#6e6e73' }}>
-                              {Math.round(message.confidence * 100)}% confidence
+                              {Math.round(message.confidence * 100)}%{' '}
+                              {message.confidence >= 0.85 ? '(High)' :
+                               message.confidence >= 0.65 ? '(Moderate)' :
+                               message.confidence >= 0.40 ? '(Low)' : '(Unstable)'}
                             </span>
                           )}
                         </div>
@@ -1230,7 +1271,7 @@ export default function FigmaChatShell({
                 className="flex justify-start"
               >
                 <div
-                  className="max-w-[85%] sm:max-w-[70%] rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border shadow-sm overflow-hidden"
+                  className="max-w-[95%] sm:max-w-[85%] rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border shadow-sm overflow-hidden"
                   style={{
                     borderColor: activeSubMode
                       ? (PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color || '#6e6e73') + '30'
@@ -1257,7 +1298,7 @@ export default function FigmaChatShell({
 
         {/* ---------- INPUT AREA ---------- */}
         <div className="px-4 pb-6 pt-2">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             <div
               ref={dropZoneRef}
               onDragOver={handleDragOver}

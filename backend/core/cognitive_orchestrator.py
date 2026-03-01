@@ -557,58 +557,96 @@ class CognitiveOrchestrator:
         confidence: CalibratedConfidence,
         tactical_map: TacticalMap,
     ) -> str:
-        """Synthesize final markdown output from ensemble results."""
-        parts = []
+        """Synthesize final markdown output from ensemble results.
 
-        # ── Consensus Answer ────────────────────────────────
+        Produces natural, conversational prose — no robotic headers,
+        no mechanical bullet dumps. Think ChatGPT depth with ensemble rigor.
+        """
+        parts: list[str] = []
+
+        # ── Direct Answer ───────────────────────────────────
         if debate.final_consensus:
             parts.append(debate.final_consensus)
         else:
-            # Use highest-agreement model's position
             best_output = max(outputs, key=lambda o: o.confidence)
             parts.append(best_output.position)
 
-        parts.append("")  # Blank line
-
-        # ── Ensemble Synthesis ──────────────────────────────
-        # Merge unique reasoning points from all models
-        all_reasoning_points = []
-        seen_points = set()
+        # ── Unified Reasoning (deduplicated, conversational) ─
+        all_reasoning_points: list[str] = []
+        seen_points: set[str] = set()
         for output in sorted(outputs, key=lambda o: -o.confidence):
-            # Extract key sentences from reasoning
-            sentences = re.split(r'[.!?]+', output.reasoning)
+            sentences = re.split(r'(?<=[.!?])\s+', output.reasoning)
             for sent in sentences:
                 sent = sent.strip()
-                if len(sent) > 20 and sent.lower() not in seen_points:
-                    seen_points.add(sent.lower())
+                normalised = re.sub(r'\s+', ' ', sent.lower())
+                if len(sent) > 25 and normalised not in seen_points:
+                    seen_points.add(normalised)
                     all_reasoning_points.append(sent)
 
         if all_reasoning_points:
             parts.append("")
-            for point in all_reasoning_points[:8]:
-                parts.append(f"{point}.")
+            # Group reasoning into a flowing paragraph instead of bullets
+            reasoning_block = " ".join(
+                p if p.endswith(('.', '!', '?')) else f"{p}."
+                for p in all_reasoning_points[:8]
+            )
+            parts.append(reasoning_block)
+
+        # ── Key Assumptions ─────────────────────────────────
+        all_assumptions: list[str] = []
+        seen_assumptions: set[str] = set()
+        for output in outputs:
+            for a in output.assumptions:
+                norm = a.strip().lower()
+                if norm and norm not in seen_assumptions:
+                    seen_assumptions.add(norm)
+                    all_assumptions.append(a.strip())
+
+        if all_assumptions:
+            parts.append("")
+            parts.append("**Key assumptions:**")
+            for a in all_assumptions[:5]:
+                parts.append(f"- {a}")
 
         # ── Divergence Notice ───────────────────────────────
         if metrics.contradiction_density > 0.3:
             parts.append("")
+            density_pct = f"{metrics.contradiction_density:.0%}"
             parts.append(
-                f"⚠️ **Note**: Significant divergence detected across models "
-                f"(contradiction density: {metrics.contradiction_density:.0%}). "
-                f"Consider multiple perspectives."
+                f"> **Note:** Significant divergence detected across models "
+                f"(contradiction density {density_pct}). "
+                f"The perspectives below may reflect genuinely debatable aspects "
+                f"of this question."
             )
 
         if matrix.dissenting_models:
             dissenters = ", ".join(matrix.dissenting_models)
             parts.append(
-                f"Models with differing views: {dissenters}"
+                f"> Models with differing views: {dissenters}"
             )
 
-        # ── Unresolved ──────────────────────────────────────
+        # ── Unresolved Points ───────────────────────────────
         if debate.unresolved_conflicts:
             parts.append("")
-            parts.append("**Unresolved points:**")
+            parts.append("**Open questions the models couldn't fully resolve:**")
             for conflict in debate.unresolved_conflicts[:3]:
                 parts.append(f"- {conflict}")
+
+        # ── Known Vulnerabilities ───────────────────────────
+        all_vulns: list[str] = []
+        seen_vulns: set[str] = set()
+        for output in outputs:
+            for v in output.vulnerabilities:
+                norm = v.strip().lower()
+                if norm and norm not in seen_vulns:
+                    seen_vulns.add(norm)
+                    all_vulns.append(v.strip())
+
+        if all_vulns:
+            parts.append("")
+            parts.append("**Caveats:**")
+            for v in all_vulns[:3]:
+                parts.append(f"- {v}")
 
         return "\n".join(parts)
 
