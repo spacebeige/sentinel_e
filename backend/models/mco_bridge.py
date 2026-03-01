@@ -32,9 +32,9 @@ LEGACY_TO_REGISTRY: Dict[str, str] = {
     "groq": "groq-small",           # LLaMA 3.1 8B (fast)
     "llama70b": "llama-3.3",        # LLaMA 3.3 70B (primary reasoning)
     "qwen": "qwen-vl-2.5",         # Qwen 2.5 7B (methodical)
-    "qwen3-coder": "qwen3-coder",  # Qwen3 Coder 480B A35B
-    "qwen3-vl": "qwen3-vl",        # Qwen3 VL 30B A3B
-    "nemotron": "nemotron-nano",    # Nemotron 3 Nano 30B A3B
+    "qwen3-coder": "qwen3-coder",  # Qwen3 235B A22B
+    "qwen3-vl": "qwen3-vl",        # Qwen 2.5 VL 32B
+    "nemotron": "nemotron-nano",    # Nemotron 70B Instruct
     "kimi": "kimi-2.5",            # Kimi 2.5
 }
 

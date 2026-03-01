@@ -67,18 +67,18 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         provider="qwen",
         role=ModelRole.CODE,
         context_window=131072,
-        max_output_tokens=16384,
+        max_output_tokens=2059,
         default_temperature=0.2,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="QWEN3_CODER_API_KEY",
     ),
     "qwen3-vl": CognitiveModelSpec(
-        name="QVQ 72B Preview",
-        model_id="qwen/qvq-72b-preview",
+        name="Qwen 2.5 VL 32B",
+        model_id="qwen/qwen2.5-vl-32b-instruct",
         provider="qwen",
         role=ModelRole.VISION,
         context_window=32768,
-        max_output_tokens=8192,
+        max_output_tokens=4096,
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="QWEN3_VL_API_KEY",
@@ -90,7 +90,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         provider="nvidia",
         role=ModelRole.BASELINE,
         context_window=32768,
-        max_output_tokens=4096,
+        max_output_tokens=3123,
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="NEMOTRON_API_KEY",
@@ -101,7 +101,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         provider="groq",
         role=ModelRole.CONCEPTUAL,
         context_window=131072,
-        max_output_tokens=32768,
+        max_output_tokens=8192,
         default_temperature=0.4,
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
         api_key_env="GROQ_API_KEY",
@@ -134,7 +134,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         provider="kimi",
         role=ModelRole.LONGCTX,
         context_window=262144,
-        max_output_tokens=16384,
+        max_output_tokens=1499,
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="KIMI_API_KEY",
@@ -279,13 +279,34 @@ class CognitiveModelGateway:
         # Build messages from stabilized context
         messages = self._build_messages(gateway_input, spec)
 
+        # ── Token Governor ──────────────────────────────────
+        # Estimate prompt tokens and clamp max_tokens to safe budget
+        _prompt_estimate = sum(
+            len(str(m.get("content", ""))) for m in messages
+        ) // 4  # rough char-to-token ratio
+        _available = spec.context_window - _prompt_estimate - 300
+        governed_max_tokens = min(spec.max_output_tokens, max(0, _available))
+
+        if governed_max_tokens < 500:
+            logger.warning(
+                f"Token budget exceeded for '{model_key}': "
+                f"prompt ~{_prompt_estimate} tok, "
+                f"window={spec.context_window}, available={_available}"
+            )
+            return CognitiveGatewayOutput(
+                model_name=spec.name,
+                raw_output="",
+                success=False,
+                error="Token budget exceeded",
+            )
+
         start = time.monotonic()
         try:
             if spec.provider == "groq":
-                result = await self._call_groq(spec, messages, api_key)
+                result = await self._call_groq(spec, messages, api_key, governed_max_tokens)
             elif spec.provider in ("qwen", "nvidia", "kimi", "openrouter"):
                 result = await self._call_openrouter_isolated(
-                    spec, messages, api_key,
+                    spec, messages, api_key, governed_max_tokens,
                 )
             elif spec.provider == "openai":
                 result = await self._call_openai(spec, messages)
@@ -445,8 +466,9 @@ class CognitiveModelGateway:
         spec: CognitiveModelSpec,
         messages: List[Dict[str, str]],
         api_key: str = "",
+        max_tokens: int = 4096,
     ) -> CognitiveGatewayOutput:
-        """Call Groq API with per-model isolated key."""
+        """Call Groq API with per-model isolated key and governed token budget."""
         if not api_key:
             return CognitiveGatewayOutput(
                 model_name=spec.name, raw_output="",
@@ -462,7 +484,7 @@ class CognitiveModelGateway:
             "model": spec.model_id,
             "messages": messages,
             "temperature": spec.default_temperature,
-            "max_tokens": spec.max_output_tokens,
+            "max_tokens": max_tokens,
         }
 
         session = await self._get_session()
@@ -471,7 +493,7 @@ class CognitiveModelGateway:
                 text = await resp.text()
                 return CognitiveGatewayOutput(
                     model_name=spec.name, raw_output="",
-                    success=False, error=f"Groq {resp.status}: {text[:500]}",
+                    success=False, error=self._sanitize_provider_error(resp.status, text),
                 )
             data = await resp.json()
             choice = data.get("choices", [{}])[0]
@@ -490,11 +512,13 @@ class CognitiveModelGateway:
         spec: CognitiveModelSpec,
         messages: List[Dict[str, str]],
         api_key: str = "",
+        max_tokens: int = 4096,
     ) -> CognitiveGatewayOutput:
         """
         Call OpenRouter-compatible API with per-model isolated key.
         Used by qwen, nvidia, kimi, and generic openrouter providers.
         Provider isolation: each model uses its own key, never shared.
+        Token budget governed by caller — never exceeds safe limit.
         """
         if not api_key:
             return CognitiveGatewayOutput(
@@ -513,7 +537,7 @@ class CognitiveModelGateway:
             "model": spec.model_id,
             "messages": messages,
             "temperature": spec.default_temperature,
-            "max_tokens": spec.max_output_tokens,
+            "max_tokens": max_tokens,
         }
 
         session = await self._get_session()
@@ -522,7 +546,7 @@ class CognitiveModelGateway:
                 text = await resp.text()
                 return CognitiveGatewayOutput(
                     model_name=spec.name, raw_output="",
-                    success=False, error=f"{spec.provider} {resp.status}: {text[:500]}",
+                    success=False, error=self._sanitize_provider_error(resp.status, text),
                 )
             data = await resp.json()
             choice = data.get("choices", [{}])[0]
@@ -578,3 +602,29 @@ class CognitiveModelGateway:
                 else:
                     output.confidence_estimate *= 0.5
                 break
+
+    # ── Error Sanitization ───────────────────────────────────
+
+    @staticmethod
+    def _sanitize_provider_error(status_code: int, raw_text: str) -> str:
+        """Convert raw provider errors into clean user-facing messages.
+
+        Never expose user_id, metadata, or raw provider JSON to the UI.
+        Maps HTTP status codes and error keywords to safe categories.
+        """
+        raw_lower = raw_text.lower()
+
+        if status_code == 401 or "unauthorized" in raw_lower or "invalid" in raw_lower and "key" in raw_lower:
+            return "Invalid API key"
+        if status_code == 402 or "insufficient" in raw_lower or "credit" in raw_lower or "quota" in raw_lower:
+            return "Insufficient credit"
+        if status_code == 429 or "rate" in raw_lower and "limit" in raw_lower:
+            return "Rate limit exceeded"
+        if status_code == 404 or "not found" in raw_lower or "invalid model" in raw_lower:
+            return "Invalid model"
+        if status_code == 503 or "unavailable" in raw_lower or "overloaded" in raw_lower:
+            return "Provider unavailable"
+        if "context" in raw_lower and ("length" in raw_lower or "token" in raw_lower):
+            return "Token limit exceeded"
+
+        return f"Provider error (HTTP {status_code})"

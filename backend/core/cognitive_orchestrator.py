@@ -173,6 +173,14 @@ class CognitiveOrchestrator:
                     models_available=len(successful),
                 )
 
+            # ── Safe Defaults: reduce scope if limited models ──
+            if len(successful) < 4:
+                rounds = min(rounds, 1)
+                logger.warning(
+                    f"Safe mode: {len(successful)} models succeeded. "
+                    f"Reducing to {rounds} debate round(s)."
+                )
+
             # ── PHASE 2: Agreement Matrix ──────────────────────
             logger.info("Phase 2: Computing agreement matrix")
             agreement_matrix = self._agreement_engine.compute(successful)
