@@ -74,32 +74,9 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="OPENROUTER_API_KEY",
     ),
-    "qwen3-next-80b-free": CognitiveModelSpec(
-        name="Qwen3-Next 80B A3B Instruct (Free)",
-        model_id="qwen/qwen3-next-80b-a3b-instruct:free",
-        provider="openrouter",
-        role=ModelRole.GENERAL,
-        context_window=32768,
-        max_output_tokens=350,
-        default_temperature=0.3,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="OPENROUTER_API_KEY",
-    ),
-    "qwen3-vl": CognitiveModelSpec(
-        name="Qwen 2.5 VL 32B",
-        model_id="qwen/qwen2.5-vl-32b-instruct",
-        provider="qwen",
-        role=ModelRole.VISION,
-        context_window=32768,
-        max_output_tokens=1500,
-        default_temperature=0.3,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="QWEN3_VL_API_KEY",
-        supports_vision=True,
-    ),
     "mistral-small-24b": CognitiveModelSpec(
         name="Mistral Small 24B",
-        model_id="mistralai/mistral-small-24b-instruct",
+        model_id="mistralai/mistral-small-3.1-24b-instruct:free",
         provider="openrouter",
         role=ModelRole.CONCEPTUAL,
         context_window=32768,
@@ -131,8 +108,8 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_key_env="GROQ_API_KEY",
     ),
     "qwen-vl-2.5": CognitiveModelSpec(
-        name="Qwen 2.5 7B",
-        model_id="qwen/qwen-2.5-7b-instruct",
+        name="Qwen 2.5 7B Instruct (Free)",
+        model_id="qwen/qwen-2.5-7b-instruct:free",
         provider="openrouter",
         role=ModelRole.GENERAL,
         context_window=32768,
@@ -615,7 +592,7 @@ class CognitiveModelGateway:
             usage = data.get("usage", {})
             return CognitiveGatewayOutput(
                 model_name=spec.name,
-                raw_output=choice.get("message", {}).get("content", ""),
+                raw_output=choice.get("message", {}).get("content") or "",
                 tokens_used=usage.get("total_tokens", 0),
                 input_tokens=usage.get("prompt_tokens", 0),
                 output_tokens=usage.get("completion_tokens", 0),
@@ -670,7 +647,7 @@ class CognitiveModelGateway:
             usage = data.get("usage", {})
             return CognitiveGatewayOutput(
                 model_name=spec.name,
-                raw_output=choice.get("message", {}).get("content", ""),
+                raw_output=choice.get("message", {}).get("content") or "",
                 tokens_used=usage.get("total_tokens", 0),
                 input_tokens=usage.get("prompt_tokens", 0),
                 output_tokens=usage.get("completion_tokens", 0),

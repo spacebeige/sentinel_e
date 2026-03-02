@@ -16,7 +16,7 @@ class MockBridge:
     """Mock MCOModelBridge that simulates call_model for all registered models."""
 
     def __init__(self, model_ids=None, fail_models=None):
-        self._model_ids = model_ids or ["groq", "llama70b", "qwen", "qwen3-next", "nemotron"]
+        self._model_ids = model_ids or ["groq", "llama70b", "qwen", "nemotron", "mistral-small"]
         self._fail_models = fail_models or set()
         self.call_log: List[Dict[str, Any]] = []
 

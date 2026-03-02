@@ -35,9 +35,8 @@ MODEL_COSTS: Dict[str, Dict[str, float]] = {
     "groq-small": {"input": 0.00005, "output": 0.00008},
     "llama-3.3": {"input": 0.00059, "output": 0.00079},
     "qwen-vl-2.5": {"input": 0.00000, "output": 0.00000},  # OpenRouter free tier
-    "qwen3-vl": {"input": 0.00000, "output": 0.00000},            # OpenRouter free tier
+    "qwen-vl-2.5": {"input": 0.00000, "output": 0.00000},            # OpenRouter free tier
     "nemotron-30b-free": {"input": 0.00000, "output": 0.00000},   # OpenRouter free tier
-    "qwen3-next-80b-free": {"input": 0.00000, "output": 0.00000}, # OpenRouter free tier
     "mistral-small-24b": {"input": 0.00000, "output": 0.00000},   # OpenRouter free tier
     "llama-3.2-3b": {"input": 0.00000, "output": 0.00000},        # OpenRouter free tier
     # Legacy aliases (backward compat for recorded usage)

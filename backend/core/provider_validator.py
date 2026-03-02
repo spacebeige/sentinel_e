@@ -32,7 +32,7 @@ logger = logging.getLogger("sentinel.provider_validator")
 
 # Vision-capable model IDs
 VISION_CAPABLE_MODELS = {
-    "qwen3-vl",
+    # No active vision models
 }
 
 # Provider → required env var mapping

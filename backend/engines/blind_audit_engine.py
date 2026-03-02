@@ -138,9 +138,8 @@ MODEL_NAMES = {
     "groq": "Groq (LLaMA 3.1)",
     "llama70b": "Llama 3.3 70B",
     "qwen": "Qwen 2.5",
-    "qwen3-vl": "Qwen3 VL 30B",
+    "qwen": "Qwen 2.5 7B Instruct",
     "nemotron": "Nemotron 3 Nano 30B A3B",
-    "qwen3-next": "Qwen3-Next 80B A3B",
     "mistral-small": "Mistral Small 24B",
     "llama-3.2": "LLaMA 3.2 3B",
 }
