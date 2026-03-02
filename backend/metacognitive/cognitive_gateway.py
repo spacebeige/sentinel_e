@@ -8,11 +8,13 @@ No persistence logic. No knowledge injection decisions.
 No cutoff disclaimers allowed.
 
 Models (configurable via environment):
-  - Qwen3 Coder 480B A35B    → Code-heavy tasks
-  - Qwen3 VL 30B A3B         → Image/vision tasks
-  - Nemotron 3 Nano 30B A3B  → Baseline comparator
+  - Nemotron 3 Nano 30B A3B  → Baseline comparator (free)
+  - Qwen3-Next 80B A3B       → General reasoning (free)
+  - Mistral Small 24B        → Conceptual reasoning
+  - LLaMA 3.2 3B             → Fast lightweight tasks
+  - Qwen 2.5 VL 32B          → Image/vision tasks
   - Llama 3.3 30B            → Conceptual reasoning
-  - Kimi 2.5                 → Long-context reasoning
+  - LLaMA 3.1 8B             → Fast (Groq)
 ============================================================
 """
 
@@ -61,16 +63,27 @@ class CognitiveModelSpec:
 # These are the five models from the spec. Override via env vars.
 
 COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
-    "qwen3-coder": CognitiveModelSpec(
-        name="Qwen3 235B A22B",
-        model_id="qwen/qwen3-235b-a22b",
-        provider="qwen",
-        role=ModelRole.CODE,
-        context_window=131072,
-        max_output_tokens=1200,
-        default_temperature=0.2,
+    "nemotron-30b-free": CognitiveModelSpec(
+        name="Nemotron 3 Nano 30B A3B (Free)",
+        model_id="nvidia/nemotron-3-nano-30b-a3b:free",
+        provider="openrouter",
+        role=ModelRole.BASELINE,
+        context_window=32768,
+        max_output_tokens=350,
+        default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="QWEN3_CODER_API_KEY",
+        api_key_env="OPENROUTER_API_KEY",
+    ),
+    "qwen3-next-80b-free": CognitiveModelSpec(
+        name="Qwen3-Next 80B A3B Instruct (Free)",
+        model_id="qwen/qwen3-next-80b-a3b-instruct:free",
+        provider="openrouter",
+        role=ModelRole.GENERAL,
+        context_window=32768,
+        max_output_tokens=350,
+        default_temperature=0.3,
+        api_base_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key_env="OPENROUTER_API_KEY",
     ),
     "qwen3-vl": CognitiveModelSpec(
         name="Qwen 2.5 VL 32B",
@@ -84,16 +97,16 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_key_env="QWEN3_VL_API_KEY",
         supports_vision=True,
     ),
-    "nemotron-nano": CognitiveModelSpec(
-        name="Nemotron 70B Instruct",
-        model_id="nvidia/llama-3.1-nemotron-70b-instruct",
-        provider="nvidia",
-        role=ModelRole.BASELINE,
+    "mistral-small-24b": CognitiveModelSpec(
+        name="Mistral Small 24B",
+        model_id="mistralai/mistral-small-24b-instruct",
+        provider="openrouter",
+        role=ModelRole.CONCEPTUAL,
         context_window=32768,
-        max_output_tokens=1500,
+        max_output_tokens=300,
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="NEMOTRON_API_KEY",
+        api_key_env="OPENROUTER_API_KEY",
     ),
     "llama-3.3": CognitiveModelSpec(
         name="Llama 3.3 70B",
@@ -128,16 +141,16 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="OPENROUTER_API_KEY",
     ),
-    "kimi-2.5": CognitiveModelSpec(
-        name="Kimi 2.5",
-        model_id="moonshotai/kimi-k2",
-        provider="kimi",
-        role=ModelRole.LONGCTX,
-        context_window=262144,
-        max_output_tokens=1200,
+    "llama-3.2-3b": CognitiveModelSpec(
+        name="LLaMA 3.2 3B Instruct",
+        model_id="meta-llama/llama-3.2-3b-instruct",
+        provider="openrouter",
+        role=ModelRole.FAST,
+        context_window=8192,
+        max_output_tokens=250,
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="KIMI_API_KEY",
+        api_key_env="OPENROUTER_API_KEY",
     ),
 }
 

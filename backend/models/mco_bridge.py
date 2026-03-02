@@ -32,10 +32,11 @@ LEGACY_TO_REGISTRY: Dict[str, str] = {
     "groq": "groq-small",           # LLaMA 3.1 8B (fast)
     "llama70b": "llama-3.3",        # LLaMA 3.3 70B (primary reasoning)
     "qwen": "qwen-vl-2.5",         # Qwen 2.5 7B (methodical)
-    "qwen3-coder": "qwen3-coder",  # Qwen3 235B A22B
-    "qwen3-vl": "qwen3-vl",        # Qwen 2.5 VL 32B
-    "nemotron": "nemotron-nano",    # Nemotron 70B Instruct
-    "kimi": "kimi-2.5",            # Kimi 2.5
+    "qwen3-vl": "qwen3-vl",              # Qwen 2.5 VL 32B
+    "nemotron": "nemotron-30b-free",       # Nemotron 3 Nano 30B A3B (Free)
+    "qwen3-next": "qwen3-next-80b-free",  # Qwen3-Next 80B A3B Instruct (Free)
+    "mistral-small": "mistral-small-24b", # Mistral Small 24B
+    "llama-3.2": "llama-3.2-3b",          # LLaMA 3.2 3B Instruct
 }
 
 # Reverse map: registry key → legacy ID

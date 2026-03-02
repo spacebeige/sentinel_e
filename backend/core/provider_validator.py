@@ -31,7 +31,6 @@ from core.ensemble_schemas import (
 logger = logging.getLogger("sentinel.provider_validator")
 
 # Vision-capable model IDs
-# NOTE: kimi-2.5 (moonshotai/kimi-k2) is text-only — NOT vision-capable
 VISION_CAPABLE_MODELS = {
     "qwen3-vl",
 }
@@ -44,10 +43,11 @@ PROVIDER_KEY_MAP = {
 
 # Model-specific key overrides
 MODEL_KEY_OVERRIDES: Dict[str, str] = {
-    "qwen3-coder": "QWEN3_CODER_API_KEY",
     "qwen3-vl": "QWEN3_VL_API_KEY",
-    "nemotron-nano": "NEMOTRON_API_KEY",
-    "kimi-2.5": "KIMI_API_KEY",
+    "nemotron-30b-free": "OPENROUTER_API_KEY",
+    "qwen3-next-80b-free": "OPENROUTER_API_KEY",
+    "mistral-small-24b": "OPENROUTER_API_KEY",
+    "llama-3.2-3b": "OPENROUTER_API_KEY",
 }
 
 

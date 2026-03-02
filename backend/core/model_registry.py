@@ -71,10 +71,11 @@ _LEGACY_ID_MAP: Dict[str, str] = {
     "groq-small": "groq",
     "llama-3.3": "llama70b",
     "qwen-vl-2.5": "qwen",
-    "qwen3-coder": "qwen3-coder",
     "qwen3-vl": "qwen3-vl",
-    "nemotron-nano": "nemotron",
-    "kimi-2.5": "kimi",
+    "nemotron-30b-free": "nemotron",
+    "qwen3-next-80b-free": "qwen3-next",
+    "mistral-small-24b": "mistral-small",
+    "llama-3.2-3b": "llama-3.2",
 }
 
 # ── Tier Assignment ──────────────────────────────────────────
@@ -82,10 +83,11 @@ _TIER_MAP: Dict[str, ModelTier] = {
     "groq-small": ModelTier.BUDGET,
     "llama-3.3": ModelTier.PREMIUM,
     "qwen-vl-2.5": ModelTier.BUDGET,
-    "qwen3-coder": ModelTier.PREMIUM,
     "qwen3-vl": ModelTier.STANDARD,
-    "nemotron-nano": ModelTier.STANDARD,
-    "kimi-2.5": ModelTier.STANDARD,
+    "nemotron-30b-free": ModelTier.STANDARD,
+    "qwen3-next-80b-free": ModelTier.STANDARD,
+    "mistral-small-24b": ModelTier.STANDARD,
+    "llama-3.2-3b": ModelTier.BUDGET,
 }
 
 # ── Cost Profile ─────────────────────────────────────────────
@@ -93,10 +95,11 @@ _COST_MAP: Dict[str, CostProfile] = {
     "groq-small": CostProfile.LOW,
     "llama-3.3": CostProfile.MEDIUM,
     "qwen-vl-2.5": CostProfile.FREE,
-    "qwen3-coder": CostProfile.FREE,
     "qwen3-vl": CostProfile.FREE,
-    "nemotron-nano": CostProfile.FREE,
-    "kimi-2.5": CostProfile.FREE,
+    "nemotron-30b-free": CostProfile.FREE,
+    "qwen3-next-80b-free": CostProfile.FREE,
+    "mistral-small-24b": CostProfile.FREE,
+    "llama-3.2-3b": CostProfile.FREE,
 }
 
 

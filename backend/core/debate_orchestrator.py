@@ -1742,10 +1742,11 @@ _LEGACY_ID_MAP = {
     "groq-small": "groq",
     "llama-3.3": "llama70b",
     "qwen-vl-2.5": "qwen",
-    "qwen3-coder": "qwen3-coder",
     "qwen3-vl": "qwen3-vl",
-    "nemotron-nano": "nemotron",
-    "kimi-2.5": "kimi",
+    "nemotron-30b-free": "nemotron",
+    "qwen3-next-80b-free": "qwen3-next",
+    "mistral-small-24b": "mistral-small",
+    "llama-3.2-3b": "llama-3.2",
 }
 
 DEBATE_ROLES = {"for", "against", "judge", "neutral"}
@@ -1970,7 +1971,7 @@ class DebateResult:
 
 class DebateOrchestrator:
 
-    _ANALYSIS_MODEL_PRIORITY = ["llama70b", "qwen3-coder", "groq", "nemotron", "kimi"]
+    _ANALYSIS_MODEL_PRIORITY = ["llama70b", "qwen3-next", "groq", "nemotron", "mistral-small"]
 
     def __init__(self, cloud_client):
         self.client = cloud_client
