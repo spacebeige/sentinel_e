@@ -2,7 +2,7 @@
 
 ## Sentinel-E Cognitive Engine 3.X — Ultra Detailed Mode System
 
-**Major Backend Rewrite (Feb 2026):**
+**Major Backend:**
 - New Mode System: `STANDARD` (single answer, mathematically defensible confidence) and `RESEARCH` (sub-modes: `DEBATE`, `GLASS`, `EVIDENCE`, `STRESS`)
 - True multi-agent debate with named models (Groq, Mistral, Qwen), role assignment, judge scoring, disagreement quantification
 - Evidence mode: claim extraction, overlap matrix, evidence strength, answer traceability
