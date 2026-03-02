@@ -31,8 +31,23 @@ from pydantic import BaseModel, Field, field_validator
 MIN_MODELS = 3
 MIN_DEBATE_ROUNDS = 2
 MIN_ANALYTICS_OUTPUTS = 2
-TOTAL_DEBATE_TOKEN_BUDGET = 6000
+TOTAL_DEBATE_TOKEN_BUDGET = 5000
+
+# Hard caps per model per round (NOT proportional — fixed ceilings)
+ROUND_HARD_CAPS: dict[int, int] = {1: 350, 2: 250, 3: 200}
+
+# Legacy proportional split (kept for reference, no longer used in budget calc)
 ROUND_BUDGET_SPLIT = [0.50, 0.30, 0.20]
+
+# Early-stop thresholds
+CONSENSUS_EARLY_STOP = 0.60      # Stop after R1 if consensus >= 60%
+STABILITY_EARLY_STOP = 0.65      # Stop after R2 if stability >= 65%
+
+# Minimum remaining budget before forced stop
+MIN_REMAINING_BUDGET = 800
+
+# Maximum tokens for compressed debate summary injected into rounds 2+
+MAX_SUMMARY_TOKENS = 300
 
 
 # ============================================================

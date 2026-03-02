@@ -317,35 +317,72 @@ class CognitiveModelGateway:
         ) // 4  # rough char-to-token ratio
         _available = spec.context_window - _prompt_estimate - 300
 
-        # Apply pressure-based dynamic scaling
-        pf = self.pressure_factor
-        scaled_cap = max(512, int(spec.max_output_tokens * pf))
+        # Budget-governed mode (debate rounds) vs normal mode
+        _budget_governed = gateway_input.max_tokens_override is not None
 
-        # Apply budget governor override (from debate token budget)
-        if gateway_input.max_tokens_override is not None:
-            scaled_cap = min(scaled_cap, gateway_input.max_tokens_override)
+        if _budget_governed:
+            # Debate budget governor already constrains tokens —
+            # skip pressure_factor to avoid double-jeopardy
+            scaled_cap = min(spec.max_output_tokens, gateway_input.max_tokens_override)
+        else:
+            # Normal mode: apply pressure-based dynamic scaling
+            pf = self.pressure_factor
+            scaled_cap = max(512, int(spec.max_output_tokens * pf))
+            if pf < 1.0:
+                logger.info(
+                    f"Pressure scaling [{model_key}]: factor={pf:.2f}, "
+                    f"base={spec.max_output_tokens}, scaled={scaled_cap}"
+                )
 
         governed_max_tokens = min(scaled_cap, max(0, _available))
 
-        if pf < 1.0:
-            logger.info(
-                f"Pressure scaling [{model_key}]: factor={pf:.2f}, "
-                f"base={spec.max_output_tokens}, scaled={scaled_cap}, "
-                f"governed={governed_max_tokens}"
-            )
-
-        if governed_max_tokens < 500:
-            logger.warning(
-                f"Token budget exceeded for '{model_key}': "
-                f"prompt ~{_prompt_estimate} tok, "
-                f"window={spec.context_window}, available={_available}"
-            )
-            return CognitiveGatewayOutput(
-                model_name=spec.name,
-                raw_output="",
-                success=False,
-                error="Token budget exceeded",
-            )
+        # Floor check: skip gracefully for budget-governed debate calls,
+        # hard-fail only for normal calls where prompt exceeds context window.
+        _min_tokens = 200 if _budget_governed else 500
+        if governed_max_tokens < _min_tokens:
+            if _budget_governed:
+                # Budget-governed mode: skip model gracefully — do NOT
+                # return "Token budget exceeded" unless prompt itself
+                # exceeds the context window.
+                if _available <= 0:
+                    # Prompt genuinely exceeds context window
+                    logger.warning(
+                        f"Context window exceeded for '{model_key}': "
+                        f"prompt ~{_prompt_estimate} tok, "
+                        f"window={spec.context_window}, available={_available}"
+                    )
+                    return CognitiveGatewayOutput(
+                        model_name=spec.name,
+                        raw_output="",
+                        success=False,
+                        error="Token budget exceeded",
+                    )
+                # Otherwise: budget constraint — skip, not fail
+                logger.info(
+                    f"Skipping '{model_key}' for this round: "
+                    f"governed={governed_max_tokens} < floor={_min_tokens}. "
+                    f"Skipped due to budget constraint."
+                )
+                return CognitiveGatewayOutput(
+                    model_name=spec.name,
+                    raw_output="",
+                    success=False,
+                    error="Skipped due to budget constraint.",
+                )
+            else:
+                # Normal mode: genuine budget failure
+                logger.warning(
+                    f"Token budget exceeded for '{model_key}': "
+                    f"prompt ~{_prompt_estimate} tok, "
+                    f"window={spec.context_window}, available={_available}, "
+                    f"governed={governed_max_tokens}, floor={_min_tokens}"
+                )
+                return CognitiveGatewayOutput(
+                    model_name=spec.name,
+                    raw_output="",
+                    success=False,
+                    error="Token budget exceeded",
+                )
 
         start = time.monotonic()
         try:

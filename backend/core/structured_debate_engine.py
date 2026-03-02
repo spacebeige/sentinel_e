@@ -31,6 +31,11 @@ from core.ensemble_schemas import (
     MIN_DEBATE_ROUNDS,
     TOTAL_DEBATE_TOKEN_BUDGET,
     ROUND_BUDGET_SPLIT,
+    ROUND_HARD_CAPS,
+    CONSENSUS_EARLY_STOP,
+    STABILITY_EARLY_STOP,
+    MIN_REMAINING_BUDGET,
+    MAX_SUMMARY_TOKENS,
     DebatePosition,
     DebateResult,
     DebateRound,
@@ -148,9 +153,12 @@ class StructuredDebateEngine:
     """
     Executes structured multi-model debate with budget governance.
 
-    Token budget is divided across rounds (50/30/20 split) and
-    equally among participating models within each round.
-    Rounds stop early if remaining budget falls below 1000.
+    Token budget lifecycle:
+      - Hard cap per model per round: R1=350, R2=250, R3=200 tokens.
+      - Total debate budget: 5000 tokens.
+      - Early stop: consensus >= 60% after R1, stability >= 65% after R2.
+      - Remaining budget < 800 → forced stop (Budget-Limited Completion).
+      - Models with governed_max_tokens < 200 are skipped, not failed.
 
     Args:
         call_model: async function(model_id, prompt, system_role, *, max_tokens=None) -> str
@@ -172,14 +180,15 @@ class StructuredDebateEngine:
         initial_outputs: Optional[List[StructuredModelOutput]] = None,
     ) -> DebateResult:
         """
-        Execute structured debate with global token budget governance.
+        Execute structured debate with token budget lifecycle management.
 
-        Budget allocation:
-          Round 1 → 50% of TOTAL_DEBATE_TOKEN_BUDGET
-          Round 2 → 30%
-          Round 3 → 20%
-        Within each round, budget is split equally across models.
-        If remaining_budget < 1000 after a round, stop early.
+        Budget rules:
+          - Hard cap per model: R1=350, R2=250, R3=200 (not proportional).
+          - Total debate budget: 5000 tokens.
+          - Early stop after R1 if consensus >= 60%.
+          - Early stop after R2 if stability >= 65%.
+          - Forced stop if remaining budget < 800.
+          - Models with budget < 200 are skipped (not marked as failure).
 
         Args:
             query: The user's question
@@ -214,24 +223,22 @@ class StructuredDebateEngine:
         prev_positions: Dict[str, DebatePosition] = {}
 
         for round_num in range(1, rounds + 1):
-            # ── Budget gate: stop if exhausted ─────────────────
-            if remaining_budget < 1000 and len(debate_rounds) >= MIN_DEBATE_ROUNDS:
+            # ── Budget gate: stop if remaining < MIN_REMAINING_BUDGET ──
+            if remaining_budget < MIN_REMAINING_BUDGET and len(debate_rounds) >= MIN_DEBATE_ROUNDS:
                 logger.warning(
                     f"Budget exhausted after round {round_num - 1}: "
                     f"remaining={remaining_budget}, spent={total_tokens_spent}. "
-                    f"Returning Budget-Constrained Completion."
+                    f"Returning Budget-Limited Completion."
                 )
                 budget_constrained = True
                 break
 
-            # Compute per-model token cap for this round
-            split_idx = min(round_num - 1, len(ROUND_BUDGET_SPLIT) - 1)
-            round_budget = int(TOTAL_DEBATE_TOKEN_BUDGET * ROUND_BUDGET_SPLIT[split_idx])
-            per_model_budget = max(128, round_budget // num_models)
+            # ── Hard cap per model (fixed ceilings, NOT proportional) ──
+            per_model_budget = ROUND_HARD_CAPS.get(round_num, ROUND_HARD_CAPS[3])
 
             logger.info(
-                f"Debate round {round_num}/{rounds}: budget={round_budget}, "
-                f"per_model={per_model_budget}, remaining={remaining_budget}"
+                f"Debate round {round_num}/{rounds}: "
+                f"per_model_cap={per_model_budget}, remaining={remaining_budget}"
             )
 
             if round_num == 1 and initial_outputs:
@@ -251,8 +258,8 @@ class StructuredDebateEngine:
                 )
                 round_tokens = self._estimate_round_tokens(round_result)
             else:
-                # Compress transcript for token efficiency
-                transcript = self._compress_transcript(
+                # Build compressed debate summary (≤ MAX_SUMMARY_TOKENS)
+                transcript = self._compress_debate_summary(
                     debate_rounds, prev_positions
                 )
                 round_result = await self._run_round_n(
@@ -298,13 +305,33 @@ class StructuredDebateEngine:
 
             debate_rounds.append(round_result)
 
+            # ── Early Stop: Consensus after Round 1 ────────────
+            if round_num == 1:
+                consensus_score = self._compute_consensus_score(round_result)
+                if consensus_score >= CONSENSUS_EARLY_STOP:
+                    logger.info(
+                        f"Early stop after round 1: consensus={consensus_score:.3f} "
+                        f">= threshold={CONSENSUS_EARLY_STOP}. Skipping rounds 2-3."
+                    )
+                    break
+
+            # ── Early Stop: Stability after Round 2 ────────────
+            if round_num == 2:
+                stability_score = self._compute_stability_score(debate_rounds)
+                if stability_score >= STABILITY_EARLY_STOP:
+                    logger.info(
+                        f"Early stop after round 2: stability={stability_score:.3f} "
+                        f">= threshold={STABILITY_EARLY_STOP}. Skipping round 3."
+                    )
+                    break
+
         # ── Conditional 3rd round ──────────────────────────────
         # Only extend if: budget allows, all models succeeded,
         # no credit/rate failures, and disagreement remains high
         if (
             len(debate_rounds) == 2
             and rounds <= 2
-            and remaining_budget >= 1000
+            and remaining_budget >= MIN_REMAINING_BUDGET
             and not budget_constrained
         ):
             last_round = debate_rounds[-1]
@@ -321,15 +348,14 @@ class StructuredDebateEngine:
             high_disagreement = last_round.round_disagreement > 0.3
 
             if all_succeeded and not has_credit_failures and high_disagreement:
-                r3_budget = int(TOTAL_DEBATE_TOKEN_BUDGET * ROUND_BUDGET_SPLIT[2])
-                per_model_r3 = max(128, r3_budget // num_models)
+                per_model_r3 = ROUND_HARD_CAPS.get(3, 200)
 
                 logger.info(
                     f"Conditional 3rd round triggered: "
                     f"disagreement={last_round.round_disagreement:.3f}, "
-                    f"budget={r3_budget}, per_model={per_model_r3}"
+                    f"per_model_cap={per_model_r3}"
                 )
-                transcript = self._compress_transcript(
+                transcript = self._compress_debate_summary(
                     debate_rounds, prev_positions
                 )
                 round_result = await self._run_round_n(
@@ -914,6 +940,189 @@ class StructuredDebateEngine:
                 )
 
         return "\n".join(parts)
+
+    # ── Debate Summary for Rounds 2+ (≤ MAX_SUMMARY_TOKENS) ──
+
+    def _compress_debate_summary(
+        self,
+        debate_rounds: List[DebateRound],
+        prev_positions: Dict[str, DebatePosition],
+    ) -> str:
+        """Build a compressed debate summary for injection into rounds 2+.
+
+        Instead of passing full prior model outputs, generates:
+          - Majority stance  (1-2 sentences)
+          - Minority stance  (1-2 sentences)
+          - Key disagreement (1 sentence)
+
+        Hard-capped at MAX_SUMMARY_TOKENS (~300 tokens ≈ 1200 chars).
+        """
+        # Collect successful positions from the latest round
+        latest = debate_rounds[-1] if debate_rounds else None
+        if not latest:
+            return "No prior debate data."
+
+        successful = [
+            p for p in latest.positions if p.status != "failed"
+        ]
+        if not successful:
+            return "All models failed in previous round."
+
+        # ── Determine majority vs minority by position clustering ──
+        # Use simple keyword overlap to partition into majority/minority
+        word_sets = []
+        for p in successful:
+            words = set(
+                w.lower() for w in re.split(r"\W+", (p.position or ""))
+                if len(w) > 3
+            )
+            word_sets.append((p, words))
+
+        # Compute pairwise similarity and find majority cluster
+        n = len(word_sets)
+        avg_sims = []
+        for i in range(n):
+            total = 0.0
+            for j in range(n):
+                if i == j:
+                    continue
+                union = word_sets[i][1] | word_sets[j][1]
+                inter = word_sets[i][1] & word_sets[j][1]
+                total += len(inter) / len(union) if union else 0
+            avg_sims.append(total / max(1, n - 1))
+
+        # Models with above-median similarity → majority
+        median_sim = sorted(avg_sims)[len(avg_sims) // 2] if avg_sims else 0
+        majority_positions = []
+        minority_positions = []
+        for i, (pos, _) in enumerate(word_sets):
+            if avg_sims[i] >= median_sim:
+                majority_positions.append(pos)
+            else:
+                minority_positions.append(pos)
+
+        # If no minority (all agree), put a note
+        if not minority_positions:
+            minority_positions = []
+
+        # ── Build summary ──
+        parts: List[str] = ["DEBATE SUMMARY (compressed):"]
+
+        # Majority stance (pick highest-confidence majority member)
+        if majority_positions:
+            top_maj = max(majority_positions, key=lambda p: p.confidence)
+            maj_text = (top_maj.position or "")[:200]
+            parts.append(
+                f"MAJORITY ({len(majority_positions)} models, "
+                f"lead conf={top_maj.confidence:.2f}): {maj_text}"
+            )
+
+        # Minority stance
+        if minority_positions:
+            top_min = max(minority_positions, key=lambda p: p.confidence)
+            min_text = (top_min.position or "")[:200]
+            parts.append(
+                f"MINORITY ({len(minority_positions)} models, "
+                f"lead conf={top_min.confidence:.2f}): {min_text}"
+            )
+        else:
+            parts.append("MINORITY: None — all models broadly agree.")
+
+        # Key disagreement
+        conflicts = latest.key_conflicts or []
+        if conflicts:
+            parts.append(f"KEY DISAGREEMENT: {conflicts[0][:150]}")
+        else:
+            parts.append("KEY DISAGREEMENT: No major conflicts identified.")
+
+        summary = "\n".join(parts)
+
+        # Hard-cap character length (MAX_SUMMARY_TOKENS * 4 chars/token)
+        max_chars = MAX_SUMMARY_TOKENS * 4
+        if len(summary) > max_chars:
+            summary = summary[:max_chars] + "…"
+
+        return summary
+
+    # ── Early Stop: Consensus Score ──────────────────────────
+
+    def _compute_consensus_score(self, round_data: DebateRound) -> float:
+        """Compute consensus score for a single round (0.0–1.0).
+
+        Uses pairwise Jaccard similarity across model positions.
+        Returns 0.0 if fewer than 2 successful models.
+        """
+        successful = [
+            p for p in round_data.positions
+            if p.status != "failed" and p.position
+        ]
+        if len(successful) < 2:
+            return 0.0
+
+        word_sets = []
+        for p in successful:
+            words = set(
+                w.lower() for w in re.split(r"\W+", (p.position or ""))
+                if len(w) > 3
+            )
+            word_sets.append(words)
+
+        n = len(word_sets)
+        total_sim = 0.0
+        pairs = 0
+        for i in range(n):
+            for j in range(i + 1, n):
+                union = word_sets[i] | word_sets[j]
+                inter = word_sets[i] & word_sets[j]
+                total_sim += len(inter) / len(union) if union else 0
+                pairs += 1
+
+        return total_sim / pairs if pairs > 0 else 0.0
+
+    # ── Early Stop: Stability Score ──────────────────────────
+
+    def _compute_stability_score(self, debate_rounds: List[DebateRound]) -> float:
+        """Compute stability score across rounds (0.0–1.0).
+
+        Measures how little positions changed between consecutive rounds.
+        High stability = positions are not shifting (converged).
+        Returns 0.0 if fewer than 2 rounds.
+        """
+        if len(debate_rounds) < 2:
+            return 0.0
+
+        prev_round = debate_rounds[-2]
+        curr_round = debate_rounds[-1]
+
+        prev_map: Dict[str, str] = {}
+        for p in prev_round.positions:
+            if p.status != "failed":
+                prev_map[p.model_id] = (p.position or "").lower()
+
+        stable_count = 0
+        total_count = 0
+
+        for p in curr_round.positions:
+            if p.status == "failed":
+                continue
+            total_count += 1
+            prev_pos = prev_map.get(p.model_id, "")
+            curr_pos = (p.position or "").lower()
+
+            if not prev_pos:
+                continue
+
+            # Jaccard similarity of word sets
+            prev_words = set(w for w in re.split(r"\W+", prev_pos) if len(w) > 3)
+            curr_words = set(w for w in re.split(r"\W+", curr_pos) if len(w) > 3)
+            union = prev_words | curr_words
+            inter = prev_words & curr_words
+            sim = len(inter) / len(union) if union else 1.0
+
+            if sim >= 0.5:  # Position substantially unchanged
+                stable_count += 1
+
+        return stable_count / total_count if total_count > 0 else 0.0
 
     # ── Transcript Formatting ────────────────────────────────
 
