@@ -93,23 +93,13 @@ Critically, **inconclusive analysis is a correct epistemic outcome**, not an err
 Sentinel-Σ functions as a supervisory layer above heterogeneous foundation models, enforcing epistemic independence.
 
 ```mermaid
-C4Context
-  title Sentinel-Σ — System Context
-
-  Person(user, "Analyst / Operator", "Provides evidence or investigative queries")
-  System(sigma, "Sentinel-Σ", "Structural epistemic analysis engine")
-
-  System_Ext(qwen, "Qwen", "Multimodal reasoning")
-  System_Ext(groq, "Groq", "Fast epistemic analysis")
-  System_Ext(mistral, "Mistral", "Conservative text reasoning")
-
-  System_Ext(storage, "Forensic Storage", "Append-only JSON history")
-
-  Rel(user, sigma, "Submits evidence / queries")
-  Rel(sigma, qwen, "Schema-guided elicitation")
-  Rel(sigma, groq, "Schema-guided elicitation")
-  Rel(sigma, mistral, "Schema-guided elicitation")
-  Rel(sigma, storage, "Writes immutable forensic records")
+flowchart LR
+  U[Analyst / Operator] --> O[Sentinel-Σ]
+  O --> Qwen[Qwen\n(Multimodal reasoning)]
+  O --> Groq[Groq\n(Fast epistemic analysis)]
+  O --> Mistral[Mistral\n(Conservative text reasoning)]
+  O --> Storage[Forensic Storage\n(Append-only JSON history)]
+  Storage --> FS[sentinel_history/]
 ```
 
 ### Pipeline Overview
