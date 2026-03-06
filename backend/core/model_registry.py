@@ -79,24 +79,36 @@ _LEGACY_ID_MAP: Dict[str, str] = {
 
 # ── Tier Assignment ──────────────────────────────────────────
 _TIER_MAP: Dict[str, ModelTier] = {
+    # Existing models
     "groq-small": ModelTier.BUDGET,
     "llama-3.3": ModelTier.PREMIUM,
-    "qwen-vl-2.5": ModelTier.BUDGET,
     "qwen-vl-2.5": ModelTier.BUDGET,
     "nemotron-30b-free": ModelTier.STANDARD,
     "mistral-small-24b": ModelTier.STANDARD,
     "llama-3.2-3b": ModelTier.BUDGET,
+    # New models — Battle Platform v2
+    "mixtral-8x7b": ModelTier.STANDARD,       # Tier 2 Debate
+    "qwen2.5-32b": ModelTier.STANDARD,        # Tier 2 Debate
+    "deepseek-chat": ModelTier.PREMIUM,       # Tier 1 Anchor
+    "deepseek-coder-v2": ModelTier.PREMIUM,   # Tier 3 Specialist
+    "qwen2.5-coder-32b": ModelTier.PREMIUM,   # Tier 3 Specialist
 }
 
 # ── Cost Profile ─────────────────────────────────────────────
 _COST_MAP: Dict[str, CostProfile] = {
+    # Existing models
     "groq-small": CostProfile.LOW,
     "llama-3.3": CostProfile.MEDIUM,
-    "qwen-vl-2.5": CostProfile.FREE,
     "qwen-vl-2.5": CostProfile.FREE,
     "nemotron-30b-free": CostProfile.FREE,
     "mistral-small-24b": CostProfile.FREE,
     "llama-3.2-3b": CostProfile.FREE,
+    # New models — Battle Platform v2
+    "mixtral-8x7b": CostProfile.LOW,
+    "qwen2.5-32b": CostProfile.LOW,
+    "deepseek-chat": CostProfile.MEDIUM,
+    "deepseek-coder-v2": CostProfile.MEDIUM,
+    "qwen2.5-coder-32b": CostProfile.MEDIUM,
 }
 
 

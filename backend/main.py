@@ -91,6 +91,9 @@ from metacognitive.orchestrator import MetaCognitiveOrchestrator
 from metacognitive.background_daemon import BackgroundDaemon
 from metacognitive.routes import router as mco_router, set_orchestrator as mco_set_orchestrator, set_daemon as mco_set_daemon, set_cognitive_engine as mco_set_cognitive_engine
 
+# ── Battle Platform v2 ────────────────────────────────────────
+from evaluation.routes import router as battle_router
+
 # ── Logging ──────────────────────────────────────────────────
 settings = get_settings()
 logging.basicConfig(
@@ -185,6 +188,31 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"MCO init failed (non-fatal): {e}")
 
+    # ── Battle Platform v2 — ELO, Dataset, Monitoring ────────
+    try:
+        from ranking.elo_engine import get_elo_engine
+        from evaluation.dataset import get_evaluation_dataset
+        from evaluation.benchmark_pipeline import get_benchmark_pipeline
+        from monitoring.ops_dashboard import get_ops_dashboard
+        from evaluation.company_pipeline import get_company_pipeline
+        from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY, get_tiered_models_for_debate
+
+        get_elo_engine()         # seed ELO entries for all registry models
+        get_evaluation_dataset() # create dataset file if absent
+        get_benchmark_pipeline() # load historical reports
+        get_ops_dashboard()      # start in-process ring buffer
+        get_company_pipeline()   # load persisted company jobs
+
+        n_models = len(COGNITIVE_MODEL_REGISTRY)
+        tier_preview = get_tiered_models_for_debate("general", 6)
+        logger.info(
+            "Battle Platform v2 initialized — %d models in registry, "
+            "default debate tier selection: %s",
+            n_models, tier_preview,
+        )
+    except Exception as e:
+        logger.warning(f"Battle Platform v2 init non-fatal: {e}")
+
     # ── Omega Kernel (uses MCO bridge if available, else legacy client) ─
     omega_kernel = OmegaCognitiveKernel(
         sigma_orchestrator=orchestrator,
@@ -231,6 +259,9 @@ app.add_middleware(
 
 # ── Meta-Cognitive Orchestrator Router ──────────────────────
 app.include_router(mco_router)
+
+# ── Battle Platform v2 Router ────────────────────────────────
+app.include_router(battle_router)
 
 
 # ============================================================

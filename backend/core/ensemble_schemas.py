@@ -29,15 +29,32 @@ from pydantic import BaseModel, Field, field_validator
 # ============================================================
 
 MIN_MODELS = 3
-MIN_DEBATE_ROUNDS = 2
+MIN_DEBATE_ROUNDS = 3            # Battle Platform: full 3-round debates
+MAX_DEBATE_MODELS = 6            # Hard cap: never run more than 6 models simultaneously
 MIN_ANALYTICS_OUTPUTS = 2
 TOTAL_DEBATE_TOKEN_BUDGET = 5000
 
-# Hard caps per model per round (NOT proportional — fixed ceilings)
-ROUND_HARD_CAPS: dict[int, int] = {1: 350, 2: 250, 3: 200}
+# ── Battle Platform Token Budgets ────────────────────────────
+# Round 1 (Independent Arguments): 220 tokens per model
+#   → Models have enough space for a structured position + argument
+#     without rambling, but not enough for repetitive preambles.
+#
+# Round 2 (Rebuttals): 140 tokens per model
+#   → Tight budget forces models to target the weakest point in
+#     an opponent's argument rather than restating their own.
+#     Contradiction and position shifts emerge most clearly here.
+#
+# Round 3 (Final Reasoning): 80 tokens per model
+#   → Extreme compression forces convergence to the essential claim.
+#     Hallucination-padded responses collapse; coherent ones survive.
+#     This is the primary signal used by the Consensus Engine.
+#
+# This 3-step compression mirrors how expert human panels work:
+# opening statements → rebuttals → closing arguments.
+ROUND_HARD_CAPS: dict[int, int] = {1: 220, 2: 140, 3: 80}
 
-# Legacy proportional split (kept for reference, no longer used in budget calc)
-ROUND_BUDGET_SPLIT = [0.50, 0.30, 0.20]
+# Proportional budget split (reference; hard caps take precedence)
+ROUND_BUDGET_SPLIT = [0.50, 0.32, 0.18]
 
 # Early-stop thresholds
 CONSENSUS_EARLY_STOP = 0.60      # Stop after R1 if consensus >= 60%
@@ -691,3 +708,168 @@ class EnsembleFailure(Exception):
                 round_count=self.rounds_completed,
             ),
         )
+
+# ============================================================
+# Battle Platform v2 — Extended Schemas
+# ============================================================
+
+class ModelReasoningMetrics(BaseModel):
+    """Per-model reasoning evaluation metrics produced by MetricsEngine."""
+    model: str
+    model_name: str
+    reasoning_score: float = Field(0.0, ge=0.0, le=1.0,
+        description="Overall reasoning coherence (0-1)")
+    evidence_density: float = Field(0.0, ge=0.0, le=1.0,
+        description="Ratio of specific evidence/examples to assertion count")
+    argument_depth: float = Field(0.0, ge=0.0, le=1.0,
+        description="Multi-level reasoning depth (surface=0, multi-causal=1)")
+    logical_consistency: float = Field(0.0, ge=0.0, le=1.0,
+        description="Internal logical coherence (contradictions reduce this)")
+    contradiction_rate: float = Field(0.0, ge=0.0, le=1.0,
+        description="Fraction of sentences that contradict prior statements")
+    confidence_calibration: float = Field(0.0, ge=0.0, le=1.0,
+        description="Gap between stated confidence and evidence quality")
+    token_efficiency: float = Field(0.0, ge=0.0, le=1.0,
+        description="Information per token (penalises padding)")
+
+
+class ConsensusScore(BaseModel):
+    """
+    Consensus Engine output — composite scoring per model.
+
+    Formula:
+        score = 0.35 * reasoning_coherence
+              + 0.25 * evidence_support
+              + 0.20 * consensus_alignment
+              + 0.10 * confidence_calibration
+              - 0.10 * contradiction_rate
+    """
+    model: str
+    model_name: str
+    reasoning_coherence: float = Field(0.0, ge=0.0, le=1.0)
+    evidence_support: float = Field(0.0, ge=0.0, le=1.0)
+    consensus_alignment: float = Field(0.0, ge=0.0, le=1.0)
+    confidence_calibration: float = Field(0.0, ge=0.0, le=1.0)
+    contradiction_rate: float = Field(0.0, ge=0.0, le=1.0)
+    composite_score: float = Field(0.0, ge=0.0, le=1.0)
+    rank: int = 0
+
+
+class BattleVisualizationPayload(BaseModel):
+    """Full payload for the Battle Visualization dashboard."""
+    prompt: str
+    prompt_type: str = "general"
+    models_selected: List[str]
+    round_outputs: Dict[str, List[Dict[str, Any]]] = Field(
+        default_factory=dict,
+        description="round_number → list of {model, output, tokens_used}")
+    reasoning_metrics: List[ModelReasoningMetrics] = Field(default_factory=list)
+    consensus_scores: List[ConsensusScore] = Field(default_factory=list)
+    consensus_stability_score: float = 0.0
+    agreement_heatmap: List[List[float]] = Field(default_factory=list)
+    model_labels: List[str] = Field(default_factory=list)
+    conflict_edges: List[Dict[str, Any]] = Field(default_factory=list,
+        description="[{source, target, weight, type}]")
+    debate_timeline: List[Dict[str, Any]] = Field(default_factory=list,
+        description="[{round, model, position_shift, confidence}]")
+    winner: Optional[str] = None
+    winner_score: float = 0.0
+
+
+class EvaluationRecord(BaseModel):
+    """
+    Single record stored in backend/data/evaluation_dataset.json.
+    Feeds the ELO ranking system and company evaluation pipeline.
+    """
+    record_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    timestamp: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    prompt: str
+    prompt_type: str = "general"
+    models_debated: List[str] = Field(default_factory=list)
+    responses: Dict[str, str] = Field(
+        default_factory=dict, description="model_id → response text")
+    reasoning_scores: Dict[str, float] = Field(
+        default_factory=dict, description="model_id → composite score")
+    winner: Optional[str] = None
+    user_vote: Optional[str] = None
+    consensus_stability: float = 0.0
+    debate_rounds_completed: int = 0
+    evaluation_source: str = "user"  # user | automated | company
+
+
+class ELORankingEntry(BaseModel):
+    """Single model entry in the ELO leaderboard."""
+    model_id: str
+    model_name: str
+    elo_score: float = 1200.0
+    wins: int = 0
+    losses: int = 0
+    draws: int = 0
+    total_debates: int = 0
+    avg_reasoning_score: float = 0.0
+    avg_evidence_density: float = 0.0
+    avg_contradiction_rate: float = 0.0
+    last_updated: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+
+    @property
+    def win_rate(self) -> float:
+        if self.total_debates == 0:
+            return 0.0
+        return self.wins / self.total_debates
+
+
+class CompanyEvaluationJob(BaseModel):
+    """Company-submitted evaluation job."""
+    job_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_name: str
+    model_endpoint: str
+    api_key_header: str = "Authorization"
+    api_key_value: str
+    model_name: str
+    submitted_at: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    status: str = "pending"    # pending | running | complete | failed
+    test_prompts_count: int = 0
+    results: Optional[Dict[str, Any]] = None
+
+
+class CompanyEvaluationReport(BaseModel):
+    """Full evaluation report returned to a company after benchmarking."""
+    job_id: str
+    company_name: str
+    model_name: str
+    completed_at: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    reasoning_capability_score: float = 0.0
+    hallucination_rate: float = 0.0
+    debate_stability_score: float = 0.0
+    evidence_support_score: float = 0.0
+    contradiction_rate: float = 0.0
+    leaderboard_rank: Optional[int] = None
+    elo_score: float = 1200.0
+    detailed_results: List[Dict[str, Any]] = Field(default_factory=list)
+    summary: str = ""
+
+
+class OperationsSnapshot(BaseModel):
+    """Real-time operations dashboard snapshot."""
+    timestamp: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    avg_debate_time_ms: float = 0.0
+    consensus_confidence_avg: float = 0.0
+    conflict_rate: float = 0.0
+    system_error_rate: float = 0.0
+    total_debates_last_hour: int = 0
+    model_latencies: Dict[str, float] = Field(default_factory=dict)
+    model_token_usage: Dict[str, int] = Field(default_factory=dict)
+    model_error_rates: Dict[str, float] = Field(default_factory=dict)
+    avg_response_lengths: Dict[str, int] = Field(default_factory=dict)
+    active_evaluation_jobs: int = 0
+    leaderboard_last_updated: Optional[str] = None

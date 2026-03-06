@@ -129,7 +129,169 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="OPENROUTER_API_KEY",
     ),
+
+    # ── Tier 2: Debate Models ─────────────────────────────────
+    "mixtral-8x7b": CognitiveModelSpec(
+        name="Mixtral 8x7B Instruct",
+        model_id="mistralai/mixtral-8x7b-instruct",
+        provider="openrouter",
+        role=ModelRole.CONCEPTUAL,
+        context_window=32768,
+        max_output_tokens=1500,
+        default_temperature=0.4,
+        api_base_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key_env="OPENROUTER_API_KEY",
+    ),
+
+    "qwen2.5-32b": CognitiveModelSpec(
+        name="Qwen 2.5 32B Instruct",
+        model_id="qwen/qwen2.5-32b-instruct",
+        provider="openrouter",
+        role=ModelRole.GENERAL,
+        context_window=32768,
+        max_output_tokens=1500,
+        default_temperature=0.3,
+        api_base_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key_env="OPENROUTER_API_KEY",
+    ),
+
+    # ── Tier 1: Anchor Model (deep reasoning reference) ───────
+    "deepseek-chat": CognitiveModelSpec(
+        name="DeepSeek Chat",
+        model_id="deepseek/deepseek-chat",
+        provider="openrouter",
+        role=ModelRole.GENERAL,
+        context_window=65536,
+        max_output_tokens=2000,
+        default_temperature=0.3,
+        api_base_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key_env="OPENROUTER_API_KEY",
+    ),
+
+    # ── Tier 3: Specialist Models (domain-specific) ───────────
+    "deepseek-coder-v2": CognitiveModelSpec(
+        name="DeepSeek Coder V2 Lite Instruct",
+        model_id="deepseek-ai/deepseek-coder-v2-lite-instruct",
+        provider="openrouter",
+        role=ModelRole.CODE,
+        context_window=65536,
+        max_output_tokens=2000,
+        default_temperature=0.2,
+        api_base_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key_env="OPENROUTER_API_KEY",
+    ),
+
+    "qwen2.5-coder-32b": CognitiveModelSpec(
+        name="Qwen 2.5 Coder 32B Instruct",
+        model_id="qwen/qwen2.5-coder-32b-instruct",
+        provider="openrouter",
+        role=ModelRole.CODE,
+        context_window=65536,
+        max_output_tokens=2000,
+        default_temperature=0.2,
+        api_base_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key_env="OPENROUTER_API_KEY",
+    ),
 }
+
+# ============================================================
+# Debate Tier Registry
+# ============================================================
+# Tier 1 — Anchor Models  : Primary reasoning reference models
+# Tier 2 — Debate Models  : Diverse argument generators
+# Tier 3 — Specialist     : Domain-specific reasoning
+#
+# Maximum 6 models run simultaneously in any debate.
+# Selection is prompt-type-driven (see get_tiered_models_for_debate).
+
+MODEL_DEBATE_TIERS: Dict[str, int] = {
+    # Tier 1 — Anchor
+    "llama-3.3":      1,
+    "deepseek-chat":  1,
+    # Tier 2 — Debate
+    "groq-small":     2,
+    "mixtral-8x7b":   2,
+    "qwen2.5-32b":    2,
+    "nemotron-30b-free": 2,
+    "mistral-small-24b": 2,
+    # Tier 3 — Specialist
+    "deepseek-coder-v2":    3,
+    "qwen2.5-coder-32b":    3,
+    "qwen-vl-2.5":          3,
+    "llama-3.2-3b":         3,
+}
+
+# Prompt type → preferred tier-3 specialist keys
+_SPECIALIST_AFFINITY: Dict[str, List[str]] = {
+    "code":        ["deepseek-coder-v2", "qwen2.5-coder-32b"],
+    "vision":      ["qwen-vl-2.5"],
+    "conceptual":  ["nemotron-30b-free", "mistral-small-24b"],
+    "general":     [],
+}
+
+
+def get_tiered_models_for_debate(
+    prompt_type: str = "general",
+    max_models: int = 6,
+) -> List[str]:
+    """
+    Dynamically select up to `max_models` models for a debate session.
+
+    Selection algorithm:
+      1. Always include ALL enabled Tier 1 (Anchor) models first.
+      2. Fill remaining budget with enabled Tier 2 (Debate) models.
+      3. If prompt_type has specialist affinity, swap one Tier 2 slot
+         for the highest-priority enabled Tier 3 specialist.
+      4. Never exceed `max_models` total.
+
+    This maximises reasoning diversity while controlling token cost:
+    - Anchors provide stable reference positions.
+    - Debate models generate diverse arguments.
+    - Specialists inject domain depth only when relevant.
+    - Hard cap at 6 prevents combinatorial token explosion.
+
+    Args:
+        prompt_type: One of 'code', 'vision', 'conceptual', 'general'.
+        max_models:  Hard upper bound (default 6).
+
+    Returns:
+        List of registry keys for selected models.
+    """
+    enabled = {
+        k for k, spec in COGNITIVE_MODEL_REGISTRY.items()
+        if spec.enabled and spec.active
+    }
+
+    tier1 = [
+        k for k, t in MODEL_DEBATE_TIERS.items()
+        if t == 1 and k in enabled
+    ]
+    tier2 = [
+        k for k, t in MODEL_DEBATE_TIERS.items()
+        if t == 2 and k in enabled
+    ]
+    tier3_candidates = _SPECIALIST_AFFINITY.get(prompt_type, [])
+    tier3 = [k for k in tier3_candidates if k in enabled]
+
+    selected: List[str] = []
+
+    # Step 1 — All Tier 1 anchors
+    for k in tier1:
+        if len(selected) < max_models:
+            selected.append(k)
+
+    # Step 2 — Inject one specialist if prompt_type has affinity
+    if tier3 and len(selected) < max_models:
+        selected.append(tier3[0])
+
+    # Step 3 — Fill remaining slots from Tier 2
+    for k in tier2:
+        if len(selected) >= max_models:
+            break
+        if k not in selected:
+            selected.append(k)
+
+    return selected[:max_models]
 
 
 def _initialize_registry():
