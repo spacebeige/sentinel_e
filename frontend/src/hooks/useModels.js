@@ -186,26 +186,6 @@ function transformChatModels(backendModels) {
  * Transform MCO backend models into legacy chat UI format.
  * Kept for backward-compatibility with aggregated MCO mode.
  */
-function transformMCOForChat(mcoModels) {
-  if (!mcoModels || mcoModels.length === 0) return [];
-
-  return mcoModels.map((m) => ({
-    id: m.key,
-    name: m.name,
-    provider: m.provider,
-    color: ROLE_COLORS[m.role] || '#6366f1',
-    role: m.role,
-    tier: null,
-    tierLabel: null,
-    enabled: m.enabled,
-    debate_eligible: false,   // MCO models go through aggregated pipeline
-    active: m.active,
-    modelId: m.model_id,
-    contextWindow: m.context_window,
-    maxOutputTokens: m.max_output_tokens,
-    isMCO: true,
-  }));
-}
 
 export default function useModels() {
   const [mcoModels, setMcoModels] = useState([]);
