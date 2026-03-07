@@ -39,7 +39,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
 # Add project root to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# In the Docker container (Render root = backend/) main.py is at /app/main.py,
+# so all sub-packages (gateway/, evaluation/, etc.) sit alongside it at /app/.
+# Insert /app so they're importable regardless of whether PYTHONPATH is set.
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 # ── Gateway Layer Imports ────────────────────────────────────
 from gateway.config import get_settings
