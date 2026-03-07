@@ -30,19 +30,21 @@ logger = logging.getLogger("CostGovernor")
 # COST RATES (per 1K tokens)
 # ============================================================
 
-# Model cost table — aligned with COGNITIVE_MODEL_REGISTRY
+# Model cost table — aligned with COGNITIVE_MODEL_REGISTRY (v2 ensemble)
 MODEL_COSTS: Dict[str, Dict[str, float]] = {
-    "groq-small": {"input": 0.00005, "output": 0.00008},
+    # Tier 1 Anchor
     "llama-3.3": {"input": 0.00059, "output": 0.00079},
-    "qwen-vl-2.5": {"input": 0.00000, "output": 0.00000},  # OpenRouter free tier
-    "qwen-vl-2.5": {"input": 0.00000, "output": 0.00000},            # OpenRouter free tier
-    "nemotron-30b-free": {"input": 0.00000, "output": 0.00000},   # OpenRouter free tier
-    "mistral-small-24b": {"input": 0.00000, "output": 0.00000},   # OpenRouter free tier
-    "llama-3.2-3b": {"input": 0.00000, "output": 0.00000},        # OpenRouter free tier
+    "deepseek-chat": {"input": 0.00027, "output": 0.00110},
+    # Tier 2 Debate
+    "groq-small": {"input": 0.00005, "output": 0.00008},
+    "mixtral-8x7b": {"input": 0.00024, "output": 0.00024},
+    "qwen2.5-32b": {"input": 0.00079, "output": 0.00079},
+    # Tier 3 Specialist
+    "deepseek-coder-v2": {"input": 0.00019, "output": 0.00082},
+    "qwen2.5-coder-32b": {"input": 0.00079, "output": 0.00079},
     # Legacy aliases (backward compat for recorded usage)
     "llama-3.1-8b": {"input": 0.00005, "output": 0.00008},
     "llama-3.3-70b": {"input": 0.00059, "output": 0.00079},
-    "qwen-2.5-7b": {"input": 0.00000, "output": 0.00000},
 }
 
 # Tier cost multipliers (relative)
@@ -261,7 +263,7 @@ class CostGovernor:
         elif budget.token_utilization >= 0.6 and requested_tier == "premium":
             # Downgrade premium → standard at 60%
             recommended_tier = "standard"
-            recommended_model = "qwen-vl-2.5"
+            recommended_model = "qwen2.5-32b"
             downgraded = True
             budget.downgrade_triggered = True
 

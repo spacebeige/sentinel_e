@@ -163,11 +163,13 @@ class ModelTier:
     cost_weight: float # relative cost (1.0 = baseline)
 
 
-# Default tier chain — aligned with COGNITIVE_MODEL_REGISTRY keys
+# Default tier chain — aligned with COGNITIVE_MODEL_REGISTRY v2 ensemble keys
 DEFAULT_MODEL_TIERS: List[ModelTier] = [
-    ModelTier(name="Groq LLaMA 8B", model_id="groq-small", tier="budget", priority=1, cost_weight=0.3),
-    ModelTier(name="Qwen 2.5 7B", model_id="qwen-vl-2.5", tier="standard", priority=2, cost_weight=0.5),
-    ModelTier(name="Groq LLaMA 70B", model_id="llama-3.3", tier="premium", priority=3, cost_weight=1.0),
+    ModelTier(name="Groq LLaMA 8B",    model_id="groq-small",       tier="budget",   priority=1, cost_weight=0.3),
+    ModelTier(name="Mixtral 8x7B",     model_id="mixtral-8x7b",    tier="standard", priority=2, cost_weight=0.5),
+    ModelTier(name="Qwen2.5 32B",      model_id="qwen2.5-32b",     tier="standard", priority=3, cost_weight=0.5),
+    ModelTier(name="DeepSeek Chat",    model_id="deepseek-chat",   tier="premium",  priority=4, cost_weight=1.0),
+    ModelTier(name="Groq LLaMA 70B",   model_id="llama-3.3",       tier="premium",  priority=5, cost_weight=1.0),
 ]
 
 

@@ -27,14 +27,20 @@ from metacognitive.schemas import CognitiveGatewayInput
 logger = logging.getLogger("MCOModelBridge")
 
 # ── Registry key mapping ─────────────────────────────────────
-# Maps legacy caller IDs to canonical COGNITIVE_MODEL_REGISTRY keys
+# Maps legacy caller IDs to canonical COGNITIVE_MODEL_REGISTRY keys (v2 ensemble)
 LEGACY_TO_REGISTRY: Dict[str, str] = {
-    "groq": "groq-small",           # LLaMA 3.1 8B (fast)
-    "llama70b": "llama-3.3",        # LLaMA 3.3 70B (primary reasoning)
-    "qwen": "qwen-vl-2.5",          # Qwen 2.5 7B Instruct (Free)
-    "nemotron": "nemotron-30b-free",       # Nemotron 3 Nano 30B A3B (Free)
-    "mistral-small": "mistral-small-24b", # Mistral Small 24B
-    "llama-3.2": "llama-3.2-3b",          # LLaMA 3.2 3B Instruct
+    # Active ensemble (v2)
+    "groq": "groq-small",              # LLaMA 3.1 8B (fast, Tier 2 Debate)
+    "llama70b": "llama-3.3",           # LLaMA 3.3 70B (Tier 1 Anchor)
+    "deepseek": "deepseek-chat",       # DeepSeek Chat (Tier 1 Anchor)
+    "mixtral": "mixtral-8x7b",         # Mixtral 8x7B (Tier 2 Debate)
+    "qwen": "qwen2.5-32b",             # Qwen2.5 32B (Tier 2 Debate)
+    "deepseek-coder": "deepseek-coder-v2",  # DeepSeek Coder V2 (Tier 3 Specialist)
+    "qwen-coder": "qwen2.5-coder-32b", # Qwen2.5 Coder 32B (Tier 3 Specialist)
+    # Backward-compat aliases (map removed models to best replacement)
+    "nemotron": "llama-3.3",           # nemotron-30b-free → llama-3.3
+    "mistral-small": "mixtral-8x7b",   # mistral-small-24b → mixtral-8x7b
+    "llama-3.2": "groq-small",         # llama-3.2-3b → groq-small
 }
 
 # Reverse map: registry key → legacy ID
@@ -54,8 +60,8 @@ class MCOModelBridge:
     Usage:
         bridge = MCOModelBridge(gateway)
         text = await bridge.call_groq("What is X?", "You are an analyst.")
-        text = await bridge.call_model("nemotron", "Analyze this.", "Be rigorous.")
-        ids = bridge.get_enabled_model_ids()  # ["groq", "llama70b", ..., "kimi"]
+        text = await bridge.call_model("deepseek", "Analyze this.", "Be rigorous.")
+        ids = bridge.get_enabled_model_ids()  # ["groq", "llama70b", "deepseek", ...]
     """
 
     def __init__(self, gateway: CognitiveModelGateway):
@@ -109,7 +115,7 @@ class MCOModelBridge:
             if not spec.supports_vision:
                 return (
                     f"Error: Model '{spec.name}' does not support vision/image input. "
-                    f"Use a vision-capable model (e.g., qwen3-vl, qwen-vl-2.5)."
+                    f"Use a vision-capable model (e.g., qwen3-vl)."
                 )
             if image_mime and image_mime not in self.ALLOWED_IMAGE_MIMES:
                 return (
@@ -227,7 +233,7 @@ class MCOModelBridge:
         self, prompt: str,
         system_role: str = "You are a careful, analytical assistant.",
     ) -> str:
-        """Route legacy Qwen calls through gateway → qwen-vl-2.5."""
+        """Route legacy Qwen calls through gateway → qwen2.5-32b (active Tier-2 Debate)."""
         return await self._invoke(
             LEGACY_TO_REGISTRY["qwen"], prompt, system_role
         )

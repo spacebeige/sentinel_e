@@ -5,16 +5,13 @@ API 1 — Cognitive Model Gateway
 Pure reasoning execution. Each model is a separate endpoint.
 No cross-model contamination. No retrieval. No session mutation.
 No persistence logic. No knowledge injection decisions.
-No cutoff disclaimers allowed.
 
-Models (configurable via environment):
-  - Nemotron 3 Nano 30B A3B  → Baseline comparator (free)
-  - Qwen3-Next 80B A3B       → General reasoning (free)
-  - Mistral Small 24B        → Conceptual reasoning
-  - LLaMA 3.2 3B             → Fast lightweight tasks
-  - Qwen 2.5 VL 32B          → Image/vision tasks
-  - Llama 3.3 30B            → Conceptual reasoning
-  - LLaMA 3.1 8B             → Fast (Groq)
+Official Sentinel-E Ensemble (v2):
+  Tier 1 Anchor    : llama-3.3-70b-versatile, deepseek/deepseek-chat
+  Tier 2 Debate    : llama-3.1-8b-instant, mixtral-8x7b, qwen2.5-32b
+  Tier 3 Specialist: deepseek-coder-v2-lite, qwen2.5-coder-32b
+
+Debate composition: 2 anchors + 3 debate + 1 specialist ≤ 6 models.
 ============================================================
 """
 
@@ -34,6 +31,7 @@ from metacognitive.schemas import (
     CognitiveGatewayOutput,
     ModelRole,
 )
+from core.ensemble_schemas import MAX_DEBATE_MODELS
 
 logger = logging.getLogger("MCO-CognitiveGateway")
 
@@ -60,31 +58,13 @@ class CognitiveModelSpec:
 
 
 # ── Model Registry ───────────────────────────────────────────
-# These are the five models from the spec. Override via env vars.
+# Official Sentinel-E ensemble — 7 models, 3-tier architecture.
+# Tier 1 Anchor   : llama-3.3, deepseek-chat
+# Tier 2 Debate   : groq-small, mixtral-8x7b, qwen2.5-32b
+# Tier 3 Specialist: deepseek-coder-v2, qwen2.5-coder-32b
 
 COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
-    "nemotron-30b-free": CognitiveModelSpec(
-        name="Nemotron 3 Nano 30B A3B (Free)",
-        model_id="nvidia/nemotron-3-nano-30b-a3b:free",
-        provider="openrouter",
-        role=ModelRole.BASELINE,
-        context_window=32768,
-        max_output_tokens=700,
-        default_temperature=0.3,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="OPENROUTER_API_KEY",
-    ),
-    "mistral-small-24b": CognitiveModelSpec(
-        name="Mistral Small 24B",
-        model_id="mistralai/mistral-small-3.1-24b-instruct:free",
-        provider="openrouter",
-        role=ModelRole.CONCEPTUAL,
-        context_window=32768,
-        max_output_tokens=300,
-        default_temperature=0.3,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="OPENROUTER_API_KEY",
-    ),
+    # ── Tier 1: Anchor Models ─────────────────────────────────
     "llama-3.3": CognitiveModelSpec(
         name="Llama 3.3 70B",
         model_id="llama-3.3-70b-versatile",
@@ -107,29 +87,6 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
         api_key_env="GROQ_API_KEY",
     ),
-    "qwen-vl-2.5": CognitiveModelSpec(
-        name="Qwen3 Next 80B A3B (Free)",
-        model_id="qwen/qwen3-next-80b-a3b-instruct:free",
-        provider="openrouter",
-        role=ModelRole.GENERAL,
-        context_window=131072,
-        max_output_tokens=1500,
-        default_temperature=0.3,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="OPENROUTER_API_KEY",
-    ),
-    "llama-3.2-3b": CognitiveModelSpec(
-        name="LLaMA 3.2 3B Instruct",
-        model_id="meta-llama/llama-3.2-3b-instruct:free",
-        provider="openrouter",
-        role=ModelRole.FAST,
-        context_window=8192,
-        max_output_tokens=250,
-        default_temperature=0.3,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="OPENROUTER_API_KEY",
-    ),
-
     # ── Tier 2: Debate Models ─────────────────────────────────
     "mixtral-8x7b": CognitiveModelSpec(
         name="Mixtral 8x7B Instruct",
@@ -204,29 +161,32 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
 # Maximum 6 models run simultaneously in any debate.
 # Selection is prompt-type-driven (see get_tiered_models_for_debate).
 
+# Canonical 7-model debate tier assignment.
+# Debates compose: 2 Tier-1 anchors + 3 Tier-2 debate models + 1 Tier-3 specialist.
+# Total = 6 models maximum. Never exceeds this hard cap.
 MODEL_DEBATE_TIERS: Dict[str, int] = {
-    # Tier 1 — Anchor
-    "llama-3.3":      1,
-    "deepseek-chat":  1,
-    # Tier 2 — Debate
-    "groq-small":     2,
-    "mixtral-8x7b":   2,
-    "qwen2.5-32b":    2,
-    "nemotron-30b-free": 2,
-    "mistral-small-24b": 2,
-    # Tier 3 — Specialist
-    "deepseek-coder-v2":    3,
-    "qwen2.5-coder-32b":    3,
-    "qwen-vl-2.5":          3,
-    "llama-3.2-3b":         3,
+    # Tier 1 — Anchor Models (high-reliability reasoning reference)
+    "llama-3.3":     1,   # Llama 3.3 70B — primary anchor
+    "deepseek-chat": 1,   # DeepSeek Chat — secondary anchor
+    # Tier 2 — Debate Models (diverse argument generators)
+    "groq-small":    2,   # LLaMA 3.1 8B — fast debate participant
+    "mixtral-8x7b":  2,   # Mixtral 8x7B — diverse reasoning
+    "qwen2.5-32b":   2,   # Qwen 2.5 32B — multilingual reasoning
+    # Tier 3 — Specialist Models (domain-specific, 1 selected per debate)
+    "deepseek-coder-v2":  3,   # DeepSeek Coder V2 — code/STEM
+    "qwen2.5-coder-32b": 3,   # Qwen Coder 32B — code/STEM fallback
 }
 
-# Prompt type → preferred tier-3 specialist keys
+# Prompt type → preferred tier-3 specialist keys.
+# code / logical → use specialist models for domain depth.
+# conceptual / general → no specialist injection (all 3 Tier-2 slots used).
 _SPECIALIST_AFFINITY: Dict[str, List[str]] = {
-    "code":        ["deepseek-coder-v2", "qwen2.5-coder-32b"],
-    "vision":      ["qwen-vl-2.5"],
-    "conceptual":  ["nemotron-30b-free", "mistral-small-24b"],
-    "general":     [],
+    "code":    ["deepseek-coder-v2", "qwen2.5-coder-32b"],
+    "logical": ["deepseek-coder-v2"],
+    "general": [],
+    "conceptual": [],
+    "evidence": [],
+    "depth": [],
 }
 
 
@@ -235,61 +195,73 @@ def get_tiered_models_for_debate(
     max_models: int = 6,
 ) -> List[str]:
     """
-    Dynamically select up to `max_models` models for a debate session.
+    Canonical tiered model selector for debate sessions.
 
-    Selection algorithm:
-      1. Always include ALL enabled Tier 1 (Anchor) models first.
-      2. Fill remaining budget with enabled Tier 2 (Debate) models.
-      3. If prompt_type has specialist affinity, swap one Tier 2 slot
-         for the highest-priority enabled Tier 3 specialist.
-      4. Never exceed `max_models` total.
+    Composition target (when all models are enabled):
+        2  Tier-1 Anchor models    — stable reasoning reference
+        3  Tier-2 Debate models    — diverse argument generation
+        1  Tier-3 Specialist       — injected when prompt_type has affinity
+        ─────────────────────────────
+        6  Total (hard cap)
 
-    This maximises reasoning diversity while controlling token cost:
-    - Anchors provide stable reference positions.
-    - Debate models generate diverse arguments.
-    - Specialists inject domain depth only when relevant.
-    - Hard cap at 6 prevents combinatorial token explosion.
+    Algorithm:
+      1. Select up to 2 enabled Tier-1 anchors  (REQUIRED, filled first).
+      2. If prompt_type has a specialist affinity, inject 1 enabled Tier-3.
+      3. Fill remaining slots (up to max_models) from enabled Tier-2 models.
+      4. Fallback: if a tier is under-represented, promote from the next
+         lower tier to avoid running fewer than 3 models total.
+
+    Why this composition maximises reasoning quality:
+    - Anchors supply the consensus baseline that Tier-2 models must engage.
+    - Running exactly 3 debate models balances argument diversity against
+      token cost (3×220 tokens per round = 660 tokens Round 1 vs 6×220=1320).
+    - The specialist slot is only used when it adds domain value, not always.
 
     Args:
-        prompt_type: One of 'code', 'vision', 'conceptual', 'general'.
-        max_models:  Hard upper bound (default 6).
+        prompt_type: 'code', 'logical', 'conceptual', 'general',
+                     'evidence', 'depth'
+        max_models:  Hard cap, default 6. Never exceeded.
 
     Returns:
-        List of registry keys for selected models.
+        Ordered list of registry keys (anchors first, then specialist,
+        then debate models).
     """
+    max_models = min(max_models, MAX_DEBATE_MODELS)
+
     enabled = {
         k for k, spec in COGNITIVE_MODEL_REGISTRY.items()
         if spec.enabled and spec.active
     }
 
-    tier1 = [
-        k for k, t in MODEL_DEBATE_TIERS.items()
-        if t == 1 and k in enabled
-    ]
-    tier2 = [
-        k for k, t in MODEL_DEBATE_TIERS.items()
-        if t == 2 and k in enabled
-    ]
+    tier1 = [k for k, t in MODEL_DEBATE_TIERS.items() if t == 1 and k in enabled]
+    tier2 = [k for k, t in MODEL_DEBATE_TIERS.items() if t == 2 and k in enabled]
     tier3_candidates = _SPECIALIST_AFFINITY.get(prompt_type, [])
     tier3 = [k for k in tier3_candidates if k in enabled]
 
     selected: List[str] = []
 
-    # Step 1 — All Tier 1 anchors
-    for k in tier1:
-        if len(selected) < max_models:
-            selected.append(k)
+    # Step 1 — 2 Tier-1 anchors (capped at available)
+    for k in tier1[:2]:
+        selected.append(k)
 
-    # Step 2 — Inject one specialist if prompt_type has affinity
+    # Step 2 — 1 Tier-3 specialist (only for code / logical prompts)
     if tier3 and len(selected) < max_models:
         selected.append(tier3[0])
 
-    # Step 3 — Fill remaining slots from Tier 2
+    # Step 3 — Tier-2 debate models to fill remaining budget
     for k in tier2:
         if len(selected) >= max_models:
             break
         if k not in selected:
             selected.append(k)
+
+    # Step 4 — Fallback: if < 3 models selected, pull extras from any tier
+    if len(selected) < 3:
+        for k in tier2 + tier1 + tier3:
+            if k not in selected:
+                selected.append(k)
+            if len(selected) >= 3:
+                break
 
     return selected[:max_models]
 

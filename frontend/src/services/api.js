@@ -294,6 +294,66 @@ export async function fetchMCOModels() {
 }
 
 /**
+ * Fetch available models from the Standard Mode chat registry.
+ * Returns { models: [...], total, enabled_count }
+ * 
+ * Used to populate the model selector dropdown with tier metadata.
+ */
+export async function fetchChatModels() {
+  const res = await api.get('/chat/models/available');
+  return res.data;
+}
+
+/**
+ * Send a query to a specific model (Standard Mode).
+ * Routes to POST /chat/{modelId} with retry + fallback logic server-side.
+ * 
+ * @param {string} modelId   — Canonical registry key (e.g. "llama-3.3")
+ * @param {string} query     — User query text
+ * @param {string} chatId    — Optional session ID
+ * @param {Object} options   — { maxTokens, systemRole }
+ * 
+ * @returns {Object} { model_id, model_name, provider, response, latency_ms,
+ *                     tokens_used, retried, fallback_used, fallback_model }
+ */
+export async function sendDirectModelQuery(modelId, query, chatId = null, options = {}) {
+  const body = {
+    query,
+    chat_id: chatId || undefined,
+    max_tokens: options.maxTokens || undefined,
+    system_role: options.systemRole || undefined,
+  };
+
+  const res = await api.post(`/chat/${modelId}`, body);
+  return res.data;
+}
+
+/**
+ * Execute a full multi-model debate (Debate Mode).
+ * Routes to POST /battle/debate — runs 3-round ensemble debate and
+ * returns BattleVisualizationPayload with all metrics, charts, etc.
+ * 
+ * @param {string} query       — User question
+ * @param {string} chatId      — Optional session ID
+ * @param {string} promptType  — "general" | "code" | "logical" | "evidence" | "depth"
+ * @param {Object} options     — { maxModels, includeCharts }
+ * 
+ * @returns {Object} Full BattleVisualizationPayload + models metadata
+ */
+export async function sendDebateQuery(query, chatId = null, promptType = 'general', options = {}) {
+  const body = {
+    query,
+    chat_id: chatId || undefined,
+    prompt_type: promptType,
+    max_models: options.maxModels ?? 6,
+    include_charts: options.includeCharts ?? false,
+  };
+
+  const res = await api.post('/battle/debate', body);
+  return res.data;
+}
+
+/**
  * Fetch MCO analytics for a specific session.
  */
 export async function fetchMCOAnalytics(sessionId) {

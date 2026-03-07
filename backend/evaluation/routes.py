@@ -21,7 +21,9 @@ Endpoints:
     GET  /battle/benchmark/history       — Recent benchmark reports
     GET  /battle/benchmark/trend/{model} — Model score trend
     GET  /battle/models/tiers            — Tiered model registry
+    GET  /battle/models/select           — Dynamic model selection
     POST /battle/metrics                 — Evaluate raw outputs
+    POST /battle/debate                  — Full multi-model debate (Debate Mode)
 ============================================================
 """
 
@@ -57,6 +59,26 @@ class MetricsRequest(BaseModel):
     """Evaluate raw model outputs directly (no debate required)."""
     outputs: List[Dict[str, Any]] = Field(
         description="List of {model_id, model_name, position, reasoning, confidence}"
+    )
+
+
+class DebateRequest(BaseModel):
+    """Request body for POST /battle/debate."""
+    query: str = Field(..., description="User question to debate across the model ensemble")
+    chat_id: Optional[str] = Field(None, description="Session ID for multi-turn context")
+    prompt_type: str = Field(
+        "general",
+        description="Prompt category: general | code | logical | evidence | depth | conceptual",
+    )
+    max_models: int = Field(
+        6,
+        ge=3,
+        le=6,
+        description="Max models for this debate (3–6, default 6)",
+    )
+    include_charts: bool = Field(
+        False,
+        description="If True, generate and embed base64 visualisation charts in the response",
     )
 
 
@@ -417,4 +439,182 @@ async def evaluate_metrics(req: MetricsRequest) -> Dict[str, Any]:
             "count": len(results),
         }
     except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ── Debate Mode ───────────────────────────────────────────────
+
+@router.post("/debate")
+async def run_debate(req: DebateRequest) -> Dict[str, Any]:
+    """
+    Execute a full multi-model debate and return the BattleVisualizationPayload.
+
+    Pipeline:
+      1. Select models via get_tiered_models_for_debate (2 anchors + 3 debate + 1 specialist).
+      2. Run CognitiveCoreEngine.process() → EnsembleResponse (3-round debate).
+      3. Build BattleVisualizationPayload via BattleVisualizationEngine.build().
+      4. Return the full frontend-ready dict including per-model reasoning metrics,
+         consensus scores, timeline, conflict edges, and optional base64 charts.
+
+    Example request:
+        POST /battle/debate
+        {
+          "query": "Should we prioritise energy security or decarbonisation?",
+          "prompt_type": "general",
+          "max_models": 6,
+          "include_charts": false
+        }
+
+    Example response:
+        {
+          "prompt": "Should we …",
+          "prompt_type": "general",
+          "models_selected": ["llama-3.3", "deepseek-chat", "groq-small", …],
+          "round_outputs": { "1": [...], "2": [...], "3": [...] },
+          "reasoning_metrics": [...],
+          "consensus_scores": [...],
+          "consensus_stability_score": 0.72,
+          "agreement_heatmap": [[...]],
+          "model_labels": [...],
+          "conflict_edges": [...],
+          "debate_timeline": [...],
+          "winner": "deepseek-chat",
+          "winner_score": 0.84,
+          "models": [
+            {"id": "llama-3.3", "name": "Llama 3.3 70B", "tier": 1, ...},
+            …
+          ]
+        }
+    """
+    import uuid as _uuid
+
+    try:
+        from metacognitive.cognitive_gateway import (
+            COGNITIVE_MODEL_REGISTRY,
+            MODEL_DEBATE_TIERS,
+            get_tiered_models_for_debate,
+        )
+        from core.ensemble_schemas import MIN_DEBATE_ROUNDS
+        from viz.battle_visualization import BattleVisualizationEngine
+
+        # ── 1. Select tiered models ────────────────────────────
+        selected_keys = get_tiered_models_for_debate(
+            prompt_type=req.prompt_type,
+            max_models=req.max_models,
+        )
+
+        if len(selected_keys) < 3:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    f"Insufficient enabled models for debate: "
+                    f"got {len(selected_keys)}, need ≥3. "
+                    f"Check API key configuration."
+                ),
+            )
+
+        # ── 2. Build models metadata list (for frontend) ───────
+        models_meta = []
+        for key in selected_keys:
+            spec = COGNITIVE_MODEL_REGISTRY.get(key)
+            if spec:
+                models_meta.append({
+                    "id": key,
+                    "name": spec.name,
+                    "provider": spec.provider,
+                    "role": spec.role.value,
+                    "tier": MODEL_DEBATE_TIERS.get(key, 2),
+                })
+
+        # ── 3. Run debate via CognitiveCoreEngine ──────────────
+        # The cognitive engine is a global singleton wired in main.py.
+        # We access it via the module-level reference injected at startup.
+        import backend.main as _main  # type: ignore[import]
+        engine = getattr(_main, "cognitive_orchestrator_engine", None)
+
+        if engine is None:
+            # Attempt lazy initialisation for test environments
+            from models.mco_bridge import MCOModelBridge
+            from metacognitive.orchestrator import MetaCognitiveOrchestrator
+            _orch = MetaCognitiveOrchestrator()
+            _bridge = MCOModelBridge(_orch.cognitive_gateway)
+            from core.cognitive_orchestrator import CognitiveCoreEngine
+            engine = CognitiveCoreEngine(model_bridge=_bridge)
+
+        chat_id = req.chat_id or str(_uuid.uuid4())
+
+        ensemble_response = await engine.process(
+            query=req.query,
+            chat_id=chat_id,
+            rounds=MIN_DEBATE_ROUNDS,
+        )
+
+        # ── 4. Build BattleVisualizationPayload ────────────────
+        # Convert EnsembleResponse debate rounds into the round_outputs
+        # dict expected by BattleVisualizationEngine.build().
+        round_outputs: Dict[str, List[Dict[str, Any]]] = {}
+        if hasattr(ensemble_response, "debate_rounds"):
+            for dr in ensemble_response.debate_rounds:
+                rkey = str(getattr(dr, "round_number", "?"))
+                round_outputs[rkey] = [
+                    {
+                        "model": getattr(pos, "model_id", ""),
+                        "output": getattr(pos, "reasoning", ""),
+                        "tokens_used": getattr(pos, "tokens_used", 0),
+                    }
+                    for pos in getattr(dr, "positions", [])
+                ]
+
+        # Final round structured outputs for metrics/consensus computation
+        final_outputs = []
+        if hasattr(ensemble_response, "structured_outputs"):
+            final_outputs = ensemble_response.structured_outputs
+        elif round_outputs:
+            last_key = sorted(round_outputs.keys())[-1]
+            from core.ensemble_schemas import StructuredModelOutput
+            for item in round_outputs[last_key]:
+                final_outputs.append(StructuredModelOutput(
+                    model_id=item.get("model", "unknown"),
+                    model_name=item.get("model", "unknown"),
+                    position=item.get("output", ""),
+                    reasoning=item.get("output", ""),
+                    raw_output=item.get("output", ""),
+                ))
+
+        viz_engine = BattleVisualizationEngine()
+        payload = viz_engine.build(
+            prompt=req.query,
+            prompt_type=req.prompt_type,
+            round_outputs=round_outputs,
+            final_round_outputs=final_outputs,
+            include_charts=req.include_charts,
+        )
+
+        result = viz_engine.to_frontend_dict(payload)
+
+        # Augment with models metadata for dynamic frontend rendering
+        result["models"] = models_meta
+        result["chat_id"] = chat_id
+
+        # Record battle in ELO engine (async, non-blocking)
+        try:
+            from ranking.elo_engine import get_elo_engine
+            elo = get_elo_engine()
+            if payload.consensus_scores:
+                top = payload.consensus_scores[0]
+                for score in payload.consensus_scores[1:]:
+                    elo.record_battle_result(
+                        winner_id=top.model,
+                        loser_id=score.model,
+                        score_diff=top.composite_score - score.composite_score,
+                    )
+        except Exception as elo_exc:
+            logger.warning(f"ELO update skipped: {elo_exc}")
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(f"Debate execution failed: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))

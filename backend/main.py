@@ -94,6 +94,9 @@ from metacognitive.routes import router as mco_router, set_orchestrator as mco_s
 # ── Battle Platform v2 ────────────────────────────────────────
 from evaluation.routes import router as battle_router
 
+# ── Standard Mode (direct model routing) ─────────────────────
+from gateway.chat_routes import router as chat_router
+
 # ── Logging ──────────────────────────────────────────────────
 settings = get_settings()
 logging.basicConfig(
@@ -262,6 +265,9 @@ app.include_router(mco_router)
 
 # ── Battle Platform v2 Router ────────────────────────────────
 app.include_router(battle_router)
+
+# ── Standard Mode Router (POST /chat/{model_id}) ──────────────
+app.include_router(chat_router)
 
 
 # ============================================================

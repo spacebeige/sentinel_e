@@ -70,43 +70,32 @@ class ModelCapability:
 _LEGACY_ID_MAP: Dict[str, str] = {
     "groq-small": "groq",
     "llama-3.3": "llama70b",
-    "qwen-vl-2.5": "qwen",
-    "qwen-vl-2.5": "qwen",
-    "nemotron-30b-free": "nemotron",
-    "mistral-small-24b": "mistral-small",
-    "llama-3.2-3b": "llama-3.2",
 }
 
 # ── Tier Assignment ──────────────────────────────────────────
 _TIER_MAP: Dict[str, ModelTier] = {
-    # Existing models
-    "groq-small": ModelTier.BUDGET,
+    # Tier 1 Anchor
     "llama-3.3": ModelTier.PREMIUM,
-    "qwen-vl-2.5": ModelTier.BUDGET,
-    "nemotron-30b-free": ModelTier.STANDARD,
-    "mistral-small-24b": ModelTier.STANDARD,
-    "llama-3.2-3b": ModelTier.BUDGET,
-    # New models — Battle Platform v2
-    "mixtral-8x7b": ModelTier.STANDARD,       # Tier 2 Debate
-    "qwen2.5-32b": ModelTier.STANDARD,        # Tier 2 Debate
-    "deepseek-chat": ModelTier.PREMIUM,       # Tier 1 Anchor
-    "deepseek-coder-v2": ModelTier.PREMIUM,   # Tier 3 Specialist
-    "qwen2.5-coder-32b": ModelTier.PREMIUM,   # Tier 3 Specialist
+    "deepseek-chat": ModelTier.PREMIUM,
+    # Tier 2 Debate
+    "groq-small": ModelTier.BUDGET,
+    "mixtral-8x7b": ModelTier.STANDARD,
+    "qwen2.5-32b": ModelTier.STANDARD,
+    # Tier 3 Specialist
+    "deepseek-coder-v2": ModelTier.PREMIUM,
+    "qwen2.5-coder-32b": ModelTier.PREMIUM,
 }
 
 # ── Cost Profile ─────────────────────────────────────────────
 _COST_MAP: Dict[str, CostProfile] = {
-    # Existing models
-    "groq-small": CostProfile.LOW,
+    # Tier 1 Anchor
     "llama-3.3": CostProfile.MEDIUM,
-    "qwen-vl-2.5": CostProfile.FREE,
-    "nemotron-30b-free": CostProfile.FREE,
-    "mistral-small-24b": CostProfile.FREE,
-    "llama-3.2-3b": CostProfile.FREE,
-    # New models — Battle Platform v2
+    "deepseek-chat": CostProfile.MEDIUM,
+    # Tier 2 Debate
+    "groq-small": CostProfile.LOW,
     "mixtral-8x7b": CostProfile.LOW,
     "qwen2.5-32b": CostProfile.LOW,
-    "deepseek-chat": CostProfile.MEDIUM,
+    # Tier 3 Specialist
     "deepseek-coder-v2": CostProfile.MEDIUM,
     "qwen2.5-coder-32b": CostProfile.MEDIUM,
 }

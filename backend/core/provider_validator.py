@@ -44,10 +44,7 @@ PROVIDER_KEY_MAP = {
 # Model-specific key overrides
 MODEL_KEY_OVERRIDES: Dict[str, str] = {
     "qwen3-vl": "QWEN3_VL_API_KEY",
-    "nemotron-30b-free": "OPENROUTER_API_KEY",
     "qwen3-next-80b-free": "OPENROUTER_API_KEY",
-    "mistral-small-24b": "OPENROUTER_API_KEY",
-    "llama-3.2-3b": "OPENROUTER_API_KEY",
 }
 
 
