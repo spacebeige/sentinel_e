@@ -27,7 +27,7 @@ import memoryManager from '../engines/memoryManager';
 import { evaluateResponse } from '../engines/cognitiveGovernor';
 import {
   initSession, checkHealth as apiCheckHealth,
-  sendMCOQuery,
+  sendMCOQuery, sendDirectModelQuery,
   getHistory, getChatMessages, getSessionDescriptive, getOmegaSession,
 } from '../services/api';
 
@@ -67,26 +67,40 @@ export default function ChatEngineV5() {
   }, []);
 
   // ── Mode Sync ────────────────────────────────────────────
+  // Individual models (tier-based, no category) always run in standard mode.
+  // Meta modes: sentinel-std → standard, sentinel-exp → experimental.
   useEffect(() => {
-    if (selectedModel.category === 'standard' && mode !== 'standard') {
+    const cat = selectedModel.category;
+    const isIndividualModel = !cat && selectedModel.tier;
+    if (isIndividualModel && mode !== 'standard') {
       setMode('standard');
-    } else if (selectedModel.category === 'experimental' && mode !== 'experimental') {
+    } else if (cat === 'standard' && mode !== 'standard') {
+      setMode('standard');
+    } else if (cat === 'experimental' && mode !== 'experimental') {
       setMode('experimental');
     }
   }, [selectedModel, mode]);
 
   useEffect(() => {
+    // Only force model switch when toggling between meta modes.
+    // Do NOT override an individually-selected model.
+    const isIndividualModel = !selectedModel.category && selectedModel.tier;
+    if (isIndividualModel) return; // individual model — no override
     if (mode === 'standard' && selectedModel.category !== 'standard') {
-      setSelectedModel(chatModels.find(m => m.category === 'standard') || chatModels[0]);
+      const stdModel = chatModels.find(m => m.category === 'standard') || chatModels[0];
+      if (stdModel) setSelectedModel(stdModel);
     } else if (mode === 'experimental' && selectedModel.category !== 'experimental') {
-      setSelectedModel(chatModels.find(m => m.category === 'experimental') || chatModels[chatModels.length - 1]);
+      const expModel = chatModels.find(m => m.category === 'experimental') || chatModels[chatModels.length - 1];
+      if (expModel) setSelectedModel(expModel);
     }
   }, [mode, selectedModel, chatModels]);
 
   useEffect(() => {
-    if (selectedModel.category === 'standard') {
+    const cat = selectedModel.category;
+    const isIndividualModel = !cat && selectedModel.tier;
+    if (isIndividualModel || cat === 'standard') {
       setSubMode(null);
-    } else if (selectedModel.category === 'experimental' && !subMode) {
+    } else if (cat === 'experimental' && !subMode) {
       setSubMode('debate');
     }
   }, [selectedModel, subMode]);
@@ -170,12 +184,8 @@ export default function ChatEngineV5() {
       const isSingleModel = selectedModel && !selectedModel.isMeta && selectedModel.id !== 'sentinel-std' && selectedModel.id !== 'sentinel-exp';
 
       if (isSingleModel) {
-        // Single Model Focus: route through MCO with selected_model
-        result = await sendMCOQuery(text, {
-          chatId,
-          mode: 'standard',
-          selectedModel: selectedModel.id,
-        });
+        // Single Model Focus: route directly to /chat/{model_id}
+        result = await sendDirectModelQuery(selectedModel.id, text, chatId);
       } else if (mode === 'experimental') {
         // ALL experimental sub-modes (debate, evidence, glass, kill) → MCO
         result = await sendMCOQuery(text, {
