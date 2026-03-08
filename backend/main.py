@@ -1030,6 +1030,73 @@ async def run_sentinel(
 
 
 # ============================================================
+# COMPRESSED PIPELINE ENDPOINT (Sentinel Sigma — LangGraph)
+# ============================================================
+
+@app.post("/api/compressed")
+async def run_compressed(
+    request: SentinelRequest,
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    """
+    Compressed reasoning pipeline — LangGraph-based.
+    Uses Gemini Flash 2.0 + optional Groq fallback.
+    Maximum 2-3 API calls with web search, debate, and structured output.
+    """
+    user_id = user["user_id"]
+    firewall = get_firewall()
+
+    if len(request.text) > settings.MAX_INPUT_LENGTH:
+        raise HTTPException(status_code=400, detail="Input too long.")
+
+    verdict = firewall.analyze(request.text)
+    if verdict.blocked:
+        raise HTTPException(status_code=400, detail="Input blocked by safety filter.")
+    effective_text = verdict.sanitized_text or request.text
+
+    # Resolve chat for session continuity
+    chat = None
+    if request.chat_id:
+        chat = await get_chat(db, request.chat_id)
+    if not chat:
+        chat_name = generate_chat_name(effective_text, "compressed")
+        chat = await create_chat(db, chat_name, "compressed", user_id=user_id)
+
+    await add_message(db, chat.id, "user", effective_text)
+
+    try:
+        from compressed.pipeline import run_compressed_pipeline
+
+        result = await run_compressed_pipeline(
+            query=effective_text,
+            session_id=str(chat.id),
+        )
+
+        formatted = result.get("formatted_output", "")
+        metadata = result.get("metadata", {})
+
+        if formatted:
+            await add_message(db, chat.id, "assistant", formatted[:10000])
+
+        return {
+            "chat_id": str(chat.id),
+            "chat_name": chat.chat_name if hasattr(chat, "chat_name") else "",
+            "mode": "compressed",
+            "sub_mode": "sigma",
+            "formatted_output": formatted,
+            "data": {"priority_answer": formatted},
+            "confidence": metadata.get("confidence", 0.7),
+            "session_state": {},
+            "boundary_result": {},
+            "omega_metadata": metadata,
+        }
+    except Exception as e:
+        logger.error(f"Compressed pipeline failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Compressed pipeline error: {str(e)}")
+
+
+# ============================================================
 # FORM-DATA ENDPOINTS (Frontend Compatibility)
 # ============================================================
 

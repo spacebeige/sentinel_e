@@ -7,9 +7,9 @@ No cross-model contamination. No retrieval. No session mutation.
 No persistence logic. No knowledge injection decisions.
 
 Official Sentinel-E Ensemble (v3 — Reliability-First):
-  Tier 1 Anchor    : llama-3.1-8b (Groq), gemma-2-9b-it (OpenRouter)
-  Tier 2 Debate    : mistral-7b-instruct, phi-3-mini-128k, gemma-2-2b-it
-  Tier 3 Fallback  : llama-3.1-8b-instant (Groq), phi-3-small
+  Tier 1 Anchor    : llama-3.3-70b-versatile (Groq), gemma-2-9b-it (OpenRouter)
+  Tier 2 Debate    : mistral-7b-instruct-v0.1, phi-4, gemma-3-4b-it
+  Tier 3 Fallback  : llama-3.1-8b-instant (Groq), llama-3.2-3b-instruct
 
 All models are free-tier or near-free. Provider failures trigger
 automatic fallback substitution. Debates always complete.
@@ -70,8 +70,8 @@ class CognitiveModelSpec:
 COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     # ── Tier 1: Anchor Models (primary reasoning reference) ───
     "llama31-8b": CognitiveModelSpec(
-        name="Llama 3.1 8B",
-        model_id="llama-3.1-8b",
+        name="Llama 3.3 70B",
+        model_id="llama-3.3-70b-versatile",
         provider="groq",
         role=ModelRole.CONCEPTUAL,
         context_window=131072,
@@ -94,8 +94,8 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
 
     # ── Tier 2: Debate Models (diverse argument generators) ───
     "mistral-7b": CognitiveModelSpec(
-        name="Mistral 7B Instruct",
-        model_id="mistralai/mistral-7b-instruct",
+        name="Mistral 7B Instruct v0.1",
+        model_id="mistralai/mistral-7b-instruct-v0.1",
         provider="openrouter",
         role=ModelRole.CONCEPTUAL,
         context_window=32768,
@@ -105,19 +105,19 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_key_env="MISTRAL_7B_OPENROUTER_API_KEY",
     ),
     "phi3-mini": CognitiveModelSpec(
-        name="Phi-3 Mini 128K",
-        model_id="microsoft/phi-3-mini-128k-instruct",
+        name="Phi-4",
+        model_id="microsoft/phi-4",
         provider="openrouter",
         role=ModelRole.GENERAL,
-        context_window=131072,
+        context_window=16384,
         max_output_tokens=1500,
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="PHI3_MINI_OPENROUTER_API_KEY",
     ),
     "gemma2-2b": CognitiveModelSpec(
-        name="Gemma 2 2B IT",
-        model_id="google/gemma-2-2b-it",
+        name="Gemma 3 4B IT",
+        model_id="google/gemma-3-4b-it",
         provider="openrouter",
         role=ModelRole.FAST,
         context_window=8192,
@@ -140,11 +140,11 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_key_env="LLAMA31_INSTANT_GROQ_API_KEY",
     ),
     "phi3-small": CognitiveModelSpec(
-        name="Phi-3 Small",
-        model_id="microsoft/phi-3-small-8k-instruct",
+        name="Llama 3.2 3B",
+        model_id="meta-llama/llama-3.2-3b-instruct",
         provider="openrouter",
         role=ModelRole.GENERAL,
-        context_window=8192,
+        context_window=131072,
         max_output_tokens=1500,
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
@@ -164,7 +164,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
 
 MODEL_DEBATE_TIERS: Dict[str, int] = {
     # Tier 1 — Anchor Models (high-reliability reasoning reference)
-    "llama31-8b":      1,   # Llama 3.1 8B — primary anchor (Groq)
+    "llama31-8b":      1,   # Llama 3.3 70B — primary anchor (Groq)
     "gemma2-9b":       1,   # Gemma 2 9B IT — secondary anchor
     # Tier 2 — Debate Models (diverse argument generators)
     "mistral-7b":      2,   # Mistral 7B Instruct — diverse reasoning

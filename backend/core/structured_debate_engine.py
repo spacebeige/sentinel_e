@@ -322,22 +322,23 @@ class StructuredDebateEngine:
             debate_rounds.append(round_result)
 
             # ── Early Stop: Consensus after Round 1 ────────────
-            if round_num == 1:
+            # Only allow early-stop if MIN_DEBATE_ROUNDS already satisfied
+            if round_num == 1 and len(debate_rounds) >= MIN_DEBATE_ROUNDS:
                 consensus_score = self._compute_consensus_score(round_result)
                 if consensus_score >= CONSENSUS_EARLY_STOP:
                     logger.info(
                         f"Early stop after round 1: consensus={consensus_score:.3f} "
-                        f">= threshold={CONSENSUS_EARLY_STOP}. Skipping rounds 2-3."
+                        f">= threshold={CONSENSUS_EARLY_STOP}. Skipping remaining rounds."
                     )
                     break
 
             # ── Early Stop: Stability after Round 2 ────────────
-            if round_num == 2:
+            if round_num == 2 and len(debate_rounds) >= MIN_DEBATE_ROUNDS:
                 stability_score = self._compute_stability_score(debate_rounds)
                 if stability_score >= STABILITY_EARLY_STOP:
                     logger.info(
                         f"Early stop after round 2: stability={stability_score:.3f} "
-                        f">= threshold={STABILITY_EARLY_STOP}. Skipping round 3."
+                        f">= threshold={STABILITY_EARLY_STOP}. Skipping remaining rounds."
                     )
                     break
 
