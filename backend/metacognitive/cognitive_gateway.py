@@ -448,6 +448,7 @@ class CognitiveModelGateway:
             if key:
                 return key
 
+        logger.warning(f"API key missing for model '{spec.name}' ({spec.provider}). Checked: {spec.api_key_env}, {shared_env}")
         return None
 
     async def invoke_model(
@@ -461,6 +462,7 @@ class CognitiveModelGateway:
         """
         spec = COGNITIVE_MODEL_REGISTRY.get(model_key)
         if not spec or not spec.active or not spec.enabled:
+            logger.error(f"Model '{model_key}' not found or disabled. Provider: {getattr(spec, 'provider', None)}")
             return CognitiveGatewayOutput(
                 model_name=model_key,
                 raw_output="",
@@ -471,6 +473,7 @@ class CognitiveModelGateway:
         # Resolve per-model API key (provider isolation)
         api_key = self._resolve_api_key(spec)
         if not api_key:
+            logger.error(f"API key not configured for model '{spec.name}' ({spec.provider})")
             return CognitiveGatewayOutput(
                 model_name=spec.name,
                 raw_output="",
@@ -586,7 +589,7 @@ class CognitiveModelGateway:
         # PHASE 2: Guarantee text output — never return blank on success
         if result.success:
             if not result.raw_output or result.raw_output.strip() == "":
-                logger.error(f"Model '{model_key}' returned empty response")
+                logger.error(f"Model '{model_key}' returned empty response. Provider: {spec.provider}")
                 result.success = False
                 result.error = f"Model '{model_key}' returned empty response"
                 result.raw_output = ""
@@ -598,10 +601,9 @@ class CognitiveModelGateway:
                 # Enforce no-cutoff-disclaimer rule (flag, don't modify)
                 self._flag_cutoff_disclaimers(result)
 
-        # PHASE 8: Debug logging (temporary)
+        # PHASE 8: Debug logging (permanent)
         logger.info(
-            f"Calling provider for: {model_key} ({spec.provider}) — "
-            f"success={result.success}, output_len={len(result.raw_output) if result.raw_output else 0}"
+            f"Model invocation: key={model_key}, provider={spec.provider}, success={result.success}, response_len={len(result.raw_output) if result.raw_output else 0}"
         )
 
         return result
