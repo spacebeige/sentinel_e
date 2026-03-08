@@ -7,7 +7,7 @@ No cross-model contamination. No retrieval. No session mutation.
 No persistence logic. No knowledge injection decisions.
 
 Official Sentinel-E Ensemble (v3 — Reliability-First):
-  Tier 1 Anchor    : llama-3.1-8b (Groq), gemma-2-9b-it (Groq)
+  Tier 1 Anchor    : llama-3.1-8b (Groq), gemma-2-9b-it (OpenRouter)
   Tier 2 Debate    : mistral-7b-instruct, phi-3-mini-128k, gemma-2-2b-it
   Tier 3 Fallback  : llama-3.1-8b-instant (Groq), phi-3-small
 
@@ -71,7 +71,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     # ── Tier 1: Anchor Models (primary reasoning reference) ───
     "llama31-8b": CognitiveModelSpec(
         name="Llama 3.1 8B",
-        model_id="llama-3.1-8b-instant",
+        model_id="llama-3.1-8b",
         provider="groq",
         role=ModelRole.CONCEPTUAL,
         context_window=131072,
@@ -82,7 +82,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     ),
     "gemma2-9b": CognitiveModelSpec(
         name="Gemma 2 9B IT",
-        model_id="google/gemma-2-9b-it:free",
+        model_id="google/gemma-2-9b-it",
         provider="openrouter",
         role=ModelRole.GENERAL,
         context_window=8192,
@@ -95,7 +95,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     # ── Tier 2: Debate Models (diverse argument generators) ───
     "mistral-7b": CognitiveModelSpec(
         name="Mistral 7B Instruct",
-        model_id="mistralai/mistral-7b-instruct:free",
+        model_id="mistralai/mistral-7b-instruct",
         provider="openrouter",
         role=ModelRole.CONCEPTUAL,
         context_window=32768,
@@ -106,7 +106,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     ),
     "phi3-mini": CognitiveModelSpec(
         name="Phi-3 Mini 128K",
-        model_id="microsoft/phi-3-mini-128k-instruct:free",
+        model_id="microsoft/phi-3-mini-128k-instruct",
         provider="openrouter",
         role=ModelRole.GENERAL,
         context_window=131072,
@@ -117,7 +117,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     ),
     "gemma2-2b": CognitiveModelSpec(
         name="Gemma 2 2B IT",
-        model_id="google/gemma-2-2b-it:free",
+        model_id="google/gemma-2-2b-it",
         provider="openrouter",
         role=ModelRole.FAST,
         context_window=8192,
@@ -141,7 +141,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     ),
     "phi3-small": CognitiveModelSpec(
         name="Phi-3 Small",
-        model_id="microsoft/phi-3-small-8k-instruct:free",
+        model_id="microsoft/phi-3-small-8k-instruct",
         provider="openrouter",
         role=ModelRole.GENERAL,
         context_window=8192,
@@ -509,7 +509,7 @@ class CognitiveModelGateway:
 
         # Floor check: skip gracefully for budget-governed debate calls,
         # hard-fail only for normal calls where prompt exceeds context window.
-        _min_tokens = 200 if _budget_governed else 500
+        _min_tokens = 50 if _budget_governed else 500
         if governed_max_tokens < _min_tokens:
             if _budget_governed:
                 # Budget-governed mode: skip model gracefully — do NOT
