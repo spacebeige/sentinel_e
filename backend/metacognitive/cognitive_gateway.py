@@ -278,6 +278,12 @@ def get_tiered_models_for_debate(
             if len(selected) >= 5:
                 break
 
+    if len(selected) < 5:
+        logger.warning(
+            f"Only {len(selected)} enabled models available (need 5). "
+            f"Check API key configuration. Enabled: {enabled}"
+        )
+
     return selected[:max_models]
 
 

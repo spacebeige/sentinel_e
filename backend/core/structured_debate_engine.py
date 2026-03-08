@@ -211,11 +211,20 @@ class StructuredDebateEngine:
                 models_available=len(models),
             )
 
-        # ── Global Debate Token Budget ─────────────────────────
-        remaining_budget = TOTAL_DEBATE_TOKEN_BUDGET
+        # ── Adaptive Token Budget ──────────────────────────────
+        from core.ensemble_schemas import get_adaptive_budget
+        budget_config = get_adaptive_budget(query)
+        remaining_budget = budget_config["total_budget"]
+        adaptive_round_caps = budget_config["round_caps"]
         total_tokens_spent = 0
         budget_constrained = False
         num_models = len(models)
+
+        logger.info(
+            f"Adaptive budget: multiplier={budget_config['multiplier']}, "
+            f"total={budget_config['total_budget']}, "
+            f"round_caps={adaptive_round_caps}"
+        )
 
         debate_rounds: List[DebateRound] = []
         all_shifts: List[ShiftRecord] = []
@@ -233,8 +242,8 @@ class StructuredDebateEngine:
                 budget_constrained = True
                 break
 
-            # ── Hard cap per model (fixed ceilings, NOT proportional) ──
-            per_model_budget = ROUND_HARD_CAPS.get(round_num, ROUND_HARD_CAPS[3])
+            # ── Adaptive hard cap per model ──
+            per_model_budget = adaptive_round_caps.get(round_num, adaptive_round_caps.get(3, 200))
 
             logger.info(
                 f"Debate round {round_num}/{rounds}: "
@@ -271,6 +280,13 @@ class StructuredDebateEngine:
             # Track budget
             total_tokens_spent += round_tokens
             remaining_budget -= round_tokens
+
+            # ── Self-Healing: substitute failed models ─────────
+            round_result = await self._self_heal_round(
+                round_result, query, round_num, models,
+                prev_positions, per_model_budget,
+                transcript=self._compress_debate_summary(debate_rounds, prev_positions) if round_num > 1 else "",
+            )
 
             # Track disagreement
             round_result.round_disagreement = self._compute_disagreement(
@@ -441,6 +457,78 @@ class StructuredDebateEngine:
             weakest_argument=analysis_fields.get("weakest_argument", ""),
             synthesis=analysis_fields.get("synthesis", ""),
         )
+
+    # ── Self-Healing ─────────────────────────────────────────
+
+    async def _self_heal_round(
+        self,
+        round_result: DebateRound,
+        query: str,
+        round_num: int,
+        models: List[Dict[str, str]],
+        prev_positions: Dict[str, DebatePosition],
+        per_model_budget: int,
+        transcript: str = "",
+    ) -> DebateRound:
+        """
+        Self-healing: retry failed models with fallback substitution.
+        Uses MODEL_FALLBACK_MAP from the gateway to find substitutes.
+        Never duplicates a model already in the round.
+        """
+        from metacognitive.cognitive_gateway import MODEL_FALLBACK_MAP, COGNITIVE_MODEL_REGISTRY
+
+        failed_positions = [
+            p for p in round_result.positions
+            if p.status == "failed" or p.position == "[MODEL FAILED]"
+        ]
+        if not failed_positions:
+            return round_result
+
+        active_ids = {p.model_id for p in round_result.positions if p.status != "failed"}
+
+        for failed_pos in failed_positions:
+            fallback_key = MODEL_FALLBACK_MAP.get(failed_pos.model_id)
+            if not fallback_key or fallback_key in active_ids:
+                continue
+
+            spec = COGNITIVE_MODEL_REGISTRY.get(fallback_key)
+            if not spec or not spec.enabled:
+                continue
+
+            fallback_model = {"id": fallback_key, "name": spec.name, "role": spec.role.value}
+            logger.info(
+                f"Self-healing: substituting '{failed_pos.model_id}' "
+                f"with fallback '{fallback_key}' in round {round_num}"
+            )
+
+            try:
+                if round_num == 1:
+                    system_prompt = STRUCTURED_ROUND_1.format(query=query)
+                    result = await self._call_and_parse_round_1(
+                        fallback_model, query, system_prompt, max_tokens=per_model_budget
+                    )
+                else:
+                    own_prev = ""
+                    system_prompt = STRUCTURED_ROUND_N.format(
+                        query=query,
+                        round_number=round_num,
+                        transcript=transcript,
+                        own_previous=own_prev,
+                    )
+                    result = await self._call_and_parse_round_n(
+                        fallback_model, query, system_prompt, round_num, max_tokens=per_model_budget
+                    )
+
+                if result and result.position != "[MODEL FAILED]":
+                    # Replace failed position with fallback result
+                    idx = round_result.positions.index(failed_pos)
+                    round_result.positions[idx] = result
+                    active_ids.add(fallback_key)
+                    logger.info(f"Self-healing: '{fallback_key}' succeeded as replacement")
+            except Exception as e:
+                logger.warning(f"Self-healing fallback '{fallback_key}' also failed: {e}")
+
+        return round_result
 
     # ── Round Execution ──────────────────────────────────────
 

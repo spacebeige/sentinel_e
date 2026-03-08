@@ -223,6 +223,55 @@ async def get_confidence_trend(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.get("/ops/model-reliability")
+async def get_model_reliability() -> Dict[str, Any]:
+    """
+    Return per-model reliability stats: success rate, avg latency,
+    total invocations, provider, tier, and current status.
+    """
+    try:
+        from metacognitive.cognitive_gateway import (
+            COGNITIVE_MODEL_REGISTRY,
+            MODEL_DEBATE_TIERS,
+        )
+        from monitoring.ops_dashboard import get_ops_dashboard
+
+        dashboard = get_ops_dashboard()
+        health = dashboard.system_health()
+        latency = dashboard.get_model_latency_summary(window_seconds=3600.0)
+
+        reliability = {}
+        for key, spec in COGNITIVE_MODEL_REGISTRY.items():
+            model_latency = latency.get(key, {})
+            reliability[key] = {
+                "name": spec.name,
+                "provider": spec.provider,
+                "tier": MODEL_DEBATE_TIERS.get(key, 0),
+                "enabled": spec.enabled,
+                "active": spec.active,
+                "model_id": spec.model_id,
+                "context_window": spec.context_window,
+                "p50_latency_ms": model_latency.get("p50", 0),
+                "p95_latency_ms": model_latency.get("p95", 0),
+                "error_rate": health.get("per_model_error_rate", {}).get(key, 0.0),
+            }
+
+        return {"models": reliability}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/ops/cache-stats")
+async def get_cache_stats() -> Dict[str, Any]:
+    """Return response cache statistics: size, hit rate, entries."""
+    try:
+        from optimization import get_response_cache
+        cache = get_response_cache()
+        return cache.stats()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 # ── Company Evaluation Pipeline ───────────────────────────────
 
 @router.post("/company/submit")
@@ -497,6 +546,17 @@ async def run_debate(req: DebateRequest) -> Dict[str, Any]:
         from core.ensemble_schemas import MIN_DEBATE_ROUNDS
         from viz.battle_visualization import BattleVisualizationEngine
 
+        # ── 0. Check debate result cache ───────────────────────
+        from optimization import get_response_cache
+        _cache = get_response_cache()
+        import hashlib as _hashlib
+        _cache_key = f"debate:{_hashlib.sha256(f'{req.query}:{req.prompt_type}:{req.max_models}'.encode()).hexdigest()}"
+        cached = _cache.get(_cache_key)
+        if cached:
+            logger.info(f"Debate cache hit for query: {req.query[:60]}...")
+            cached["cache_hit"] = True
+            return cached
+
         # ── 1. Select tiered models ────────────────────────────
         selected_keys = get_tiered_models_for_debate(
             prompt_type=req.prompt_type,
@@ -542,6 +602,19 @@ async def run_debate(req: DebateRequest) -> Dict[str, Any]:
             engine = CognitiveCoreEngine(model_bridge=_bridge)
 
         chat_id = req.chat_id or str(_uuid.uuid4())
+
+        # ── 2b. Evidence retrieval (non-blocking) ──────────────
+        evidence_context = None
+        try:
+            from core.evidence_debate_pipeline import gather_evidence
+            evidence_context = await gather_evidence(req.query, max_results=5)
+            if evidence_context and evidence_context.search_executed:
+                logger.info(
+                    f"Evidence gathered: {evidence_context.source_count} sources, "
+                    f"confidence={evidence_context.evidence_confidence:.4f}"
+                )
+        except Exception as ev_exc:
+            logger.warning(f"Evidence retrieval skipped: {ev_exc}")
 
         ensemble_response = await engine.process(
             query=req.query,
@@ -596,6 +669,87 @@ async def run_debate(req: DebateRequest) -> Dict[str, Any]:
         result["models"] = models_meta
         result["chat_id"] = chat_id
 
+        # Augment with evidence data for frontend evidence panel
+        if evidence_context and evidence_context.search_executed:
+            result["evidence"] = evidence_context.to_frontend_dict()
+        else:
+            result["evidence"] = None
+
+        # ── 5. Anchor Model Pass (post-debate evaluation) ──────
+        # Runs heavyweight reasoning models ONCE to evaluate debate
+        # quality and produce calibrated final synthesis.
+        # Skipped if no anchor API keys are configured.
+        result["anchor_pass"] = None
+        try:
+            from core.anchor_pass import get_anchor_engine
+            anchor_engine = get_anchor_engine()
+            if anchor_engine.has_anchors():
+                # Build positions summary for anchor prompt
+                positions_lines = []
+                if final_outputs:
+                    for fo in final_outputs[:7]:
+                        pos_text = getattr(fo, "position", "") or ""
+                        positions_lines.append(
+                            f"- {getattr(fo, 'model_name', fo.model_id)}: {pos_text[:200]}"
+                        )
+                positions_summary = "\n".join(positions_lines) or "(No positions)"
+
+                evidence_summary = ""
+                if evidence_context and evidence_context.search_executed:
+                    evidence_summary = "\n".join(
+                        f"- {s.get('title', 'Source')}: {s.get('snippet', '')[:150]}"
+                        for s in (evidence_context.to_frontend_dict().get("sources", []))[:5]
+                    )
+
+                anchor_result = await anchor_engine.evaluate(
+                    query=req.query,
+                    debate_synthesis=getattr(ensemble_response, "formatted_output", "") or payload.winner or "",
+                    debate_metrics={
+                        "model_count": len(models_meta),
+                        "round_count": len(round_outputs),
+                        "consensus_strength": payload.consensus_stability_score,
+                        "disagreement": result.get("reasoning_analytics", {}).get("disagreement_strength", 0) if isinstance(result.get("reasoning_analytics"), dict) else 0,
+                        "tokens_spent": sum(
+                            item.get("tokens_used", 0)
+                            for items in round_outputs.values()
+                            for item in items
+                        ),
+                    },
+                    positions_summary=positions_summary,
+                    evidence_summary=evidence_summary,
+                )
+
+                if anchor_result.anchor_count > 0:
+                    result["anchor_pass"] = {
+                        "anchor_count": anchor_result.anchor_count,
+                        "avg_quality_score": anchor_result.avg_quality_score,
+                        "avg_confidence": anchor_result.avg_confidence,
+                        "anchor_agreement": anchor_result.anchor_agreement,
+                        "dominant_verdict": anchor_result.dominant_verdict,
+                        "combined_synthesis": anchor_result.combined_synthesis,
+                        "evaluations": [
+                            {
+                                "anchor_model": e.anchor_model,
+                                "anchor_name": e.anchor_name,
+                                "quality_score": e.quality_score,
+                                "confidence": e.confidence,
+                                "verdict": e.verdict,
+                                "verdict_reason": e.verdict_reason,
+                                "reasoning_flaws": e.reasoning_flaws,
+                                "synthesis": e.synthesis[:500],
+                                "latency_ms": round(e.latency_ms, 1),
+                            }
+                            for e in anchor_result.evaluations
+                        ],
+                    }
+                    logger.info(
+                        f"Anchor pass complete: {anchor_result.anchor_count} anchors, "
+                        f"quality={anchor_result.avg_quality_score:.2f}, "
+                        f"verdict={anchor_result.dominant_verdict}"
+                    )
+        except Exception as anchor_exc:
+            logger.warning(f"Anchor pass skipped: {anchor_exc}")
+
         # Record battle in ELO engine (async, non-blocking)
         try:
             from ranking.elo_engine import get_elo_engine
@@ -610,6 +764,13 @@ async def run_debate(req: DebateRequest) -> Dict[str, Any]:
                     )
         except Exception as elo_exc:
             logger.warning(f"ELO update skipped: {elo_exc}")
+
+        # Cache the debate result (TTL: 30 minutes)
+        try:
+            result["cache_hit"] = False
+            _cache.set(_cache_key, result, ttl=1800)
+        except Exception as cache_exc:
+            logger.warning(f"Debate cache store failed: {cache_exc}")
 
         return result
 

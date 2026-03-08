@@ -483,9 +483,10 @@ class MetaCognitiveOrchestrator:
             mode=QueryMode.RESEARCH if request.mode == OperatingMode.EXPERIMENTAL else QueryMode.RAW,
         )
 
-        # Parallel invocation — all models get identical context
-        outputs = await self.cognitive_gateway.invoke_parallel(
-            model_keys, gateway_input
+        # Parallel invocation with automatic fallback substitution
+        # Uses invoke_parallel_failsafe to guarantee minimum model success
+        outputs = await self.cognitive_gateway.invoke_parallel_failsafe(
+            model_keys, gateway_input, min_success=min(3, len(model_keys))
         )
 
         # PHASE 1: Assert outputs exist — no silent empty success

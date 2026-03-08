@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronDown, ChevronUp, ShieldAlert, ShieldCheck, Zap, AlertTriangle } from 'lucide-react';
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer,
-         BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
+         BarChart, Bar, XAxis, YAxis, Tooltip, Cell,
+         LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import ConfidenceBar from './ConfidenceBar';
 import BoundaryPanel from './BoundaryPanel';
 
@@ -101,6 +102,59 @@ export default function DebateView({ data, boundary, confidence }) {
   // Models for left/right layout
   const leftModel = rounds[0]?.[0] || rounds[0];
   const rightModel = rounds[0]?.[1];
+
+  // ── Confidence Evolution (per-model confidence across rounds) ──
+  const confidenceEvolution = useMemo(
+    () => safeData.confidence_evolution || [],
+    [safeData.confidence_evolution]
+  );
+
+  // ── All unique model keys in confidence evolution ──
+  const evolutionModelKeys = useMemo(() => {
+    if (!confidenceEvolution.length) return [];
+    const keys = new Set();
+    confidenceEvolution.forEach(entry => {
+      Object.keys(entry).forEach(k => { if (k !== 'round') keys.add(k); });
+    });
+    return Array.from(keys);
+  }, [confidenceEvolution]);
+
+  // ── Reasoning metrics (per-model quality scores) ──
+  const reasoningMetrics = useMemo(
+    () => safeData.reasoning_metrics || [],
+    [safeData.reasoning_metrics]
+  );
+
+  // ── Evidence data ──
+  const evidence = useMemo(
+    () => safeData.evidence || null,
+    [safeData.evidence]
+  );
+
+  // ── Agreement heatmap ──
+  const agreementHeatmap = useMemo(
+    () => safeData.agreement_heatmap || [],
+    [safeData.agreement_heatmap]
+  );
+  const heatmapLabels = useMemo(
+    () => safeData.model_labels || [],
+    [safeData.model_labels]
+  );
+
+  // ── Debate timeline ──
+  const debateTimeline = useMemo(
+    () => safeData.debate_timeline || [],
+    [safeData.debate_timeline]
+  );
+
+  // ── Cache indicator ──
+  const cacheHit = safeData.cache_hit || false;
+
+  // ── Anchor pass (post-debate evaluation by heavyweight models) ──
+  const anchorPass = useMemo(
+    () => safeData.anchor_pass || null,
+    [safeData.anchor_pass]
+  );
 
   // ── Early return after all hooks ──
   if (!data) {
@@ -586,6 +640,365 @@ export default function DebateView({ data, boundary, confidence }) {
           </div>
         ))}
       </div>
+
+      {/* ══════════════════════════════════════════════════════════
+          RESEARCH-GRADE ANALYTICS PANELS
+         ══════════════════════════════════════════════════════════ */}
+
+      {/* ── Cache Hit Indicator ── */}
+      {cacheHit && (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#f0fdf4] dark:bg-[#065f46]/20 border border-[#bbf7d0] dark:border-[#065f46]">
+          <span style={{ fontSize: '11px' }}>⚡</span>
+          <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Cached Result — Served from debate cache
+          </span>
+        </div>
+      )}
+
+      {/* ── Confidence Evolution Line Chart ── */}
+      {confidenceEvolution.length > 0 && evolutionModelKeys.length > 0 && (
+        <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
+          <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Confidence Evolution
+          </span>
+          <p style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73', marginTop: '2px' }}>
+            Per-model confidence across debate rounds — convergence indicates agreement building
+          </p>
+          <div className="mt-3" style={{ width: '100%', height: 220 }}>
+            <ResponsiveContainer>
+              <LineChart data={confidenceEvolution} margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="round" tick={{ fontSize: 10, fill: '#6e6e73' }} label={{ value: 'Round', position: 'insideBottom', fontSize: 10, fill: '#6e6e73', offset: -5 }} />
+                <YAxis domain={[0, 1]} tick={{ fontSize: 10, fill: '#6e6e73' }} label={{ value: 'Confidence', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#6e6e73' }} />
+                <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 11, borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.12)' }} />
+                <Legend wrapperStyle={{ fontSize: 10, fontFamily: FONT }} />
+                {evolutionModelKeys.map((model, mi) => (
+                  <Line key={model} type="monotone" dataKey={model} name={model}
+                    stroke={MODEL_COLORS[mi % MODEL_COLORS.length]}
+                    strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* ── Model Reliability / Reasoning Metrics ── */}
+      {reasoningMetrics.length > 0 && (
+        <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
+          <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Model Reasoning Quality
+          </span>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left" style={{ fontFamily: FONT, fontSize: '11px' }}>
+              <thead>
+                <tr className="border-b border-black/10 dark:border-white/10">
+                  <th className="pb-2 pr-3 font-semibold text-[#6e6e73]">Model</th>
+                  <th className="pb-2 pr-3 font-semibold text-[#6e6e73] text-center">Reasoning</th>
+                  <th className="pb-2 pr-3 font-semibold text-[#6e6e73] text-center">Evidence</th>
+                  <th className="pb-2 pr-3 font-semibold text-[#6e6e73] text-center">Depth</th>
+                  <th className="pb-2 pr-3 font-semibold text-[#6e6e73] text-center">Consistency</th>
+                  <th className="pb-2 pr-3 font-semibold text-[#6e6e73] text-center">Calibration</th>
+                  <th className="pb-2 font-semibold text-[#6e6e73] text-center">Efficiency</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reasoningMetrics.map((m, mi) => {
+                  const clr = MODEL_COLORS[mi % MODEL_COLORS.length];
+                  return (
+                    <tr key={m.model || mi} className="border-b border-black/5 dark:border-white/5">
+                      <td className="py-2 pr-3 font-semibold" style={{ color: clr }}>
+                        {m.model_name || m.model}
+                      </td>
+                      {[m.reasoning_score, m.evidence_density, m.argument_depth, m.logical_consistency, m.confidence_alignment, m.token_efficiency].map((val, vi) => (
+                        <td key={vi} className="py-2 pr-3 text-center">
+                          <span style={{
+                            fontWeight: 600,
+                            color: val >= 0.7 ? '#10b981' : val >= 0.4 ? '#f59e0b' : '#ef4444',
+                          }}>
+                            {val != null ? (val * 100).toFixed(0) + '%' : '—'}
+                          </span>
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Agreement Heatmap ── */}
+      {agreementHeatmap.length > 0 && heatmapLabels.length > 0 && (
+        <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
+          <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Agreement Matrix
+          </span>
+          <p style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73', marginTop: '2px' }}>
+            Pairwise model similarity — darker cells indicate stronger agreement
+          </p>
+          <div className="mt-3 overflow-x-auto">
+            <table style={{ fontFamily: FONT, fontSize: '10px', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th></th>
+                  {heatmapLabels.map((label, i) => (
+                    <th key={i} className="px-2 py-1 text-center font-semibold" style={{ color: MODEL_COLORS[i % MODEL_COLORS.length], maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {label.length > 12 ? label.slice(0, 10) + '…' : label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {agreementHeatmap.map((row, ri) => (
+                  <tr key={ri}>
+                    <td className="px-2 py-1 font-semibold text-right" style={{ color: MODEL_COLORS[ri % MODEL_COLORS.length], maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {heatmapLabels[ri]?.length > 12 ? heatmapLabels[ri].slice(0, 10) + '…' : heatmapLabels[ri]}
+                    </td>
+                    {row.map((val, ci) => {
+                      const intensity = Math.max(0, Math.min(1, val || 0));
+                      const bg = ri === ci
+                        ? '#e5e7eb'
+                        : `rgba(59, 130, 246, ${intensity * 0.8})`;
+                      const fg = intensity > 0.5 && ri !== ci ? '#fff' : '#1d1d1f';
+                      return (
+                        <td key={ci} className="px-2 py-1 text-center font-semibold" style={{ backgroundColor: bg, color: fg, minWidth: '44px' }}>
+                          {val != null ? val.toFixed(2) : '—'}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Evidence Panel ── */}
+      {evidence && evidence.sources && evidence.sources.length > 0 && (
+        <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: '13px' }}>📚</span>
+              <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Evidence Sources ({evidence.sources.length})
+              </span>
+            </div>
+            {evidence.confidence != null && (
+              <span className="px-2 py-0.5 rounded-md bg-[#eff6ff] dark:bg-[#1e40af]/20" style={{
+                fontFamily: FONT, fontSize: '10px', fontWeight: 600,
+                color: evidence.confidence >= 0.7 ? '#10b981' : evidence.confidence >= 0.4 ? '#f59e0b' : '#ef4444',
+              }}>
+                Evidence confidence: {(evidence.confidence * 100).toFixed(0)}%
+              </span>
+            )}
+          </div>
+          <div className="space-y-2">
+            {evidence.sources.slice(0, 8).map((src, i) => (
+              <div key={i} className="flex items-start gap-2 py-1.5 border-b border-black/5 dark:border-white/5 last:border-0">
+                <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 700, color: '#6e6e73', minWidth: '16px' }}>
+                  {i + 1}.
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="dark:text-[#f1f5f9] truncate" style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 600, color: '#1d1d1f' }}>
+                    {src.title || src.url || 'Untitled source'}
+                  </p>
+                  {src.snippet && (
+                    <p className="dark:text-[#94a3b8] mt-0.5" style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73', lineHeight: 1.5 }}>
+                      {src.snippet.slice(0, 200)}{src.snippet.length > 200 ? '…' : ''}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-1">
+                    {src.reliability != null && (
+                      <span style={{
+                        fontFamily: FONT, fontSize: '9px', fontWeight: 600,
+                        color: src.reliability >= 0.7 ? '#10b981' : '#f59e0b',
+                      }}>
+                        Reliability: {(src.reliability * 100).toFixed(0)}%
+                      </span>
+                    )}
+                    {src.domain && (
+                      <span style={{ fontFamily: FONT, fontSize: '9px', color: '#aeaeb2' }}>
+                        {src.domain}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Contradictions */}
+          {evidence.contradictions && evidence.contradictions.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-black/10 dark:border-white/10">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Zap className="w-3 h-3 text-[#f59e0b]" />
+                <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Contradictions Detected ({evidence.contradictions.length})
+                </span>
+              </div>
+              {evidence.contradictions.map((c, ci) => (
+                <p key={ci} className="dark:text-[#fbbf24]" style={{ fontFamily: FONT, fontSize: '11px', color: '#92400e', marginTop: '2px' }}>
+                  · {typeof c === 'string' ? c : c.description || JSON.stringify(c)}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Anchor Model Pass ── */}
+      {anchorPass && anchorPass.anchor_count > 0 && (
+        <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-[#f59e0b]/30 dark:border-[#f59e0b]/20 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: '13px' }}>⚖️</span>
+              <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Anchor Evaluation Pass
+              </span>
+              <span className="px-1.5 py-0.5 rounded-md bg-[#fef3c7] dark:bg-[#92400e]/20" style={{
+                fontFamily: FONT, fontSize: '9px', fontWeight: 600, color: '#92400e',
+              }}>
+                {anchorPass.anchor_count} anchor{anchorPass.anchor_count > 1 ? 's' : ''}
+              </span>
+            </div>
+            <span className="px-2 py-0.5 rounded-md" style={{
+              fontFamily: FONT, fontSize: '10px', fontWeight: 700,
+              backgroundColor: anchorPass.dominant_verdict === 'AGREE' ? '#f0fdf4' : anchorPass.dominant_verdict === 'DISAGREE' ? '#fef2f2' : '#fffbeb',
+              color: anchorPass.dominant_verdict === 'AGREE' ? '#10b981' : anchorPass.dominant_verdict === 'DISAGREE' ? '#ef4444' : '#f59e0b',
+            }}>
+              {anchorPass.dominant_verdict?.replace('_', ' ')}
+            </span>
+          </div>
+
+          {/* Anchor metrics row */}
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {[
+              { label: 'Quality', value: anchorPass.avg_quality_score, color: '#8b5cf6' },
+              { label: 'Confidence', value: anchorPass.avg_confidence, color: '#3b82f6' },
+              { label: 'Agreement', value: anchorPass.anchor_agreement, color: '#10b981' },
+            ].map(m => (
+              <div key={m.label} className="rounded-xl bg-[#f5f5f7] dark:bg-[#27272a] p-2 text-center">
+                <span style={{ fontFamily: FONT, fontSize: '9px', fontWeight: 500, color: '#6e6e73', textTransform: 'uppercase' }}>
+                  {m.label}
+                </span>
+                <p style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 700, color: m.color, marginTop: '2px' }}>
+                  {m.value != null ? (m.value * 100).toFixed(0) + '%' : '—'}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Combined synthesis */}
+          {anchorPass.combined_synthesis && (
+            <div className="mb-3">
+              <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#6e6e73', textTransform: 'uppercase' }}>
+                Anchor Synthesis
+              </span>
+              <p className="mt-1 dark:text-[#e2e8f0]" style={{ fontFamily: FONT, fontSize: '13px', lineHeight: 1.7, color: '#1d1d1f' }}>
+                {anchorPass.combined_synthesis}
+              </p>
+            </div>
+          )}
+
+          {/* Per-anchor details */}
+          {anchorPass.evaluations && anchorPass.evaluations.length > 0 && (
+            <details className="group">
+              <summary className="cursor-pointer flex items-center gap-2 px-1 py-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                <span className="transform group-open:rotate-90 transition-transform text-xs text-[#aeaeb2]">▶</span>
+                <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#aeaeb2', textTransform: 'uppercase' }}>
+                  Per-Anchor Details
+                </span>
+              </summary>
+              <div className="mt-2 space-y-2">
+                {anchorPass.evaluations.map((ev, i) => (
+                  <div key={i} className="rounded-xl bg-[#f5f5f7] dark:bg-[#27272a] p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 600, color: MODEL_COLORS[i % MODEL_COLORS.length] }}>
+                        {ev.anchor_name || ev.anchor_model}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#6e6e73' }}>
+                          {ev.latency_ms?.toFixed(0)}ms
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded-md" style={{
+                          fontFamily: FONT, fontSize: '9px', fontWeight: 600,
+                          backgroundColor: ev.verdict === 'AGREE' ? '#f0fdf4' : ev.verdict === 'DISAGREE' ? '#fef2f2' : '#fffbeb',
+                          color: ev.verdict === 'AGREE' ? '#10b981' : ev.verdict === 'DISAGREE' ? '#ef4444' : '#f59e0b',
+                        }}>
+                          {ev.verdict?.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                    {ev.verdict_reason && (
+                      <p className="dark:text-[#94a3b8]" style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73', marginTop: '4px' }}>
+                        {ev.verdict_reason}
+                      </p>
+                    )}
+                    {ev.reasoning_flaws && ev.reasoning_flaws.length > 0 && (
+                      <div className="mt-2">
+                        <span style={{ fontFamily: FONT, fontSize: '9px', fontWeight: 600, color: '#ef4444', textTransform: 'uppercase' }}>
+                          Reasoning Flaws
+                        </span>
+                        {ev.reasoning_flaws.map((f, fi) => (
+                          <p key={fi} className="dark:text-[#94a3b8]" style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73', marginTop: '2px' }}>· {f}</p>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-3 mt-2">
+                      <span style={{ fontFamily: FONT, fontSize: '10px', color: '#6e6e73' }}>
+                        Quality: <strong style={{ color: '#8b5cf6' }}>{(ev.quality_score * 100).toFixed(0)}%</strong>
+                      </span>
+                      <span style={{ fontFamily: FONT, fontSize: '10px', color: '#6e6e73' }}>
+                        Confidence: <strong style={{ color: '#3b82f6' }}>{(ev.confidence * 100).toFixed(0)}%</strong>
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+
+      {/* ── Debate Timeline ── */}
+      {debateTimeline.length > 0 && (
+        <details className="group">
+          <summary className="cursor-pointer flex items-center gap-2 px-1 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+            <span className="transform group-open:rotate-90 transition-transform text-xs text-[#aeaeb2]">▶</span>
+            <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 700, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Debate Timeline ({debateTimeline.length} entries)
+            </span>
+          </summary>
+          <div className="mt-2 space-y-1.5 pl-2 border-l-2 border-[#e5e7eb] dark:border-[#3f3f46] ml-2">
+            {debateTimeline.map((entry, i) => (
+              <div key={i} className="flex items-center gap-3 py-1">
+                <span className="px-1.5 py-0.5 rounded-md bg-[#f5f5f7] dark:bg-white/10" style={{
+                  fontFamily: FONT, fontSize: '9px', fontWeight: 700, color: '#6e6e73',
+                }}>R{entry.round}</span>
+                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: MODEL_COLORS[i % MODEL_COLORS.length] }}>
+                  {entry.model}
+                </span>
+                <span className="dark:text-[#94a3b8] flex-1 truncate" style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73' }}>
+                  {entry.output_preview || '—'}
+                </span>
+                <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#aeaeb2' }}>
+                  {entry.tokens_used || 0}t
+                </span>
+                {entry.confidence != null && (
+                  <span style={{
+                    fontFamily: FONT, fontSize: '10px', fontWeight: 600,
+                    color: entry.confidence >= 0.7 ? '#10b981' : entry.confidence >= 0.4 ? '#f59e0b' : '#ef4444',
+                  }}>
+                    {(entry.confidence * 100).toFixed(0)}%
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
 
       <BoundaryPanel boundary={boundary} />
     </div>

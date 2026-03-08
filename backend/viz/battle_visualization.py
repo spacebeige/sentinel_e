@@ -286,6 +286,8 @@ class BattleVisualizationEngine:
             "winner_score": payload.winner_score,
             # Reasoning analytics (heatmap, disagreements, transparency steps)
             "reasoning_analytics": getattr(payload, "reasoning_analytics", None),
+            # Confidence evolution: per-model confidence across rounds (for line chart)
+            "confidence_evolution": self._build_confidence_evolution(payload.debate_timeline),
         }
 
     # ── Internal — Data builders ──────────────────────────────
@@ -343,6 +345,33 @@ class BattleVisualizationEngine:
                     "position_shift": item.get("position_shift", 0.0),
                 })
         return timeline
+
+    def _build_confidence_evolution(
+        self,
+        timeline: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """
+        Transform timeline into per-round confidence evolution data.
+
+        Returns: [{round: 1, model_a: 0.7, model_b: 0.6, ...}, ...]
+        Suitable for a recharts LineChart.
+        """
+        if not timeline:
+            return []
+
+        rounds_map: Dict[int, Dict[str, float]] = {}
+        for entry in timeline:
+            r = entry.get("round", 1)
+            model = entry.get("model", "unknown")
+            conf = entry.get("confidence", 0.5)
+            if r not in rounds_map:
+                rounds_map[r] = {}
+            rounds_map[r][model] = conf
+
+        return [
+            {"round": r, **models}
+            for r, models in sorted(rounds_map.items())
+        ]
 
     def _attach_charts(
         self,

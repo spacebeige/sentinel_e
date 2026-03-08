@@ -78,13 +78,19 @@ class MCOModelBridge:
         """
         Resolve a legacy ID or registry key to a canonical registry key.
         Accepts: "groq", "groq-small", "llama70b", "llama-3.3", etc.
+        Logs deprecation warning for legacy IDs.
         """
         # Direct registry key
         if legacy_or_registry_id in COGNITIVE_MODEL_REGISTRY:
             return legacy_or_registry_id
-        # Legacy ID → registry key
+        # Legacy ID → registry key (with deprecation warning)
         if legacy_or_registry_id in LEGACY_TO_REGISTRY:
-            return LEGACY_TO_REGISTRY[legacy_or_registry_id]
+            resolved = LEGACY_TO_REGISTRY[legacy_or_registry_id]
+            logger.warning(
+                f"DEPRECATED: Legacy model ID '{legacy_or_registry_id}' "
+                f"resolved to '{resolved}'. Update callers to use registry keys directly."
+            )
+            return resolved
         return None
 
     ALLOWED_IMAGE_MIMES = {"image/jpeg", "image/png", "image/gif", "image/webp"}

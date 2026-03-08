@@ -35,23 +35,47 @@ MIN_ANALYTICS_OUTPUTS = 2
 TOTAL_DEBATE_TOKEN_BUDGET = 5000
 
 # ── Battle Platform Token Budgets ────────────────────────────
-# Round 1 (Independent Arguments): 220 tokens per model
-#   → Models have enough space for a structured position + argument
-#     without rambling, but not enough for repetitive preambles.
+# Adaptive token budgets based on prompt complexity.
+# Base caps are scaled by a prompt complexity multiplier (1.0-2.0).
 #
-# Round 2 (Rebuttals): 140 tokens per model
-#   → Tight budget forces models to target the weakest point in
-#     an opponent's argument rather than restating their own.
-#     Contradiction and position shifts emerge most clearly here.
+# Strategy:
+#   Short/simple prompts → base budget (efficient)
+#   Medium analysis prompts → 1.5x budget
+#   Deep research prompts → 2.0x budget
 #
-# Round 3 (Final Reasoning): 80 tokens per model
-#   → Extreme compression forces convergence to the essential claim.
-#     Hallucination-padded responses collapse; coherent ones survive.
-#     This is the primary signal used by the Consensus Engine.
-#
-# This 3-step compression mirrors how expert human panels work:
-# opening statements → rebuttals → closing arguments.
+# This prevents budget starvation on complex queries while
+# keeping simple queries fast and cheap.
 ROUND_HARD_CAPS: dict[int, int] = {1: 220, 2: 140, 3: 80}
+
+# Adaptive budget tiers (multiplier applied to ROUND_HARD_CAPS)
+BUDGET_TIERS = {
+    "short":    {"multiplier": 1.0, "total": 5000,  "max_words": 20},
+    "medium":   {"multiplier": 1.5, "total": 7500,  "max_words": 60},
+    "research": {"multiplier": 2.0, "total": 10000, "max_words": float("inf")},
+}
+
+
+def get_adaptive_budget(prompt: str) -> dict:
+    """
+    Compute adaptive token budget based on prompt complexity.
+    Returns dict with 'multiplier', 'total_budget', 'round_caps'.
+    """
+    word_count = len(prompt.split())
+
+    if word_count <= BUDGET_TIERS["short"]["max_words"]:
+        tier = BUDGET_TIERS["short"]
+    elif word_count <= BUDGET_TIERS["medium"]["max_words"]:
+        tier = BUDGET_TIERS["medium"]
+    else:
+        tier = BUDGET_TIERS["research"]
+
+    mult = tier["multiplier"]
+    return {
+        "multiplier": mult,
+        "total_budget": tier["total"],
+        "round_caps": {r: int(cap * mult) for r, cap in ROUND_HARD_CAPS.items()},
+    }
+
 
 # Proportional budget split (reference; hard caps take precedence)
 ROUND_BUDGET_SPLIT = [0.50, 0.32, 0.18]

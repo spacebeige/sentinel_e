@@ -345,7 +345,7 @@ export async function sendDebateQuery(query, chatId = null, promptType = 'genera
     query,
     chat_id: chatId || undefined,
     prompt_type: promptType,
-    max_models: options.maxModels ?? 6,
+    max_models: options.maxModels ?? 7,
     include_charts: options.includeCharts ?? false,
   };
 
