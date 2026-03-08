@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field, field_validator
 
 MIN_MODELS = 3
 MIN_DEBATE_ROUNDS = 3            # Battle Platform: full 3-round debates
-MAX_DEBATE_MODELS = 6            # Hard cap: never run more than 6 models simultaneously
+MAX_DEBATE_MODELS = 7            # Hard cap: never run more than 7 models simultaneously
 MIN_ANALYTICS_OUTPUTS = 2
 TOTAL_DEBATE_TOKEN_BUDGET = 5000
 
@@ -774,6 +774,9 @@ class BattleVisualizationPayload(BaseModel):
         description="[{round, model, position_shift, confidence}]")
     winner: Optional[str] = None
     winner_score: float = 0.0
+    reasoning_analytics: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Reasoning heatmap, disagreement analysis, transparency steps")
 
 
 class EvaluationRecord(BaseModel):

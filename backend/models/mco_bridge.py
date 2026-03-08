@@ -27,20 +27,27 @@ from metacognitive.schemas import CognitiveGatewayInput
 logger = logging.getLogger("MCOModelBridge")
 
 # ── Registry key mapping ─────────────────────────────────────
-# Maps legacy caller IDs to canonical COGNITIVE_MODEL_REGISTRY keys (v2 ensemble)
+# Maps legacy caller IDs to canonical COGNITIVE_MODEL_REGISTRY keys (v3 ensemble)
 LEGACY_TO_REGISTRY: Dict[str, str] = {
-    # Active ensemble (v2)
-    "groq": "groq-small",              # LLaMA 3.1 8B (fast, Tier 2 Debate)
-    "llama70b": "llama-3.3",           # LLaMA 3.3 70B (Tier 1 Anchor)
-    "deepseek": "deepseek-chat",       # DeepSeek Chat (Tier 1 Anchor)
-    "mixtral": "mixtral-8x7b",         # Mixtral 8x7B (Tier 2 Debate)
-    "qwen": "qwen2.5-32b",             # Qwen2.5 32B (Tier 2 Debate)
-    "deepseek-coder": "deepseek-coder-v2",  # DeepSeek Coder V2 (Tier 3 Specialist)
-    "qwen-coder": "qwen2.5-coder-32b", # Qwen2.5 Coder 32B (Tier 3 Specialist)
-    # Backward-compat aliases (map removed models to best replacement)
-    "nemotron": "llama-3.3",           # nemotron-30b-free → llama-3.3
-    "mistral-small": "mixtral-8x7b",   # mistral-small-24b → mixtral-8x7b
-    "llama-3.2": "groq-small",         # llama-3.2-3b → groq-small
+    # Active ensemble (v3 — Reliability-First Free-Tier)
+    "llama31": "llama31-8b",            # Llama 3.1 8B (Tier 1 Anchor)
+    "gemma9b": "gemma2-9b",             # Gemma 2 9B IT (Tier 1 Anchor)
+    "mistral7b": "mistral-7b",          # Mistral 7B Instruct (Tier 2 Debate)
+    "phi3": "phi3-mini",                # Phi-3 Mini 128K (Tier 2 Debate)
+    "gemma2b": "gemma2-2b",             # Gemma 2 2B IT (Tier 2 Debate)
+    "llama31-fast": "llama31-instant",  # Llama 3.1 8B Instant (Tier 3 Fallback)
+    "phi3-small": "phi3-small",         # Phi-3 Small (Tier 3 Fallback)
+    # Backward-compat aliases (map removed v2 models to v3 replacements)
+    "groq": "llama31-8b",              # groq-small → llama31-8b
+    "llama70b": "llama31-8b",          # llama-3.3 → llama31-8b
+    "deepseek": "gemma2-9b",           # deepseek-chat → gemma2-9b
+    "mixtral": "mistral-7b",           # mixtral-8x7b → mistral-7b
+    "qwen": "gemma2-9b",               # qwen2.5-32b → gemma2-9b
+    "deepseek-coder": "phi3-mini",     # deepseek-coder-v2 → phi3-mini
+    "qwen-coder": "phi3-mini",         # qwen2.5-coder-32b → phi3-mini
+    "nemotron": "llama31-8b",          # nemotron-30b-free → llama31-8b
+    "mistral-small": "mistral-7b",     # mistral-small-24b → mistral-7b
+    "llama-3.2": "llama31-instant",    # llama-3.2-3b → llama31-instant
 }
 
 # Reverse map: registry key → legacy ID
@@ -212,7 +219,7 @@ class MCOModelBridge:
     async def call_groq(
         self, prompt: str, system_role: str = "You are a fast, concise analytical assistant."
     ) -> str:
-        """Route legacy Groq calls through gateway → groq-small."""
+        """Route legacy Groq calls through gateway → llama31-8b."""
         return await self._invoke(
             LEGACY_TO_REGISTRY["groq"], prompt, system_role
         )
@@ -223,7 +230,7 @@ class MCOModelBridge:
         temperature: float = 0.4,
         max_tokens: int = 2048,
     ) -> str:
-        """Route legacy Llama 3.3 70B calls through gateway → llama-3.3."""
+        """Route legacy Llama calls through gateway → llama31-8b."""
         return await self._invoke(
             LEGACY_TO_REGISTRY["llama70b"], prompt, system_role,
             temperature=temperature, max_tokens=max_tokens,
@@ -233,7 +240,7 @@ class MCOModelBridge:
         self, prompt: str,
         system_role: str = "You are a careful, analytical assistant.",
     ) -> str:
-        """Route legacy Qwen calls through gateway → qwen2.5-32b (active Tier-2 Debate)."""
+        """Route legacy Qwen calls through gateway → gemma2-9b (active Tier-1 Anchor)."""
         return await self._invoke(
             LEGACY_TO_REGISTRY["qwen"], prompt, system_role
         )

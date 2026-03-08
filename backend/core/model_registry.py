@@ -68,36 +68,36 @@ class ModelCapability:
 # ── Legacy ID Mapping ────────────────────────────────────────
 # Maps canonical registry keys → legacy IDs used by older engines
 _LEGACY_ID_MAP: Dict[str, str] = {
-    "groq-small": "groq",
-    "llama-3.3": "llama70b",
+    "llama31-8b": "llama31",
+    "llama31-instant": "llama31-fast",
 }
 
 # ── Tier Assignment ──────────────────────────────────────────
 _TIER_MAP: Dict[str, ModelTier] = {
     # Tier 1 Anchor
-    "llama-3.3": ModelTier.PREMIUM,
-    "deepseek-chat": ModelTier.PREMIUM,
+    "llama31-8b": ModelTier.STANDARD,
+    "gemma2-9b": ModelTier.STANDARD,
     # Tier 2 Debate
-    "groq-small": ModelTier.BUDGET,
-    "mixtral-8x7b": ModelTier.STANDARD,
-    "qwen2.5-32b": ModelTier.STANDARD,
-    # Tier 3 Specialist
-    "deepseek-coder-v2": ModelTier.PREMIUM,
-    "qwen2.5-coder-32b": ModelTier.PREMIUM,
+    "mistral-7b": ModelTier.BUDGET,
+    "phi3-mini": ModelTier.BUDGET,
+    "gemma2-2b": ModelTier.BUDGET,
+    # Tier 3 Fallback
+    "llama31-instant": ModelTier.BUDGET,
+    "phi3-small": ModelTier.BUDGET,
 }
 
 # ── Cost Profile ─────────────────────────────────────────────
 _COST_MAP: Dict[str, CostProfile] = {
     # Tier 1 Anchor
-    "llama-3.3": CostProfile.MEDIUM,
-    "deepseek-chat": CostProfile.MEDIUM,
+    "llama31-8b": CostProfile.FREE,
+    "gemma2-9b": CostProfile.FREE,
     # Tier 2 Debate
-    "groq-small": CostProfile.LOW,
-    "mixtral-8x7b": CostProfile.LOW,
-    "qwen2.5-32b": CostProfile.LOW,
-    # Tier 3 Specialist
-    "deepseek-coder-v2": CostProfile.MEDIUM,
-    "qwen2.5-coder-32b": CostProfile.MEDIUM,
+    "mistral-7b": CostProfile.FREE,
+    "phi3-mini": CostProfile.FREE,
+    "gemma2-2b": CostProfile.FREE,
+    # Tier 3 Fallback
+    "llama31-instant": CostProfile.FREE,
+    "phi3-small": CostProfile.FREE,
 }
 
 

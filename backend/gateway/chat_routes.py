@@ -48,7 +48,7 @@ router = APIRouter(prefix="/chat", tags=["Standard Mode"])
 MAX_RETRIES: int = 2              # Up to 2 retry attempts for 429/503
 RETRY_BASE_DELAY: float = 1.0    # Initial back-off in seconds
 RETRY_MAX_DELAY: float = 8.0     # Maximum back-off cap
-FALLBACK_MODEL: str = "llama-3.3"  # Tier-1 anchor used as fallback
+FALLBACK_MODEL: str = "llama31-8b"  # Tier-1 anchor used as fallback
 
 # HTTP error codes that trigger retry
 RETRYABLE_ERRORS = {"429", "503", "rate limit", "service unavailable", "overloaded"}
@@ -155,14 +155,14 @@ async def chat_with_model(
     Behaviour:
       1. Validate model exists in COGNITIVE_MODEL_REGISTRY.
       2. Invoke via CognitiveModelGateway with retry on 429/503.
-      3. If still failing after retries, fallback to FALLBACK_MODEL (llama-3.3).
+      3. If still failing after retries, fallback to FALLBACK_MODEL (llama31-8b).
       4. Return structured response including latency, tokens, and flag metadata.
 
     Path parameter:
-      model_id — canonical registry key (e.g. "llama-3.3", "deepseek-chat")
+      model_id — canonical registry key (e.g. "llama31-8b", "gemma2-9b")
 
     Example:
-      POST /chat/deepseek-chat
+      POST /chat/gemma2-9b
       {"query": "Explain quantum entanglement in one paragraph."}
     """
     gateway = _get_gateway()

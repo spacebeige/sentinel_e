@@ -6,12 +6,15 @@ Pure reasoning execution. Each model is a separate endpoint.
 No cross-model contamination. No retrieval. No session mutation.
 No persistence logic. No knowledge injection decisions.
 
-Official Sentinel-E Ensemble (v2):
-  Tier 1 Anchor    : llama-3.3-70b-versatile, deepseek/deepseek-chat
-  Tier 2 Debate    : llama-3.1-8b-instant, mixtral-8x7b, qwen2.5-32b
-  Tier 3 Specialist: deepseek-coder-v2-lite, qwen2.5-coder-32b
+Official Sentinel-E Ensemble (v3 — Reliability-First):
+  Tier 1 Anchor    : llama-3.1-8b (Groq), gemma-2-9b-it (Groq)
+  Tier 2 Debate    : mistral-7b-instruct, phi-3-mini-128k, gemma-2-2b-it
+  Tier 3 Fallback  : llama-3.1-8b-instant (Groq), phi-3-small
 
-Debate composition: 2 anchors + 3 debate + 1 specialist ≤ 6 models.
+All models are free-tier or near-free. Provider failures trigger
+automatic fallback substitution. Debates always complete.
+
+Debate composition: 2 anchors + 3 debate + 1-2 fallback ≤ 7 models.
 ============================================================
 """
 
@@ -58,26 +61,75 @@ class CognitiveModelSpec:
 
 
 # ── Model Registry ───────────────────────────────────────────
-# Official Sentinel-E ensemble — 7 models, 3-tier architecture.
-# Tier 1 Anchor   : llama-3.3, deepseek-chat
-# Tier 2 Debate   : groq-small, mixtral-8x7b, qwen2.5-32b
-# Tier 3 Specialist: deepseek-coder-v2, qwen2.5-coder-32b
+# Official Sentinel-E ensemble v3 — Reliability-First Free-Tier.
+# 7 models, 3-tier architecture. All free or near-free inference.
+# Tier 1 Anchor   : llama31-8b, gemma2-9b
+# Tier 2 Debate   : mistral-7b, phi3-mini, gemma2-2b
+# Tier 3 Fallback : llama31-instant, phi3-small
 
 COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
-    # ── Tier 1: Anchor Models ─────────────────────────────────
-    "llama-3.3": CognitiveModelSpec(
-        name="Llama 3.3 70B",
-        model_id="llama-3.3-70b-versatile",
+    # ── Tier 1: Anchor Models (primary reasoning reference) ───
+    "llama31-8b": CognitiveModelSpec(
+        name="Llama 3.1 8B",
+        model_id="llama-3.1-8b-instant",
         provider="groq",
         role=ModelRole.CONCEPTUAL,
         context_window=131072,
         max_output_tokens=2000,
         default_temperature=0.4,
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
-        api_key_env="GROQ_API_KEY",
+        api_key_env="LLAMA31_8B_GROQ_API_KEY",
     ),
-    "groq-small": CognitiveModelSpec(
-        name="LLaMA 3.1 8B (Groq)",
+    "gemma2-9b": CognitiveModelSpec(
+        name="Gemma 2 9B IT",
+        model_id="google/gemma-2-9b-it:free",
+        provider="openrouter",
+        role=ModelRole.GENERAL,
+        context_window=8192,
+        max_output_tokens=2000,
+        default_temperature=0.3,
+        api_base_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key_env="GEMMA2_9B_OPENROUTER_API_KEY",
+    ),
+
+    # ── Tier 2: Debate Models (diverse argument generators) ───
+    "mistral-7b": CognitiveModelSpec(
+        name="Mistral 7B Instruct",
+        model_id="mistralai/mistral-7b-instruct:free",
+        provider="openrouter",
+        role=ModelRole.CONCEPTUAL,
+        context_window=32768,
+        max_output_tokens=1500,
+        default_temperature=0.4,
+        api_base_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key_env="MISTRAL_7B_OPENROUTER_API_KEY",
+    ),
+    "phi3-mini": CognitiveModelSpec(
+        name="Phi-3 Mini 128K",
+        model_id="microsoft/phi-3-mini-128k-instruct:free",
+        provider="openrouter",
+        role=ModelRole.GENERAL,
+        context_window=131072,
+        max_output_tokens=1500,
+        default_temperature=0.3,
+        api_base_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key_env="PHI3_MINI_OPENROUTER_API_KEY",
+    ),
+    "gemma2-2b": CognitiveModelSpec(
+        name="Gemma 2 2B IT",
+        model_id="google/gemma-2-2b-it:free",
+        provider="openrouter",
+        role=ModelRole.FAST,
+        context_window=8192,
+        max_output_tokens=1500,
+        default_temperature=0.3,
+        api_base_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key_env="GEMMA2_2B_OPENROUTER_API_KEY",
+    ),
+
+    # ── Tier 3: Fallback Models (reliability guarantees) ──────
+    "llama31-instant": CognitiveModelSpec(
+        name="Llama 3.1 8B Instant",
         model_id="llama-3.1-8b-instant",
         provider="groq",
         role=ModelRole.FAST,
@@ -85,114 +137,69 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         max_output_tokens=1500,
         default_temperature=0.3,
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
-        api_key_env="GROQ_API_KEY",
+        api_key_env="LLAMA31_INSTANT_GROQ_API_KEY",
     ),
-    # ── Tier 2: Debate Models ─────────────────────────────────
-    "mixtral-8x7b": CognitiveModelSpec(
-        name="Mixtral 8x7B Instruct",
-        model_id="mistralai/mixtral-8x7b-instruct",
-        provider="openrouter",
-        role=ModelRole.CONCEPTUAL,
-        context_window=32768,
-        max_output_tokens=1500,
-        default_temperature=0.4,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="OPENROUTER_API_KEY",
-    ),
-
-    "qwen2.5-32b": CognitiveModelSpec(
-        name="Qwen 2.5 32B Instruct",
-        model_id="qwen/qwen2.5-32b-instruct",
+    "phi3-small": CognitiveModelSpec(
+        name="Phi-3 Small",
+        model_id="microsoft/phi-3-small-8k-instruct:free",
         provider="openrouter",
         role=ModelRole.GENERAL,
-        context_window=32768,
+        context_window=8192,
         max_output_tokens=1500,
         default_temperature=0.3,
         api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="OPENROUTER_API_KEY",
-    ),
-
-    # ── Tier 1: Anchor Model (deep reasoning reference) ───────
-    "deepseek-chat": CognitiveModelSpec(
-        name="DeepSeek Chat",
-        model_id="deepseek/deepseek-chat",
-        provider="openrouter",
-        role=ModelRole.GENERAL,
-        context_window=65536,
-        max_output_tokens=2000,
-        default_temperature=0.3,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="OPENROUTER_API_KEY",
-    ),
-
-    # ── Tier 3: Specialist Models (domain-specific) ───────────
-    "deepseek-coder-v2": CognitiveModelSpec(
-        name="DeepSeek Coder V2 Lite Instruct",
-        model_id="deepseek-ai/deepseek-coder-v2-lite-instruct",
-        provider="openrouter",
-        role=ModelRole.CODE,
-        context_window=65536,
-        max_output_tokens=2000,
-        default_temperature=0.2,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="OPENROUTER_API_KEY",
-    ),
-
-    "qwen2.5-coder-32b": CognitiveModelSpec(
-        name="Qwen 2.5 Coder 32B Instruct",
-        model_id="qwen/qwen2.5-coder-32b-instruct",
-        provider="openrouter",
-        role=ModelRole.CODE,
-        context_window=65536,
-        max_output_tokens=2000,
-        default_temperature=0.2,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="OPENROUTER_API_KEY",
+        api_key_env="PHI3_SMALL_OPENROUTER_API_KEY",
     ),
 }
 
 # ============================================================
-# Debate Tier Registry
+# Debate Tier Registry — v3 Reliability-First
 # ============================================================
 # Tier 1 — Anchor Models  : Primary reasoning reference models
 # Tier 2 — Debate Models  : Diverse argument generators
-# Tier 3 — Specialist     : Domain-specific reasoning
+# Tier 3 — Fallback       : Reliability guarantee (auto-substitution)
 #
-# Maximum 6 models run simultaneously in any debate.
+# Maximum 7 models run simultaneously in any debate.
 # Selection is prompt-type-driven (see get_tiered_models_for_debate).
 
-# Canonical 7-model debate tier assignment.
-# Debates compose: 2 Tier-1 anchors + 3 Tier-2 debate models + 1 Tier-3 specialist.
-# Total = 6 models maximum. Never exceeds this hard cap.
 MODEL_DEBATE_TIERS: Dict[str, int] = {
     # Tier 1 — Anchor Models (high-reliability reasoning reference)
-    "llama-3.3":     1,   # Llama 3.3 70B — primary anchor
-    "deepseek-chat": 1,   # DeepSeek Chat — secondary anchor
+    "llama31-8b":      1,   # Llama 3.1 8B — primary anchor (Groq)
+    "gemma2-9b":       1,   # Gemma 2 9B IT — secondary anchor
     # Tier 2 — Debate Models (diverse argument generators)
-    "groq-small":    2,   # LLaMA 3.1 8B — fast debate participant
-    "mixtral-8x7b":  2,   # Mixtral 8x7B — diverse reasoning
-    "qwen2.5-32b":   2,   # Qwen 2.5 32B — multilingual reasoning
-    # Tier 3 — Specialist Models (domain-specific, 1 selected per debate)
-    "deepseek-coder-v2":  3,   # DeepSeek Coder V2 — code/STEM
-    "qwen2.5-coder-32b": 3,   # Qwen Coder 32B — code/STEM fallback
+    "mistral-7b":      2,   # Mistral 7B Instruct — diverse reasoning
+    "phi3-mini":       2,   # Phi-3 Mini 128K — compact reasoning
+    "gemma2-2b":       2,   # Gemma 2 2B IT — fast diverse viewpoint
+    # Tier 3 — Fallback Models (auto-substitution on failure)
+    "llama31-instant": 3,   # Llama 3.1 8B Instant — Groq fallback
+    "phi3-small":      3,   # Phi-3 Small — OpenRouter fallback
 }
 
-# Prompt type → preferred tier-3 specialist keys.
-# code / logical → use specialist models for domain depth.
-# conceptual / general → no specialist injection (all 3 Tier-2 slots used).
+# Fallback mapping: if a model fails, replace with this model
+MODEL_FALLBACK_MAP: Dict[str, str] = {
+    "llama31-8b":      "llama31-instant",  # Groq → Groq backup
+    "gemma2-9b":       "llama31-instant",  # OpenRouter → Groq backup
+    "mistral-7b":      "phi3-mini",        # Mistral fails → Phi-3 Mini
+    "phi3-mini":       "phi3-small",       # Phi-3 Mini fails → Phi-3 Small
+    "gemma2-2b":       "llama31-instant",  # Gemma fails → Groq backup
+    "llama31-instant": "phi3-small",       # Last-resort chain
+    "phi3-small":      "llama31-instant",  # Cross-provider fallback
+}
+
+# Prompt type → preferred specialist keys (all models participate now)
 _SPECIALIST_AFFINITY: Dict[str, List[str]] = {
-    "code":    ["deepseek-coder-v2", "qwen2.5-coder-32b"],
-    "logical": ["deepseek-coder-v2"],
-    "general": [],
+    "code":       ["phi3-mini", "phi3-small"],
+    "logical":    ["gemma2-9b"],
+    "general":    [],
     "conceptual": [],
-    "evidence": [],
-    "depth": [],
+    "evidence":   [],
+    "depth":      ["gemma2-9b"],
 }
 
 
 def get_tiered_models_for_debate(
     prompt_type: str = "general",
-    max_models: int = 6,
+    max_models: int = 7,
 ) -> List[str]:
     """
     Canonical tiered model selector for debate sessions.
@@ -200,31 +207,25 @@ def get_tiered_models_for_debate(
     Composition target (when all models are enabled):
         2  Tier-1 Anchor models    — stable reasoning reference
         3  Tier-2 Debate models    — diverse argument generation
-        1  Tier-3 Specialist       — injected when prompt_type has affinity
+        1-2  Tier-3 Fallback       — reliability guarantees
         ─────────────────────────────
-        6  Total (hard cap)
+        7  Total (hard cap)
 
     Algorithm:
       1. Select up to 2 enabled Tier-1 anchors  (REQUIRED, filled first).
-      2. If prompt_type has a specialist affinity, inject 1 enabled Tier-3.
+      2. If prompt_type has a specialist affinity, prioritize those Tier-2 models.
       3. Fill remaining slots (up to max_models) from enabled Tier-2 models.
-      4. Fallback: if a tier is under-represented, promote from the next
-         lower tier to avoid running fewer than 3 models total.
-
-    Why this composition maximises reasoning quality:
-    - Anchors supply the consensus baseline that Tier-2 models must engage.
-    - Running exactly 3 debate models balances argument diversity against
-      token cost (3×220 tokens per round = 660 tokens Round 1 vs 6×220=1320).
-    - The specialist slot is only used when it adds domain value, not always.
+      4. Add Tier-3 fallback models to fill remaining slots.
+      5. Guarantee at least 5 models are always selected.
 
     Args:
         prompt_type: 'code', 'logical', 'conceptual', 'general',
                      'evidence', 'depth'
-        max_models:  Hard cap, default 6. Never exceeded.
+        max_models:  Hard cap, default 7. Never exceeded.
 
     Returns:
-        Ordered list of registry keys (anchors first, then specialist,
-        then debate models).
+        Ordered list of registry keys (anchors first, then debate,
+        then fallback models).
     """
     max_models = min(max_models, MAX_DEBATE_MODELS)
 
@@ -235,8 +236,12 @@ def get_tiered_models_for_debate(
 
     tier1 = [k for k, t in MODEL_DEBATE_TIERS.items() if t == 1 and k in enabled]
     tier2 = [k for k, t in MODEL_DEBATE_TIERS.items() if t == 2 and k in enabled]
-    tier3_candidates = _SPECIALIST_AFFINITY.get(prompt_type, [])
-    tier3 = [k for k in tier3_candidates if k in enabled]
+    tier3 = [k for k, t in MODEL_DEBATE_TIERS.items() if t == 3 and k in enabled]
+
+    # Specialist priority for prompt type
+    specialist_keys = _SPECIALIST_AFFINITY.get(prompt_type, [])
+    priority_tier2 = [k for k in specialist_keys if k in tier2]
+    remaining_tier2 = [k for k in tier2 if k not in priority_tier2]
 
     selected: List[str] = []
 
@@ -244,23 +249,33 @@ def get_tiered_models_for_debate(
     for k in tier1[:2]:
         selected.append(k)
 
-    # Step 2 — 1 Tier-3 specialist (only for code / logical prompts)
-    if tier3 and len(selected) < max_models:
-        selected.append(tier3[0])
-
-    # Step 3 — Tier-2 debate models to fill remaining budget
-    for k in tier2:
+    # Step 2 — Priority Tier-2 models (specialist affinity)
+    for k in priority_tier2:
         if len(selected) >= max_models:
             break
         if k not in selected:
             selected.append(k)
 
-    # Step 4 — Fallback: if < 3 models selected, pull extras from any tier
-    if len(selected) < 3:
+    # Step 3 — Remaining Tier-2 debate models
+    for k in remaining_tier2:
+        if len(selected) >= max_models:
+            break
+        if k not in selected:
+            selected.append(k)
+
+    # Step 4 — Tier-3 fallback models to fill remaining slots
+    for k in tier3:
+        if len(selected) >= max_models:
+            break
+        if k not in selected:
+            selected.append(k)
+
+    # Step 5 — Guarantee at least 5 models: pull from any tier
+    if len(selected) < 5:
         for k in tier2 + tier1 + tier3:
             if k not in selected:
                 selected.append(k)
-            if len(selected) >= 3:
+            if len(selected) >= 5:
                 break
 
     return selected[:max_models]
@@ -272,11 +287,21 @@ def _initialize_registry():
     If key is missing, mark model as disabled (not active).
     Runs once at import time. Non-blocking, never crashes.
     """
+    _PROVIDER_SHARED_KEY = {
+        "groq": "GROQ_API_KEY",
+        "openrouter": "OPENROUTER_API_KEY",
+    }
+
     for key, spec in COGNITIVE_MODEL_REGISTRY.items():
-        if not spec.api_key_env:
-            # No env var configured — model stays as-is
-            continue
-        api_key = os.getenv(spec.api_key_env, "")
+        # Check per-model key first, then shared provider key
+        api_key = ""
+        if spec.api_key_env:
+            api_key = os.getenv(spec.api_key_env, "")
+        if not api_key:
+            shared_env = _PROVIDER_SHARED_KEY.get(spec.provider, "")
+            if shared_env:
+                api_key = os.getenv(shared_env, "")
+
         if api_key:
             spec.enabled = True
             spec.active = True
@@ -286,7 +311,7 @@ def _initialize_registry():
             spec.active = False
             logger.warning(
                 f"Model '{key}' ({spec.provider}): DISABLED — "
-                f"{spec.api_key_env} not set"
+                f"no API key found (checked {spec.api_key_env} and shared key)"
             )
 
 
@@ -392,15 +417,31 @@ class CognitiveModelGateway:
 
     def _resolve_api_key(self, spec: CognitiveModelSpec) -> Optional[str]:
         """
-        Resolve the API key for a model from its dedicated env var.
-        Provider isolation: each model uses its own key.
-        Returns None if key not available.
+        Resolve the API key for a model.
+
+        Resolution order:
+          1. Per-model env var (e.g. LLAMA31_8B_GROQ_API_KEY)
+          2. Shared provider key (GROQ_API_KEY for groq, OPENROUTER_API_KEY for openrouter)
+
+        Returns None if no key available.
         """
+        # 1. Try per-model key
         if spec.api_key_env:
             key = os.getenv(spec.api_key_env, "")
             if key:
                 return key
-        # No dedicated key — model cannot be invoked
+
+        # 2. Fall back to shared provider key
+        _PROVIDER_SHARED_KEY = {
+            "groq": "GROQ_API_KEY",
+            "openrouter": "OPENROUTER_API_KEY",
+        }
+        shared_env = _PROVIDER_SHARED_KEY.get(spec.provider)
+        if shared_env:
+            key = os.getenv(shared_env, "")
+            if key:
+                return key
+
         return None
 
     async def invoke_model(
@@ -585,6 +626,80 @@ class CognitiveModelGateway:
                 ))
             else:
                 outputs.append(result)
+        return outputs
+
+    async def invoke_parallel_failsafe(
+        self,
+        model_keys: List[str],
+        gateway_input: CognitiveGatewayInput,
+        min_success: int = 5,
+    ) -> List[CognitiveGatewayOutput]:
+        """
+        Failsafe parallel invocation with automatic fallback substitution.
+
+        Guarantees at least `min_success` successful responses:
+        1. Invoke all selected models in parallel.
+        2. For each failure, look up MODEL_FALLBACK_MAP and retry with fallback.
+        3. If fallback also used already, try any remaining Tier-3 model.
+        4. Never duplicate a model already in the response set.
+
+        This ensures debates always complete with sufficient model diversity.
+        """
+        # Phase 1 — Primary invocation
+        outputs = await self.invoke_parallel(model_keys, gateway_input)
+
+        successful = sum(1 for o in outputs if o.success)
+        if successful >= min_success:
+            return outputs
+
+        # Phase 2 — Failsafe substitution for failed models
+        used_keys = set(model_keys)
+        failed_indices = [i for i, o in enumerate(outputs) if not o.success]
+
+        for idx in failed_indices:
+            if successful >= min_success:
+                break
+
+            failed_key = model_keys[idx]
+            fallback_key = MODEL_FALLBACK_MAP.get(failed_key)
+
+            # Try the primary fallback
+            if fallback_key and fallback_key not in used_keys:
+                logger.info(
+                    f"Failsafe: {failed_key} failed, substituting {fallback_key}"
+                )
+                fallback_result = await self.invoke_model(
+                    fallback_key, gateway_input.model_copy(deep=True)
+                )
+                if fallback_result.success:
+                    outputs[idx] = fallback_result
+                    used_keys.add(fallback_key)
+                    successful += 1
+                    continue
+
+            # Try any unused Tier-3 model
+            tier3_keys = [
+                k for k, t in MODEL_DEBATE_TIERS.items()
+                if t == 3 and k not in used_keys
+                and COGNITIVE_MODEL_REGISTRY[k].enabled
+            ]
+            for t3_key in tier3_keys:
+                logger.info(
+                    f"Failsafe: trying Tier-3 {t3_key} for slot {idx}"
+                )
+                t3_result = await self.invoke_model(
+                    t3_key, gateway_input.model_copy(deep=True)
+                )
+                if t3_result.success:
+                    outputs[idx] = t3_result
+                    used_keys.add(t3_key)
+                    successful += 1
+                    break
+
+        logger.info(
+            f"Failsafe complete: {successful}/{len(outputs)} models succeeded "
+            f"(target: {min_success})"
+        )
         return outputs
 
     # ── Message Building ─────────────────────────────────────

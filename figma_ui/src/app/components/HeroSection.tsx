@@ -90,7 +90,7 @@ export function HeroSection() {
           {[
             { icon: <Zap className="w-4 h-4" />, label: "Lightning Fast", desc: "Sub-second responses" },
             { icon: <Shield className="w-4 h-4" />, label: "Private & Secure", desc: "End-to-end encryption" },
-            { icon: <Brain className="w-4 h-4" />, label: "Multi-Model", desc: "Qwen, Mistral, Groq" },
+            { icon: <Brain className="w-4 h-4" />, label: "Multi-Model", desc: "Llama, Gemma, Mistral" },
           ].map((feature) => (
             <div
               key={feature.label}

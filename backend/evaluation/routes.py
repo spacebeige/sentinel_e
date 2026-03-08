@@ -71,10 +71,10 @@ class DebateRequest(BaseModel):
         description="Prompt category: general | code | logical | evidence | depth | conceptual",
     )
     max_models: int = Field(
-        6,
+        7,
         ge=3,
-        le=6,
-        description="Max models for this debate (3–6, default 6)",
+        le=7,
+        description="Max models for this debate (3–7, default 7)",
     )
     include_charts: bool = Field(
         False,
@@ -353,7 +353,7 @@ async def get_model_tiers() -> Dict[str, Any]:
     Tiers:
       1 — Anchor Models  (primary reasoning reference)
       2 — Debate Models  (diverse argument generators)
-      3 — Specialist     (domain-specific reasoning)
+      3 — Fallback       (reliability guarantee models)
     """
     try:
         from metacognitive.cognitive_gateway import (
@@ -376,7 +376,7 @@ async def get_model_tiers() -> Dict[str, Any]:
         return {
             "tier_1_anchor": result[1],
             "tier_2_debate": result[2],
-            "tier_3_specialist": result[3],
+            "tier_3_fallback": result[3],
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
@@ -385,7 +385,7 @@ async def get_model_tiers() -> Dict[str, Any]:
 @router.get("/models/select")
 async def select_models_for_debate(
     prompt_type: str = "general",
-    max_models: int = 6,
+    max_models: int = 7,
 ) -> Dict[str, Any]:
     """
     Return the dynamically-selected model set for a given prompt type.
@@ -396,7 +396,7 @@ async def select_models_for_debate(
         from metacognitive.cognitive_gateway import get_tiered_models_for_debate
         selected = get_tiered_models_for_debate(
             prompt_type=prompt_type,
-            max_models=min(max_models, 6),
+            max_models=min(max_models, 7),
         )
         return {
             "prompt_type": prompt_type,

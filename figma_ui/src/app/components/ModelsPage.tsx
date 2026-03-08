@@ -6,44 +6,44 @@ import { getLearningSummary, type LearningSummary } from "../api";
 
 const models = [
   {
-    id: "qwen-vl",
-    name: "Qwen VL 2.5 7B",
-    provider: "Alibaba Cloud",
+    id: "llama31",
+    name: "Llama 3.1 8B",
+    provider: "Groq",
     color: "#6366f1",
-    description: "Vision-language model with powerful multimodal understanding across text, images, and documents.",
-    features: ["Vision & document parsing", "Multimodal reasoning", "7B efficient architecture", "Multilingual support"],
-    speed: "Fast",
+    description: "Fast, reliable anchor model with broad reasoning capability. Runs on Groq's LPU for ultra-low-latency inference.",
+    features: ["128K context window", "Fast inference (Groq)", "Strong reasoning", "Free tier"],
+    speed: "Instant",
     quality: "Excellent",
-    badge: "Multimodal",
+    badge: "Anchor",
   },
   {
-    id: "mistral",
-    name: "Mistral Large",
-    provider: "Mistral AI",
+    id: "gemma9b",
+    name: "Gemma 2 9B IT",
+    provider: "Google",
     color: "#f97316",
+    description: "Google's efficient instruction-tuned model with strong analytical capabilities across diverse tasks.",
+    features: ["Instruction-tuned", "Balanced reasoning", "Compact architecture", "Free tier"],
+    speed: "Fast",
+    quality: "Great",
+    badge: "Anchor",
+  },
+  {
+    id: "mistral7b",
+    name: "Mistral 7B Instruct",
+    provider: "Mistral AI",
+    color: "#10b981",
     description: "European AI excellence with strong multilingual, coding, and instruction-following capabilities.",
-    features: ["32K context window", "Multilingual fluency", "Code specialist", "Efficient inference"],
+    features: ["32K context window", "Multilingual fluency", "Code specialist", "Free tier"],
     speed: "Very Fast",
     quality: "Great",
-    badge: "Fastest",
-  },
-  {
-    id: "groq",
-    name: "Groq LPU",
-    provider: "Groq",
-    color: "#10b981",
-    description: "Hardware-accelerated inference delivering near-instant responses via custom LPU architecture.",
-    features: ["Ultra-low latency", "LPU acceleration", "Real-time streaming", "High throughput"],
-    speed: "Instant",
-    quality: "Great",
-    badge: "Speed King",
+    badge: "Debate",
   },
   {
     id: "sentinel-e",
     name: "Sentinel-E",
     provider: "NeuralOS",
     color: "#8b5cf6",
-    description: "Aggregate intelligence combining Qwen, Mistral & Groq — built for structured debate and deep research using Chain-of-Thought and Tree-of-Thought reasoning.",
+    description: "Aggregate intelligence combining Llama, Gemma, Mistral & Phi — built for structured debate and deep research using Chain-of-Thought and Tree-of-Thought reasoning.",
     features: ["Chain-of-Thought reasoning", "Tree-of-Thought exploration", "Debate & argumentation", "Multi-source research synthesis"],
     speed: "Adaptive",
     quality: "Excellent",
@@ -87,7 +87,7 @@ export function ModelsPage() {
             className="text-[#6e6e73] max-w-lg mx-auto"
             style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '17px', lineHeight: 1.6, fontWeight: 400 }}
           >
-            Qwen, Mistral & Groq as the foundation — Sentinel-E as the aggregate brain for debate and research with Chain-of-Thought and Tree-of-Thought reasoning.
+            Llama, Gemma, Mistral & Phi as the foundation — Sentinel-E as the aggregate brain for debate and research with Chain-of-Thought and Tree-of-Thought reasoning.
           </p>
           {learning && learning.total_feedback > 0 && (
             <p

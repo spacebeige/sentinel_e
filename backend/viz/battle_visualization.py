@@ -71,6 +71,7 @@ from core.ensemble_schemas import (
 )
 from analysis.metrics_engine import MetricsEngine
 from analysis.consensus_engine import ConsensusEngine, ConsensusEngineOutput
+from analysis.reasoning_analytics import ReasoningAnalyticsEngine
 from viz.conflict_graph import build_conflict_edges, plot_conflict_graph
 from viz.heatmap import plot_agreement_heatmap
 
@@ -99,6 +100,7 @@ class BattleVisualizationEngine:
     def __init__(self):
         self._metrics  = MetricsEngine()
         self._consensus = ConsensusEngine()
+        self._analytics = ReasoningAnalyticsEngine()
 
     # ── Public interface ──────────────────────────────────────
 
@@ -189,6 +191,34 @@ class BattleVisualizationEngine:
         if include_charts:
             payload = self._attach_charts(payload, similarities, sim_matrix, model_labels)
 
+        # Step 8 — Reasoning analytics (heatmap, disagreements, steps)
+        model_output_dicts = [
+            {
+                "model_id": o.model_id,
+                "model_name": getattr(o, "model_name", o.model_id),
+                "position": o.position,
+                "reasoning": o.reasoning,
+            }
+            for o in final_round_outputs
+        ]
+        metric_dicts = [
+            {
+                "model": m.model,
+                "model_name": m.model_name,
+                "reasoning_score": m.reasoning_score,
+                "evidence_density": m.evidence_density,
+                "argument_depth": m.argument_depth,
+                "logical_consistency": m.logical_consistency,
+                "contradiction_rate": m.contradiction_rate,
+                "confidence_alignment": m.confidence_calibration,
+                "token_efficiency": m.token_efficiency,
+            }
+            for m in metrics
+        ]
+        payload.reasoning_analytics = self._analytics.analyze_debate(
+            model_output_dicts, metric_dicts
+        )
+
         logger.info(
             "BattleViz: built payload — %d models, stability=%.3f, winner=%s",
             len(models_selected),
@@ -254,6 +284,8 @@ class BattleVisualizationEngine:
             # Winner
             "winner": payload.winner,
             "winner_score": payload.winner_score,
+            # Reasoning analytics (heatmap, disagreements, transparency steps)
+            "reasoning_analytics": getattr(payload, "reasoning_analytics", None),
         }
 
     # ── Internal — Data builders ──────────────────────────────

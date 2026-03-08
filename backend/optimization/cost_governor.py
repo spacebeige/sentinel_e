@@ -30,21 +30,20 @@ logger = logging.getLogger("CostGovernor")
 # COST RATES (per 1K tokens)
 # ============================================================
 
-# Model cost table — aligned with COGNITIVE_MODEL_REGISTRY (v2 ensemble)
+# Model cost table — aligned with COGNITIVE_MODEL_REGISTRY (v3 free-tier ensemble)
 MODEL_COSTS: Dict[str, Dict[str, float]] = {
     # Tier 1 Anchor
-    "llama-3.3": {"input": 0.00059, "output": 0.00079},
-    "deepseek-chat": {"input": 0.00027, "output": 0.00110},
+    "llama31-8b": {"input": 0.00005, "output": 0.00008},
+    "gemma2-9b": {"input": 0.0, "output": 0.0},
     # Tier 2 Debate
-    "groq-small": {"input": 0.00005, "output": 0.00008},
-    "mixtral-8x7b": {"input": 0.00024, "output": 0.00024},
-    "qwen2.5-32b": {"input": 0.00079, "output": 0.00079},
-    # Tier 3 Specialist
-    "deepseek-coder-v2": {"input": 0.00019, "output": 0.00082},
-    "qwen2.5-coder-32b": {"input": 0.00079, "output": 0.00079},
+    "mistral-7b": {"input": 0.0, "output": 0.0},
+    "phi3-mini": {"input": 0.0, "output": 0.0},
+    "gemma2-2b": {"input": 0.0, "output": 0.0},
+    # Tier 3 Fallback
+    "llama31-instant": {"input": 0.00005, "output": 0.00008},
+    "phi3-small": {"input": 0.0, "output": 0.0},
     # Legacy aliases (backward compat for recorded usage)
     "llama-3.1-8b": {"input": 0.00005, "output": 0.00008},
-    "llama-3.3-70b": {"input": 0.00059, "output": 0.00079},
 }
 
 # Tier cost multipliers (relative)

@@ -87,9 +87,9 @@ interface Message {
 
 const models = [
   { id: "sentinel-std", name: "Sentinel-E Standard", provider: "Standard", color: "#3b82f6", category: "standard" },
-  { id: "qwen", name: "Qwen 2.5", provider: "Standard", color: "#06b6d4", category: "standard" },
-  { id: "mistral", name: "Mistral Large", provider: "Standard", color: "#f59e0b", category: "standard" },
-  { id: "groq", name: "Groq LPU", provider: "Standard", color: "#10b981", category: "standard" },
+  { id: "llama31", name: "Llama 3.1 8B", provider: "Standard", color: "#06b6d4", category: "standard" },
+  { id: "gemma9b", name: "Gemma 2 9B", provider: "Standard", color: "#f59e0b", category: "standard" },
+  { id: "mistral7b", name: "Mistral 7B", provider: "Standard", color: "#10b981", category: "standard" },
   { id: "sentinel-exp", name: "Sentinel-E Pro", provider: "Experimental", color: "#8b5cf6", category: "experimental" },
 ];
 

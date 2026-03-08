@@ -21,7 +21,7 @@ const features = [
     icon: <Layers className="w-6 h-6" />,
     title: "Multi-Model Support",
     description:
-      "Switch between Qwen, Mistral, Groq, and more with a single tap.",
+      "Switch between Llama, Gemma, Mistral, Phi, and more with a single tap.",
     gradient: "from-[#06b6d4] to-[#3b82f6]",
     shadowColor: "rgba(6,182,212,0.35)",
   },
