@@ -209,7 +209,7 @@ class MCOModelBridge:
                 legacy_id = REGISTRY_TO_LEGACY.get(key, key)
                 role_val = spec.role.value if hasattr(spec.role, 'value') else str(spec.role)
                 models.append({
-                    "id": legacy_id,               # canonical ID used by orchestrator
+                    "id": key,                     # registry key — matches MODEL_FALLBACK_MAP, MODEL_DEBATE_TIERS
                     "legacy_id": legacy_id,
                     "registry_key": key,
                     "name": spec.name,
