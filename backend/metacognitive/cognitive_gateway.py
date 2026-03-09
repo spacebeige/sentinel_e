@@ -6,15 +6,16 @@ Pure reasoning execution. Each model is a separate endpoint.
 No cross-model contamination. No retrieval. No session mutation.
 No persistence logic. No knowledge injection decisions.
 
-Official Sentinel-E Ensemble (v3 — Reliability-First):
-  Tier 1 Anchor    : llama-3.3-70b-versatile (Groq), gemma-2-9b-it (OpenRouter)
-  Tier 2 Debate    : mistral-7b-instruct-v0.1, phi-4, gemma-3-4b-it
-  Tier 3 Fallback  : llama-3.1-8b-instant (Groq), llama-3.2-3b-instruct
+Official Sentinel-E Ensemble (v4 — No OpenRouter):
+  Analysis     : llama-3.3-70b-versatile (Groq)
+  Critique A   : mixtral-8x7b-32768 (Groq)
+  Critique B   : gemma-7b-it (Groq)
+  Critique C   : qwen2.5-vl-7b-instruct (DashScope)
+  Synthesis    : gemini-2.0-flash (Google)
+  Verification : llama-3.1-8b-instant (Groq)
 
-All models are free-tier or near-free. Provider failures trigger
-automatic fallback substitution. Debates always complete.
-
-Debate composition: 2 anchors + 3 debate + 1-2 fallback ≤ 7 models.
+Providers: Groq, Gemini, Qwen/DashScope. No OpenRouter.
+Pipeline: Analysis → 3 Critiques (parallel) → Synthesis → Verification.
 ============================================================
 """
 
@@ -48,7 +49,7 @@ class CognitiveModelSpec:
     """Specification for a cognitive model endpoint."""
     name: str
     model_id: str           # Provider-specific model ID
-    provider: str           # groq | openrouter | qwen | nvidia | kimi
+    provider: str           # groq | gemini | qwen
     role: ModelRole         # Routing hint
     context_window: int = 131072
     max_output_tokens: int = 8192
@@ -61,14 +62,12 @@ class CognitiveModelSpec:
 
 
 # ── Model Registry ───────────────────────────────────────────
-# Official Sentinel-E ensemble v3 — Reliability-First Free-Tier.
-# 7 models, 3-tier architecture. All free or near-free inference.
-# Tier 1 Anchor   : llama31-8b, gemma2-9b
-# Tier 2 Debate   : mistral-7b, phi3-mini, gemma2-2b
-# Tier 3 Fallback : llama31-instant, phi3-small
+# Official Sentinel-E ensemble v4 — No OpenRouter.
+# 6 models, 3 providers (Groq, Gemini, Qwen/DashScope).
+# Pipeline: Analysis → 3 Critiques (parallel) → Synthesis → Verification.
 
 COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
-    # ── Tier 1: Anchor Models (primary reasoning reference) ───
+    # ── Analysis (primary deep-reasoning anchor) ──────────────
     "llama31-8b": CognitiveModelSpec(
         name="Llama 3.3 70B",
         model_id="llama-3.3-70b-versatile",
@@ -80,54 +79,61 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
         api_key_env="LLAMA31_8B_GROQ_API_KEY",
     ),
-    "gemma2-9b": CognitiveModelSpec(
-        name="Gemma 2 9B IT",
-        model_id="google/gemma-2-9b-it",
-        provider="openrouter",
-        role=ModelRole.GENERAL,
-        context_window=8192,
-        max_output_tokens=2000,
-        default_temperature=0.3,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="GEMMA2_9B_OPENROUTER_API_KEY",
-    ),
 
-    # ── Tier 2: Debate Models (diverse argument generators) ───
-    "mistral-7b": CognitiveModelSpec(
-        name="Mistral 7B Instruct v0.1",
-        model_id="mistralai/mistral-7b-instruct-v0.1",
-        provider="openrouter",
+    # ── Critique A (diverse argument generator) ───────────────
+    "mixtral-8x7b": CognitiveModelSpec(
+        name="Mixtral 8x7B",
+        model_id="mixtral-8x7b-32768",
+        provider="groq",
         role=ModelRole.CONCEPTUAL,
         context_window=32768,
         max_output_tokens=1500,
         default_temperature=0.4,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="MISTRAL_7B_OPENROUTER_API_KEY",
+        api_base_url="https://api.groq.com/openai/v1/chat/completions",
+        api_key_env="GROQ_MIXTRAL_KEY",
     ),
-    "phi3-mini": CognitiveModelSpec(
-        name="Phi-4",
-        model_id="microsoft/phi-4",
-        provider="openrouter",
+
+    # ── Critique B (alternative viewpoint) ────────────────────
+    "gemma-7b": CognitiveModelSpec(
+        name="Gemma 7B IT",
+        model_id="gemma-7b-it",
+        provider="groq",
         role=ModelRole.GENERAL,
-        context_window=16384,
-        max_output_tokens=1500,
-        default_temperature=0.3,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="PHI3_MINI_OPENROUTER_API_KEY",
-    ),
-    "gemma2-2b": CognitiveModelSpec(
-        name="Gemma 3 4B IT",
-        model_id="google/gemma-3-4b-it",
-        provider="openrouter",
-        role=ModelRole.FAST,
         context_window=8192,
         max_output_tokens=1500,
         default_temperature=0.3,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="GEMMA2_2B_OPENROUTER_API_KEY",
+        api_base_url="https://api.groq.com/openai/v1/chat/completions",
+        api_key_env="GROQ_GEMMA_KEY",
     ),
 
-    # ── Tier 3: Fallback Models (reliability guarantees) ──────
+    # ── Critique C (alternative perspectives via Qwen) ────────
+    "qwen-2.5-vl": CognitiveModelSpec(
+        name="Qwen 2.5 VL 7B",
+        model_id="qwen2.5-vl-7b-instruct",
+        provider="qwen",
+        role=ModelRole.VISION,
+        context_window=32768,
+        max_output_tokens=1500,
+        default_temperature=0.3,
+        api_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+        api_key_env="QWEN_API_KEY",
+        supports_vision=True,
+    ),
+
+    # ── Synthesis (merges critiques into final answer) ────────
+    "gemini-flash": CognitiveModelSpec(
+        name="Gemini Flash 2.0",
+        model_id="gemini-2.0-flash",
+        provider="gemini",
+        role=ModelRole.GENERAL,
+        context_window=1048576,
+        max_output_tokens=2000,
+        default_temperature=0.3,
+        api_base_url="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+        api_key_env="GEMINI_API_KEY",
+    ),
+
+    # ── Verification (fast sanity check) ──────────────────────
     "llama31-instant": CognitiveModelSpec(
         name="Llama 3.1 8B Instant",
         model_id="llama-3.1-8b-instant",
@@ -139,61 +145,45 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
         api_key_env="LLAMA31_INSTANT_GROQ_API_KEY",
     ),
-    "phi3-small": CognitiveModelSpec(
-        name="Llama 3.2 3B",
-        model_id="meta-llama/llama-3.2-3b-instruct",
-        provider="openrouter",
-        role=ModelRole.GENERAL,
-        context_window=131072,
-        max_output_tokens=1500,
-        default_temperature=0.3,
-        api_base_url="https://openrouter.ai/api/v1/chat/completions",
-        api_key_env="PHI3_SMALL_OPENROUTER_API_KEY",
-    ),
 }
 
 # ============================================================
-# Debate Tier Registry — v3 Reliability-First
+# Debate Pipeline Registry — v4 (No OpenRouter)
 # ============================================================
-# Tier 1 — Anchor Models  : Primary reasoning reference models
-# Tier 2 — Debate Models  : Diverse argument generators
-# Tier 3 — Fallback       : Reliability guarantee (auto-substitution)
-#
-# Maximum 7 models run simultaneously in any debate.
-# Selection is prompt-type-driven (see get_tiered_models_for_debate).
+# Analysis → Critique (3 parallel) → Synthesis → Verification
+# All Groq + Gemini + Qwen. No tiered fallback needed.
 
 MODEL_DEBATE_TIERS: Dict[str, int] = {
-    # Tier 1 — Anchor Models (high-reliability reasoning reference)
-    "llama31-8b":      1,   # Llama 3.3 70B — primary anchor (Groq)
-    "gemma2-9b":       1,   # Gemma 2 9B IT — secondary anchor
-    # Tier 2 — Debate Models (diverse argument generators)
-    "mistral-7b":      2,   # Mistral 7B Instruct — diverse reasoning
-    "phi3-mini":       2,   # Phi-3 Mini 128K — compact reasoning
-    "gemma2-2b":       2,   # Gemma 2 2B IT — fast diverse viewpoint
-    # Tier 3 — Fallback Models (auto-substitution on failure)
-    "llama31-instant": 3,   # Llama 3.1 8B Instant — Groq fallback
-    "phi3-small":      3,   # Phi-3 Small — OpenRouter fallback
+    # Tier 1 — Analysis (primary reasoning)
+    "llama31-8b":      1,   # Llama 3.3 70B — analysis anchor (Groq)
+    # Tier 2 — Critique (diverse argument generators)
+    "mixtral-8x7b":    2,   # Mixtral 8x7B — critique A (Groq)
+    "gemma-7b":        2,   # Gemma 7B IT — critique B (Groq)
+    "qwen-2.5-vl":     2,   # Qwen 2.5 VL — critique C (DashScope)
+    # Tier 3 — Synthesis + Verification
+    "gemini-flash":    3,   # Gemini Flash 2.0 — synthesis (Google)
+    "llama31-instant": 3,   # Llama 3.1 8B — verification (Groq)
 }
 
 # Fallback mapping: if a model fails, replace with this model
 MODEL_FALLBACK_MAP: Dict[str, str] = {
-    "llama31-8b":      "llama31-instant",  # Groq → Groq backup
-    "gemma2-9b":       "llama31-instant",  # OpenRouter → Groq backup
-    "mistral-7b":      "phi3-mini",        # Mistral fails → Phi-3 Mini
-    "phi3-mini":       "phi3-small",       # Phi-3 Mini fails → Phi-3 Small
-    "gemma2-2b":       "llama31-instant",  # Gemma fails → Groq backup
-    "llama31-instant": "phi3-small",       # Last-resort chain
-    "phi3-small":      "llama31-instant",  # Cross-provider fallback
+    "llama31-8b":      "llama31-instant",  # Groq 70B → Groq 8B
+    "mixtral-8x7b":    "gemma-7b",         # Mixtral → Gemma
+    "gemma-7b":        "llama31-instant",  # Gemma → Llama 8B
+    "qwen-2.5-vl":     "gemma-7b",         # Qwen → Gemma
+    "gemini-flash":    "llama31-8b",       # Gemini → Llama 70B
+    "llama31-instant": "mixtral-8x7b",     # Llama 8B → Mixtral
 }
 
-# Prompt type → preferred specialist keys (all models participate now)
+# Prompt type → preferred specialist keys
 _SPECIALIST_AFFINITY: Dict[str, List[str]] = {
-    "code":       ["phi3-mini", "phi3-small"],
-    "logical":    ["gemma2-9b"],
+    "code":       ["mixtral-8x7b"],
+    "logical":    ["llama31-8b"],
     "general":    [],
     "conceptual": [],
     "evidence":   [],
-    "depth":      ["gemma2-9b"],
+    "depth":      ["llama31-8b"],
+    "vision":     ["qwen-2.5-vl"],
 }
 
 
@@ -204,28 +194,28 @@ def get_tiered_models_for_debate(
     """
     Canonical tiered model selector for debate sessions.
 
-    Composition target (when all models are enabled):
-        2  Tier-1 Anchor models    — stable reasoning reference
-        3  Tier-2 Debate models    — diverse argument generation
-        1-2  Tier-3 Fallback       — reliability guarantees
+    Composition target (v4 — all models enabled):
+        1  Tier-1 Analysis model    — deep reasoning anchor
+        3  Tier-2 Critique models   — diverse argument generation
+        2  Tier-3 Synthesis/Verify  — convergence + sanity check
         ─────────────────────────────
-        7  Total (hard cap)
+        6  Total (hard cap)
 
     Algorithm:
-      1. Select up to 2 enabled Tier-1 anchors  (REQUIRED, filled first).
-      2. If prompt_type has a specialist affinity, prioritize those Tier-2 models.
-      3. Fill remaining slots (up to max_models) from enabled Tier-2 models.
-      4. Add Tier-3 fallback models to fill remaining slots.
-      5. Guarantee at least 5 models are always selected.
+      1. Select Tier-1 analysis model (REQUIRED).
+      2. If prompt_type has a specialist affinity, prioritize those models.
+      3. Fill remaining slots from enabled Tier-2 models.
+      4. Add Tier-3 models to fill remaining slots.
+      5. Guarantee at least 3 models are always selected.
 
     Args:
         prompt_type: 'code', 'logical', 'conceptual', 'general',
-                     'evidence', 'depth'
+                     'evidence', 'depth', 'vision'
         max_models:  Hard cap, default 7. Never exceeded.
 
     Returns:
-        Ordered list of registry keys (anchors first, then debate,
-        then fallback models).
+        Ordered list of registry keys (analysis first, then critiques,
+        then synthesis/verification).
     """
     max_models = min(max_models, MAX_DEBATE_MODELS)
 
@@ -245,8 +235,8 @@ def get_tiered_models_for_debate(
 
     selected: List[str] = []
 
-    # Step 1 — 2 Tier-1 anchors (capped at available)
-    for k in tier1[:2]:
+    # Step 1 — Tier-1 analysis model (capped at available)
+    for k in tier1[:1]:
         selected.append(k)
 
     # Step 2 — Priority Tier-2 models (specialist affinity)
@@ -270,17 +260,17 @@ def get_tiered_models_for_debate(
         if k not in selected:
             selected.append(k)
 
-    # Step 5 — Guarantee at least 5 models: pull from any tier
-    if len(selected) < 5:
+    # Step 5 — Guarantee at least 3 models: pull from any tier
+    if len(selected) < 3:
         for k in tier2 + tier1 + tier3:
             if k not in selected:
                 selected.append(k)
-            if len(selected) >= 5:
+            if len(selected) >= 3:
                 break
 
-    if len(selected) < 5:
+    if len(selected) < 3:
         logger.warning(
-            f"Only {len(selected)} enabled models available (need 5). "
+            f"Only {len(selected)} enabled models available (need 3). "
             f"Check API key configuration. Enabled: {enabled}"
         )
 
@@ -295,7 +285,8 @@ def _initialize_registry():
     """
     _PROVIDER_SHARED_KEY = {
         "groq": "GROQ_API_KEY",
-        "openrouter": "OPENROUTER_API_KEY",
+        "gemini": "GEMINI_API_KEY",
+        "qwen": "QWEN_API_KEY",
     }
 
     for key, spec in COGNITIVE_MODEL_REGISTRY.items():
@@ -427,7 +418,7 @@ class CognitiveModelGateway:
 
         Resolution order:
           1. Per-model env var (e.g. LLAMA31_8B_GROQ_API_KEY)
-          2. Shared provider key (GROQ_API_KEY for groq, OPENROUTER_API_KEY for openrouter)
+          2. Shared provider key (GROQ_API_KEY for groq, GEMINI_API_KEY for gemini, etc.)
 
         Returns None if no key available.
         """
@@ -440,7 +431,8 @@ class CognitiveModelGateway:
         # 2. Fall back to shared provider key
         _PROVIDER_SHARED_KEY = {
             "groq": "GROQ_API_KEY",
-            "openrouter": "OPENROUTER_API_KEY",
+            "gemini": "GEMINI_API_KEY",
+            "qwen": "QWEN_API_KEY",
         }
         shared_env = _PROVIDER_SHARED_KEY.get(spec.provider)
         if shared_env:
@@ -562,10 +554,10 @@ class CognitiveModelGateway:
         try:
             if spec.provider == "groq":
                 result = await self._call_groq(spec, messages, api_key, governed_max_tokens)
-            elif spec.provider in ("qwen", "nvidia", "kimi", "openrouter"):
-                result = await self._call_openrouter_isolated(
-                    spec, messages, api_key, governed_max_tokens,
-                )
+            elif spec.provider == "gemini":
+                result = await self._call_gemini(spec, messages, api_key, governed_max_tokens)
+            elif spec.provider == "qwen":
+                result = await self._call_qwen(spec, messages, api_key, governed_max_tokens)
             elif spec.provider == "openai":
                 result = await self._call_openai(spec, messages)
             else:
@@ -640,7 +632,7 @@ class CognitiveModelGateway:
         self,
         model_keys: List[str],
         gateway_input: CognitiveGatewayInput,
-        min_success: int = 5,
+        min_success: int = 3,
     ) -> List[CognitiveGatewayOutput]:
         """
         Failsafe parallel invocation with automatic fallback substitution.
@@ -856,31 +848,87 @@ class CognitiveModelGateway:
                 success=True,
             )
 
-    async def _call_openrouter_isolated(
+    async def _call_gemini(
         self,
         spec: CognitiveModelSpec,
         messages: List[Dict[str, str]],
         api_key: str = "",
         max_tokens: int = 4096,
     ) -> CognitiveGatewayOutput:
-        """
-        Call OpenRouter-compatible API with per-model isolated key.
-        Used by qwen, nvidia, kimi, and generic openrouter providers.
-        Provider isolation: each model uses its own key, never shared.
-        Token budget governed by caller — never exceeds safe limit.
-        """
+        """Call Google Gemini REST API."""
         if not api_key:
             return CognitiveGatewayOutput(
                 model_name=spec.name, raw_output="",
                 success=False, error=f"{spec.api_key_env} not configured",
             )
 
-        url = spec.api_base_url or "https://openrouter.ai/api/v1/chat/completions"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{spec.model_id}:generateContent?key={api_key}"
+        # Convert messages to Gemini format
+        contents = []
+        system_text = ""
+        for msg in messages:
+            if msg["role"] == "system":
+                system_text = msg["content"] if isinstance(msg["content"], str) else str(msg["content"])
+            else:
+                text = msg["content"] if isinstance(msg["content"], str) else str(msg["content"])
+                contents.append({"role": "user", "parts": [{"text": text}]})
+        if system_text and contents:
+            # Prepend system text to first user message
+            contents[0]["parts"][0]["text"] = system_text + "\n\n" + contents[0]["parts"][0]["text"]
+
+        payload = {
+            "contents": contents,
+            "generationConfig": {
+                "temperature": spec.default_temperature,
+                "maxOutputTokens": max_tokens,
+            },
+        }
+
+        session = await self._get_session()
+        async with session.post(url, json=payload, headers={"Content-Type": "application/json"}) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                if resp.status in (402, 429):
+                    self._record_failure()
+                return CognitiveGatewayOutput(
+                    model_name=spec.name, raw_output="",
+                    success=False, error=self._sanitize_provider_error(resp.status, text),
+                )
+            data = await resp.json()
+            candidates = data.get("candidates", [{}])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                text = parts[0].get("text", "") if parts else ""
+            else:
+                text = ""
+            usage = data.get("usageMetadata", {})
+            return CognitiveGatewayOutput(
+                model_name=spec.name,
+                raw_output=text,
+                tokens_used=usage.get("totalTokenCount", 0),
+                input_tokens=usage.get("promptTokenCount", 0),
+                output_tokens=usage.get("candidatesTokenCount", 0),
+                success=True,
+            )
+
+    async def _call_qwen(
+        self,
+        spec: CognitiveModelSpec,
+        messages: List[Dict[str, str]],
+        api_key: str = "",
+        max_tokens: int = 4096,
+    ) -> CognitiveGatewayOutput:
+        """Call Qwen/DashScope OpenAI-compatible API."""
+        if not api_key:
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False, error=f"{spec.api_key_env} not configured",
+            )
+
+        url = spec.api_base_url or "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/sentinel-e",
-            "X-Title": "Sentinel-E Meta-Cognitive",
         }
         payload = {
             "model": spec.model_id,
@@ -911,16 +959,33 @@ class CognitiveModelGateway:
                 success=True,
             )
 
-    # Legacy alias — preserved for backward compatibility
+    # ── Legacy OpenRouter methods — DISABLED ────────────────
+    # OpenRouter credits exhausted (2026-03-09).
+    # These methods are preserved for backward compatibility but
+    # should never be called in production.
+
+    async def _call_openrouter_isolated(
+        self,
+        spec: CognitiveModelSpec,
+        messages: List[Dict[str, str]],
+        api_key: str = "",
+        max_tokens: int = 4096,
+    ) -> CognitiveGatewayOutput:
+        """DISABLED — OpenRouter credits exhausted. Always returns error."""
+        return CognitiveGatewayOutput(
+            model_name=spec.name, raw_output="",
+            success=False,
+            error="OpenRouter provider disabled — credits exhausted. Use Groq/Gemini/Qwen.",
+        )
+
     async def _call_openrouter(
         self,
         spec: CognitiveModelSpec,
         messages: List[Dict[str, str]],
         api_key: str = "",
     ) -> CognitiveGatewayOutput:
-        """Backward-compatible alias. Delegates to isolated method."""
-        key = api_key or self.settings.OPENROUTER_API_KEY
-        return await self._call_openrouter_isolated(spec, messages, key)
+        """DISABLED — OpenRouter credits exhausted. Always returns error."""
+        return await self._call_openrouter_isolated(spec, messages, api_key)
 
     async def _call_openai(
         self,

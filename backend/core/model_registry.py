@@ -51,7 +51,7 @@ class ModelCapability:
     id: str                           # Canonical registry key (e.g. "qwen3-coder")
     legacy_id: str                    # Legacy ID (e.g. "qwen3-coder" or "groq")
     name: str                         # Human-readable name
-    provider: str                     # groq | openrouter | qwen | nvidia | kimi
+    provider: str                     # groq | gemini | qwen
     role: ModelRole                   # Routing hint
     tier: ModelTier                   # budget | standard | premium
     supports_debate: bool             # Participates in debate rounds
@@ -74,30 +74,28 @@ _LEGACY_ID_MAP: Dict[str, str] = {
 
 # ── Tier Assignment ──────────────────────────────────────────
 _TIER_MAP: Dict[str, ModelTier] = {
-    # Tier 1 Anchor
+    # Analysis
     "llama31-8b": ModelTier.STANDARD,
-    "gemma2-9b": ModelTier.STANDARD,
-    # Tier 2 Debate
-    "mistral-7b": ModelTier.BUDGET,
-    "phi3-mini": ModelTier.BUDGET,
-    "gemma2-2b": ModelTier.BUDGET,
-    # Tier 3 Fallback
+    # Critique
+    "mixtral-8x7b": ModelTier.BUDGET,
+    "gemma-7b": ModelTier.BUDGET,
+    "qwen-2.5-vl": ModelTier.BUDGET,
+    # Synthesis + Verification
+    "gemini-flash": ModelTier.STANDARD,
     "llama31-instant": ModelTier.BUDGET,
-    "phi3-small": ModelTier.BUDGET,
 }
 
 # ── Cost Profile ─────────────────────────────────────────────
 _COST_MAP: Dict[str, CostProfile] = {
-    # Tier 1 Anchor
+    # Analysis
     "llama31-8b": CostProfile.FREE,
-    "gemma2-9b": CostProfile.FREE,
-    # Tier 2 Debate
-    "mistral-7b": CostProfile.FREE,
-    "phi3-mini": CostProfile.FREE,
-    "gemma2-2b": CostProfile.FREE,
-    # Tier 3 Fallback
+    # Critique
+    "mixtral-8x7b": CostProfile.FREE,
+    "gemma-7b": CostProfile.FREE,
+    "qwen-2.5-vl": CostProfile.FREE,
+    # Synthesis + Verification
+    "gemini-flash": CostProfile.FREE,
     "llama31-instant": CostProfile.FREE,
-    "phi3-small": CostProfile.FREE,
 }
 
 

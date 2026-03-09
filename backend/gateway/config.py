@@ -39,7 +39,9 @@ class Settings(BaseSettings):
 
     # ── LLM Providers ────────────────────────────────────────
     GROQ_API_KEY: str = ""
-    OPENROUTER_API_KEY: str = ""
+    # OPENROUTER_API_KEY — disabled (credits exhausted 2026-03-09)
+    GEMINI_API_KEY: str = ""
+    QWEN_API_KEY: str = ""
     TAVILY_API_KEY: str = ""
 
     # ── MCO Per-Model Keys (provider isolation) ───────────────

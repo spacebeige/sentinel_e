@@ -38,13 +38,13 @@ VISION_CAPABLE_MODELS = {
 # Provider → required env var mapping
 PROVIDER_KEY_MAP = {
     "groq": "GROQ_API_KEY",
-    "openrouter": "OPENROUTER_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "qwen": "QWEN_API_KEY",
 }
 
 # Model-specific key overrides
 MODEL_KEY_OVERRIDES: Dict[str, str] = {
-    "qwen3-vl": "QWEN3_VL_API_KEY",
-    "qwen3-next-80b-free": "OPENROUTER_API_KEY",
+    "qwen-2.5-vl": "QWEN_API_KEY",
 }
 
 
