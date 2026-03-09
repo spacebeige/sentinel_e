@@ -1,33 +1,34 @@
 """
-LangGraph pipeline for Sentinel-E compressed reasoning.
+LangGraph pipeline for Sentinel-E role-based reasoning.
 
-Graph flow:
-  User Query
-    → context_loader   (load session history from SQLite)
-    → token_guard      (estimate budget, compress context)
-    → search_node      (Serper web search)
-    → scrape_node      (fetch & clean HTML)
-    → summarize_node   (local summarization of web content)
-    → analysis_node    (Step 1: initial reasoning)
-    → critique_node    (Step 2: adversarial critique)
-    → synthesis_node   (Step 3: final synthesis)
-    → memory_writer    (persist to SQLite)
-    → Response
+10-node graph:
+  context_loader   → load session history from SQLite
+  token_guard      → estimate budget, compress context
+  search_node      → Dual web search (Tavily + Serper)
+  scrape_node      → fetch & clean HTML
+  summarize_node   → local summarization (Groq 8B)
+  analysis_node    → deep analysis (Llama-3.3-70B / Gemini Flash)
+  critique_node    → parallel adversarial critique (Mixtral ∥ Gemma ∥ Qwen)
+  synthesis_node   → integrate analysis + critiques (Gemini Flash)
+  verification_node→ single fact-check (Llama-3.1-8B)
+  report_memory    → generate report + persist to SQLite
+
+~6 API calls per query (down from 21 in original ensemble).
 """
 
 import asyncio
 import logging
 import time
 import uuid
-from typing import TypedDict, Optional, List, Dict, Any, Annotated
+from typing import TypedDict, Optional, List, Dict, Any
 
 from langgraph.graph import StateGraph, START, END
 
 from compressed.memory_store import CompressedMemory, SessionContext
-from compressed.search_engine import SerperSearch, WebScraper, SearchBundle, build_search_context
-from compressed.model_clients import ModelRouter
+from compressed.search_engine import DualSearchEngine, SerperSearch, WebScraper, SearchBundle, build_search_context, format_citations
+from compressed.model_clients import RoleBasedRouter
 from compressed.token_governor import TokenGovernor, TokenBudget, count_tokens
-from compressed.debate_engine import CondensedDebateEngine, DebateResult
+from compressed.role_engine import RoleBasedEngine, RoleResult
 from compressed.report_generator import ReportGenerator, SentinelReport
 
 logger = logging.getLogger("compressed.pipeline")
@@ -45,11 +46,12 @@ class PipelineState(TypedDict, total=False):
     # Search
     search_bundle: Optional[SearchBundle]
     search_context: str
+    citations_block: str
     # Token
     token_budget: Optional[TokenBudget]
     budget_ok: bool
-    # Debate
-    debate_result: Optional[DebateResult]
+    # Role-based reasoning
+    role_result: Optional[RoleResult]
     # Output
     report: Optional[SentinelReport]
     formatted_output: str
@@ -67,9 +69,9 @@ class PipelineNodes:
 
     def __init__(self):
         self.memory = CompressedMemory()
-        self.search = SerperSearch()
+        self.search = DualSearchEngine()
         self.scraper = WebScraper()
-        self.router = ModelRouter()
+        self.router = RoleBasedRouter()
         self.report_gen = ReportGenerator()
 
     async def context_loader(self, state: PipelineState) -> dict:
@@ -80,7 +82,6 @@ class PipelineNodes:
 
         history_context = self.memory.build_context_prompt(session_ctx)
 
-        # Store user message
         query = state["query"]
         await self.memory.add_message(session_id, "user", query)
 
@@ -97,7 +98,6 @@ class PipelineNodes:
         budget = TokenBudget()
         governor = TokenGovernor(budget)
 
-        # Compress history if it exceeds budget
         history_ctx = state.get("history_context", "")
         if history_ctx:
             history_ctx = governor.compress_context(history_ctx, budget.history_context)
@@ -110,14 +110,15 @@ class PipelineNodes:
         }
 
     async def search_node(self, state: PipelineState) -> dict:
-        """Execute web search via Serper."""
+        """Execute web search via Tavily + Serper (dual search)."""
         t0 = time.time()
 
         if not self.search.available:
-            logger.info("Serper not configured — skipping web search")
+            logger.info("No search providers configured — skipping web search")
             return {
                 "search_bundle": SearchBundle(query=state["query"]),
                 "search_context": "",
+                "citations_block": "",
                 "node_timings": {**(state.get("node_timings") or {}), "search_node": (time.time() - t0) * 1000},
             }
 
@@ -128,8 +129,11 @@ class PipelineNodes:
             logger.warning(f"Search failed: {e}")
             bundle = SearchBundle(query=state["query"], error=str(e))
 
+        citations = format_citations(bundle.results) if bundle.results else ""
+
         return {
             "search_bundle": bundle,
+            "citations_block": citations,
             "node_timings": {**(state.get("node_timings") or {}), "search_node": (time.time() - t0) * 1000},
         }
 
@@ -144,17 +148,15 @@ class PipelineNodes:
                 "node_timings": {**(state.get("node_timings") or {}), "scrape_node": (time.time() - t0) * 1000},
             }
 
-        # Check web cache first
         urls_to_scrape = []
         cached_summaries = []
-        for r in bundle.results[:3]:  # Only scrape top 3
+        for r in bundle.results[:3]:
             cached = await self.memory.get_cached_summary(r.url)
             if cached:
                 cached_summaries.append(cached)
             else:
                 urls_to_scrape.append(r.url)
 
-        # Scrape uncached URLs
         if urls_to_scrape:
             try:
                 scraped = await self.scraper.scrape(urls_to_scrape, max_chars=3000)
@@ -168,7 +170,7 @@ class PipelineNodes:
         }
 
     async def summarize_node(self, state: PipelineState) -> dict:
-        """Summarize scraped content locally."""
+        """Summarize scraped content using fast local model."""
         t0 = time.time()
         bundle = state.get("search_bundle")
 
@@ -180,41 +182,35 @@ class PipelineNodes:
 
         summaries = []
 
-        # Summarize scraped pages using local model (Groq) if available
         for page in (bundle.scraped or []):
             if not page.text:
                 continue
 
-            # Try local summarization first
-            if self.router.groq.available and count_tokens(page.text) > 200:
+            if self.router.groq_8b.available and count_tokens(page.text) > 200:
                 summary_prompt = (
                     f"Summarize the following webpage content in 2-3 sentences. "
                     f"Focus on factual information relevant to research.\n\n"
                     f"Title: {page.title}\n\nContent: {page.text[:2000]}"
                 )
                 resp = await self.router.generate(
+                    role="summarize",
                     prompt=summary_prompt,
                     max_tokens=200,
                     temperature=0.2,
-                    prefer_local=True,
                 )
                 if resp.ok:
                     summaries.append(f"{page.title}: {resp.content}")
-                    # Cache the summary
                     await self.memory.cache_summary(page.url, resp.content)
                     continue
 
-            # Fallback: use snippet truncation
             summaries.append(f"{page.title}: {page.text[:300]}")
 
-        # Also include snippet summaries for non-scraped results
         for r in (bundle.results or []):
             if r.snippet and not any(r.url in s for s in summaries):
                 summaries.append(f"{r.title}: {r.snippet}")
 
         bundle.summaries = summaries[:5]
 
-        # Build compressed search context
         governor = TokenGovernor(state.get("token_budget") or TokenBudget())
         search_ctx = build_search_context(bundle)
         search_ctx = governor.compress_search_context(search_ctx)
@@ -225,59 +221,189 @@ class PipelineNodes:
             "node_timings": {**(state.get("node_timings") or {}), "summarize_node": (time.time() - t0) * 1000},
         }
 
-    async def debate_node(self, state: PipelineState) -> dict:
-        """Run the 3-step condensed debate (Analysis → Critique → Synthesis)."""
+    async def analysis_node(self, state: PipelineState) -> dict:
+        """Stage 1: Deep analysis (Gemini Flash / Llama-3.3-70B) — 1 API call."""
         t0 = time.time()
         budget = state.get("token_budget") or TokenBudget()
         governor = TokenGovernor(budget)
-        debate = CondensedDebateEngine(self.router, governor)
+        engine = RoleBasedEngine(self.router, governor)
 
-        result = await debate.run(
-            query=state["query"],
-            search_context=state.get("search_context", ""),
-            history_context=state.get("history_context", ""),
-        )
+        context_block = ""
+        if state.get("search_context"):
+            context_block += f"WEB RESEARCH:\n{state['search_context']}\n\n"
+        if state.get("history_context"):
+            context_block += f"CONVERSATION CONTEXT:\n{state['history_context']}\n\n"
+
+        # Initialize role result
+        role_result = RoleResult(query=state["query"])
+
+        analysis = await engine.run_analysis(state["query"], context_block)
+        role_result.analysis = analysis
+        role_result.api_calls += 1
+
+        if not analysis.content:
+            role_result.error = "Analysis stage produced no output"
 
         return {
-            "debate_result": result,
-            "token_budget": budget,  # Updated with usage
-            "node_timings": {**(state.get("node_timings") or {}), "debate": (time.time() - t0) * 1000},
+            "role_result": role_result,
+            "token_budget": budget,
+            "node_timings": {**(state.get("node_timings") or {}), "analysis": (time.time() - t0) * 1000},
         }
 
-    async def report_node(self, state: PipelineState) -> dict:
-        """Generate structured report from debate result."""
+    async def critique_node(self, state: PipelineState) -> dict:
+        """Stage 2: Parallel critique (Gemma-9B ∥ Mistral-7B) — 2 API calls."""
         t0 = time.time()
-        debate_result = state.get("debate_result")
+        role_result = state.get("role_result")
+        budget = state.get("token_budget") or TokenBudget()
+        governor = TokenGovernor(budget)
+        engine = RoleBasedEngine(self.router, governor)
 
-        if not debate_result or not debate_result.ok:
-            error_msg = debate_result.error if debate_result else "No debate result"
+        if not role_result or not role_result.analysis or not role_result.analysis.content:
+            return {
+                "node_timings": {**(state.get("node_timings") or {}), "critique": (time.time() - t0) * 1000},
+            }
+
+        if governor.budget.exhausted:
+            logger.warning("Budget exhausted — skipping critique")
+            return {
+                "token_budget": budget,
+                "node_timings": {**(state.get("node_timings") or {}), "critique": (time.time() - t0) * 1000},
+            }
+
+        critiques = await engine.run_critiques(state["query"], role_result.analysis.content)
+        role_result.critiques = critiques
+        role_result.api_calls += len(critiques)
+
+        return {
+            "role_result": role_result,
+            "token_budget": budget,
+            "node_timings": {**(state.get("node_timings") or {}), "critique": (time.time() - t0) * 1000},
+        }
+
+    async def synthesis_node(self, state: PipelineState) -> dict:
+        """Stage 3: Synthesize analysis + critiques (Gemini Flash) — 1 API call."""
+        t0 = time.time()
+        role_result = state.get("role_result")
+        budget = state.get("token_budget") or TokenBudget()
+        governor = TokenGovernor(budget)
+        engine = RoleBasedEngine(self.router, governor)
+
+        if not role_result or not role_result.analysis:
+            return {
+                "node_timings": {**(state.get("node_timings") or {}), "synthesis": (time.time() - t0) * 1000},
+            }
+
+        context_block = ""
+        if state.get("search_context"):
+            context_block += f"WEB RESEARCH:\n{state['search_context']}\n\n"
+        if state.get("history_context"):
+            context_block += f"CONVERSATION CONTEXT:\n{state['history_context']}\n\n"
+
+        if governor.budget.exhausted:
+            logger.warning("Budget exhausted — using analysis as synthesis")
+            from compressed.role_engine import StageResult
+            role_result.synthesis = StageResult(
+                role="synthesis_fallback",
+                content=role_result.analysis.content,
+                model=role_result.analysis.model,
+            )
+            return {
+                "role_result": role_result,
+                "token_budget": budget,
+                "node_timings": {**(state.get("node_timings") or {}), "synthesis": (time.time() - t0) * 1000},
+            }
+
+        critique_a = role_result.critiques[0].content if role_result.critiques else "No critique available."
+        critique_b = role_result.critiques[1].content if len(role_result.critiques) > 1 else "No critique available."
+        critique_c = role_result.critiques[2].content if len(role_result.critiques) > 2 else "No critique available."
+
+        synthesis = await engine.run_synthesis(
+            state["query"], context_block,
+            role_result.analysis.content, critique_a, critique_b,
+            critique_c_text=critique_c,
+            citations_block=state.get("citations_block", ""),
+        )
+        role_result.synthesis = synthesis
+        role_result.api_calls += 1
+
+        if not synthesis.content:
+            from compressed.role_engine import StageResult
+            role_result.synthesis = StageResult(
+                role="synthesis_fallback",
+                content=role_result.analysis.content,
+                model=role_result.analysis.model,
+            )
+
+        return {
+            "role_result": role_result,
+            "token_budget": budget,
+            "node_timings": {**(state.get("node_timings") or {}), "synthesis": (time.time() - t0) * 1000},
+        }
+
+    async def verification_node(self, state: PipelineState) -> dict:
+        """Stage 4: Verification (Llama-3.1-8B) — 1 API call."""
+        t0 = time.time()
+        role_result = state.get("role_result")
+        budget = state.get("token_budget") or TokenBudget()
+        governor = TokenGovernor(budget)
+        engine = RoleBasedEngine(self.router, governor)
+
+        if not role_result or not role_result.synthesis or not role_result.synthesis.content:
+            return {
+                "node_timings": {**(state.get("node_timings") or {}), "verification": (time.time() - t0) * 1000},
+            }
+
+        if governor.budget.exhausted:
+            logger.warning("Budget exhausted — skipping verification")
+            return {
+                "token_budget": budget,
+                "node_timings": {**(state.get("node_timings") or {}), "verification": (time.time() - t0) * 1000},
+            }
+
+        verification = await engine.run_verification(state["query"], role_result.synthesis.content)
+        role_result.verifications = [verification]
+        role_result.api_calls += 1
+
+        # Finalize totals
+        all_stages = (
+            [role_result.analysis] +
+            role_result.critiques +
+            ([role_result.synthesis] if role_result.synthesis else []) +
+            role_result.verifications
+        )
+        role_result.total_tokens_in = sum(s.tokens_in for s in all_stages if s)
+        role_result.total_tokens_out = sum(s.tokens_out for s in all_stages if s)
+
+        return {
+            "role_result": role_result,
+            "token_budget": budget,
+            "node_timings": {**(state.get("node_timings") or {}), "verification": (time.time() - t0) * 1000},
+        }
+
+    async def report_memory(self, state: PipelineState) -> dict:
+        """Generate structured report and persist to SQLite."""
+        t0 = time.time()
+        role_result = state.get("role_result")
+
+        # ── Report generation ──
+        if not role_result or not role_result.ok:
+            error_msg = role_result.error if role_result else "No reasoning result"
             return {
                 "formatted_output": f"Sentinel analysis failed: {error_msg}",
                 "metadata": {"error": error_msg},
                 "error": error_msg,
-                "node_timings": {**(state.get("node_timings") or {}), "report": (time.time() - t0) * 1000},
+                "node_timings": {**(state.get("node_timings") or {}), "report_memory": (time.time() - t0) * 1000},
             }
 
         search_used = bool(state.get("search_context"))
-        report = self.report_gen.generate(debate_result, search_used=search_used)
+        report = self.report_gen.generate(role_result, search_used=search_used, search_bundle=state.get("search_bundle"))
+        formatted = report.to_formatted_output()
+        metadata = report.to_metadata()
 
-        return {
-            "report": report,
-            "formatted_output": report.to_formatted_output(),
-            "metadata": report.to_metadata(),
-            "node_timings": {**(state.get("node_timings") or {}), "report": (time.time() - t0) * 1000},
-        }
-
-    async def memory_writer(self, state: PipelineState) -> dict:
-        """Persist results to SQLite session memory."""
-        t0 = time.time()
+        # ── Memory persistence ──
         session_id = state.get("session_id", "")
-        output = state.get("formatted_output", "")
-
-        if session_id and output:
-            await self.memory.add_message(session_id, "assistant", output[:5000])
-
-            # Record token usage
+        if session_id and formatted:
+            await self.memory.add_message(session_id, "assistant", formatted[:5000])
             budget = state.get("token_budget")
             if budget:
                 await self.memory.record_token_usage(
@@ -286,21 +412,21 @@ class PipelineNodes:
                 )
 
         total_time = (time.time() - state.get("start_time", time.time())) * 1000
+        metadata["total_latency_ms"] = total_time
+        metadata["node_timings"] = state.get("node_timings", {})
 
         return {
-            "node_timings": {**(state.get("node_timings") or {}), "memory_writer": (time.time() - t0) * 1000},
-            "metadata": {
-                **(state.get("metadata") or {}),
-                "total_latency_ms": total_time,
-                "node_timings": state.get("node_timings", {}),
-            },
+            "report": report,
+            "formatted_output": formatted,
+            "metadata": metadata,
+            "node_timings": {**(state.get("node_timings") or {}), "report_memory": (time.time() - t0) * 1000},
         }
 
 
 # ── Graph Builder ──
 
 def build_pipeline() -> StateGraph:
-    """Build the LangGraph pipeline."""
+    """Build the 10-node LangGraph pipeline."""
     nodes = PipelineNodes()
 
     graph = StateGraph(PipelineState)
@@ -311,20 +437,24 @@ def build_pipeline() -> StateGraph:
     graph.add_node("search_node", nodes.search_node)
     graph.add_node("scrape_node", nodes.scrape_node)
     graph.add_node("summarize_node", nodes.summarize_node)
-    graph.add_node("debate_node", nodes.debate_node)
-    graph.add_node("report_node", nodes.report_node)
-    graph.add_node("memory_writer", nodes.memory_writer)
+    graph.add_node("analysis_node", nodes.analysis_node)
+    graph.add_node("critique_node", nodes.critique_node)
+    graph.add_node("synthesis_node", nodes.synthesis_node)
+    graph.add_node("verification_node", nodes.verification_node)
+    graph.add_node("report_memory", nodes.report_memory)
 
-    # Define edges (linear flow)
+    # Define edges (linear flow with internal parallelism in critique/verification)
     graph.add_edge(START, "context_loader")
     graph.add_edge("context_loader", "token_guard")
     graph.add_edge("token_guard", "search_node")
     graph.add_edge("search_node", "scrape_node")
     graph.add_edge("scrape_node", "summarize_node")
-    graph.add_edge("summarize_node", "debate_node")
-    graph.add_edge("debate_node", "report_node")
-    graph.add_edge("report_node", "memory_writer")
-    graph.add_edge("memory_writer", END)
+    graph.add_edge("summarize_node", "analysis_node")
+    graph.add_edge("analysis_node", "critique_node")
+    graph.add_edge("critique_node", "synthesis_node")
+    graph.add_edge("synthesis_node", "verification_node")
+    graph.add_edge("verification_node", "report_memory")
+    graph.add_edge("report_memory", END)
 
     return graph
 
@@ -353,7 +483,7 @@ async def run_compressed_pipeline(
     session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Execute the full compressed reasoning pipeline.
+    Execute the role-based reasoning pipeline.
 
     Returns dict with:
       - formatted_output: str (the full Sentinel report)

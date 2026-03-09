@@ -41,15 +41,18 @@ def count_messages_tokens(messages: List[Dict[str, str]]) -> int:
     return total
 
 
+MAX_PROMPT_TOKENS = 1200  # Auto-summarize if context exceeds this
+
+
 @dataclass
 class TokenBudget:
-    """Token budget for a single pipeline run."""
-    total_limit: int = 16000      # Total input+output budget for entire run
-    per_call_input: int = 4000    # Max input tokens per API call
-    per_call_output: int = 2048   # Max output tokens per API call
-    search_context: int = 2000    # Max tokens for web search context
-    history_context: int = 1500   # Max tokens for session history
-    reserve: int = 500            # Reserved for system overhead
+    """Token budget for a single pipeline run (~6 API calls)."""
+    total_limit: int = 18000      # Total input+output budget for entire run
+    per_call_input: int = MAX_PROMPT_TOKENS  # Max input tokens per API call
+    per_call_output: int = 1500   # Max output tokens per API call
+    search_context: int = 1500    # Max tokens for web search context
+    history_context: int = 1000   # Max tokens for session history
+    reserve: int = 400            # Reserved for system overhead
 
     tokens_used_in: int = 0
     tokens_used_out: int = 0

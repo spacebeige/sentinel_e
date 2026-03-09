@@ -1040,9 +1040,9 @@ async def run_compressed(
     user: Dict = Depends(get_current_user),
 ):
     """
-    Compressed reasoning pipeline — LangGraph-based.
-    Uses Gemini Flash 2.0 + optional Groq fallback.
-    Maximum 2-3 API calls with web search, debate, and structured output.
+    Compressed reasoning pipeline — LangGraph role-based.
+    Uses Gemini Flash 2.0 + Groq + Qwen models with role-based assignments.
+    ~6 API calls: Analysis → Critique(×2) → Synthesis → Verification(×2).
     """
     user_id = user["user_id"]
     firewall = get_firewall()
@@ -1094,6 +1094,72 @@ async def run_compressed(
     except Exception as e:
         logger.error(f"Compressed pipeline failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Compressed pipeline error: {str(e)}")
+
+
+# ============================================================
+# INDIVIDUAL MODEL MODE (Direct single-model query)
+# ============================================================
+
+@app.get("/api/models")
+async def list_available_models(user: Dict = Depends(get_current_user)):
+    """List all available models in the compressed pipeline."""
+    from compressed.model_clients import RoleBasedRouter
+    router = RoleBasedRouter()
+    return {"models": router.list_models()}
+
+
+@app.post("/api/model/{model_id}")
+async def query_individual_model(
+    model_id: str,
+    request: SentinelRequest,
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    """
+    Query a specific model directly (individual model mode).
+    Supported model_ids: llama-3.3-70b, llama-3.1-8b, mixtral-8x7b, gemma-7b, gemini-flash, qwen-2.5-vl
+    """
+    import time as _time
+    from compressed.model_clients import RoleBasedRouter
+
+    user_id = user["user_id"]
+    firewall = get_firewall()
+
+    if len(request.text) > settings.MAX_INPUT_LENGTH:
+        raise HTTPException(status_code=400, detail="Input too long.")
+
+    verdict = firewall.analyze(request.text)
+    if verdict.blocked:
+        raise HTTPException(status_code=400, detail="Input blocked by safety filter.")
+    effective_text = verdict.sanitized_text or request.text
+
+    router = RoleBasedRouter()
+    client = router.get_client_by_id(model_id)
+    if not client:
+        raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found. Use GET /api/models to list available models.")
+    if not client.available:
+        raise HTTPException(status_code=503, detail=f"Model '{model_id}' is not configured (API key missing).")
+
+    t0 = _time.time()
+    resp = await client.generate(
+        prompt=effective_text,
+        system_instruction="You are Sentinel-E, an advanced AI reasoning assistant. Provide clear, well-structured answers.",
+        max_tokens=2048,
+        temperature=0.3,
+    )
+    latency_ms = (_time.time() - t0) * 1000
+
+    if not resp.ok:
+        raise HTTPException(status_code=502, detail=f"Model error: {resp.error}")
+
+    return {
+        "model_id": model_id,
+        "model": resp.model,
+        "response": resp.content,
+        "tokens_in": resp.tokens_in,
+        "tokens_out": resp.tokens_out,
+        "latency_ms": round(latency_ms, 1),
+    }
 
 
 # ============================================================

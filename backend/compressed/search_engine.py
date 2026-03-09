@@ -1,5 +1,5 @@
 """
-Serper web search + scraping pipeline.
+Dual web search (Tavily + Serper) + scraping pipeline.
 Search → retrieve URLs → scrape content → local summarization.
 """
 
@@ -17,6 +17,7 @@ from bs4 import BeautifulSoup
 logger = logging.getLogger("compressed.search")
 
 SERPER_API_URL = "https://google.serper.dev/search"
+TAVILY_API_URL = "https://api.tavily.com/search"
 MAX_RESULTS = 5
 MAX_SCRAPE_CHARS = 4000
 SCRAPE_TIMEOUT = 8.0
@@ -27,6 +28,7 @@ class SearchResult:
     title: str
     url: str
     snippet: str
+    source: str = "serper"  # "serper" | "tavily"
 
 
 @dataclass
@@ -58,7 +60,7 @@ class SerperSearch:
 
     async def search(self, query: str, num_results: int = MAX_RESULTS) -> List[SearchResult]:
         if not self._api_key:
-            logger.warning("SERPER_API_KEY not set — skipping web search")
+            logger.warning("SERPER_API_KEY not set — skipping Serper search")
             return []
 
         headers = {"X-API-KEY": self._api_key, "Content-Type": "application/json"}
@@ -75,8 +77,89 @@ class SerperSearch:
                 title=item.get("title", ""),
                 url=item.get("link", ""),
                 snippet=item.get("snippet", ""),
+                source="serper",
             ))
         return results
+
+
+class TavilySearch:
+    """Tavily API search client."""
+
+    def __init__(self, api_key: Optional[str] = None):
+        self._api_key = api_key or os.getenv("TAVILY_API_KEY", "")
+
+    @property
+    def available(self) -> bool:
+        return bool(self._api_key)
+
+    async def search(self, query: str, num_results: int = MAX_RESULTS) -> List[SearchResult]:
+        if not self._api_key:
+            logger.warning("TAVILY_API_KEY not set — skipping Tavily search")
+            return []
+
+        payload = {
+            "api_key": self._api_key,
+            "query": query,
+            "max_results": num_results,
+            "search_depth": "basic",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(TAVILY_API_URL, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+
+            results = []
+            for item in data.get("results", [])[:num_results]:
+                results.append(SearchResult(
+                    title=item.get("title", ""),
+                    url=item.get("url", ""),
+                    snippet=item.get("content", "")[:500],
+                    source="tavily",
+                ))
+            return results
+        except Exception as e:
+            logger.warning(f"Tavily search failed: {e}")
+            return []
+
+
+class DualSearchEngine:
+    """Runs Tavily + Serper in parallel, deduplicates by URL."""
+
+    def __init__(self):
+        self.tavily = TavilySearch()
+        self.serper = SerperSearch()
+
+    @property
+    def available(self) -> bool:
+        return self.tavily.available or self.serper.available
+
+    async def search(self, query: str, num_results: int = MAX_RESULTS) -> List[SearchResult]:
+        tasks = []
+        if self.tavily.available:
+            tasks.append(self.tavily.search(query, num_results))
+        if self.serper.available:
+            tasks.append(self.serper.search(query, num_results))
+
+        if not tasks:
+            return []
+
+        all_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        seen_urls = set()
+        deduped = []
+        for batch in all_results:
+            if isinstance(batch, Exception):
+                logger.warning(f"Search provider error: {batch}")
+                continue
+            for r in batch:
+                normalized = r.url.rstrip("/").lower()
+                if normalized not in seen_urls:
+                    seen_urls.add(normalized)
+                    deduped.append(r)
+
+        return deduped
 
 
 class WebScraper:
@@ -141,3 +224,13 @@ def build_search_context(bundle: SearchBundle) -> str:
             parts.append(f"[{i}] {r.title}: {r.snippet}")
 
     return "\n".join(parts)
+
+
+def format_citations(results: List[SearchResult]) -> str:
+    """Format search results into a numbered citation block for synthesis."""
+    if not results:
+        return ""
+    lines = ["CITATIONS:"]
+    for i, r in enumerate(results, 1):
+        lines.append(f"[{i}] {r.title} — {r.url} (via {r.source})")
+    return "\n".join(lines)
