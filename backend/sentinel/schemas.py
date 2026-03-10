@@ -11,6 +11,7 @@ class SentinelRequest(BaseModel):
     text: str = Field(..., max_length=50000, description="User query text")
     mode: str = Field(default="conversational", description="conversational | standard | research | experimental | kill")
     sub_mode: Optional[str] = Field(default=None, description="debate | glass | evidence | stress")
+    selected_model: Optional[str] = Field(default=None, description="Specific model registry key for single-model chat (bypasses debate)")
     enable_shadow: bool = False
     rounds: int = Field(default=1, ge=1, le=10, description="Max debate/analysis rounds")
     chat_id: Optional[UUID] = None

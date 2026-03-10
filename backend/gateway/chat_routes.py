@@ -236,15 +236,14 @@ async def chat_with_model(
     # ── 5. Build response ─────────────────────────────────────
     if not output.success:
         # All attempts (including fallback) exhausted
+        logger.error(
+            f"[ChatRoutes] All attempts failed for '{model_id}': "
+            f"{output.error}, retried={retried}, "
+            f"fallback_attempted={fallback_model_id is not None}"
+        )
         raise HTTPException(
             status_code=502,
-            detail={
-                "model_id": model_id,
-                "model_name": spec.name,
-                "error": output.error or "Model invocation failed",
-                "retried": retried,
-                "fallback_attempted": fallback_model_id is not None,
-            },
+            detail="Provider unavailable. Please try again or select a different model.",
         )
 
     # Use most recent spec for response metadata
@@ -282,6 +281,7 @@ async def list_available_models() -> Dict[str, Any]:
             "id": key,
             "name": spec.name,
             "provider": spec.provider,
+            "model_type": getattr(spec, "model_type", "external"),
             "role": spec.role.value,
             "tier": MODEL_DEBATE_TIERS.get(key, 2),
             "enabled": spec.enabled and spec.active,

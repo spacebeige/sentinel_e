@@ -381,7 +381,7 @@ function sanitizeError(error) {
 
   switch (status) {
     case 400:
-      return new Error(detail || 'Invalid request. Please try rephrasing.');
+      return new Error(typeof detail === 'string' ? detail : 'Invalid request. Please try rephrasing.');
     case 401:
       return new Error('Session expired. Please refresh the page.');
     case 404:
@@ -390,6 +390,8 @@ function sanitizeError(error) {
       return new Error('Your message is too long. Please shorten it.');
     case 429:
       return new Error('Too many requests. Please wait a moment.');
+    case 502:
+      return new Error(typeof detail === 'string' ? detail : 'Provider unavailable. Please try again.');
     case 503:
       return new Error('The system is starting up. Please try again in a moment.');
     default:

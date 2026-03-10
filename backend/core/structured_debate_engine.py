@@ -145,6 +145,63 @@ evidence_reliance: [0.0-1.0]
 novelty: [0.0-1.0]"""
 
 
+STRUCTURED_ROUND_FINAL = """You are in the FINAL round ({round_number}) of a multi-model adversarial debate.
+
+DEBATE TOPIC: {query}
+
+PREVIOUS DEBATE TRANSCRIPT:
+{transcript}
+
+YOUR PREVIOUS POSITION: {own_previous}
+
+THIS IS THE FINAL ROUND. Your job is to deliver your REFINED, FINAL stance.
+
+RULES FOR THE FINAL ROUND:
+- Synthesize everything you've learned from the debate.
+- Acknowledge the strongest points made by opponents.
+- State your FINAL position clearly — this is your definitive answer.
+- Your confidence must reflect ALL evidence and arguments presented.
+- Identify any remaining unresolved disagreements.
+- Be honest about what the debate revealed — don't just repeat Round 1.
+
+Respond with EXACTLY this structure:
+
+KEY_TAKEAWAYS: [What the debate revealed, prefixed with "- "]
+- takeaway from the debate
+
+CONCESSIONS: [Points from opponents you now accept, prefixed with "- "]
+- concession 1
+
+POSITION: [Your FINAL, refined thesis — incorporating debate insights]
+
+ARGUMENT: [Your strongest, most refined reasoning — battle-tested through debate]
+
+REMAINING_DISAGREEMENTS: [Unresolved points where models still diverge, prefixed with "- "]
+- disagreement 1
+
+ASSUMPTIONS: [Final assumptions, prefixed with "- "]
+- assumption 1
+
+RISKS: [Final risks, prefixed with "- "]
+- risk 1
+
+VULNERABILITIES: [Remaining weaknesses, prefixed with "- "]
+- vulnerability 1
+
+POSITION_SHIFTED: [YES or NO — did your position change from last round?]
+
+SHIFT_REASON: [If shifted, explain what argument convinced you. If not, explain why your position held under pressure.]
+
+CONFIDENCE: [Final confidence 0.0-1.0 — must reflect the full debate]
+
+STANCE: [Final dimensional ratings]
+certainty: [0.0-1.0]
+specificity: [0.0-1.0]
+risk_tolerance: [0.0-1.0]
+evidence_reliance: [0.0-1.0]
+novelty: [0.0-1.0]"""
+
+
 # Type for model caller function (accepts optional max_tokens kwarg)
 ModelCaller = Callable[..., Coroutine[Any, Any, str]]
 
@@ -230,6 +287,8 @@ class StructuredDebateEngine:
         all_shifts: List[ShiftRecord] = []
         transcript_parts: List[str] = []
         prev_positions: Dict[str, DebatePosition] = {}
+        # Track persistently failed models to exclude from subsequent rounds
+        failed_model_ids: set = set()
 
         for round_num in range(1, rounds + 1):
             # ── Budget gate: stop if remaining < MIN_REMAINING_BUDGET ──
@@ -245,9 +304,19 @@ class StructuredDebateEngine:
             # ── Adaptive hard cap per model ──
             per_model_budget = adaptive_round_caps.get(round_num, adaptive_round_caps.get(3, 200))
 
+            # ── Filter out persistently failed models ──────────
+            active_models = [m for m in models if m["id"] not in failed_model_ids]
+            if len(active_models) < 2 and len(debate_rounds) >= 1:
+                logger.warning(
+                    f"Too few active models ({len(active_models)}) after failures. "
+                    f"Ending debate after {len(debate_rounds)} rounds."
+                )
+                break
+
             logger.info(
                 f"Debate round {round_num}/{rounds}: "
-                f"per_model_cap={per_model_budget}, remaining={remaining_budget}"
+                f"per_model_cap={per_model_budget}, remaining={remaining_budget}, "
+                f"active_models={len(active_models)}/{len(models)}"
             )
 
             if round_num == 1 and initial_outputs:
@@ -263,7 +332,7 @@ class StructuredDebateEngine:
                 )
             elif round_num == 1:
                 round_result = await self._run_round_1(
-                    query, models, max_tokens=per_model_budget
+                    query, active_models, max_tokens=per_model_budget
                 )
                 round_tokens = self._estimate_round_tokens(round_result)
             else:
@@ -271,9 +340,12 @@ class StructuredDebateEngine:
                 transcript = self._compress_debate_summary(
                     debate_rounds, prev_positions
                 )
+                # Use final round prompt if this is the last planned round
+                is_final = (round_num == rounds)
                 round_result = await self._run_round_n(
-                    query, models, round_num, transcript, prev_positions,
+                    query, active_models, round_num, transcript, prev_positions,
                     max_tokens=per_model_budget,
+                    is_final_round=is_final,
                 )
                 round_tokens = self._estimate_round_tokens(round_result)
 
@@ -287,6 +359,16 @@ class StructuredDebateEngine:
                 prev_positions, per_model_budget,
                 transcript=self._compress_debate_summary(debate_rounds, prev_positions) if round_num > 1 else "",
             )
+
+            # ── Track persistent failures ──────────────────────
+            # Models that fail even after self-healing are excluded from future rounds
+            for pos in round_result.positions:
+                if pos.status == "failed" or pos.position == "[MODEL FAILED]":
+                    failed_model_ids.add(pos.model_id)
+                    logger.warning(
+                        f"Model '{pos.model_id}' marked unavailable — "
+                        f"excluded from future rounds"
+                    )
 
             # Track disagreement
             round_result.round_disagreement = self._compute_disagreement(
@@ -378,6 +460,7 @@ class StructuredDebateEngine:
                 round_result = await self._run_round_n(
                     query, models, 3, transcript, prev_positions,
                     max_tokens=per_model_r3,
+                    is_final_round=True,
                 )
                 round_tokens = self._estimate_round_tokens(round_result)
                 total_tokens_spent += round_tokens
@@ -574,9 +657,17 @@ class StructuredDebateEngine:
         transcript: str,
         prev_positions: Dict[str, DebatePosition],
         max_tokens: Optional[int] = None,
+        is_final_round: bool = False,
     ) -> DebateRound:
-        """Execute round N: rebuttals and position updates."""
+        """Execute round N: rebuttals and position updates.
+        
+        Uses STRUCTURED_ROUND_FINAL for the last round to elicit
+        refined final stances instead of repeated rebuttals.
+        """
         tasks = []
+        # Select prompt template based on whether this is the final round
+        prompt_template = STRUCTURED_ROUND_FINAL if is_final_round else STRUCTURED_ROUND_N
+
         for model in models:
             own_prev = ""
             if model["id"] in prev_positions:
@@ -585,7 +676,7 @@ class StructuredDebateEngine:
             else:
                 own_prev = "No previous position."
 
-            system_prompt = STRUCTURED_ROUND_N.format(
+            system_prompt = prompt_template.format(
                 query=query,
                 round_number=round_num,
                 transcript=transcript,

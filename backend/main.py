@@ -625,8 +625,209 @@ async def run_sentinel(
         history.extend(opt_history_list)
 
     # ══════════════════════════════════════════════════════════
-    # COGNITIVE ENSEMBLE — Always active when orchestrator available
-    # All modes benefit from multi-model reasoning
+    # QUERY ROUTING — Decide execution path before running
+    # ══════════════════════════════════════════════════════════
+    from core.query_router import route_query, ExecutionPath
+    from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+
+    routing_decision = route_query(
+        query=effective_text,
+        mode=omega_mode,
+        sub_mode=sub_mode,
+        selected_model=getattr(request, "selected_model", None),
+        model_registry=COGNITIVE_MODEL_REGISTRY,
+    )
+    logger.info(
+        f"Routing decision: path={routing_decision.path.value}, "
+        f"reason={routing_decision.reason}, "
+        f"complexity={routing_decision.query_complexity}"
+    )
+
+    # ══════════════════════════════════════════════════════════
+    # PATH: SINGLE MODEL CHAT — bypass ensemble entirely
+    # ══════════════════════════════════════════════════════════
+    if routing_decision.path == ExecutionPath.SINGLE_MODEL and routing_decision.selected_model:
+        tracer.start_span("kernel")
+        single_model_id = routing_decision.selected_model
+        try:
+            spec = COGNITIVE_MODEL_REGISTRY.get(single_model_id)
+            if not spec or not spec.enabled:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Model '{single_model_id}' is not available.",
+                )
+
+            raw_output = await mco_bridge.call_model(
+                single_model_id, effective_text, "",
+            )
+            kernel_latency = tracer.end_span("kernel")
+
+            # Check for error responses from the model
+            if raw_output.startswith("Error:"):
+                logger.error(f"Model '{single_model_id}' returned error: {raw_output}")
+                raise HTTPException(
+                    status_code=502,
+                    detail="Provider unavailable. Please try again or select a different model.",
+                )
+
+            formatted_output = raw_output
+            confidence = 0.8  # Single model — no ensemble calibration
+
+            await add_message(db, chat.id, "assistant", formatted_output)
+            memory.add_message("assistant", formatted_output)
+            await _persist_session(str(chat.id), kernel, memory)
+
+            omega_metadata = {
+                "version": "6.1.0",
+                "mode": "single_model",
+                "sub_mode": None,
+                "selected_model": single_model_id,
+                "model_name": spec.name,
+                "provider": spec.provider,
+                "model_type": getattr(spec, "model_type", "external"),
+                "confidence": confidence,
+                "routing": {
+                    "path": routing_decision.path.value,
+                    "reason": routing_decision.reason,
+                    "query_complexity": routing_decision.query_complexity,
+                },
+            }
+
+            await update_chat_metadata(
+                db, chat.id,
+                priority_answer=formatted_output,
+                machine_metadata=omega_metadata,
+                rounds=0,
+            )
+
+            try:
+                total_latency = tracer.end_span("total")
+            except Exception:
+                total_latency = kernel_latency
+
+            return {
+                "chat_id": str(chat.id),
+                "mode": "single_model",
+                "sub_mode": None,
+                "formatted_output": formatted_output,
+                "data": {"priority_answer": formatted_output},
+                "confidence": confidence,
+                "session_state": {},
+                "boundary_result": {"risk_level": "LOW", "severity_score": 20},
+                "omega_metadata": omega_metadata,
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Single model chat failed for '{single_model_id}': {e}")
+            raise HTTPException(
+                status_code=502,
+                detail="Provider unavailable. Please try again or select a different model.",
+            )
+
+    # ══════════════════════════════════════════════════════════
+    # PATH: TRIVIAL QUERY — use fastest available model, skip debate
+    # ══════════════════════════════════════════════════════════
+    if routing_decision.skip_debate and routing_decision.path == ExecutionPath.STANDARD:
+        tracer.start_span("kernel")
+        try:
+            # Use the fastest model for trivial queries
+            fast_model = "llama31-instant"
+            spec = COGNITIVE_MODEL_REGISTRY.get(fast_model)
+            if not spec or not spec.enabled:
+                # Fallback to any enabled model
+                fast_model = next(
+                    (k for k, s in COGNITIVE_MODEL_REGISTRY.items() if s.enabled),
+                    None,
+                )
+                if not fast_model:
+                    raise HTTPException(status_code=503, detail="No models available.")
+                spec = COGNITIVE_MODEL_REGISTRY[fast_model]
+
+            raw_output = await mco_bridge.call_model(
+                fast_model, effective_text, "",
+            )
+            kernel_latency = tracer.end_span("kernel")
+
+            if raw_output.startswith("Error:"):
+                # For trivial queries, try one fallback before failing
+                fallback_model = next(
+                    (k for k, s in COGNITIVE_MODEL_REGISTRY.items()
+                     if s.enabled and k != fast_model),
+                    None,
+                )
+                if fallback_model:
+                    raw_output = await mco_bridge.call_model(
+                        fallback_model, effective_text, "",
+                    )
+                    if raw_output.startswith("Error:"):
+                        logger.error(f"Fallback model '{fallback_model}' also failed: {raw_output}")
+                        raise HTTPException(
+                            status_code=502,
+                            detail="Provider unavailable. Please try again.",
+                        )
+                    spec = COGNITIVE_MODEL_REGISTRY[fallback_model]
+                    fast_model = fallback_model
+                else:
+                    logger.error(f"No fallback available. Original error: {raw_output}")
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Provider unavailable. Please try again.",
+                    )
+
+            formatted_output = raw_output
+            confidence = 0.7
+
+            await add_message(db, chat.id, "assistant", formatted_output)
+            memory.add_message("assistant", formatted_output)
+            await _persist_session(str(chat.id), kernel, memory)
+
+            omega_metadata = {
+                "version": "6.1.0",
+                "mode": omega_mode,
+                "sub_mode": sub_mode,
+                "model_used": fast_model,
+                "model_name": spec.name,
+                "confidence": confidence,
+                "routing": {
+                    "path": routing_decision.path.value,
+                    "reason": routing_decision.reason,
+                    "query_complexity": routing_decision.query_complexity,
+                    "debate_skipped": True,
+                },
+            }
+
+            await update_chat_metadata(
+                db, chat.id,
+                priority_answer=formatted_output,
+                machine_metadata=omega_metadata,
+                rounds=0,
+            )
+
+            try:
+                total_latency = tracer.end_span("total")
+            except Exception:
+                total_latency = kernel_latency
+
+            return {
+                "chat_id": str(chat.id),
+                "mode": omega_mode,
+                "sub_mode": sub_mode,
+                "formatted_output": formatted_output,
+                "data": {"priority_answer": formatted_output},
+                "confidence": confidence,
+                "session_state": {},
+                "boundary_result": {"risk_level": "LOW", "severity_score": 15},
+                "omega_metadata": omega_metadata,
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"Fast path failed, falling through to ensemble: {e}")
+            # Fall through to ensemble if fast path fails
+
+    # ══════════════════════════════════════════════════════════
+    # COGNITIVE ENSEMBLE — For analytical queries and debate mode
     # ══════════════════════════════════════════════════════════
     use_ensemble = cognitive_orchestrator_engine is not None
     if use_ensemble:

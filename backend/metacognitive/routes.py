@@ -140,12 +140,28 @@ async def mco_run(
     await add_message(db, chat.id, "user", query)
 
     # ══════════════════════════════════════════════════════════
+    # QUERY COMPLEXITY CHECK — Skip debate for trivial queries
+    # ══════════════════════════════════════════════════════════
+    from core.query_router import classify_query_complexity
+    query_complexity = classify_query_complexity(query)
+
+    # ══════════════════════════════════════════════════════════
     # DEBATE MODE DELEGATION
     # When sub_mode is "debate" and CognitiveOrchestrator is available,
     # delegate to it for multi-round structured debate (StructuredDebateEngine).
     # This produces real rounds with rebuttals, drift/rift metrics, etc.
+    # Skip debate for trivial queries even if debate mode is requested.
     # ══════════════════════════════════════════════════════════
     effective_sub_mode = sub_mode
+    if effective_sub_mode == "debate" and query_complexity == "trivial":
+        logger.info(f"Trivial query in debate mode — skipping debate for chat {chat.id}")
+        effective_sub_mode = None  # Fall through to standard MCO pipeline
+
+    # If user selected a specific model, never route to debate engine
+    if selected_model and effective_sub_mode == "debate":
+        logger.info(f"Single model '{selected_model}' selected — skipping debate")
+        effective_sub_mode = None
+
     if effective_sub_mode == "debate" and _cognitive_engine is not None:
         logger.info(f"Debate mode: delegating to CognitiveOrchestrator for chat {chat.id}")
         try:
@@ -279,16 +295,17 @@ async def mco_run(
         response = await orch.process(request)
     except RuntimeError as e:
         logger.error(f"MCO execution error: {e}")
-        raise HTTPException(status_code=502, detail=str(e))
+        raise HTTPException(status_code=502, detail="Model processing failed. Please try again.")
     except Exception as e:
         logger.error(f"MCO execution failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
 
     # Guard: no blank responses
     if not response.aggregated_answer or not response.aggregated_answer.strip():
+        logger.error(f"Empty output from model '{response.winning_model}'")
         raise HTTPException(
             status_code=502,
-            detail=f"Model '{response.winning_model}' returned empty output",
+            detail="No response generated. Please try again.",
         )
 
     # Persist assistant response

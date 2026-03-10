@@ -169,13 +169,23 @@ class CognitiveOrchestrator:
 
             # Validate sufficient successful outputs
             successful = [o for o in structured_outputs if o.succeeded]
-            if len(successful) < MIN_MODELS:
+            failed_models = [o.model_id for o in structured_outputs if not o.succeeded]
+
+            if failed_models:
+                logger.warning(
+                    f"Models failed in Phase 1: {failed_models}. "
+                    f"Continuing with {len(successful)} successful models."
+                )
+
+            # Graceful degradation: allow 2 models if 3+ were attempted
+            min_required = MIN_MODELS if len(structured_outputs) >= MIN_MODELS else 2
+            if len(successful) < min_required:
                 raise EnsembleFailure(
                     code=EnsembleFailureCode.INSUFFICIENT_MODELS,
                     message=(
                         f"Only {len(successful)} models succeeded, "
-                        f"minimum {MIN_MODELS} required. "
-                        f"Failed: {[o.model_id for o in structured_outputs if not o.succeeded]}"
+                        f"minimum {min_required} required. "
+                        f"Failed: {failed_models}"
                     ),
                     models_available=len(successful),
                 )

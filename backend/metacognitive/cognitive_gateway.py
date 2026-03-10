@@ -49,8 +49,9 @@ class CognitiveModelSpec:
     """Specification for a cognitive model endpoint."""
     name: str
     model_id: str           # Provider-specific model ID
-    provider: str           # groq | gemini | qwen
+    provider: str           # groq | gemini | qwen | local
     role: ModelRole         # Routing hint
+    model_type: str = "external"  # "external" (API) or "internal" (local inference)
     context_window: int = 131072
     max_output_tokens: int = 8192
     default_temperature: float = 0.3
