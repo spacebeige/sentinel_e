@@ -97,6 +97,15 @@ export function resolveRenderMode(result) {
     };
   }
 
+  // Synthesis mode
+  if (mode === 'synthesis') {
+    return {
+      ...base,
+      engine: 'SynthesisEngine',
+      synthesisResult: meta.synthesis_result || {},
+    };
+  }
+
   // Standard / conversational (default)
   return {
     ...base,
@@ -161,20 +170,36 @@ export function getDefaultPipelineSteps(mode, subMode) {
   if (effectiveMode === 'glass') {
     return [
       { id: 0, step: 'context', label: 'Stabilizing Context', status: 'pending' },
-      { id: 1, step: 'audit', label: 'Generating Blind Audit', status: 'pending' },
-      { id: 2, step: 'trace', label: 'Extracting Reasoning Trace', status: 'pending' },
-      { id: 3, step: 'comparison', label: 'Comparing Outputs', status: 'pending' },
-      { id: 4, step: 'rendering', label: 'Rendering', status: 'pending' },
+      { id: 1, step: 'execute', label: 'Executing All Models', status: 'pending' },
+      { id: 2, step: 'audit', label: 'Running Blind Forensic Audit', status: 'pending' },
+      { id: 3, step: 'trace', label: 'Extracting Reasoning Trace', status: 'pending' },
+      { id: 4, step: 'graph', label: 'Building Reasoning Graph', status: 'pending' },
+      { id: 5, step: 'trust', label: 'Computing Trust Scores', status: 'pending' },
+      { id: 6, step: 'rendering', label: 'Rendering', status: 'pending' },
     ];
   }
 
   if (effectiveMode === 'evidence') {
     return [
       { id: 0, step: 'context', label: 'Stabilizing Context', status: 'pending' },
-      { id: 1, step: 'research', label: 'Extracting Evidence', status: 'pending' },
-      { id: 2, step: 'citation', label: 'Verifying Citations', status: 'pending' },
-      { id: 3, step: 'scoring', label: 'Scoring Evidence', status: 'pending' },
-      { id: 4, step: 'rendering', label: 'Rendering', status: 'pending' },
+      { id: 1, step: 'search', label: 'Searching Evidence Sources', status: 'pending' },
+      { id: 2, step: 'execute', label: 'Executing Model Analysis', status: 'pending' },
+      { id: 3, step: 'claims', label: 'Extracting Claims', status: 'pending' },
+      { id: 4, step: 'verify', label: 'Cross-Referencing Sources', status: 'pending' },
+      { id: 5, step: 'contradictions', label: 'Detecting Contradictions', status: 'pending' },
+      { id: 6, step: 'confidence', label: 'Computing Bayesian Confidence', status: 'pending' },
+      { id: 7, step: 'rendering', label: 'Rendering', status: 'pending' },
+    ];
+  }
+
+  if (effectiveMode === 'synthesis') {
+    return [
+      { id: 0, step: 'context', label: 'Stabilizing Context', status: 'pending' },
+      { id: 1, step: 'draft', label: 'Generating Primary Draft', status: 'pending' },
+      { id: 2, step: 'review', label: 'Peer Model Review', status: 'pending' },
+      { id: 3, step: 'integrate', label: 'Integrating Feedback', status: 'pending' },
+      { id: 4, step: 'consensus', label: 'Computing Consensus', status: 'pending' },
+      { id: 5, step: 'rendering', label: 'Rendering', status: 'pending' },
     ];
   }
 

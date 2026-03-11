@@ -31,7 +31,7 @@ function ShimmerBar() {
   );
 }
 
-export default function ThinkingAnimation({ steps = [], activeColor = '#3b82f6' }) {
+export default function ThinkingAnimation({ steps = [], activeColor = '#3b82f6', thinkMode = false }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const intervalRef = useRef(null);
 
@@ -157,6 +157,45 @@ export default function ThinkingAnimation({ steps = [], activeColor = '#3b82f6' 
           }}
         />
       </div>
+
+      {/* Think Mode — Enhanced visual pipeline (Pro) */}
+      {thinkMode && steps.length > 0 && (
+        <div className="mt-4 flex items-center gap-1 overflow-x-auto pb-1">
+          {steps.map((step, idx) => {
+            const isComplete = idx < currentStepIndex;
+            const isCurrent = idx === currentStepIndex;
+            const progress = isComplete ? 100 : isCurrent ? 50 : 0;
+            return (
+              <React.Fragment key={step.id || idx}>
+                <div className="flex flex-col items-center flex-shrink-0" style={{ minWidth: 48 }}>
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-500"
+                    style={{
+                      backgroundColor: isComplete ? activeColor : isCurrent ? activeColor + '30' : '#f5f5f7',
+                      color: isComplete ? 'white' : isCurrent ? activeColor : '#aeaeb2',
+                      boxShadow: isCurrent ? `0 0 8px ${activeColor}40` : 'none',
+                    }}
+                  >
+                    {isComplete ? '✓' : idx + 1}
+                  </div>
+                  <span className="mt-1 text-center" style={{
+                    fontFamily: FONT, fontSize: '9px', fontWeight: isCurrent ? 600 : 400,
+                    color: isComplete ? '#6e6e73' : isCurrent ? '#1d1d1f' : '#aeaeb2',
+                    maxWidth: 56, lineHeight: '1.2',
+                  }}>
+                    {step.label}
+                  </span>
+                </div>
+                {idx < steps.length - 1 && (
+                  <div className="flex-shrink-0 h-0.5 w-4 rounded-full transition-all duration-500" style={{
+                    backgroundColor: isComplete ? activeColor : '#e5e5ea',
+                  }} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      )}
 
       <style>{`
         @keyframes ping {

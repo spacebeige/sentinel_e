@@ -5,6 +5,7 @@ import DebateView from './DebateView';
 import EvidenceView from './EvidenceView';
 import GlassView from './GlassView';
 import EnsembleView from './EnsembleView';
+import SynthesisView from './SynthesisView';
 
 /**
  * StructuredOutput — Sentinel-E Mode-Based Rendering
@@ -68,6 +69,16 @@ export default function StructuredOutput({ result, activeSubMode }) {
       return (
         <GlassView
           data={renderMode.mode === 'glass' ? renderMode.data : meta.audit_result}
+          boundary={renderMode.boundary}
+          confidence={renderMode.confidence}
+        />
+      );
+
+    case 'synthesis':
+      if (!meta.synthesis_result && !renderMode.data) return null;
+      return (
+        <SynthesisView
+          data={renderMode.mode === 'synthesis' ? renderMode.data : meta.synthesis_result}
           boundary={renderMode.boundary}
           confidence={renderMode.confidence}
         />

@@ -45,6 +45,7 @@ export default function GlassView({ data, boundary, confidence }) {
     { id: 'overview', label: 'Overview' },
     { id: 'assessments', label: `Assessments (${assessments.length})` },
     { id: 'tactical', label: 'Tactical Map' },
+    { id: 'graph', label: 'Reasoning Graph' },
   ];
 
   return (
@@ -251,26 +252,31 @@ export default function GlassView({ data, boundary, confidence }) {
               <span className="text-[10px] font-semibold text-[#86868b] uppercase tracking-wider text-center">Inflation</span>
             </div>
 
-            {Object.entries(modelProfiles).map(([modelId, profile], idx, arr) => (
+            {Object.entries(modelProfiles).map(([modelId, profile], idx, arr) => {
+              const trust = profile.avg_trust ?? profile.trust ?? 0;
+              const bias = profile.avg_bias ?? profile.bias_risk ?? 0;
+              const inflation = profile.avg_confidence_inflation ?? (1 - (profile.coherence ?? 1)) ?? 0;
+              return (
               <div key={modelId} className={`grid grid-cols-4 gap-2 px-4 py-2.5 ${idx < arr.length - 1 ? 'border-b border-[#f5f5f7]' : ''}`}>
                 <span className="text-xs font-medium text-[#1d1d1f]">{profile.model_name || modelId}</span>
                 <div className="text-center">
-                  <span className={`text-xs font-semibold ${profile.avg_trust >= 0.7 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {(profile.avg_trust * 100).toFixed(0)}%
+                  <span className={`text-xs font-semibold ${trust >= 0.7 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    {(trust * 100).toFixed(0)}%
                   </span>
                 </div>
                 <div className="text-center">
-                  <span className={`text-xs font-semibold ${profile.avg_bias <= 0.3 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {(profile.avg_bias * 100).toFixed(0)}%
+                  <span className={`text-xs font-semibold ${bias <= 0.3 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {(bias * 100).toFixed(0)}%
                   </span>
                 </div>
                 <div className="text-center">
-                  <span className={`text-xs font-semibold ${profile.avg_confidence_inflation <= 0.3 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {(profile.avg_confidence_inflation * 100).toFixed(0)}%
+                  <span className={`text-xs font-semibold ${inflation <= 0.3 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {(inflation * 100).toFixed(0)}%
                   </span>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Risk highlights */}
@@ -296,6 +302,99 @@ export default function GlassView({ data, boundary, confidence }) {
           <p className="text-sm text-[#6e6e73]">No tactical map data available</p>
         </div>
       )}
+
+      {/* Reasoning Graph Tab — Graph-RAG visualization */}
+      {activeTab === 'graph' && (() => {
+        const graph = data.reasoning_graph || { nodes: [], edges: [] };
+        const nodes = graph.nodes || [];
+        const edges = graph.edges || [];
+
+        if (nodes.length === 0) {
+          return (
+            <div className="bg-white rounded-xl border border-[#e5e5ea] p-6 text-center">
+              <p className="text-sm text-[#6e6e73]">No reasoning graph data available</p>
+            </div>
+          );
+        }
+
+        const typeColors = {
+          query: { bg: '#3b82f6', text: 'white' },
+          model: { bg: '#8b5cf6', text: 'white' },
+          consensus: { bg: '#10b981', text: 'white' },
+        };
+        const edgeTypeStyles = {
+          responds_to: '#3b82f6',
+          contributes: '#10b981',
+          audits: '#f59e0b',
+        };
+
+        // Layout: position nodes in a radial pattern
+        const cx = 200, cy = 150, radius = 100;
+        const positioned = nodes.map((n, i) => {
+          if (n.type === 'query') return { ...n, x: cx, y: cy - radius - 20 };
+          if (n.type === 'consensus') return { ...n, x: cx, y: cy + radius + 20 };
+          const angle = (i / Math.max(nodes.length - 2, 1)) * Math.PI * 2 - Math.PI / 2;
+          return { ...n, x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+        });
+        const nodeMap = {};
+        positioned.forEach(n => { nodeMap[n.id] = n; });
+
+        return (
+          <div className="bg-white rounded-xl border border-[#e5e5ea] shadow-sm p-4">
+            <p className="text-xs font-semibold text-[#1d1d1f] mb-3">Reasoning Graph (Graph-RAG)</p>
+            <svg viewBox="0 0 400 300" className="w-full" style={{ maxHeight: 320 }}>
+              {/* Edges */}
+              {edges.map((e, i) => {
+                const src = nodeMap[e.source];
+                const tgt = nodeMap[e.target];
+                if (!src || !tgt) return null;
+                const color = edgeTypeStyles[e.type] || '#d1d5db';
+                return (
+                  <line
+                    key={i}
+                    x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y}
+                    stroke={color} strokeWidth={1 + (e.weight || 0) * 2}
+                    strokeOpacity={0.5} strokeDasharray={e.type === 'audits' ? '4,3' : 'none'}
+                  />
+                );
+              })}
+              {/* Nodes */}
+              {positioned.map((n) => {
+                const colors = typeColors[n.type] || { bg: '#6b7280', text: 'white' };
+                const r = (n.size || 12) * 0.7;
+                return (
+                  <g key={n.id}>
+                    <circle cx={n.x} cy={n.y} r={r} fill={colors.bg} opacity={0.9} />
+                    <text
+                      x={n.x} y={n.y + r + 12}
+                      textAnchor="middle" fontSize={9} fill="#6e6e73" fontFamily={FONT}
+                    >
+                      {(n.label || '').split('/').pop().slice(0, 18)}
+                    </text>
+                    {n.trust != null && (
+                      <text
+                        x={n.x} y={n.y + 3}
+                        textAnchor="middle" fontSize={8} fill={colors.text} fontWeight={600} fontFamily={FONT}
+                      >
+                        {(n.trust * 100).toFixed(0)}%
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
+            {/* Legend */}
+            <div className="flex gap-4 mt-2 justify-center">
+              {Object.entries(edgeTypeStyles).map(([type, color]) => (
+                <div key={type} className="flex items-center gap-1">
+                  <div className="w-3 h-0.5 rounded" style={{ backgroundColor: color }} />
+                  <span className="text-[10px] text-[#86868b] capitalize">{type.replace('_', ' ')}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       <BoundaryPanel boundary={boundary} />
     </div>

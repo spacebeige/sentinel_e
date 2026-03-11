@@ -62,12 +62,14 @@ const PRO_SUB_MODES = [
   { id: 'debate', label: 'Debate Mode', iconKey: 'swords', color: '#ef4444', description: 'Argues both sides of a topic so you can decide', placeholder: 'Give me a topic to debate...' },
   { id: 'glass', label: 'Glass Mode', iconKey: 'gem', color: '#8b5cf6', description: 'Shows its full reasoning chain — nothing hidden', placeholder: "Ask something and I'll show my thinking..." },
   { id: 'evidence', label: 'Evidence Mode', iconKey: 'filesearch', color: '#06b6d4', description: 'Every claim backed by a cited source', placeholder: 'What do you need evidence for...' },
+  { id: 'synthesis', label: 'Synthesis Mode', iconKey: 'brain', color: '#10b981', description: 'Models collaborate to build the best answer together', placeholder: 'What should we reason about together...' },
 ];
 
 const SUB_MODE_ICONS = {
   swords: (cls) => <Swords className={cls} />,
   gem: (cls) => <Gem className={cls} />,
   filesearch: (cls) => <FileSearch className={cls} />,
+  brain: (cls) => <Brain className={cls} />,
 };
 
 /** Font stack matching Figma design system */
@@ -1308,6 +1310,7 @@ export default function FigmaChatShell({
                     activeColor={activeSubMode
                       ? PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color
                       : '#3b82f6'}
+                    thinkMode={mode === 'experimental' || !!activeSubMode}
                   />
                 </div>
               </motion.div>

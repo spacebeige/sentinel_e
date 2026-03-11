@@ -279,6 +279,15 @@ async def mco_run(
     # STANDARD MCO PIPELINE (non-debate modes)
     # ══════════════════════════════════════════════════════════
 
+    # ── Cache check ──────────────────────────────────────────
+    from core.cache_engine import reasoning_cache
+    cached_result = await reasoning_cache.get_query(query, mode, sub_mode or "")
+    if cached_result and not force_retrieval:
+        logger.info(f"Returning cached result for [{mode}/{sub_mode}]")
+        cached_result["chat_id"] = str(chat.id)
+        cached_result["session_id"] = str(chat.id)
+        return cached_result
+
     # Build request
     request = OrchestratorRequest(
         session_id=session_id or str(chat.id),
@@ -474,24 +483,84 @@ async def mco_run(
             },
         }
 
-        # Build forensic_result (EvidenceConsole consumes this)
-        omega_metadata["forensic_result"] = {
-            "models_analyzed": len(response.all_results),
-            "scoring_breakdown": scoring_serialized,
-            "divergence": divergence,
-            "winning_model": response.winning_model,
-            "winning_score": round(response.winning_score, 4),
-        }
+        # Build forensic_result (EvidenceView consumes this)
+        # Use real evidence pipeline when in evidence sub-mode
+        if effective_sub_mode == "evidence":
+            try:
+                from core.evidence_pipeline import build_evidence_result
+                omega_metadata["forensic_result"] = await build_evidence_result(
+                    query=query,
+                    all_results=response.all_results,
+                    scoring_breakdown=response.scoring_breakdown,
+                    aggregated_answer=response.aggregated_answer,
+                    winning_model=response.winning_model,
+                )
+            except Exception as ev_err:
+                logger.error(f"Evidence pipeline failed, using fallback: {ev_err}")
+                omega_metadata["forensic_result"] = {
+                    "models_analyzed": len(response.all_results),
+                    "scoring_breakdown": scoring_serialized,
+                    "divergence": divergence,
+                    "winning_model": response.winning_model,
+                    "winning_score": round(response.winning_score, 4),
+                }
+        else:
+            omega_metadata["forensic_result"] = {
+                "models_analyzed": len(response.all_results),
+                "scoring_breakdown": scoring_serialized,
+                "divergence": divergence,
+                "winning_model": response.winning_model,
+                "winning_score": round(response.winning_score, 4),
+            }
 
-        # Build audit_result (GlassConsole consumes this)
-        omega_metadata["audit_result"] = {
-            "all_outputs": all_outputs_serialized,
-            "scoring_breakdown": scoring_serialized,
-            "divergence_metrics": divergence,
-            "drift_score": round(response.drift_score, 4),
-            "volatility_score": round(response.volatility_score, 4),
-            "refinement_cycles": response.refinement_cycles,
-        }
+        # Build audit_result (GlassView consumes this)
+        # Use Glass pipeline for real reasoning transparency data
+        if effective_sub_mode == "glass":
+            try:
+                from core.glass_pipeline import build_glass_result
+                omega_metadata["audit_result"] = build_glass_result(
+                    all_results=response.all_results,
+                    scoring_breakdown=response.scoring_breakdown,
+                    divergence_metrics=divergence,
+                    aggregated_answer=response.aggregated_answer,
+                    winning_model=response.winning_model,
+                    drift_score=response.drift_score,
+                    volatility_score=response.volatility_score,
+                )
+            except Exception as gl_err:
+                logger.error(f"Glass pipeline failed, using fallback: {gl_err}")
+                omega_metadata["audit_result"] = {
+                    "all_outputs": all_outputs_serialized,
+                    "scoring_breakdown": scoring_serialized,
+                    "divergence_metrics": divergence,
+                    "drift_score": round(response.drift_score, 4),
+                    "volatility_score": round(response.volatility_score, 4),
+                    "refinement_cycles": response.refinement_cycles,
+                }
+        else:
+            omega_metadata["audit_result"] = {
+                "all_outputs": all_outputs_serialized,
+                "scoring_breakdown": scoring_serialized,
+                "divergence_metrics": divergence,
+                "drift_score": round(response.drift_score, 4),
+                "volatility_score": round(response.volatility_score, 4),
+                "refinement_cycles": response.refinement_cycles,
+            }
+
+        # Build synthesis_result (SynthesisView consumes this)
+        if effective_sub_mode == "synthesis":
+            try:
+                from core.synthesis_engine import build_synthesis_result
+                omega_metadata["synthesis_result"] = build_synthesis_result(
+                    all_results=response.all_results,
+                    scoring_breakdown=response.scoring_breakdown,
+                    divergence_metrics=divergence,
+                    aggregated_answer=response.aggregated_answer,
+                    winning_model=response.winning_model,
+                )
+            except Exception as syn_err:
+                logger.error(f"Synthesis pipeline failed: {syn_err}")
+                omega_metadata["synthesis_result"] = None
 
     elif response.mode == OperatingMode.STANDARD:
         # Standard mode: minimal aggregation_result
@@ -522,6 +591,12 @@ async def mco_run(
         result["all_outputs"] = all_outputs_serialized
         result["divergence_metrics"] = divergence
         result["scoring_breakdown"] = scoring_serialized
+
+    # ── Cache write ──────────────────────────────────────────
+    try:
+        await reasoning_cache.set_query(query, mode, result, sub_mode or "")
+    except Exception:
+        pass
 
     return result
 
