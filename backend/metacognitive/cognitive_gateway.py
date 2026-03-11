@@ -6,10 +6,10 @@ Pure reasoning execution. Each model is a separate endpoint.
 No cross-model contamination. No retrieval. No session mutation.
 No persistence logic. No knowledge injection decisions.
 
-Official Sentinel-E Ensemble (v4 — No OpenRouter):
+Official Sentinel-E Ensemble (v5 — Decommissioned models replaced):
   Analysis     : llama-3.3-70b-versatile (Groq)
-  Critique A   : mixtral-8x7b-32768 (Groq)
-  Critique B   : gemma-7b-it (Groq)
+  Critique A   : qwen/qwen3-32b (Groq)
+  Critique B   : meta-llama/llama-4-scout-17b-16e-instruct (Groq)
   Critique C   : qwen2.5-vl-7b-instruct (DashScope)
   Synthesis    : gemini-2.0-flash (Google)
   Verification : llama-3.1-8b-instant (Groq)
@@ -82,29 +82,31 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     ),
 
     # ── Critique A (diverse argument generator) ───────────────
+    # Replaced: mixtral-8x7b-32768 decommissioned by Groq
     "mixtral-8x7b": CognitiveModelSpec(
-        name="Mixtral 8x7B",
-        model_id="mixtral-8x7b-32768",
+        name="Qwen3 32B",
+        model_id="qwen/qwen3-32b",
         provider="groq",
         role=ModelRole.CONCEPTUAL,
         context_window=32768,
         max_output_tokens=1500,
         default_temperature=0.4,
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
-        api_key_env="GROQ_MIXTRAL_KEY",
+        api_key_env="GROQ_API_KEY",
     ),
 
     # ── Critique B (alternative viewpoint) ────────────────────
+    # Replaced: gemma-7b-it decommissioned by Groq
     "gemma-7b": CognitiveModelSpec(
-        name="Gemma 7B IT",
-        model_id="gemma-7b-it",
+        name="Llama 4 Scout 17B",
+        model_id="meta-llama/llama-4-scout-17b-16e-instruct",
         provider="groq",
         role=ModelRole.GENERAL,
-        context_window=8192,
+        context_window=131072,
         max_output_tokens=1500,
         default_temperature=0.3,
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
-        api_key_env="GROQ_GEMMA_KEY",
+        api_key_env="GROQ_API_KEY",
     ),
 
     # ── Critique C (alternative perspectives via Qwen) ────────
@@ -477,6 +479,21 @@ class CognitiveModelGateway:
         # Build messages from stabilized context
         messages = self._build_messages(gateway_input, spec)
 
+        # ── Message Validation ──────────────────────────────
+        if not messages or not any(m.get("role") == "user" for m in messages):
+            logger.error(f"Message validation failed for '{model_key}': no user message")
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False, error="Message validation failed: missing user message",
+            )
+        for msg in messages:
+            if not msg.get("content", "").strip():
+                logger.error(f"Message validation failed for '{model_key}': empty content in role={msg.get('role')}")
+                return CognitiveGatewayOutput(
+                    model_name=spec.name, raw_output="",
+                    success=False, error=f"Message validation failed: empty {msg.get('role')} content",
+                )
+
         # ── Token Governor ──────────────────────────────────
         # Estimate prompt tokens and clamp max_tokens to safe budget
         _prompt_estimate = sum(
@@ -550,6 +567,12 @@ class CognitiveModelGateway:
                     success=False,
                     error="Token budget exceeded",
                 )
+
+        # ── Token Clamping ───────────────────────────────────
+        # Ensure max_tokens does not exceed provider-specific hard limits
+        _PROVIDER_MAX_OUTPUT = {"groq": 8192, "gemini": 8192, "qwen": 8192, "openai": 4096}
+        _provider_cap = _PROVIDER_MAX_OUTPUT.get(spec.provider, 4096)
+        governed_max_tokens = max(1, min(governed_max_tokens, _provider_cap))
 
         start = time.monotonic()
         try:
@@ -831,6 +854,10 @@ class CognitiveModelGateway:
         async with session.post(url, headers=headers, json=payload) as resp:
             if resp.status != 200:
                 text = await resp.text()
+                logger.error(
+                    f"[GROQ ERROR] model={spec.model_id} "
+                    f"status={resp.status} body={text[:500]}"
+                )
                 if resp.status in (402, 429):
                     self._record_failure()
                 return CognitiveGatewayOutput(
@@ -1031,14 +1058,25 @@ class CognitiveModelGateway:
         """
         raw_lower = raw_text.lower()
 
-        if status_code == 401 or "unauthorized" in raw_lower or "invalid" in raw_lower and "key" in raw_lower:
+        if status_code == 401 or "unauthorized" in raw_lower or ("invalid" in raw_lower and "key" in raw_lower):
             return "Invalid API key"
         if status_code == 402 or "insufficient" in raw_lower or "credit" in raw_lower or "quota" in raw_lower:
             return "Insufficient credit"
-        if status_code == 429 or "rate" in raw_lower and "limit" in raw_lower:
+        if status_code == 429 or ("rate" in raw_lower and "limit" in raw_lower):
             return "Rate limit exceeded"
-        if status_code == 404 or "not found" in raw_lower or "invalid model" in raw_lower:
-            return "Invalid model"
+        if (
+            status_code == 404
+            or "not found" in raw_lower
+            or "invalid model" in raw_lower
+            or "does not exist" in raw_lower
+            or "decommissioned" in raw_lower
+            or "deprecated" in raw_lower
+            or "model_decommissioned" in raw_lower
+            or "model_not_found" in raw_lower
+            or "model_not_active" in raw_lower
+            or "not active" in raw_lower
+        ):
+            return "Model decommissioned or not found"
         if status_code == 503 or "unavailable" in raw_lower or "overloaded" in raw_lower:
             return "Provider unavailable"
         if "context" in raw_lower and ("length" in raw_lower or "token" in raw_lower):

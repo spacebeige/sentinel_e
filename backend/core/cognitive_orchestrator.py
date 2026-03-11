@@ -454,6 +454,18 @@ class CognitiveOrchestrator:
                     latency_ms=latency,
                 )
 
+            # Detect error strings from the model bridge
+            _ERROR_MARKERS = ("Error:", "error:", "not configured", "not found",
+                              "decommissioned", "Invalid API key")
+            if any(marker in raw for marker in _ERROR_MARKERS):
+                logger.warning(f"Model {model['id']} returned error: {raw[:200]}")
+                return StructuredModelOutput(
+                    model_id=model["id"],
+                    model_name=model.get("name", model["id"]),
+                    error=raw[:200],
+                    latency_ms=latency,
+                )
+
             # Parse structured output
             return self._parse_structured_output(
                 raw, model["id"], model.get("name", model["id"]), latency

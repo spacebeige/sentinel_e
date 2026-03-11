@@ -710,6 +710,14 @@ class StructuredDebateEngine:
 
         return DebateRound(round_number=round_num, positions=positions)
 
+    # ── Error Detection ────────────────────────────────────
+
+    _ERROR_MARKERS = ("Error:", "error:", "not configured", "not found", "decommissioned", "Invalid API key")
+
+    def _is_model_error(self, raw: str) -> bool:
+        """Detect error strings from the model bridge."""
+        return any(marker in raw for marker in self._ERROR_MARKERS)
+
     # ── Model Call + Parse ───────────────────────────────────
 
     async def _call_and_parse_round_1(
@@ -727,6 +735,10 @@ class StructuredDebateEngine:
 
             if not raw or len(raw.strip()) < 10:
                 logger.warning(f"Model {model['id']} returned empty output in round 1")
+                return None
+
+            if self._is_model_error(raw):
+                logger.warning(f"Model {model['id']} returned error in round 1: {raw[:200]}")
                 return None
 
             parsed = self._parse_structured_output(raw, model, round_number=1)
@@ -752,6 +764,10 @@ class StructuredDebateEngine:
             latency = (time.monotonic() - start) * 1000
 
             if not raw or len(raw.strip()) < 10:
+                return None
+
+            if self._is_model_error(raw):
+                logger.warning(f"Model {model['id']} returned error in round {round_num}: {raw[:200]}")
                 return None
 
             parsed = self._parse_structured_output(
