@@ -48,7 +48,7 @@ router = APIRouter(prefix="/chat", tags=["Standard Mode"])
 MAX_RETRIES: int = 2              # Up to 2 retry attempts for 429/503
 RETRY_BASE_DELAY: float = 1.0    # Initial back-off in seconds
 RETRY_MAX_DELAY: float = 8.0     # Maximum back-off cap
-FALLBACK_MODEL: str = "llama31-8b"  # Tier-1 anchor used as fallback
+FALLBACK_MODEL: str = "llama33-70b"  # Tier-1 anchor used as fallback
 
 # HTTP error codes that trigger retry
 RETRYABLE_ERRORS = {"429", "503", "rate limit", "service unavailable", "overloaded"}
@@ -87,6 +87,8 @@ class ChatResponse(BaseModel):
     model_name: str
     provider: str
     response: str
+    formatted_output: str = ""
+    priority_answer: str = ""
     latency_ms: float
     tokens_used: int
     retried: bool = False
@@ -159,10 +161,10 @@ async def chat_with_model(
       4. Return structured response including latency, tokens, and flag metadata.
 
     Path parameter:
-      model_id — canonical registry key (e.g. "llama31-8b", "gemma2-9b")
+      model_id — canonical registry key (e.g. "llama33-70b", "gemma-7b")
 
     Example:
-      POST /chat/gemma2-9b
+      POST /chat/gemma-7b
       {"query": "Explain quantum entanglement in one paragraph."}
     """
     gateway = _get_gateway()
@@ -258,6 +260,8 @@ async def chat_with_model(
         model_name=output.model_name,
         provider=resolved_spec.provider,
         response=output.raw_output,
+        formatted_output=output.raw_output,
+        priority_answer=output.raw_output,
         latency_ms=round(elapsed_ms, 2),
         tokens_used=output.tokens_used,
         retried=retried,

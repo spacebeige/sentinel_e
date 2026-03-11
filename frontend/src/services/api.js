@@ -308,7 +308,7 @@ export async function fetchChatModels() {
  * Send a query to a specific model (Standard Mode).
  * Routes to POST /chat/{modelId} with retry + fallback logic server-side.
  * 
- * @param {string} modelId   — Canonical registry key (e.g. "llama-3.3")
+ * @param {string} modelId   — Canonical registry key (e.g. "llama33-70b")
  * @param {string} query     — User query text
  * @param {string} chatId    — Optional session ID
  * @param {Object} options   — { maxTokens, systemRole }

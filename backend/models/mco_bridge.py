@@ -30,27 +30,27 @@ logger = logging.getLogger("MCOModelBridge")
 # Maps legacy caller IDs to canonical COGNITIVE_MODEL_REGISTRY keys (v3 ensemble)
 LEGACY_TO_REGISTRY: Dict[str, str] = {
     # Active ensemble (v4 — No OpenRouter)
-    "llama31": "llama31-8b",            # Llama 3.3 70B — analysis
+    "llama31": "llama33-70b",           # Llama 3.3 70B — analysis
     "mixtral": "mixtral-8x7b",          # Mixtral 8x7B — critique A
     "gemma": "gemma-7b",                # Gemma 7B IT — critique B
     "qwen": "qwen-2.5-vl",              # Qwen 2.5 VL — critique C
     "gemini": "gemini-flash",            # Gemini Flash 2.0 — synthesis
-    "llama31-fast": "llama31-instant",  # Llama 3.1 8B — verification
+    "llama31-fast": "llama31-8b",       # Llama 3.1 8B — verification
     # Backward-compat aliases (map removed models to v4 replacements)
-    "groq": "llama31-8b",              # groq-small → llama31-8b
-    "llama70b": "llama31-8b",          # llama-3.3 → llama31-8b
-    "deepseek": "llama31-8b",          # deepseek-chat → llama31-8b
+    "groq": "llama33-70b",             # groq-small → llama33-70b
+    "llama70b": "llama33-70b",         # llama-3.3 → llama33-70b
+    "deepseek": "llama33-70b",         # deepseek-chat → llama33-70b
     "deepseek-coder": "mixtral-8x7b",  # deepseek-coder → mixtral-8x7b
     "qwen-coder": "mixtral-8x7b",      # qwen-coder → mixtral-8x7b
-    "nemotron": "llama31-8b",          # nemotron → llama31-8b
+    "nemotron": "llama33-70b",         # nemotron → llama33-70b
     "mistral-small": "mixtral-8x7b",   # mistral-small → mixtral-8x7b
-    "llama-3.2": "llama31-instant",    # llama-3.2-3b → llama31-instant
+    "llama-3.2": "llama31-8b",         # llama-3.2-3b → llama31-8b
     # Removed OpenRouter models → remap to Groq equivalents
     "gemma9b": "gemma-7b",             # gemma-2-9b-it → gemma-7b
     "gemma2b": "gemma-7b",             # gemma-3-4b-it → gemma-7b
     "mistral7b": "mixtral-8x7b",       # mistral-7b-instruct → mixtral-8x7b
     "phi3": "mixtral-8x7b",            # phi-4 → mixtral-8x7b
-    "phi3-small": "llama31-instant",   # llama-3.2-3b → llama31-instant
+    "phi3-small": "llama31-8b",        # llama-3.2-3b → llama31-8b
 }
 
 # Reverse map: registry key → legacy ID

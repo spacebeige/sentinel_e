@@ -69,7 +69,7 @@ class CognitiveModelSpec:
 
 COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     # ── Analysis (primary deep-reasoning anchor) ──────────────
-    "llama31-8b": CognitiveModelSpec(
+    "llama33-70b": CognitiveModelSpec(
         name="Llama 3.3 70B",
         model_id="llama-3.3-70b-versatile",
         provider="groq",
@@ -135,7 +135,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     ),
 
     # ── Verification (fast sanity check) ──────────────────────
-    "llama31-instant": CognitiveModelSpec(
+    "llama31-8b": CognitiveModelSpec(
         name="Llama 3.1 8B Instant",
         model_id="llama-3.1-8b-instant",
         provider="groq",
@@ -156,34 +156,34 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
 
 MODEL_DEBATE_TIERS: Dict[str, int] = {
     # Tier 1 — Analysis (primary reasoning)
-    "llama31-8b":      1,   # Llama 3.3 70B — analysis anchor (Groq)
+    "llama33-70b":     1,   # Llama 3.3 70B — analysis anchor (Groq)
     # Tier 2 — Critique (diverse argument generators)
     "mixtral-8x7b":    2,   # Mixtral 8x7B — critique A (Groq)
     "gemma-7b":        2,   # Gemma 7B IT — critique B (Groq)
     "qwen-2.5-vl":     2,   # Qwen 2.5 VL — critique C (DashScope)
     # Tier 3 — Synthesis + Verification
     "gemini-flash":    3,   # Gemini Flash 2.0 — synthesis (Google)
-    "llama31-instant": 3,   # Llama 3.1 8B — verification (Groq)
+    "llama31-8b":      3,   # Llama 3.1 8B — verification (Groq)
 }
 
 # Fallback mapping: if a model fails, replace with this model
 MODEL_FALLBACK_MAP: Dict[str, str] = {
-    "llama31-8b":      "llama31-instant",  # Groq 70B → Groq 8B
+    "llama33-70b":     "llama31-8b",      # Groq 70B → Groq 8B
     "mixtral-8x7b":    "gemma-7b",         # Mixtral → Gemma
-    "gemma-7b":        "llama31-instant",  # Gemma → Llama 8B
+    "gemma-7b":        "llama31-8b",      # Gemma → Llama 8B
     "qwen-2.5-vl":     "gemma-7b",         # Qwen → Gemma
-    "gemini-flash":    "llama31-8b",       # Gemini → Llama 70B
-    "llama31-instant": "mixtral-8x7b",     # Llama 8B → Mixtral
+    "gemini-flash":    "llama33-70b",     # Gemini → Llama 70B
+    "llama31-8b":      "mixtral-8x7b",     # Llama 8B → Mixtral
 }
 
 # Prompt type → preferred specialist keys
 _SPECIALIST_AFFINITY: Dict[str, List[str]] = {
     "code":       ["mixtral-8x7b"],
-    "logical":    ["llama31-8b"],
+    "logical":    ["llama33-70b"],
     "general":    [],
     "conceptual": [],
     "evidence":   [],
-    "depth":      ["llama31-8b"],
+    "depth":      ["llama33-70b"],
     "vision":     ["qwen-2.5-vl"],
 }
 
@@ -863,7 +863,7 @@ class CognitiveModelGateway:
                 success=False, error=f"{spec.api_key_env} not configured",
             )
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{spec.model_id}:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{spec.model_id}:generateContent"
         # Convert messages to Gemini format
         contents = []
         system_text = ""
@@ -886,7 +886,7 @@ class CognitiveModelGateway:
         }
 
         session = await self._get_session()
-        async with session.post(url, json=payload, headers={"Content-Type": "application/json"}) as resp:
+        async with session.post(url, json=payload, headers={"Content-Type": "application/json", "x-goog-api-key": api_key}) as resp:
             if resp.status != 200:
                 text = await resp.text()
                 if resp.status in (402, 429):

@@ -57,15 +57,15 @@ const TIER_COLORS = {
 };
 
 /**
- * Official 7-model ensemble fallback.
+ * Official 6-model ensemble fallback.
  * Used when the backend /chat/models/available endpoint is unreachable.
  * Mirrors COGNITIVE_MODEL_REGISTRY in backend/metacognitive/cognitive_gateway.py.
  */
 export const DEFAULT_CHAT_MODELS = [
-  // Tier 1 Anchors
+  // Tier 1 Anchor — Analysis
   {
-    id: 'llama31-8b',
-    name: 'Llama 3.1 8B',
+    id: 'llama33-70b',
+    name: 'Llama 3.3 70B',
     provider: 'groq',
     color: TIER_COLORS[1],
     role: 'conceptual',
@@ -76,24 +76,11 @@ export const DEFAULT_CHAT_MODELS = [
     context_window: 131072,
     max_output_tokens: 2000,
   },
+  // Tier 2 Critique — Diverse argument generators
   {
-    id: 'gemma2-9b',
-    name: 'Gemma 2 9B IT',
-    provider: 'openrouter',
-    color: TIER_COLORS[1],
-    role: 'general',
-    tier: 1,
-    tierLabel: 'Anchor',
-    enabled: true,
-    debate_eligible: true,
-    context_window: 8192,
-    max_output_tokens: 2000,
-  },
-  // Tier 2 Debate
-  {
-    id: 'mistral-7b',
-    name: 'Mistral 7B Instruct',
-    provider: 'openrouter',
+    id: 'mixtral-8x7b',
+    name: 'Mixtral 8x7B',
+    provider: 'groq',
     color: TIER_COLORS[2],
     role: 'conceptual',
     tier: 2,
@@ -104,24 +91,11 @@ export const DEFAULT_CHAT_MODELS = [
     max_output_tokens: 1500,
   },
   {
-    id: 'phi3-mini',
-    name: 'Phi-3 Mini 128K',
-    provider: 'openrouter',
+    id: 'gemma-7b',
+    name: 'Gemma 7B IT',
+    provider: 'groq',
     color: TIER_COLORS[2],
     role: 'general',
-    tier: 2,
-    tierLabel: 'Debate',
-    enabled: true,
-    debate_eligible: true,
-    context_window: 131072,
-    max_output_tokens: 1500,
-  },
-  {
-    id: 'gemma2-2b',
-    name: 'Gemma 2 2B IT',
-    provider: 'openrouter',
-    color: TIER_COLORS[2],
-    role: 'fast',
     tier: 2,
     tierLabel: 'Debate',
     enabled: true,
@@ -129,9 +103,35 @@ export const DEFAULT_CHAT_MODELS = [
     context_window: 8192,
     max_output_tokens: 1500,
   },
-  // Tier 3 Fallback
   {
-    id: 'llama31-instant',
+    id: 'qwen-2.5-vl',
+    name: 'Qwen 2.5 VL 7B',
+    provider: 'qwen',
+    color: TIER_COLORS[2],
+    role: 'vision',
+    tier: 2,
+    tierLabel: 'Debate',
+    enabled: true,
+    debate_eligible: true,
+    context_window: 32768,
+    max_output_tokens: 1500,
+  },
+  // Tier 3 Synthesis + Verification
+  {
+    id: 'gemini-flash',
+    name: 'Gemini Flash 2.0',
+    provider: 'gemini',
+    color: TIER_COLORS[3],
+    role: 'general',
+    tier: 3,
+    tierLabel: 'Fallback',
+    enabled: true,
+    debate_eligible: true,
+    context_window: 1048576,
+    max_output_tokens: 2000,
+  },
+  {
+    id: 'llama31-8b',
     name: 'Llama 3.1 8B Instant',
     provider: 'groq',
     color: TIER_COLORS[3],
@@ -141,19 +141,6 @@ export const DEFAULT_CHAT_MODELS = [
     enabled: true,
     debate_eligible: true,
     context_window: 131072,
-    max_output_tokens: 1500,
-  },
-  {
-    id: 'phi3-small',
-    name: 'Phi-3 Small',
-    provider: 'openrouter',
-    color: TIER_COLORS[3],
-    role: 'general',
-    tier: 3,
-    tierLabel: 'Fallback',
-    enabled: true,
-    debate_eligible: true,
-    context_window: 8192,
     max_output_tokens: 1500,
   },
 ];

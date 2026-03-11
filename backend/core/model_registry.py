@@ -68,34 +68,34 @@ class ModelCapability:
 # ── Legacy ID Mapping ────────────────────────────────────────
 # Maps canonical registry keys → legacy IDs used by older engines
 _LEGACY_ID_MAP: Dict[str, str] = {
-    "llama31-8b": "llama31",
-    "llama31-instant": "llama31-fast",
+    "llama33-70b": "llama31",
+    "llama31-8b": "llama31-fast",
 }
 
 # ── Tier Assignment ──────────────────────────────────────────
 _TIER_MAP: Dict[str, ModelTier] = {
     # Analysis
-    "llama31-8b": ModelTier.STANDARD,
+    "llama33-70b": ModelTier.STANDARD,
     # Critique
     "mixtral-8x7b": ModelTier.BUDGET,
     "gemma-7b": ModelTier.BUDGET,
     "qwen-2.5-vl": ModelTier.BUDGET,
     # Synthesis + Verification
     "gemini-flash": ModelTier.STANDARD,
-    "llama31-instant": ModelTier.BUDGET,
+    "llama31-8b": ModelTier.BUDGET,
 }
 
 # ── Cost Profile ─────────────────────────────────────────────
 _COST_MAP: Dict[str, CostProfile] = {
     # Analysis
-    "llama31-8b": CostProfile.FREE,
+    "llama33-70b": CostProfile.FREE,
     # Critique
     "mixtral-8x7b": CostProfile.FREE,
     "gemma-7b": CostProfile.FREE,
     "qwen-2.5-vl": CostProfile.FREE,
     # Synthesis + Verification
     "gemini-flash": CostProfile.FREE,
-    "llama31-instant": CostProfile.FREE,
+    "llama31-8b": CostProfile.FREE,
 }
 
 

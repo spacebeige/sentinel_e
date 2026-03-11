@@ -592,6 +592,9 @@ async def run_sentinel(
     # Apply cost governor model recommendation
     if gov_decision.downgraded and gov_decision.recommended_model:
         logger.info(f"Cost governor downgraded model for chat {chat.id}: {gov_decision.recommended_model}")
+        # Override selected_model on the request so downstream routing uses the cheaper model
+        if hasattr(request, 'selected_model'):
+            request.selected_model = gov_decision.recommended_model
 
     # ── Optimization: Token Optimization ──────────────────────
     token_optimizer = get_token_optimizer()
@@ -732,7 +735,7 @@ async def run_sentinel(
         tracer.start_span("kernel")
         try:
             # Use the fastest model for trivial queries
-            fast_model = "llama31-instant"
+            fast_model = "llama31-8b"
             spec = COGNITIVE_MODEL_REGISTRY.get(fast_model)
             if not spec or not spec.enabled:
                 # Fallback to any enabled model
@@ -1167,7 +1170,7 @@ async def run_sentinel(
                     session_summary={},
                 )
                 gw_output = await mco_orchestrator.cognitive_gateway.invoke_model(
-                    "llama-3.3", gw_input
+                    "llama33-70b", gw_input
                 )
                 summary = gw_output.raw_output if gw_output.success else None
                 if summary and not summary.startswith("Error"):
@@ -1303,10 +1306,21 @@ async def run_compressed(
 
 @app.get("/api/models")
 async def list_available_models(user: Dict = Depends(get_current_user)):
-    """List all available models in the compressed pipeline."""
-    from compressed.model_clients import RoleBasedRouter
-    router = RoleBasedRouter()
-    return {"models": router.list_models()}
+    """List all available models from the cognitive model registry."""
+    from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY, MODEL_DEBATE_TIERS
+    models = []
+    for key, spec in COGNITIVE_MODEL_REGISTRY.items():
+        models.append({
+            "id": key,
+            "name": spec.name,
+            "provider": spec.provider,
+            "role": spec.role.value,
+            "tier": MODEL_DEBATE_TIERS.get(key, 2),
+            "enabled": spec.enabled and spec.active,
+            "context_window": spec.context_window,
+            "max_output_tokens": spec.max_output_tokens,
+        })
+    return {"models": models}
 
 
 @app.post("/api/model/{model_id}")

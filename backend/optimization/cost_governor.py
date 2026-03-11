@@ -30,18 +30,17 @@ logger = logging.getLogger("CostGovernor")
 # COST RATES (per 1K tokens)
 # ============================================================
 
-# Model cost table — aligned with COGNITIVE_MODEL_REGISTRY (v3 free-tier ensemble)
+# Model cost table — aligned with COGNITIVE_MODEL_REGISTRY (v4 free-tier ensemble)
 MODEL_COSTS: Dict[str, Dict[str, float]] = {
     # Tier 1 Anchor
-    "llama31-8b": {"input": 0.00005, "output": 0.00008},
-    "gemma2-9b": {"input": 0.0, "output": 0.0},
+    "llama33-70b": {"input": 0.00005, "output": 0.00008},
     # Tier 2 Debate
-    "mistral-7b": {"input": 0.0, "output": 0.0},
-    "phi3-mini": {"input": 0.0, "output": 0.0},
-    "gemma2-2b": {"input": 0.0, "output": 0.0},
-    # Tier 3 Fallback
-    "llama31-instant": {"input": 0.00005, "output": 0.00008},
-    "phi3-small": {"input": 0.0, "output": 0.0},
+    "mixtral-8x7b": {"input": 0.0, "output": 0.0},
+    "gemma-7b": {"input": 0.0, "output": 0.0},
+    "qwen-2.5-vl": {"input": 0.0, "output": 0.0},
+    # Tier 3 Synthesis + Verification
+    "gemini-flash": {"input": 0.0, "output": 0.0},
+    "llama31-8b": {"input": 0.00005, "output": 0.00008},
     # Legacy aliases (backward compat for recorded usage)
     "llama-3.1-8b": {"input": 0.00005, "output": 0.00008},
 }

@@ -66,6 +66,10 @@ class DebateRequest(BaseModel):
     """Request body for POST /battle/debate."""
     query: str = Field(..., description="User question to debate across the model ensemble")
     chat_id: Optional[str] = Field(None, description="Session ID for multi-turn context")
+    history: Optional[List[Dict[str, str]]] = Field(
+        None,
+        description="Conversation history for multi-turn context",
+    )
     prompt_type: str = Field(
         "general",
         description="Prompt category: general | code | logical | evidence | depth | conceptual",
@@ -620,6 +624,7 @@ async def run_debate(req: DebateRequest) -> Dict[str, Any]:
             query=req.query,
             chat_id=chat_id,
             rounds=MIN_DEBATE_ROUNDS,
+            history=req.history,
         )
 
         # ── 4. Build BattleVisualizationPayload ────────────────

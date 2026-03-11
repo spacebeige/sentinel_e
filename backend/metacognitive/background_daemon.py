@@ -207,7 +207,7 @@ class BackgroundDaemon:
 
         # Use primary model (Llama for conceptual by default)
         refined_output = await self.gateway.invoke_model(
-            "llama-3.3", gateway_input
+            "llama33-70b", gateway_input
         )
 
         if refined_output.success and refined_output.raw_output:
