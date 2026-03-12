@@ -36,7 +36,7 @@ MODEL_COSTS: Dict[str, Dict[str, float]] = {
     "llama33-70b": {"input": 0.00005, "output": 0.00008},
     # Tier 2 Debate
     "mixtral-8x7b": {"input": 0.0, "output": 0.0},
-    "gemma-7b": {"input": 0.0, "output": 0.0},
+    "llama4-scout": {"input": 0.0, "output": 0.0},
     "qwen-2.5-vl": {"input": 0.0, "output": 0.0},
     # Tier 3 Synthesis + Verification
     "gemini-flash": {"input": 0.0, "output": 0.0},

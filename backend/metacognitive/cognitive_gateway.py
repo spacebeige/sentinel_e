@@ -96,8 +96,8 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     ),
 
     # ── Critique B (alternative viewpoint) ────────────────────
-    # Replaced: gemma-7b-it decommissioned by Groq
-    "gemma-7b": CognitiveModelSpec(
+    # Llama 4 Scout 17B — critique B (Groq)
+    "llama4-scout": CognitiveModelSpec(
         name="Llama 4 Scout 17B",
         model_id="meta-llama/llama-4-scout-17b-16e-instruct",
         provider="groq",
@@ -134,6 +134,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         default_temperature=0.3,
         api_base_url="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
         api_key_env="GEMINI_API_KEY",
+        supports_vision=True,
     ),
 
     # ── Verification (fast sanity check) ──────────────────────
@@ -161,7 +162,7 @@ MODEL_DEBATE_TIERS: Dict[str, int] = {
     "llama33-70b":     1,   # Llama 3.3 70B — analysis anchor (Groq)
     # Tier 2 — Critique (diverse argument generators)
     "mixtral-8x7b":    2,   # Mixtral 8x7B — critique A (Groq)
-    "gemma-7b":        2,   # Gemma 7B IT — critique B (Groq)
+    "llama4-scout":     2,   # Llama 4 Scout 17B — critique B (Groq)
     "qwen-2.5-vl":     2,   # Qwen 2.5 VL — critique C (DashScope)
     # Tier 3 — Synthesis + Verification
     "gemini-flash":    3,   # Gemini Flash 2.0 — synthesis (Google)
@@ -171,9 +172,9 @@ MODEL_DEBATE_TIERS: Dict[str, int] = {
 # Fallback mapping: if a model fails, replace with this model
 MODEL_FALLBACK_MAP: Dict[str, str] = {
     "llama33-70b":     "llama31-8b",      # Groq 70B → Groq 8B
-    "mixtral-8x7b":    "gemma-7b",         # Mixtral → Gemma
-    "gemma-7b":        "llama31-8b",      # Gemma → Llama 8B
-    "qwen-2.5-vl":     "gemma-7b",         # Qwen → Gemma
+    "mixtral-8x7b":    "llama4-scout",     # Mixtral → Llama 4 Scout
+    "llama4-scout":    "llama31-8b",      # Llama 4 Scout → Llama 8B
+    "qwen-2.5-vl":     "llama4-scout",     # Qwen → Llama 4 Scout
     "gemini-flash":    "llama33-70b",     # Gemini → Llama 70B
     "llama31-8b":      "mixtral-8x7b",     # Llama 8B → Mixtral
 }

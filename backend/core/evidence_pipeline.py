@@ -105,10 +105,18 @@ async def build_evidence_result(
             verdict = "confirmed" if evidence_match > 0.4 else "unverified" if evidence_match > 0.1 else "unsupported"
 
             all_claims.append({
-                "claim": sentence[:200],
-                "model": model_name,
-                "verdict": verdict,
-                "evidence_match": round(evidence_match, 3),
+                "statement": sentence[:200],
+                "model_origin": model_name,
+                "final_confidence": round(evidence_match, 3),
+                "date": None,
+                "source_type": "model_output",
+                "agreement_count": 1 if evidence_match > 0.3 else 0,
+                "contradiction_count": 0,
+                "verifications": [{
+                    "verdict": verdict,
+                    "verifier": "evidence_search",
+                    "confidence": round(evidence_match, 3),
+                }] if matching_source else [],
                 "source_url": matching_source,
                 "agreement": round(r.score.final_score, 3) if hasattr(r, 'score') else 0.5,
             })
@@ -134,11 +142,12 @@ async def build_evidence_result(
     if evidence_result:
         for c in evidence_result.contradictions:
             contradictions.append({
-                "source_a": c.source_a_url,
-                "source_b": c.source_b_url,
-                "claim_a": c.claim_a[:200],
-                "claim_b": c.claim_b[:200],
+                "type": "factual",
                 "severity": round(c.severity, 3),
+                "model_a": c.source_a_url,
+                "claim_a": c.claim_a[:200],
+                "model_b": c.source_b_url,
+                "claim_b": c.claim_b[:200],
             })
 
     # Step 5: Build verbatim citations from sources
@@ -147,10 +156,11 @@ async def build_evidence_result(
         for src in evidence_result.sources[:5]:
             if src.content_snippet and len(src.content_snippet) > 30:
                 verbatim_citations.append({
-                    "text": src.content_snippet[:250],
+                    "quote": src.content_snippet[:250],
                     "source": src.title,
                     "url": src.url,
                     "reliability": round(src.reliability_score, 3),
+                    "model_source": None,
                 })
 
     # Step 6: Compute aggregate metrics

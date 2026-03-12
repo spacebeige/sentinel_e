@@ -53,7 +53,10 @@ export function resolveRenderMode(result) {
   }
 
   // Ensemble mode — full cognitive pipeline data
-  if (mode === 'ensemble' || mode === 'cognitive' || meta.ensemble_metrics) {
+  // Only enter ensemble rendering if EXPLICITLY in ensemble/cognitive mode,
+  // not when a sub-mode (glass/evidence/synthesis) is active with ensemble metrics.
+  if ((mode === 'ensemble' || mode === 'cognitive') ||
+      (meta.ensemble_metrics && !['glass', 'evidence', 'synthesis'].includes(mode))) {
     return {
       ...base,
       mode: 'ensemble',

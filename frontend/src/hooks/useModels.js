@@ -91,8 +91,8 @@ export const DEFAULT_CHAT_MODELS = [
     max_output_tokens: 1500,
   },
   {
-    id: 'gemma-7b',
-    name: 'Gemma 7B IT',
+    id: 'llama4-scout',
+    name: 'Llama 4 Scout 17B',
     provider: 'groq',
     color: TIER_COLORS[2],
     role: 'general',

@@ -78,7 +78,7 @@ _TIER_MAP: Dict[str, ModelTier] = {
     "llama33-70b": ModelTier.STANDARD,
     # Critique
     "mixtral-8x7b": ModelTier.BUDGET,
-    "gemma-7b": ModelTier.BUDGET,
+    "llama4-scout": ModelTier.BUDGET,
     "qwen-2.5-vl": ModelTier.BUDGET,
     # Synthesis + Verification
     "gemini-flash": ModelTier.STANDARD,
@@ -91,7 +91,7 @@ _COST_MAP: Dict[str, CostProfile] = {
     "llama33-70b": CostProfile.FREE,
     # Critique
     "mixtral-8x7b": CostProfile.FREE,
-    "gemma-7b": CostProfile.FREE,
+    "llama4-scout": CostProfile.FREE,
     "qwen-2.5-vl": CostProfile.FREE,
     # Synthesis + Verification
     "gemini-flash": CostProfile.FREE,

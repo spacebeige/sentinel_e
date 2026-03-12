@@ -32,7 +32,7 @@ LEGACY_TO_REGISTRY: Dict[str, str] = {
     # Active ensemble (v4 — No OpenRouter)
     "llama31": "llama33-70b",           # Llama 3.3 70B — analysis
     "mixtral": "mixtral-8x7b",          # Mixtral 8x7B — critique A
-    "gemma": "gemma-7b",                # Gemma 7B IT — critique B
+    "gemma": "llama4-scout",             # Llama 4 Scout — critique B
     "qwen": "qwen-2.5-vl",              # Qwen 2.5 VL — critique C
     "gemini": "gemini-flash",            # Gemini Flash 2.0 — synthesis
     "llama31-fast": "llama31-8b",       # Llama 3.1 8B — verification
@@ -46,8 +46,8 @@ LEGACY_TO_REGISTRY: Dict[str, str] = {
     "mistral-small": "mixtral-8x7b",   # mistral-small → mixtral-8x7b
     "llama-3.2": "llama31-8b",         # llama-3.2-3b → llama31-8b
     # Removed OpenRouter models → remap to Groq equivalents
-    "gemma9b": "gemma-7b",             # gemma-2-9b-it → gemma-7b
-    "gemma2b": "gemma-7b",             # gemma-3-4b-it → gemma-7b
+    "gemma9b": "llama4-scout",          # gemma-2-9b-it → llama4-scout
+    "gemma2b": "llama4-scout",          # gemma-3-4b-it → llama4-scout
     "mistral7b": "mixtral-8x7b",       # mistral-7b-instruct → mixtral-8x7b
     "phi3": "mixtral-8x7b",            # phi-4 → mixtral-8x7b
     "phi3-small": "llama31-8b",        # llama-3.2-3b → llama31-8b

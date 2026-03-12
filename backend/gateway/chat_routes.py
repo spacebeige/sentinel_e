@@ -161,10 +161,10 @@ async def chat_with_model(
       4. Return structured response including latency, tokens, and flag metadata.
 
     Path parameter:
-      model_id — canonical registry key (e.g. "llama33-70b", "gemma-7b")
+      model_id — canonical registry key (e.g. "llama33-70b", "llama4-scout")
 
     Example:
-      POST /chat/gemma-7b
+      POST /chat/llama4-scout
       {"query": "Explain quantum entanglement in one paragraph."}
     """
     gateway = _get_gateway()

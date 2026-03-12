@@ -123,6 +123,14 @@ def build_glass_result(
         if persuasion_tactics > 0.4:
             red_flags.append("Uses persuasion over evidence")
 
+        # Generate overall assessment narrative
+        if trust_score > 0.75:
+            overall_assessment = f"{model_name} provides a high-quality, well-grounded response with strong logical coherence."
+        elif trust_score > 0.5:
+            overall_assessment = f"{model_name} offers a reasonable analysis but has notable gaps in evidence quality or completeness."
+        else:
+            overall_assessment = f"{model_name} shows concerning patterns: weak evidence, potential bias, or incomplete reasoning."
+
         # Use other models as auditors in rotation
         auditor_idx = (i + 1) % len(valid_results) if len(valid_results) > 1 else i
         auditor_name = valid_results[auditor_idx].output.model_name
@@ -140,7 +148,8 @@ def build_glass_result(
             "completeness": round(completeness, 4),
             "strong_points": strong_points,
             "weak_points": weak_points,
-            "red_flags": red_flags,
+            "risk_factors": red_flags,
+            "overall_assessment": overall_assessment,
             "raw_output_preview": (r.output.raw_output or "")[:200],
         })
 
@@ -163,6 +172,7 @@ def build_glass_result(
     model_profiles = {}
     for a in assessments:
         model_profiles[a["subject_name"]] = {
+            "model_name": a["subject_name"],
             "trust": a["trust_score"],
             "coherence": a["logical_coherence"],
             "evidence": a["evidence_quality"],

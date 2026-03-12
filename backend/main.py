@@ -80,6 +80,14 @@ from core.dynamic_analytics import DynamicAnalyticsEngine
 # ── Cognitive Core Engine v7.0 ────────────────────────────────
 from core.cognitive_orchestrator import CognitiveCoreEngine
 
+# ── Multimodal Capability Auditor ─────────────────────────────
+from core.multimodal_auditor import MultimodalAuditor
+
+# ── Sub-Mode Pipelines (Glass / Evidence / Synthesis) ─────────
+from core.glass_pipeline import build_glass_result
+from core.evidence_pipeline import build_evidence_result
+from core.synthesis_engine import build_synthesis_result
+
 # ── Optimization Layer ───────────────────────────────────────
 from optimization import (
     get_token_optimizer,
@@ -122,6 +130,7 @@ mco_orchestrator: Optional[MetaCognitiveOrchestrator] = None
 mco_daemon: Optional[BackgroundDaemon] = None
 mco_bridge = None  # MCOModelBridge — unified model client
 cognitive_orchestrator_engine: Optional[CognitiveCoreEngine] = None  # Cognitive Engine v7.0
+multimodal_auditor: Optional[MultimodalAuditor] = None  # Multimodal Capability Auditor
 omega_sessions: Dict[str, OmegaCognitiveKernel] = {}
 memory_sessions: Dict[str, MemoryEngine] = {}
 
@@ -129,10 +138,61 @@ memory_sessions: Dict[str, MemoryEngine] = {}
 MAX_SESSIONS = 500
 
 
+# ── Adapter: StructuredModelOutput → Pipeline-compatible ─────
+# The sub-mode pipelines (glass, evidence, synthesis) expect objects
+# with .output.success, .output.raw_output, .output.model_name,
+# .score.final_score — matching MCO's ScoredModelResult interface.
+# This adapter bridges StructuredModelOutput from the ensemble path.
+
+class _PipelineScore:
+    """Adapter mimicking MCO ModelScore for pipeline functions."""
+    __slots__ = ("model_name", "topic_alignment", "knowledge_grounding",
+                 "specificity", "confidence_calibration", "drift_penalty", "final_score")
+
+    def __init__(self, model_name: str, confidence: float):
+        self.model_name = model_name
+        self.final_score = confidence
+        self.topic_alignment = confidence
+        self.knowledge_grounding = confidence * 0.9
+        self.specificity = confidence * 0.85
+        self.confidence_calibration = confidence
+        self.drift_penalty = 0.0
+
+
+class _PipelineOutput:
+    """Adapter mimicking MCO ModelOutput for pipeline functions."""
+    __slots__ = ("success", "raw_output", "model_name")
+
+    def __init__(self, succeeded: bool, raw_output: str, model_name: str):
+        self.success = succeeded
+        self.raw_output = raw_output
+        self.model_name = model_name
+
+
+class _PipelineResult:
+    """Adapter wrapping StructuredModelOutput for pipeline functions."""
+    __slots__ = ("output", "score")
+
+    def __init__(self, smo):
+        self.output = _PipelineOutput(smo.succeeded, smo.raw_output, smo.model_name)
+        self.score = _PipelineScore(smo.model_name, smo.confidence)
+
+
+def _adapt_ensemble_for_pipelines(ensemble_response):
+    """Convert EnsembleResponse model_outputs to pipeline-compatible lists."""
+    adapted_results = [_PipelineResult(m) for m in ensemble_response.model_outputs]
+    scoring_breakdown = [_PipelineScore(m.model_name, m.confidence) for m in ensemble_response.model_outputs]
+    divergence_metrics = {
+        "max_divergence": ensemble_response.ensemble_metrics.contradiction_density,
+        "mean_divergence": ensemble_response.ensemble_metrics.disagreement_entropy,
+    }
+    return adapted_results, scoring_breakdown, divergence_metrics
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global orchestrator, omega_kernel, knowledge_learner, cognitive_rag, analytics_engine
-    global mco_orchestrator, mco_daemon, mco_bridge, cognitive_orchestrator_engine
+    global mco_orchestrator, mco_daemon, mco_bridge, cognitive_orchestrator_engine, multimodal_auditor
     logger.info("Initializing Sentinel-E v5.0 Production System...")
 
     # Initialize DB
@@ -181,6 +241,14 @@ async def lifespan(app: FastAPI):
         cognitive_orchestrator_engine = CognitiveCoreEngine(model_bridge=mco_bridge)
         mco_set_cognitive_engine(cognitive_orchestrator_engine)
         logger.info("Cognitive Core Engine v7.0 initialized — ensemble-only, no mode routing")
+
+        # ── Multimodal Auditor ────────────────────────────────
+        multimodal_auditor = MultimodalAuditor(
+            cognitive_engine=cognitive_orchestrator_engine,
+            redis_client=redis_client,
+            cognitive_rag=cognitive_rag,
+        )
+        logger.info("Multimodal Capability Auditor initialized")
 
         # Background daemon (starts paused — activate via API)
         mco_daemon = BackgroundDaemon(
@@ -833,6 +901,37 @@ async def run_sentinel(
     # COGNITIVE ENSEMBLE — For analytical queries and debate mode
     # ══════════════════════════════════════════════════════════
     use_ensemble = cognitive_orchestrator_engine is not None
+
+    # ── Multimodal Capability Audit (pre-execution) ──────────
+    audit_report = None
+    if use_ensemble and multimodal_auditor:
+        try:
+            from core.multimodal_auditor import phase1_inspect_input, phase2_capability_check, phase3_model_availability_audit
+            inspection = phase1_inspect_input(
+                query=effective_text,
+                image_b64=request.image_b64,
+                image_mime=request.image_mime,
+            )
+            capability = phase2_capability_check(inspection)
+            _, disabled_reports = phase3_model_availability_audit()
+
+            audit_report = {
+                "input_type": inspection.input_type.value,
+                "multimodal_required": inspection.multimodal_required,
+                "required_capabilities": capability.required_capabilities,
+                "preferred_models": capability.preferred_models,
+                "disabled_models": [
+                    {"reason": d.reason, "provider": d.provider, "env_var": d.required_env_var}
+                    for d in disabled_reports
+                ],
+            }
+            logger.info(
+                f"Pre-execution audit: type={inspection.input_type.value}, "
+                f"multimodal={inspection.multimodal_required}"
+            )
+        except Exception as audit_err:
+            logger.warning(f"Pre-execution audit failed (non-fatal): {audit_err}")
+
     if use_ensemble:
         tracer.start_span("kernel")
         try:
@@ -915,6 +1014,10 @@ async def run_sentinel(
                 },
             })
 
+            # Inject multimodal audit report into metadata
+            if audit_report:
+                omega_metadata["multimodal_audit"] = audit_report
+
             if rag_result and rag_result.retrieval_executed:
                 omega_metadata["rag_result"] = {
                     "executed": True,
@@ -923,6 +1026,43 @@ async def run_sentinel(
                     "contradictions": len(rag_result.contradictions),
                     "no_sources": rag_result.no_sources_found,
                 }
+
+            # ── Sub-Mode Pipeline Execution ──────────────────────
+            # Wire Glass / Evidence / Synthesis pipelines so the
+            # frontend views receive real analytical data.
+            if sub_mode in ("glass", "evidence", "synthesis"):
+                try:
+                    adapted_results, scoring_bd, div_metrics = _adapt_ensemble_for_pipelines(ensemble_response)
+                    winning = ensemble_response.model_outputs[0].model_name if ensemble_response.model_outputs else "unknown"
+
+                    if sub_mode == "glass":
+                        omega_metadata["audit_result"] = build_glass_result(
+                            all_results=adapted_results,
+                            scoring_breakdown=scoring_bd,
+                            divergence_metrics=div_metrics,
+                            aggregated_answer=formatted_output,
+                            winning_model=winning,
+                            drift_score=ensemble_response.debate_result.drift_index,
+                            volatility_score=ensemble_response.ensemble_metrics.fragility_score,
+                        )
+                    elif sub_mode == "evidence":
+                        omega_metadata["forensic_result"] = await build_evidence_result(
+                            query=effective_text,
+                            all_results=adapted_results,
+                            scoring_breakdown=scoring_bd,
+                            aggregated_answer=formatted_output,
+                            winning_model=winning,
+                        )
+                    elif sub_mode == "synthesis":
+                        omega_metadata["synthesis_result"] = build_synthesis_result(
+                            all_results=adapted_results,
+                            scoring_breakdown=scoring_bd,
+                            divergence_metrics=div_metrics,
+                            aggregated_answer=formatted_output,
+                            winning_model=winning,
+                        )
+                except Exception as pipe_err:
+                    logger.error(f"Sub-mode pipeline '{sub_mode}' failed: {pipe_err}", exc_info=True)
 
             await update_chat_metadata(
                 db, chat.id,
@@ -1301,6 +1441,110 @@ async def run_compressed(
 
 
 # ============================================================
+# MULTIMODAL CAPABILITY AUDIT
+# ============================================================
+
+@app.post("/api/audit")
+async def audit_capabilities(
+    text: str = Form(...),
+    file: Optional[UploadFile] = File(None),
+    user: Dict = Depends(get_current_user),
+):
+    """
+    Run the 8-phase multimodal capability audit without executing the pipeline.
+
+    Returns a structured report:
+      SYSTEM_AUDIT  — input classification, model availability
+      MODEL_PIPELINE — which models would be assigned
+      EXECUTION_STATUS — whether execution would succeed
+    """
+    from core.multimodal_auditor import MultimodalAuditor, audit_request
+
+    image_b64 = None
+    image_mime = None
+    file_mime = None
+
+    if file:
+        file_mime = file.content_type
+        if file_mime and file_mime.startswith("image/"):
+            image_b64, image_mime = await _read_upload_as_b64(file)
+
+    if multimodal_auditor:
+        result = await multimodal_auditor.audit_and_route(
+            query=text,
+            image_b64=image_b64,
+            image_mime=image_mime,
+            file_mime=file_mime,
+            execute=False,
+        )
+    else:
+        result = await audit_request(
+            query=text,
+            image_b64=image_b64,
+            image_mime=image_mime,
+            file_mime=file_mime,
+        )
+
+    return result
+
+
+@app.post("/api/audit/execute")
+async def audit_and_execute(
+    text: str = Form(...),
+    rounds: int = Form(3),
+    chat_id: Optional[UUID] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    context: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    """
+    Run the full 8-phase multimodal audit AND execute the pipeline.
+
+    Returns SYSTEM_AUDIT + MODEL_PIPELINE + FINAL_RESPONSE.
+    This is the capability-aware entry point that guarantees:
+      - No silent capability skips
+      - Vision models used for images
+      - Minimum 3 models participate
+      - Full audit trail in response
+    """
+    if not multimodal_auditor:
+        raise HTTPException(status_code=503, detail="Multimodal auditor not initialized")
+
+    image_b64 = None
+    image_mime = None
+    file_mime = None
+
+    if file:
+        file_mime = file.content_type
+        if file_mime and file_mime.startswith("image/"):
+            image_b64, image_mime = await _read_upload_as_b64(file)
+
+    # Build history from context
+    history = []
+    if context:
+        try:
+            ctx = json.loads(context)
+            if isinstance(ctx, list):
+                history = ctx
+        except Exception:
+            pass
+
+    result = await multimodal_auditor.audit_and_route(
+        query=text,
+        chat_id=str(chat_id) if chat_id else "",
+        rounds=max(min(rounds, 10), 3),
+        history=history,
+        image_b64=image_b64,
+        image_mime=image_mime,
+        file_mime=file_mime,
+        execute=True,
+    )
+
+    return result
+
+
+# ============================================================
 # INDIVIDUAL MODEL MODE (Direct single-model query)
 # ============================================================
 
@@ -1332,7 +1576,7 @@ async def query_individual_model(
 ):
     """
     Query a specific model directly (individual model mode).
-    Supported model_ids: llama-3.3-70b, llama-3.1-8b, mixtral-8x7b, gemma-7b, gemini-flash, qwen-2.5-vl
+    Supported model_ids: llama-3.3-70b, llama-3.1-8b, mixtral-8x7b, llama4-scout, gemini-flash, qwen-2.5-vl
     """
     import time as _time
     from compressed.model_clients import RoleBasedRouter

@@ -3,13 +3,13 @@ Multi-provider model clients for role-based reasoning pipeline.
 
 Providers:
   - Gemini Flash 2.0 (Synthesis primary)
-  - Groq (Llama-3.3-70B, Llama-3.1-8B, Mixtral-8x7B, Gemma-7B)
+  - Groq (Llama-3.3-70B, Llama-3.1-8B, Mixtral-8x7B, Llama 4 Scout)
   - Qwen 2.5 VL Instruct (DashScope — free tier)
 
 Role assignments:
   Analysis:     Groq Llama-3.3-70B → Gemini Flash
   Critique A:   Groq Mixtral-8x7B → Groq 8B
-  Critique B:   Groq Gemma-7B → Groq 8B
+  Critique B:   Groq Llama 4 Scout → Groq 8B
   Critique C:   Qwen 2.5 VL → Groq 8B
   Synthesis:    Gemini Flash 2.0 → Groq Llama-3.3-70B
   Verification: Groq Llama-3.1-8B → Gemini Flash
@@ -250,7 +250,7 @@ class RoleBasedRouter:
     Role assignments (v2 — no OpenRouter):
       analysis:     Groq Llama-3.3-70B → Gemini Flash
       critique_a:   Groq Mixtral-8x7B → Groq 8B
-      critique_b:   Groq Gemma-7B → Groq 8B
+      critique_b:   Groq Llama 4 Scout → Groq 8B
       critique_c:   Qwen 2.5 VL → Groq 8B
       synthesis:    Gemini Flash 2.0 → Groq Llama-3.3-70B
       verification: Groq Llama-3.1-8B → Gemini Flash
@@ -262,7 +262,7 @@ class RoleBasedRouter:
         self.groq_70b = GroqClient(model_id="llama-3.3-70b-versatile", api_key_env="GROQ_LLAMA70B_KEY")
         self.groq_8b = GroqClient(model_id="llama-3.1-8b-instant", api_key_env="GROQ_LLAMA8B_KEY")
         self.groq_mixtral = GroqClient(model_id="mixtral-8x7b-32768", api_key_env="GROQ_MIXTRAL_KEY")
-        self.groq_gemma = GroqClient(model_id="gemma-7b-it", api_key_env="GROQ_GEMMA_KEY")
+        self.groq_gemma = GroqClient(model_id="meta-llama/llama-4-scout-17b-16e-instruct", api_key_env="GROQ_GEMMA_KEY")
         self.qwen = QwenClient()
 
         self._call_count = 0
@@ -272,7 +272,7 @@ class RoleBasedRouter:
             "llama-3.3-70b": self.groq_70b,
             "llama-3.1-8b": self.groq_8b,
             "mixtral-8x7b": self.groq_mixtral,
-            "gemma-7b": self.groq_gemma,
+            "llama4-scout": self.groq_gemma,
             "gemini-flash": self.gemini,
             "qwen-2.5-vl": self.qwen,
         }
@@ -333,13 +333,13 @@ class RoleBasedRouter:
             if self.groq_8b.available:
                 return await self.groq_8b.generate(prompt, system_instruction, max_tokens, temperature)
 
-        # ── Critique B: Gemma-7B → Groq 8B ──
+        # ── Critique B: Llama 4 Scout → Groq 8B ──
         elif role == "critique_b":
             if self.groq_gemma.available:
                 result = await self.groq_gemma.generate(prompt, system_instruction, max_tokens, temperature)
                 if result.ok:
                     return result
-                logger.warning(f"Gemma failed: {result.error}")
+                logger.warning(f"Llama 4 Scout failed: {result.error}")
             if self.groq_8b.available:
                 return await self.groq_8b.generate(prompt, system_instruction, max_tokens, temperature)
 
@@ -388,7 +388,7 @@ MODELS_REGISTRY = {
     "llama-3.3-70b": {"provider": "groq", "model_id": "llama-3.3-70b-versatile", "key_env": "GROQ_LLAMA70B_KEY", "role": "analysis"},
     "llama-3.1-8b": {"provider": "groq", "model_id": "llama-3.1-8b-instant", "key_env": "GROQ_LLAMA8B_KEY", "role": "verification/summarize"},
     "mixtral-8x7b": {"provider": "groq", "model_id": "mixtral-8x7b-32768", "key_env": "GROQ_MIXTRAL_KEY", "role": "critique_a"},
-    "gemma-7b": {"provider": "groq", "model_id": "gemma-7b-it", "key_env": "GROQ_GEMMA_KEY", "role": "critique_b"},
+    "llama4-scout": {"provider": "groq", "model_id": "meta-llama/llama-4-scout-17b-16e-instruct", "key_env": "GROQ_GEMMA_KEY", "role": "critique_b"},
     "gemini-flash": {"provider": "gemini", "model_id": "gemini-2.0-flash", "key_env": "GEMINI_API_KEY", "role": "synthesis"},
     "qwen-2.5-vl": {"provider": "dashscope", "model_id": "qwen2.5-vl-7b-instruct", "key_env": "QWEN_API_KEY", "role": "critique_c"},
 }
