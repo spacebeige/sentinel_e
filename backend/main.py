@@ -2002,21 +2002,24 @@ async def learning_summary(user: Dict = Depends(get_current_user)):
 # PROVIDER STATUS (Admin Only)
 # ============================================================
 
-@app.get("/api/providers/status")
-async def provider_status(user: Dict = Depends(get_current_user)):
-    """Provider usage stats from unified cognitive registry."""
+
+# Diagnostics endpoint: model registry status with disable reasons
+@app.get("/api/models/status")
+async def model_registry_status(user: Dict = Depends(get_current_user)):
+    """Diagnostics: Full model registry status, including disable reasons."""
     from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
     return {
-        "active_models": [
+        "models": [
             {
                 "id": key,
                 "name": spec.name,
                 "provider": spec.provider,
                 "enabled": spec.enabled,
                 "active": spec.active,
+                "disable_reason": getattr(spec, "disable_reason", None),
             }
             for key, spec in COGNITIVE_MODEL_REGISTRY.items()
-        ],
+        ]
     }
 
 

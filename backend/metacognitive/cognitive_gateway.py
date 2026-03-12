@@ -60,6 +60,7 @@ class CognitiveModelSpec:
     active: bool = True     # Structural flag (can be toggled manually)
     enabled: bool = True    # Runtime flag (auto-set based on key availability)
     supports_vision: bool = False  # Whether this model accepts image inputs
+    disable_reason: str = None  # Reason why model is disabled
 
 
 # ── Model Registry ───────────────────────────────────────────
@@ -306,10 +307,12 @@ def _initialize_registry():
         if api_key:
             spec.enabled = True
             spec.active = True
+            spec.disable_reason = None
             logger.info(f"Model '{key}' ({spec.provider}): enabled and active")
         else:
             spec.enabled = False
             spec.active = False
+            spec.disable_reason = f"API key missing: checked {spec.api_key_env or '[none]'} and provider key { _PROVIDER_SHARED_KEY.get(spec.provider, '[none]') }"
             logger.warning(
                 f"Model '{key}' ({spec.provider}): DISABLED — "
                 f"no API key found (checked {spec.api_key_env} and shared key)"
