@@ -55,30 +55,30 @@ export default function StructuredOutput({ result, activeSubMode }) {
       );
 
     case 'evidence':
-      if (!meta.forensic_result && !renderMode.data) return null;
+      if (!renderMode.forensicResult && !meta.forensic_result) return null;
       return (
         <EvidenceView
-          data={renderMode.mode === 'evidence' ? renderMode.data : meta.forensic_result}
+          data={renderMode.forensicResult || meta.forensic_result}
           boundary={renderMode.boundary}
           confidence={renderMode.confidence}
         />
       );
 
     case 'glass':
-      if (!meta.audit_result && !renderMode.data) return null;
+      if (!renderMode.auditResult && !meta.audit_result) return null;
       return (
         <GlassView
-          data={renderMode.mode === 'glass' ? renderMode.data : meta.audit_result}
+          data={renderMode.auditResult || meta.audit_result}
           boundary={renderMode.boundary}
           confidence={renderMode.confidence}
         />
       );
 
     case 'synthesis':
-      if (!meta.synthesis_result && !renderMode.data) return null;
+      if (!renderMode.synthesisResult && !meta.synthesis_result) return null;
       return (
         <SynthesisView
-          data={renderMode.mode === 'synthesis' ? renderMode.data : meta.synthesis_result}
+          data={renderMode.synthesisResult || meta.synthesis_result}
           boundary={renderMode.boundary}
           confidence={renderMode.confidence}
         />

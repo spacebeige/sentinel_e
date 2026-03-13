@@ -633,19 +633,20 @@ class StructuredDebateEngine:
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 logger.error(f"Model {models[i]['id']} failed in round 1: {result}")
-                positions.append(DebatePosition(
-                    model_id=models[i]["id"],
-                    model_name=models[i].get("name", models[i]["id"]),
-                    round_number=1,
-                    position="[MODEL FAILED]",
-                    argument=f"Model did not respond: {result}",
-                    confidence=0.0,
-                    latency_ms=0.0,
-                    status="failed",
+                positions.append(self._failed_position(
+                    model=models[i],
+                    round_num=1,
+                    reason=f"Model did not respond: {result}",
                 ))
                 continue
-            if result is not None:
-                positions.append(result)
+            if result is None:
+                positions.append(self._failed_position(
+                    model=models[i],
+                    round_num=1,
+                    reason="Model returned empty or invalid structured output",
+                ))
+                continue
+            positions.append(result)
 
         return DebateRound(round_number=1, positions=positions)
 
@@ -694,21 +695,35 @@ class StructuredDebateEngine:
                 logger.error(
                     f"Model {models[i]['id']} failed in round {round_num}: {result}"
                 )
-                positions.append(DebatePosition(
-                    model_id=models[i]["id"],
-                    model_name=models[i].get("name", models[i]["id"]),
-                    round_number=round_num,
-                    position="[MODEL FAILED]",
-                    argument=f"Model did not respond: {result}",
-                    confidence=0.0,
-                    latency_ms=0.0,
-                    status="failed",
+                positions.append(self._failed_position(
+                    model=models[i],
+                    round_num=round_num,
+                    reason=f"Model did not respond: {result}",
                 ))
                 continue
-            if result is not None:
-                positions.append(result)
+            if result is None:
+                positions.append(self._failed_position(
+                    model=models[i],
+                    round_num=round_num,
+                    reason="Model returned empty or invalid structured output",
+                ))
+                continue
+            positions.append(result)
 
         return DebateRound(round_number=round_num, positions=positions)
+
+    def _failed_position(self, model: Dict[str, str], round_num: int, reason: str) -> DebatePosition:
+        """Create a standardized failed debate position entry."""
+        return DebatePosition(
+            model_id=model["id"],
+            model_name=model.get("name", model["id"]),
+            round_number=round_num,
+            position="[MODEL FAILED]",
+            argument=reason,
+            confidence=0.0,
+            latency_ms=0.0,
+            status="failed",
+        )
 
     # ── Error Detection ────────────────────────────────────
 

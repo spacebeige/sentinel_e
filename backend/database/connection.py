@@ -1,5 +1,10 @@
 import os
-import redis.asyncio as redis
+try:
+    import redis.asyncio as redis
+    HAS_REDIS_LIB = True
+except Exception:  # pragma: no cover - environment-dependent
+    redis = None
+    HAS_REDIS_LIB = False
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
@@ -115,15 +120,17 @@ class InMemoryRedisStub:
 
 
 try:
-    if REDIS_URL:
+    if HAS_REDIS_LIB and REDIS_URL:
         redis_client = redis.from_url(REDIS_URL, decode_responses=True)
-    else:
+    elif HAS_REDIS_LIB:
         redis_client = redis.Redis(
             host=REDIS_HOST,
             port=int(REDIS_PORT),
             db=int(REDIS_DB),
             decode_responses=True,
         )
+    else:
+        redis_client = InMemoryRedisStub()
 except Exception:
     redis_client = InMemoryRedisStub()
 

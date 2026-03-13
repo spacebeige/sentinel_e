@@ -141,7 +141,7 @@ function computeAnalyticsVisibility({ complexity, mode, subMode, prefs, signals,
       showAgreement: !isMinimal && subMode === 'debate',
       showReasoningTrace: isForensic,
       showBehavioralRisk: isForensic && !!meta.behavioral_risk,
-      showEvidenceSources: subMode === 'evidence' && !!meta.evidence_result,
+      showEvidenceSources: subMode === 'evidence' && !!(meta.forensic_result || meta.evidence_result),
       showStructuredOutput: !!(meta.debate_result || meta.forensic_result || meta.audit_result || meta.aggregation_result),
       showAnalysisDetails: !isMinimal,
     };

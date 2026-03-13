@@ -82,30 +82,36 @@ export function resolveRenderMode(result) {
 
   // Glass mode
   if (mode === 'glass') {
+    const auditResult = meta.audit_result || {};
     return {
       ...base,
+      data: auditResult,
       engine: 'GlassEngine',
-      auditResult: meta.audit_result || {},
+      auditResult,
       reasoningTrace: result.reasoning_trace || meta.reasoning_trace || {},
     };
   }
 
   // Evidence mode
   if (mode === 'evidence') {
+    const forensicResult = meta.forensic_result || {};
     return {
       ...base,
+      data: forensicResult,
       engine: 'EvidenceEngine',
-      forensicResult: meta.forensic_result || {},
-      sources: meta.forensic_result?.sources || [],
+      forensicResult,
+      sources: forensicResult.sources || [],
     };
   }
 
   // Synthesis mode
   if (mode === 'synthesis') {
+    const synthesisResult = meta.synthesis_result || {};
     return {
       ...base,
+      data: synthesisResult,
       engine: 'SynthesisEngine',
-      synthesisResult: meta.synthesis_result || {},
+      synthesisResult,
     };
   }
 

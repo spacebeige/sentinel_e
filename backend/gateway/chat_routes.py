@@ -289,6 +289,8 @@ async def list_available_models() -> Dict[str, Any]:
             "role": spec.role.value,
             "tier": MODEL_DEBATE_TIERS.get(key, 2),
             "enabled": spec.enabled and spec.active,
+            "active": spec.active,
+            "disable_reason": getattr(spec, "disable_reason", None),
             "context_window": spec.context_window,
             "max_output_tokens": spec.max_output_tokens,
         })

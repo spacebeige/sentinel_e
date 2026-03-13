@@ -163,6 +163,7 @@ function createExperimentalVisibility(complexity, subMode, boundary, meta, visLe
 
   // Evidence mode
   if (subMode === 'evidence') {
+    const evidenceMeta = meta.forensic_result || meta.evidence_result;
     return {
       showBoundary: hasBoundary,
       showConfidence: true,
@@ -170,7 +171,7 @@ function createExperimentalVisibility(complexity, subMode, boundary, meta, visLe
       showAgreement: false,
       showReasoningTrace: isForensic,
       showBehavioralRisk: false,
-      showEvidenceSources: !!meta.evidence_result,
+      showEvidenceSources: !!evidenceMeta,
       showStructuredOutput: !!meta.forensic_result || !!meta.audit_result,
       showAnalysisDetails: true,
       showInsightsSummary: true,

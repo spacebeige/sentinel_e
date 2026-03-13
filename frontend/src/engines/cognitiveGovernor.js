@@ -129,7 +129,7 @@ export function evaluateResponse({ userQuery, responseText, responseData, mode, 
     verdict.modeAlignment = false;
     verdict.flags.push('mode_misalignment');
   }
-  if (mode === 'experimental' && subMode === 'evidence' && !meta.evidence_result) {
+  if (mode === 'experimental' && subMode === 'evidence' && !(meta.forensic_result || meta.evidence_result)) {
     verdict.modeAlignment = false;
     verdict.flags.push('mode_misalignment');
   }

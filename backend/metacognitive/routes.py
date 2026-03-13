@@ -726,6 +726,7 @@ async def mco_models(user: Dict = Depends(get_current_user)):
                 "max_output_tokens": spec.max_output_tokens,
                 "active": spec.active,
                 "enabled": spec.enabled,
+                "disable_reason": getattr(spec, "disable_reason", None),
             }
             for key, spec in COGNITIVE_MODEL_REGISTRY.items()
         ]

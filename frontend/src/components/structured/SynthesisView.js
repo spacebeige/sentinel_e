@@ -25,6 +25,7 @@ export default function SynthesisView({ data, boundary, confidence }) {
   const consensusScore = data.consensus_score || 0;
   const improvementDelta = data.improvement_delta || 0;
   const modelsParticipated = data.models_participated || 0;
+  const finalAnswer = data.final_answer || data.refined_output || '';
 
   const revTypeColors = {
     endorsement: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' },
@@ -132,6 +133,21 @@ export default function SynthesisView({ data, boundary, confidence }) {
               </div>
             );
           })}
+
+          {/* Final synthesis answer */}
+          {finalAnswer && (
+            <div className="bg-white dark:bg-[#1c1c1e] rounded-xl border border-emerald-200 dark:border-emerald-900/50 shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles size={14} className="text-emerald-600" />
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                  Final Synthesized Answer
+                </span>
+              </div>
+              <p className="text-sm text-[#1d1d1f] dark:text-[#e2e8f0] leading-relaxed whitespace-pre-wrap">
+                {finalAnswer}
+              </p>
+            </div>
+          )}
         </div>
       )}
 

@@ -27,6 +27,8 @@ import os
 import json
 import logging
 import base64
+import asyncio
+import sqlite3
 import uuid as uuid_lib
 from contextlib import asynccontextmanager
 from typing import Optional, Dict, Any
@@ -136,6 +138,64 @@ memory_sessions: Dict[str, MemoryEngine] = {}
 
 # Maximum in-memory sessions to prevent memory leak
 MAX_SESSIONS = 500
+SESSION_SQLITE_PATH = os.path.join(os.path.dirname(__file__), "data", "session_cache.db")
+_SQLITE_SESSION_TABLE_READY = False
+
+
+def _ensure_session_sqlite_table():
+    """Ensure SQLite session cache table exists."""
+    global _SQLITE_SESSION_TABLE_READY
+    if _SQLITE_SESSION_TABLE_READY:
+        return
+
+    os.makedirs(os.path.dirname(SESSION_SQLITE_PATH), exist_ok=True)
+    conn = sqlite3.connect(SESSION_SQLITE_PATH)
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS session_cache (
+                chat_id TEXT PRIMARY KEY,
+                payload TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.commit()
+        _SQLITE_SESSION_TABLE_READY = True
+    finally:
+        conn.close()
+
+
+def _sqlite_write_session(chat_id: str, payload: str):
+    _ensure_session_sqlite_table()
+    conn = sqlite3.connect(SESSION_SQLITE_PATH)
+    try:
+        conn.execute(
+            """
+            INSERT INTO session_cache (chat_id, payload, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(chat_id) DO UPDATE SET
+                payload = excluded.payload,
+                updated_at = excluded.updated_at
+            """,
+            (chat_id, payload, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _sqlite_read_session(chat_id: str) -> Optional[str]:
+    _ensure_session_sqlite_table()
+    conn = sqlite3.connect(SESSION_SQLITE_PATH)
+    try:
+        row = conn.execute(
+            "SELECT payload FROM session_cache WHERE chat_id = ?",
+            (chat_id,),
+        ).fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
 
 
 # ── Adapter: StructuredModelOutput → Pipeline-compatible ─────
@@ -198,6 +258,7 @@ async def lifespan(app: FastAPI):
     # Initialize DB
     await init_db()
     await check_redis()
+    await asyncio.to_thread(_ensure_session_sqlite_table)
 
     # Initialize core components
     orchestrator = SentinelSigmaOrchestratorV4()
@@ -357,35 +418,44 @@ def _evict_sessions():
 
 
 async def _persist_session(chat_id: str, kernel: OmegaCognitiveKernel, memory: MemoryEngine):
-    """Persist session to Redis."""
+    """Persist session to SQLite (primary) with Redis as optional best-effort mirror."""
     try:
         session_data = {
             "omega": kernel.serialize_session(),
             "memory": memory.serialize(),
         }
+        payload = json.dumps(session_data, default=str)
+        await asyncio.to_thread(_sqlite_write_session, chat_id, payload)
+
+        # Legacy mirror (optional)
         await redis_client.setex(
             f"session:{chat_id}",
             settings.REDIS_SESSION_TTL,
-            json.dumps(session_data, default=str),
+            payload,
         )
     except Exception as e:
         logger.warning(f"Session persist failed: {e}")
 
 
 async def _restore_session(chat_id: str, user_id: str = ""):
-    """Restore session from Redis."""
+    """Restore session from SQLite first, then Redis fallback for backward compatibility."""
     try:
-        cached = await redis_client.get(f"session:{chat_id}")
-        if cached:
-            data = json.loads(cached)
-            kernel = OmegaCognitiveKernel.restore_from_session(
-                data.get("omega", {}),
-                sigma_orchestrator=orchestrator,
-                knowledge_learner=knowledge_learner,
-                cloud_client=mco_bridge,
-            )
-            memory = MemoryEngine.deserialize(data.get("memory", {}))
-            return kernel, memory
+        cached = await asyncio.to_thread(_sqlite_read_session, chat_id)
+        if not cached:
+            cached = await redis_client.get(f"session:{chat_id}")
+
+        if not cached:
+            return None, None
+
+        data = json.loads(cached)
+        kernel = OmegaCognitiveKernel.restore_from_session(
+            data.get("omega", {}),
+            sigma_orchestrator=orchestrator,
+            knowledge_learner=knowledge_learner,
+            cloud_client=mco_bridge,
+        )
+        memory = MemoryEngine.deserialize(data.get("memory", {}))
+        return kernel, memory
     except Exception as e:
         logger.warning(f"Session restore failed: {e}")
     return None, None
@@ -398,7 +468,7 @@ async def _get_session(chat_id: str, user_id: str = ""):
     if chat_id in omega_sessions:
         return omega_sessions[chat_id], memory_sessions.get(chat_id, MemoryEngine(user_id=user_id))
 
-    # Try Redis
+    # Try persisted cache (SQLite first, Redis fallback)
     kernel, memory = await _restore_session(chat_id, user_id)
     if kernel:
         omega_sessions[chat_id] = kernel
@@ -614,6 +684,7 @@ async def run_sentinel(
     sub_mode = getattr(request, "sub_mode", None) or omega_mode
     kill = getattr(request, "kill", False)
     role_map = getattr(request, "role_map", None) or {}
+    cache_mode_key = f"{omega_mode}:{sub_mode or 'standard'}"
 
     # ── Optimization: Observability Tracing ───────────────────
     obs_hub = get_observability_hub()
@@ -623,7 +694,7 @@ async def run_sentinel(
 
     # ── Optimization: Response Cache Check ────────────────────
     cache = get_response_cache()
-    cache_result = cache.lookup(effective_text, omega_mode)
+    cache_result = cache.lookup(effective_text, cache_mode_key)
     if cache_result.hit:
         cached_response = cache_result.response or {}
         cache_latency = tracer.end_span("total")
@@ -1033,7 +1104,12 @@ async def run_sentinel(
             if sub_mode in ("glass", "evidence", "synthesis"):
                 try:
                     adapted_results, scoring_bd, div_metrics = _adapt_ensemble_for_pipelines(ensemble_response)
-                    winning = ensemble_response.model_outputs[0].model_name if ensemble_response.model_outputs else "unknown"
+                    if scoring_bd:
+                        winning = max(scoring_bd, key=lambda s: getattr(s, "final_score", 0.0)).model_name
+                    elif ensemble_response.model_outputs:
+                        winning = ensemble_response.model_outputs[0].model_name
+                    else:
+                        winning = "unknown"
 
                     if sub_mode == "glass":
                         omega_metadata["audit_result"] = build_glass_result(
@@ -1119,7 +1195,7 @@ async def run_sentinel(
             }
 
             try:
-                cache.store(effective_text, "ensemble", response_payload)
+                cache.store(effective_text, cache_mode_key, response_payload)
             except Exception:
                 pass
 
@@ -1335,7 +1411,7 @@ async def run_sentinel(
 
     # Store in response cache (non-blocking, best-effort)
     try:
-        cache.store(effective_text, omega_mode, response_payload)
+        cache.store(effective_text, cache_mode_key, response_payload)
     except Exception:
         pass
 
@@ -1661,7 +1737,7 @@ async def run_experimental_form(
         request = SentinelRequest(text=text or "kill", mode="kill", rounds=min(rounds, settings.MAX_ROUNDS), chat_id=chat_id, sub_mode="glass")
         return await run_sentinel(request, db, user)
 
-    valid_sub_modes = {"debate", "glass", "evidence"}
+    valid_sub_modes = {"debate", "glass", "evidence", "synthesis"}
     sub_mode = sub_mode if sub_mode in valid_sub_modes else "debate"
     valid_modes = {"conversational", "experimental", "forensic", "standard"}
     mode = mode if mode in valid_modes else "experimental"
@@ -1703,7 +1779,7 @@ async def omega_experimental_form(
     db: AsyncSession = Depends(get_db),
     user: Dict = Depends(get_current_user),
 ):
-    valid_sub_modes = {"debate", "glass", "evidence"}
+    valid_sub_modes = {"debate", "glass", "evidence", "synthesis"}
     sub_mode = sub_mode if sub_mode in valid_sub_modes else "debate"
     request = SentinelRequest(text=text, mode="experimental", sub_mode=sub_mode, rounds=min(rounds, settings.MAX_ROUNDS), chat_id=chat_id)
     if file:

@@ -274,7 +274,7 @@ export default function FigmaChatShell({
     memoryManager.recordFeedback(vote, {
       responseLength: targetMsg?.content?.length || 0,
       hadAnalytics: !!(targetMsg?.omegaMetadata),
-      hadCitations: !!(targetMsg?.omegaMetadata?.evidence_result),
+      hadCitations: !!(targetMsg?.omegaMetadata?.forensic_result),
       mode: mode,
       subMode: subMode,
     });
@@ -641,16 +641,17 @@ export default function FigmaChatShell({
                 )}
 
                 {/* Evidence Sources */}
-                {message.omegaMetadata?.evidence_result && message.omegaMetadata.evidence_result.sources?.length > 0 && (
+                {(message.omegaMetadata?.forensic_result || message.omegaMetadata?.evidence_result)
+                  && (message.omegaMetadata?.forensic_result || message.omegaMetadata?.evidence_result).sources?.length > 0 && (
                   <div>
                     <div className="flex items-center gap-1 mb-1">
                       <FileSearch className="w-3 h-3 text-[#06b6d4]" />
                       <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Evidence Sources ({message.omegaMetadata.evidence_result.source_count})
+                        Evidence Sources ({(message.omegaMetadata?.forensic_result || message.omegaMetadata?.evidence_result).source_count})
                       </span>
                     </div>
                     <div className="space-y-1">
-                      {message.omegaMetadata.evidence_result.sources.slice(0, 5).map((src, i) => (
+                      {(message.omegaMetadata?.forensic_result || message.omegaMetadata?.evidence_result).sources.slice(0, 5).map((src, i) => (
                         <div key={i} className="flex items-start gap-1.5">
                           <span style={{ fontFamily: FONT, fontSize: '9px', fontWeight: 600, color: '#06b6d4' }}>[{i + 1}]</span>
                           <div>
@@ -1098,6 +1099,12 @@ export default function FigmaChatShell({
                                   style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 400 }}>
                                   {model.provider}{model.role ? ` \u00b7 ${model.role}` : ''}
                                 </div>
+                                {isDisabled && model.disable_reason && (
+                                  <div className="text-[#ef4444] truncate"
+                                    style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 500 }}>
+                                    {model.disable_reason}
+                                  </div>
+                                )}
                               </div>
                               {isDisabled && (
                                 <span className="px-1.5 py-0.5 rounded-md bg-[#fef2f2] dark:bg-red-500/10 text-[#ef4444] flex-shrink-0"

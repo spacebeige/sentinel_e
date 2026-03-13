@@ -236,6 +236,14 @@ def build_glass_result(
     tactical_map = {
         "model_profiles": model_profiles,
         "winning_model": winning_model,
+        "highest_risk_model": (
+            min(assessments, key=lambda a: a["trust_score"])["subject_name"]
+            if assessments else None
+        ),
+        "most_trustworthy_model": (
+            max(assessments, key=lambda a: a["trust_score"])["subject_name"]
+            if assessments else None
+        ),
         "divergence": max_div,
         "volatility": volatility_score,
     }

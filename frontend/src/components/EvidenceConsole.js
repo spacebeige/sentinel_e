@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Globe, AlertTriangle, CheckCircle, XCircle, Shield } from 'lucide-react';
+import { BookOpen, Globe, CheckCircle, XCircle, Shield } from 'lucide-react';
 import FeedbackButton from './FeedbackButton';
 
 const pct = v => v != null ? `${(v * 100).toFixed(0)}%` : '—';
@@ -68,7 +68,7 @@ const EvidenceConsole = ({ data }) => {
   const omega = data.omega_metadata || {};
   const confidence = data.confidence ?? omega.confidence;
   const boundary = data.boundary_result || omega.boundary_result || {};
-  const evidence = omega.evidence_result || {};
+  const evidence = omega.forensic_result || omega.evidence_result || {};
   const sources = evidence.sources || [];
   const contradictions = evidence.contradictions || [];
 

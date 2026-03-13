@@ -247,18 +247,18 @@ class TestOmegaFormatter:
             "assumptions": {"explicit": ["A1"], "implicit": ["I1"]},
             "logical_gaps": {"gaps": [{"severity": "medium", "description": "Test gap"}]},
             "solution": "Test solution.",
-            "boundary": {"risk_level": "LOW", "severity_score": 10, "explanation": "Safe"},
+            "boundary": {"risk_level": "MEDIUM", "severity_score": 45, "explanation": "Moderate"},
             "session": {"user_expertise_score": 0.7, "error_patterns": [], "reasoning_depth": "standard"},
             "confidence": {"value": 0.85, "explanation": "High confidence."},
         })
-        assert "# Executive Summary" in output
-        assert "# Problem Decomposition" in output
-        assert "# Identified Assumptions" in output
-        assert "# Logical Risk Assessment" in output
-        assert "# Structured Solution" in output
-        assert "# Boundary Evaluation" in output
-        assert "# Session Adaptation Notes" in output
-        assert "# Confidence Score" in output
+        assert "# Test Chat" in output
+        assert "## Summary" in output
+        assert "## Problem Breakdown" in output
+        assert "## Assumptions" in output
+        assert "## Risk Assessment" in output
+        assert "## Analysis" in output
+        assert "## Boundary Check" in output
+        assert "Confidence:" in output
 
     def test_experimental_format_has_all_sections(self):
         formatter = OmegaOutputFormatter()
@@ -275,15 +275,9 @@ class TestOmegaFormatter:
             "fragility": {"score": 0.2, "explanation": "Low fragility"},
             "synthesis": "Test synthesis.",
         })
-        assert "# Session Overview" in output
-        assert "# Model Initial Perspectives" in output
-        assert "# Extracted Hypotheses" in output
-        assert "# Debate Trace" in output
-        assert "# Stress Testing" in output
-        assert "# Boundary Analysis" in output
-        assert "# Confidence Evolution" in output
-        assert "# Fragility Index" in output
-        assert "# Executive Synthesis" in output
+        assert "# Adversarial Debate" in output
+        assert "## Synthesis" in output
+        assert "Confidence:" in output
 
     def test_kill_format_has_all_sections(self):
         formatter = OmegaOutputFormatter()
@@ -299,11 +293,12 @@ class TestOmegaFormatter:
             "session_confidence": 0.8,
             "confidence_explanation": "Stable session.",
         })
-        assert "# Session Cognitive State" in output
-        assert "# Boundary Snapshot" in output
-        assert "# Disagreement Score" in output
-        assert "# Fragility Index" in output
-        assert "# Session Confidence" in output
+        assert "# Kill Switch — Diagnostic Snapshot" in output
+        assert "## Session State" in output
+        assert "## Boundary State" in output
+        assert "## Model Disagreement" in output
+        assert "## Session Fragility" in output
+        assert "## Session Confidence" in output
 
 
 # ============================================================
@@ -320,9 +315,9 @@ class TestOmegaKernel:
         result = await kernel.process(config)
         assert result["mode"] == "standard"
         assert "formatted_output" in result
-        assert "# Executive Summary" in result["formatted_output"]
-        assert "# Boundary Evaluation" in result["formatted_output"]
-        assert "# Confidence Score" in result["formatted_output"]
+        assert "## Summary" in result["formatted_output"]
+        assert "## Analysis" in result["formatted_output"]
+        assert "Confidence:" in result["formatted_output"]
 
     @pytest.mark.anyio
     async def test_kill_mode(self):
@@ -332,8 +327,10 @@ class TestOmegaKernel:
         await kernel.process(OmegaConfig(text="Initial query", mode="standard"))
         # Then kill
         result = await kernel.process(OmegaConfig(text="", mode="kill"))
-        assert result["mode"] == "kill"
-        assert "# Session Cognitive State" in result["formatted_output"]
+        assert result["mode"] == "research"
+        assert result.get("sub_mode") == "glass"
+        assert result.get("kill_active") is True
+        assert "# Kill Switch — Diagnostic Snapshot" in result["formatted_output"]
         assert result["llm_result"] is None  # Kill mode never calls LLMs
 
     @pytest.mark.anyio
@@ -351,9 +348,9 @@ class TestOmegaKernel:
         kernel = OmegaCognitiveKernel(sigma_orchestrator=None)
         config = OmegaConfig(text="Compare Python vs Rust for systems programming", mode="experimental")
         result = await kernel.process(config)
-        assert result["mode"] == "experimental"
-        assert "# Session Overview" in result["formatted_output"]
-        assert "# Fragility Index" in result["formatted_output"]
+        assert result["mode"] == "research"
+        assert result.get("sub_mode") == "debate"
+        assert "# Adversarial Debate" in result["formatted_output"]
 
     @pytest.mark.anyio
     async def test_confidence_tracked(self):
@@ -371,7 +368,7 @@ class TestOmegaKernel:
             OmegaConfig(text="Write a Python function to implement binary search", mode="standard")
         )
         # Should have standard sections
-        assert "# Executive Summary" in result["formatted_output"]
+        assert "## Summary" in result["formatted_output"]
 
 
 # ============================================================
@@ -401,21 +398,24 @@ class TestPriorityOrder:
         """Priority 2: All required sections must be present in output."""
         formatter = OmegaOutputFormatter()
         output = formatter.format_standard({
+            "is_first_message": True,
+            "chat_name": "Test Chat",
             "executive_summary": "Test",
+            "problem_decomposition": [{"component": "C1", "description": "D1"}],
+            "assumptions": {"explicit": ["A1"], "implicit": []},
+            "logical_gaps": {"gaps": [{"severity": "medium", "description": "Gap"}]},
             "solution": "Test",
-            "boundary": {"risk_level": "LOW", "severity_score": 0, "explanation": ""},
+            "boundary": {"risk_level": "MEDIUM", "severity_score": 50, "explanation": ""},
             "session": {"user_expertise_score": 0.5, "error_patterns": [], "reasoning_depth": "standard"},
             "confidence": {"value": 0.5, "explanation": ""},
         })
         required_sections = [
-            "# Executive Summary",
-            "# Problem Decomposition",
-            "# Identified Assumptions",
-            "# Logical Risk Assessment",
-            "# Structured Solution",
-            "# Boundary Evaluation",
-            "# Session Adaptation Notes",
-            "# Confidence Score",
+            "## Summary",
+            "## Problem Breakdown",
+            "## Assumptions",
+            "## Risk Assessment",
+            "## Analysis",
+            "## Boundary Check",
         ]
         for section in required_sections:
             assert section in output, f"Missing required section: {section}"

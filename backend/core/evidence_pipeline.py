@@ -49,6 +49,7 @@ async def build_evidence_result(
     # Step 1: Evidence search
     phase_log.append({
         "phase": "search",
+        "name": "Evidence Search",
         "status": "running",
         "detail": f"Searching for evidence: {query[:80]}",
     })
@@ -72,6 +73,7 @@ async def build_evidence_result(
     # Step 2: Extract claims from model outputs
     phase_log.append({
         "phase": "claim_extraction",
+        "name": "Claim Extraction",
         "status": "running",
         "detail": "Extracting claims from model outputs",
     })
@@ -179,6 +181,7 @@ async def build_evidence_result(
 
     phase_log.append({
         "phase": "synthesis",
+        "name": "Evidence Synthesis",
         "status": "complete",
         "detail": (
             f"Confidence: {bayesian_confidence:.1%}, "

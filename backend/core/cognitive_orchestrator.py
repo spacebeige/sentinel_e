@@ -192,7 +192,7 @@ class CognitiveOrchestrator:
 
             # ── Safe Defaults: reduce scope if limited models ──
             if len(successful) < 4:
-                rounds = min(rounds, 1)
+                rounds = min(rounds, MIN_DEBATE_ROUNDS)
                 logger.warning(
                     f"Safe mode: {len(successful)} models succeeded. "
                     f"Reducing to {rounds} debate round(s)."

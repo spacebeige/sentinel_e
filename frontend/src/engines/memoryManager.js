@@ -581,8 +581,9 @@ class MemoryManager {
       push(this.analytical.disagreementTrend, session.disagreement_score);
     }
 
-    if (meta.evidence_result?.aggregate_reliability != null) {
-      push(this.analytical.evidenceReliabilityTrend, meta.evidence_result.aggregate_reliability);
+    const evidenceMeta = meta.forensic_result || meta.evidence_result;
+    if (evidenceMeta?.aggregate_reliability != null) {
+      push(this.analytical.evidenceReliabilityTrend, evidenceMeta.aggregate_reliability);
     }
 
     // Compute rolling averages

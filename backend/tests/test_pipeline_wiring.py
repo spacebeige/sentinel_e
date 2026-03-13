@@ -120,7 +120,7 @@ def test_evidence_pipeline_claim_format():
     ]
     scoring = [MockScore(0.85)]
 
-    result = asyncio.get_event_loop().run_until_complete(
+    result = asyncio.run(
         build_evidence_result(
             query="How far is Earth from the Sun?",
             all_results=results,

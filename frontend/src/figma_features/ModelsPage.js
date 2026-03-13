@@ -134,6 +134,11 @@ export function ModelsPage() {
                   <p className="text-[#6e6e73] dark:text-[#94a3b8] mb-1" style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 500 }}>
                     Provider: {model.provider}
                   </p>
+                  {isDisabled && model.disable_reason && (
+                    <p className="text-[#ef4444] mb-1" style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 500 }}>
+                      {model.disable_reason}
+                    </p>
+                  )}
                   {model.model_id && (
                     <p className="text-[#aeaeb2] dark:text-[#64748b] mb-2 font-mono truncate" style={{ fontSize: '11px' }}>
                       {model.model_id}
