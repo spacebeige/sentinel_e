@@ -21,7 +21,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import FigmaChatShell from '../figma_shell/FigmaChatShell';
-import useModels, { DEFAULT_CHAT_MODELS } from '../hooks/useModels';
+import useModels from '../hooks/useModels';
 import { getDefaultPipelineSteps } from '../engines/modeController';
 import memoryManager from '../engines/memoryManager';
 import { evaluateResponse } from '../engines/cognitiveGovernor';
@@ -52,7 +52,9 @@ export default function ChatEngineV5() {
   const [error, setError] = useState(null);
 
   const [input, setInput] = useState('');
-  const [selectedModel, setSelectedModel] = useState(chatModels[0] || DEFAULT_CHAT_MODELS[0]);
+  // Default to Sentinel Standard aggregate mode (not an individual model)
+  const SENTINEL_STD = { id: 'sentinel-std', name: 'Sentinel-E Standard', provider: 'Aggregated', color: '#3b82f6', category: 'standard', isMeta: true, enabled: true };
+  const [selectedModel, setSelectedModel] = useState(SENTINEL_STD);
 
   // ── Session Bootstrap ────────────────────────────────────
   useEffect(() => {

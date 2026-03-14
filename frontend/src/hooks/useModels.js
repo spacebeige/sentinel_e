@@ -168,8 +168,8 @@ export const DEFAULT_CHAT_MODELS = [
     active: true,
     disable_reason: null,
     debate_eligible: true,
-    context_window: 131072,
-    max_output_tokens: 2000,
+    context_window: 1000,
+    max_output_tokens: 1000,
   },
   {
     id: 'kimi-k2-thinking',
@@ -183,8 +183,8 @@ export const DEFAULT_CHAT_MODELS = [
     active: true,
     disable_reason: null,
     debate_eligible: true,
-    context_window: 131072,
-    max_output_tokens: 2000,
+    context_window: 1000,
+    max_output_tokens: 1000,
   },
   // Anthropic (Synthesis only)
   {
@@ -198,8 +198,8 @@ export const DEFAULT_CHAT_MODELS = [
     enabled: true,
     active: true,
     disable_reason: null,
-    debate_eligible: true,
-    context_window: 200000,
+    debate_eligible: false,
+    context_window: 500,
     max_output_tokens: 500,
   },
 ];

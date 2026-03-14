@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     NEMOTRON_API_KEY: str = ""
     KIMI_API_KEY: str = ""
     NVIDIA_API_KEY: str = ""
+    KIMI_K2_NVIDIA_API_KEY: str = ""
+    KIMI_K2_NVIDIA_API_KEY_FALLBACK: str = ""
+    MISTRAL_LARGE_NVIDIA_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
 
     # ── Database ─────────────────────────────────────────────

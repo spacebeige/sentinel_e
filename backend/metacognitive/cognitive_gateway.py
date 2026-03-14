@@ -157,11 +157,11 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         model_id="mistralai/mistral-large-3-675b-instruct-2512",
         provider="nvidia",
         role=ModelRole.CONCEPTUAL,
-        context_window=131072,
-        max_output_tokens=2000,
+        context_window=1000,
+        max_output_tokens=1000,
         default_temperature=0.15,
         api_base_url="https://integrate.api.nvidia.com/v1/chat/completions",
-        api_key_env="NVIDIA_API_KEY",
+        api_key_env="MISTRAL_LARGE_NVIDIA_API_KEY",
     ),
 
     # ── Kimi K2 Thinking (NVIDIA) ─────────────────────────────
@@ -170,11 +170,11 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         model_id="moonshotai/kimi-k2-thinking",
         provider="nvidia",
         role=ModelRole.CONCEPTUAL,
-        context_window=131072,
-        max_output_tokens=2000,
+        context_window=1000,
+        max_output_tokens=1000,
         default_temperature=0.2,
         api_base_url="https://integrate.api.nvidia.com/v1/chat/completions",
-        api_key_env="NVIDIA_API_KEY",
+        api_key_env="KIMI_K2_NVIDIA_API_KEY",
     ),
 
     # ── Claude Sonnet 4.6 (Anthropic — synthesis only) ────────
@@ -183,7 +183,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         model_id="claude-sonnet-4-20250514",
         provider="anthropic",
         role=ModelRole.GENERAL,
-        context_window=200000,
+        context_window=500,
         max_output_tokens=500,
         default_temperature=0.3,
         api_base_url="https://api.anthropic.com/v1/messages",
@@ -209,7 +209,7 @@ MODEL_DEBATE_TIERS: Dict[str, int] = {
     # Tier 3 — Synthesis + Verification
     "gemini-flash":    3,   # Gemini Flash 2.0 — synthesis (Google)
     "llama31-8b":      3,   # Llama 3.1 8B — verification (Groq)
-    "claude-sonnet-4.6": 3, # Claude Sonnet 4.6 — synthesis only (Anthropic)
+    # Note: claude-sonnet-4.6 excluded from debate — synthesis pipeline only
 }
 
 # Fallback mapping: if a model fails, replace with this model
@@ -222,7 +222,7 @@ MODEL_FALLBACK_MAP: Dict[str, str] = {
     "kimi-k2-thinking":    "llama4-scout",         # Kimi K2 → Llama 4 Scout
     "gemini-flash":        "llama33-70b",          # Gemini → Llama 70B
     "llama31-8b":          "mixtral-8x7b",         # Llama 8B → Mixtral
-    "claude-sonnet-4.6":   "gemini-flash",         # Claude → Gemini
+    # Note: claude-sonnet-4.6 has no fallback — synthesis pipeline only
 }
 
 # Prompt type → preferred specialist keys
@@ -471,8 +471,9 @@ class CognitiveModelGateway:
         Resolve the API key for a model.
 
         Resolution order:
-          1. Per-model env var (e.g. LLAMA31_8B_GROQ_API_KEY)
-          2. Shared provider key (GROQ_API_KEY for groq, GEMINI_API_KEY for gemini, etc.)
+          1. Per-model env var (e.g. LLAMA31_8B_GROQ_API_KEY, KIMI_K2_NVIDIA_API_KEY)
+          2. Per-model fallback key (e.g. KIMI_K2_NVIDIA_API_KEY_FALLBACK for resilience)
+          3. Shared provider key (GROQ_API_KEY for groq, GEMINI_API_KEY for gemini, etc.)
 
         Returns None if no key available.
         """
@@ -481,8 +482,16 @@ class CognitiveModelGateway:
             key = os.getenv(spec.api_key_env, "")
             if key:
                 return key
+        
+        # 2. Try per-model fallback key (for resilience)
+        if spec.api_key_env:
+            fallback_env = f"{spec.api_key_env}_FALLBACK"
+            key = os.getenv(fallback_env, "")
+            if key:
+                logger.info(f"Using fallback API key for '{spec.name}' ({fallback_env})")
+                return key
 
-        # 2. Fall back to shared provider key
+        # 3. Fall back to shared provider key
         _PROVIDER_SHARED_KEY = {
             "groq": "GROQ_API_KEY",
             "gemini": "GEMINI_API_KEY",
@@ -494,9 +503,10 @@ class CognitiveModelGateway:
         if shared_env:
             key = os.getenv(shared_env, "")
             if key:
+                logger.info(f"Using shared provider key for '{spec.name}' ({shared_env})")
                 return key
 
-        logger.warning(f"API key missing for model '{spec.name}' ({spec.provider}). Checked: {spec.api_key_env}, {shared_env}")
+        logger.warning(f"API key missing for model '{spec.name}' ({spec.provider}). Checked: {spec.api_key_env}, {spec.api_key_env}_FALLBACK, {shared_env}")
         return None
 
     async def invoke_model(
@@ -623,7 +633,7 @@ class CognitiveModelGateway:
 
         # ── Token Clamping ───────────────────────────────────
         # Ensure max_tokens does not exceed provider-specific hard limits
-        _PROVIDER_MAX_OUTPUT = {"groq": 8192, "gemini": 8192, "qwen": 8192, "openai": 4096, "nvidia": 2000, "anthropic": 500}
+        _PROVIDER_MAX_OUTPUT = {"groq": 8192, "gemini": 8192, "qwen": 8192, "openai": 4096, "nvidia": 1000, "anthropic": 500}
         _provider_cap = _PROVIDER_MAX_OUTPUT.get(spec.provider, 4096)
         governed_max_tokens = max(1, min(governed_max_tokens, _provider_cap))
 
@@ -678,6 +688,20 @@ class CognitiveModelGateway:
         logger.info(
             f"Model invocation: key={model_key}, provider={spec.provider}, success={result.success}, response_len={len(result.raw_output) if result.raw_output else 0}"
         )
+
+        # PHASE 9: Record API key tokenization (for shared API key quota tracking)
+        if result.success and spec.provider == "nvidia":
+            from optimization.cost_governor import get_cost_governor
+            api_key_env = spec.api_key_env
+            # Resolve which API key was actually used
+            if not api_key:  # If no per-model key, it came from shared NVIDIA_API_KEY
+                governor = get_cost_governor()
+                governor.record_api_key_usage(
+                    "NVIDIA_API_KEY",
+                    model_key,
+                    result.input_tokens,
+                    result.output_tokens,
+                )
 
         return result
 
@@ -1100,7 +1124,7 @@ class CognitiveModelGateway:
         spec: CognitiveModelSpec,
         messages: List[Dict[str, str]],
         api_key: str = "",
-        max_tokens: int = 2000,
+        max_tokens: int = 1000,
     ) -> CognitiveGatewayOutput:
         """Call NVIDIA API (OpenAI-compatible) for Mistral Large 675B and Kimi K2 Thinking."""
         if not api_key:
@@ -1124,8 +1148,8 @@ class CognitiveModelGateway:
                 content = " ".join(text_parts) if text_parts else str(content)
             sanitized_messages.append({"role": msg["role"], "content": content})
 
-        # Cap max_tokens to 2000 for NVIDIA models
-        max_tokens = min(max_tokens, 2000)
+        # Cap max_tokens to 1000 for NVIDIA models
+        max_tokens = min(max_tokens, 1000)
 
         payload = {
             "model": spec.model_id,

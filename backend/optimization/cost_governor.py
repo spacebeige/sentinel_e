@@ -38,9 +38,13 @@ MODEL_COSTS: Dict[str, Dict[str, float]] = {
     "mixtral-8x7b": {"input": 0.0, "output": 0.0},
     "llama4-scout": {"input": 0.0, "output": 0.0},
     "qwen-2.5-vl": {"input": 0.0, "output": 0.0},
+    "kimi-k2-thinking": {"input": 0.0001, "output": 0.0002},
     # Tier 3 Synthesis + Verification
     "gemini-flash": {"input": 0.0, "output": 0.0},
     "llama31-8b": {"input": 0.00005, "output": 0.00008},
+    # NVIDIA Models
+    "mistral-large-675b": {"input": 0.00008, "output": 0.00024},
+    "kimi-k2-thinking": {"input": 0.0001, "output": 0.0002},
     # Legacy aliases (backward compat for recorded usage)
     "llama-3.1-8b": {"input": 0.00005, "output": 0.00008},
 }
@@ -138,6 +142,82 @@ class SessionBudget:
 
 
 # ============================================================
+# API KEY TOKENIZATION TRACKER
+# ============================================================
+
+@dataclass
+class APIKeyTokenization:
+    """Tracks token usage per shared API key (e.g., NVIDIA_API_KEY)."""
+    api_key_name: str  # e.g., "NVIDIA_API_KEY"
+    max_tokens_per_day: int = 100000  # Daily quota per shared key
+    max_tokens_per_hour: int = 10000  # Hourly quota per shared key
+    created_at: float = field(default_factory=time.time)
+    
+    # Tracked state
+    total_tokens_today: int = 0
+    total_tokens_this_hour: int = 0
+    tokens_by_model: Dict[str, int] = field(default_factory=dict)
+    last_hour_timestamp: float = field(default_factory=time.time)
+    request_count: int = 0
+    
+    @property
+    def tokens_remaining_today(self) -> int:
+        return max(0, self.max_tokens_per_day - self.total_tokens_today)
+    
+    @property
+    def tokens_remaining_hour(self) -> int:
+        return max(0, self.max_tokens_per_hour - self.total_tokens_this_hour)
+    
+    @property
+    def daily_utilization(self) -> float:
+        return self.total_tokens_today / self.max_tokens_per_day if self.max_tokens_per_day > 0 else 0.0
+    
+    @property
+    def hourly_utilization(self) -> float:
+        return self.total_tokens_this_hour / self.max_tokens_per_hour if self.max_tokens_per_hour > 0 else 0.0
+    
+    @property
+    def is_daily_quota_exceeded(self) -> bool:
+        return self.total_tokens_today >= self.max_tokens_per_day
+    
+    @property
+    def is_hourly_quota_exceeded(self) -> bool:
+        return self.total_tokens_this_hour >= self.max_tokens_per_hour
+    
+    def reset_hourly_window(self):
+        """Reset hourly token counter (call when new hour starts)."""
+        now = time.time()
+        if now - self.last_hour_timestamp >= 3600:  # 1 hour has passed
+            self.total_tokens_this_hour = 0
+            self.last_hour_timestamp = now
+    
+    def record_tokens(self, model_id: str, input_tokens: int, output_tokens: int):
+        """Record token usage for a model using this API key."""
+        total_tokens = input_tokens + output_tokens
+        self.total_tokens_today += total_tokens
+        self.total_tokens_this_hour += total_tokens
+        self.tokens_by_model[model_id] = self.tokens_by_model.get(model_id, 0) + total_tokens
+        self.request_count += 1
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "api_key_name": self.api_key_name,
+            "total_tokens_today": self.total_tokens_today,
+            "max_tokens_per_day": self.max_tokens_per_day,
+            "daily_utilization": round(self.daily_utilization, 3),
+            "tokens_remaining_today": self.tokens_remaining_today,
+            "total_tokens_this_hour": self.total_tokens_this_hour,
+            "max_tokens_per_hour": self.max_tokens_per_hour,
+            "hourly_utilization": round(self.hourly_utilization, 3),
+            "tokens_remaining_hour": self.tokens_remaining_hour,
+            "tokens_by_model": self.tokens_by_model,
+            "request_count": self.request_count,
+            "daily_quota_exceeded": self.is_daily_quota_exceeded,
+            "hourly_quota_exceeded": self.is_hourly_quota_exceeded,
+        }
+
+
+# ============================================================
 # COST GOVERNOR
 # ============================================================
 
@@ -186,6 +266,9 @@ class CostGovernor:
 
         # Session budgets (bounded)
         self._sessions: OrderedDict[str, SessionBudget] = OrderedDict()
+
+        # API Key tokenization tracking (per shared API key)
+        self._api_key_tokens: Dict[str, APIKeyTokenization] = {}
 
         # Global tracking
         self._global_tokens: int = 0
@@ -362,6 +445,73 @@ class CostGovernor:
     def reset_session(self, session_id: str):
         """Reset budget for a session."""
         self._sessions.pop(session_id, None)
+
+    # ── API Key Tokenization Methods ─────────────────────────
+    
+    def record_api_key_usage(
+        self,
+        api_key_name: str,
+        model_id: str,
+        input_tokens: int,
+        output_tokens: int,
+    ):
+        """Record token usage for a shared API key (e.g., NVIDIA_API_KEY)."""
+        if api_key_name not in self._api_key_tokens:
+            self._api_key_tokens[api_key_name] = APIKeyTokenization(api_key_name=api_key_name)
+        
+        tracker = self._api_key_tokens[api_key_name]
+        tracker.reset_hourly_window()  # Auto-reset if hour has passed
+        tracker.record_tokens(model_id, input_tokens, output_tokens)
+    
+    def get_api_key_usage(self, api_key_name: str) -> Dict[str, Any]:
+        """Get current token usage stats for a shared API key."""
+        if api_key_name not in self._api_key_tokens:
+            return {"error": f"No usage tracked for {api_key_name}"}
+        
+        tracker = self._api_key_tokens[api_key_name]
+        tracker.reset_hourly_window()
+        return tracker.to_dict()
+    
+    def check_api_key_quota(self, api_key_name: str) -> Dict[str, Any]:
+        """Check if API key quota is exceeded."""
+        if api_key_name not in self._api_key_tokens:
+            return {"allowed": True, "quota_name": api_key_name, "reason": "No usage yet"}
+        
+        tracker = self._api_key_tokens[api_key_name]
+        tracker.reset_hourly_window()
+        
+        if tracker.is_daily_quota_exceeded:
+            return {
+                "allowed": False,
+                "quota_name": api_key_name,
+                "reason": f"Daily quota exceeded ({tracker.total_tokens_today}/{tracker.max_tokens_per_day})",
+                "daily_utilization": round(tracker.daily_utilization, 3),
+            }
+        
+        if tracker.is_hourly_quota_exceeded:
+            return {
+                "allowed": False,
+                "quota_name": api_key_name,
+                "reason": f"Hourly quota exceeded ({tracker.total_tokens_this_hour}/{tracker.max_tokens_per_hour})",
+                "hourly_utilization": round(tracker.hourly_utilization, 3),
+            }
+        
+        return {
+            "allowed": True,
+            "quota_name": api_key_name,
+            "daily_utilization": round(tracker.daily_utilization, 3),
+            "hourly_utilization": round(tracker.hourly_utilization, 3),
+        }
+    
+    def get_all_api_key_stats(self) -> Dict[str, Dict[str, Any]]:
+        """Get stats for all tracked API keys."""
+        for key_name in self._api_key_tokens:
+            self._api_key_tokens[key_name].reset_hourly_window()
+        
+        return {
+            key_name: tracker.to_dict()
+            for key_name, tracker in self._api_key_tokens.items()
+        }
 
 
 # ── Module-level singleton ──
