@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     QWEN3_VL_API_KEY: str = ""
     NEMOTRON_API_KEY: str = ""
     KIMI_API_KEY: str = ""
+    NVIDIA_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
 
     # ── Database ─────────────────────────────────────────────
     POSTGRES_URL: str = ""

@@ -42,29 +42,6 @@ function CTASection() {
             View Pricing
           </Link>
         </div>
-
-        <div className="mt-16 grid grid-cols-3 gap-4 max-w-lg mx-auto">
-          {[
-            { value: '10M+', label: 'Active Users' },
-            { value: '500M+', label: 'Messages Sent' },
-            { value: '4.9', label: 'App Rating' },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <div
-                className="text-[#1d1d1f] dark:text-white"
-                style={{ fontFamily: FONT, fontSize: '28px', fontWeight: 700, letterSpacing: '-0.02em' }}
-              >
-                {stat.value}
-              </div>
-              <div
-                className="text-[#6e6e73] dark:text-white/50"
-                style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 400 }}
-              >
-                {stat.label}
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
     </section>
   );

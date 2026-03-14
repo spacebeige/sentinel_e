@@ -245,7 +245,7 @@ const ModelPositionCard = ({ output }) => {
   // Failed model — render failure badge instead of score
   if (output.error || output.status === 'failed') {
     return (
-      <div className="p-3 space-y-2" style={{ opacity: 0.7, borderLeft: '3px solid var(--accent-red, #ef4444)' }}>
+      <div className="p-3 space-y-2" style={{ opacity: 0.7 }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-3 h-3" style={{ color: 'var(--accent-red, #ef4444)' }} />

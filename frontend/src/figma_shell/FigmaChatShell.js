@@ -1132,8 +1132,8 @@ export default function FigmaChatShell({
         </AnimatePresence>
 
         {/* ---------- MESSAGES ---------- */}
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="max-w-5xl mx-auto space-y-4">
+        <div className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6">
+          <div className="max-w-5xl mx-auto space-y-3 sm:space-y-4">
             <AnimatePresence>
               {enhancedMessages.map((message) => {
                 const msgMode = message.mode
@@ -1150,14 +1150,10 @@ export default function FigmaChatShell({
                     <div
                       className={`${
                         message.role === 'user'
-                          ? 'max-w-[85%] sm:max-w-[70%] rounded-[20px] rounded-br-md bg-blue-600 dark:bg-blue-500 text-white px-4 py-3'
-                          : 'max-w-[95%] sm:max-w-[85%] rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/10 text-[#1d1d1f] dark:text-white shadow-sm overflow-hidden'
+                          ? 'max-w-[90%] sm:max-w-[70%] rounded-[20px] rounded-br-md bg-blue-600 dark:bg-blue-500 text-white px-3 sm:px-4 py-2.5 sm:py-3'
+                          : 'max-w-[98%] sm:max-w-[85%] rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/10 text-[#1d1d1f] dark:text-white shadow-sm overflow-hidden'
                       }`}
-                      style={
-                        message.role === 'assistant' && msgMode
-                          ? { borderLeft: `3px solid ${msgMode.color}` }
-                          : undefined
-                      }
+                      style={undefined}
                     >
                       {/* Mode badge for assistant messages */}
                       {message.role === 'assistant' && msgMode && (
@@ -1301,14 +1297,10 @@ export default function FigmaChatShell({
                 className="flex justify-start"
               >
                 <div
-                  className="max-w-[95%] sm:max-w-[85%] rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border shadow-sm overflow-hidden"
+                  className="max-w-[98%] sm:max-w-[85%] rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border shadow-sm overflow-hidden"
                   style={{
                     borderColor: activeSubMode
                       ? (PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color || '#6e6e73') + '30'
-                      : 'rgba(0,0,0,0.05)',
-                    borderLeftWidth: activeSubMode ? '3px' : '1px',
-                    borderLeftColor: activeSubMode
-                      ? PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color
                       : 'rgba(0,0,0,0.05)',
                   }}
                 >
@@ -1328,7 +1320,7 @@ export default function FigmaChatShell({
         </div>
 
         {/* ---------- INPUT AREA ---------- */}
-        <div className="px-4 pb-6 pt-2">
+        <div className="px-2 sm:px-4 pb-4 sm:pb-6 pt-2">
           <div className="max-w-5xl mx-auto">
             <div
               ref={dropZoneRef}

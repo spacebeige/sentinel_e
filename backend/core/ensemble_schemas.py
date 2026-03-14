@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field, field_validator
 
 MIN_MODELS = 3
 MIN_DEBATE_ROUNDS = 3            # Battle Platform: full 3-round debates
-MAX_DEBATE_MODELS = 6            # Hard cap: never run more than 6 models simultaneously
+MAX_DEBATE_MODELS = 9            # Hard cap: never run more than 9 models simultaneously
 MIN_ANALYTICS_OUTPUTS = 2
 TOTAL_DEBATE_TOKEN_BUDGET = 5000
 

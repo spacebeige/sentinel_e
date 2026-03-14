@@ -150,6 +150,45 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
         api_key_env="LLAMA31_INSTANT_GROQ_API_KEY",
     ),
+
+    # ── Mistral Large 675B (NVIDIA) ───────────────────────────
+    "mistral-large-675b": CognitiveModelSpec(
+        name="Mistral Large 3 675B",
+        model_id="mistralai/mistral-large-3-675b-instruct-2512",
+        provider="nvidia",
+        role=ModelRole.CONCEPTUAL,
+        context_window=131072,
+        max_output_tokens=2000,
+        default_temperature=0.15,
+        api_base_url="https://integrate.api.nvidia.com/v1/chat/completions",
+        api_key_env="NVIDIA_API_KEY",
+    ),
+
+    # ── Kimi K2 Thinking (NVIDIA) ─────────────────────────────
+    "kimi-k2-thinking": CognitiveModelSpec(
+        name="Kimi K2 Thinking",
+        model_id="moonshotai/kimi-k2-thinking",
+        provider="nvidia",
+        role=ModelRole.CONCEPTUAL,
+        context_window=131072,
+        max_output_tokens=2000,
+        default_temperature=0.2,
+        api_base_url="https://integrate.api.nvidia.com/v1/chat/completions",
+        api_key_env="NVIDIA_API_KEY",
+    ),
+
+    # ── Claude Sonnet 4.6 (Anthropic — synthesis only) ────────
+    "claude-sonnet-4.6": CognitiveModelSpec(
+        name="Claude Sonnet 4.6",
+        model_id="claude-sonnet-4-20250514",
+        provider="anthropic",
+        role=ModelRole.GENERAL,
+        context_window=200000,
+        max_output_tokens=500,
+        default_temperature=0.3,
+        api_base_url="https://api.anthropic.com/v1/messages",
+        api_key_env="ANTHROPIC_API_KEY",
+    ),
 }
 
 # ============================================================
@@ -161,33 +200,39 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
 MODEL_DEBATE_TIERS: Dict[str, int] = {
     # Tier 1 — Analysis (primary reasoning)
     "llama33-70b":     1,   # Llama 3.3 70B — analysis anchor (Groq)
+    "mistral-large-675b": 1,  # Mistral Large 675B — analysis anchor (NVIDIA)
     # Tier 2 — Critique (diverse argument generators)
     "mixtral-8x7b":    2,   # Mixtral 8x7B — critique A (Groq)
     "llama4-scout":     2,   # Llama 4 Scout 17B — critique B (Groq)
     "qwen-2.5-vl":     2,   # Qwen 2.5 VL — critique C (DashScope)
+    "kimi-k2-thinking": 2,  # Kimi K2 Thinking — critique D (NVIDIA)
     # Tier 3 — Synthesis + Verification
     "gemini-flash":    3,   # Gemini Flash 2.0 — synthesis (Google)
     "llama31-8b":      3,   # Llama 3.1 8B — verification (Groq)
+    "claude-sonnet-4.6": 3, # Claude Sonnet 4.6 — synthesis only (Anthropic)
 }
 
 # Fallback mapping: if a model fails, replace with this model
 MODEL_FALLBACK_MAP: Dict[str, str] = {
-    "llama33-70b":     "llama31-8b",      # Groq 70B → Groq 8B
-    "mixtral-8x7b":    "llama4-scout",     # Mixtral → Llama 4 Scout
-    "llama4-scout":    "llama31-8b",      # Llama 4 Scout → Llama 8B
-    "qwen-2.5-vl":     "llama4-scout",     # Qwen → Llama 4 Scout
-    "gemini-flash":    "llama33-70b",     # Gemini → Llama 70B
-    "llama31-8b":      "mixtral-8x7b",     # Llama 8B → Mixtral
+    "llama33-70b":         "mistral-large-675b",  # Groq 70B → NVIDIA Mistral
+    "mistral-large-675b":  "llama33-70b",         # NVIDIA Mistral → Groq 70B
+    "mixtral-8x7b":        "llama4-scout",         # Mixtral → Llama 4 Scout
+    "llama4-scout":        "kimi-k2-thinking",     # Llama 4 Scout → Kimi K2
+    "qwen-2.5-vl":         "kimi-k2-thinking",     # Qwen → Kimi K2
+    "kimi-k2-thinking":    "llama4-scout",         # Kimi K2 → Llama 4 Scout
+    "gemini-flash":        "llama33-70b",          # Gemini → Llama 70B
+    "llama31-8b":          "mixtral-8x7b",         # Llama 8B → Mixtral
+    "claude-sonnet-4.6":   "gemini-flash",         # Claude → Gemini
 }
 
 # Prompt type → preferred specialist keys
 _SPECIALIST_AFFINITY: Dict[str, List[str]] = {
-    "code":       ["mixtral-8x7b"],
-    "logical":    ["llama33-70b"],
-    "general":    [],
-    "conceptual": [],
-    "evidence":   [],
-    "depth":      ["llama33-70b"],
+    "code":       ["mixtral-8x7b", "kimi-k2-thinking"],
+    "logical":    ["llama33-70b", "mistral-large-675b"],
+    "general":    ["mistral-large-675b"],
+    "conceptual": ["kimi-k2-thinking"],
+    "evidence":   ["mistral-large-675b"],
+    "depth":      ["llama33-70b", "mistral-large-675b"],
     "vision":     ["qwen-2.5-vl"],
 }
 
@@ -292,6 +337,8 @@ def _initialize_registry():
         "groq": "GROQ_API_KEY",
         "gemini": "GEMINI_API_KEY",
         "qwen": "QWEN_API_KEY",
+        "nvidia": "NVIDIA_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
     }
 
     for key, spec in COGNITIVE_MODEL_REGISTRY.items():
@@ -440,6 +487,8 @@ class CognitiveModelGateway:
             "groq": "GROQ_API_KEY",
             "gemini": "GEMINI_API_KEY",
             "qwen": "QWEN_API_KEY",
+            "nvidia": "NVIDIA_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
         }
         shared_env = _PROVIDER_SHARED_KEY.get(spec.provider)
         if shared_env:
@@ -574,7 +623,7 @@ class CognitiveModelGateway:
 
         # ── Token Clamping ───────────────────────────────────
         # Ensure max_tokens does not exceed provider-specific hard limits
-        _PROVIDER_MAX_OUTPUT = {"groq": 8192, "gemini": 8192, "qwen": 8192, "openai": 4096}
+        _PROVIDER_MAX_OUTPUT = {"groq": 8192, "gemini": 8192, "qwen": 8192, "openai": 4096, "nvidia": 2000, "anthropic": 500}
         _provider_cap = _PROVIDER_MAX_OUTPUT.get(spec.provider, 4096)
         governed_max_tokens = max(1, min(governed_max_tokens, _provider_cap))
 
@@ -586,6 +635,10 @@ class CognitiveModelGateway:
                 result = await self._call_gemini(spec, messages, api_key, governed_max_tokens)
             elif spec.provider == "qwen":
                 result = await self._call_qwen(spec, messages, api_key, governed_max_tokens)
+            elif spec.provider == "nvidia":
+                result = await self._call_nvidia(spec, messages, api_key, governed_max_tokens)
+            elif spec.provider == "anthropic":
+                result = await self._call_anthropic(spec, messages, api_key, governed_max_tokens)
             elif spec.provider == "openai":
                 result = await self._call_openai(spec, messages)
             else:
@@ -746,21 +799,26 @@ class CognitiveModelGateway:
         messages = []
 
         # System prompt — dual conversational / analytical mode
-        system_parts = [
-            "You are Sentinel-E.\n\n"
-            "You operate in two adaptive modes:\n\n"
-            "1. Conversational Mode:\n"
-            "   - Respond naturally in first person.\n"
-            "   - Maintain continuity.\n"
-            "   - Speak directly to the user.\n"
-            "   - Handle emotional or personal language appropriately.\n\n"
-            "2. Analytical Mode:\n"
-            "   - Provide structured reasoning.\n"
-            "   - Break down assumptions.\n"
-            "   - Present clear logical steps.\n\n"
-            "Automatically choose the mode based on user tone.\n"
-            "Never mention knowledge cutoffs or training data."
-        ]
+        # If synthesis mode, use the intelligence aggregation prompt instead
+        synthesis_prompt = (inp.stabilized_context or {}).pop("synthesis_system_prompt", None)
+        if synthesis_prompt:
+            system_parts = [synthesis_prompt]
+        else:
+            system_parts = [
+                "You are Sentinel-E.\n\n"
+                "You operate in two adaptive modes:\n\n"
+                "1. Conversational Mode:\n"
+                "   - Respond naturally in first person.\n"
+                "   - Maintain continuity.\n"
+                "   - Speak directly to the user.\n"
+                "   - Handle emotional or personal language appropriately.\n\n"
+                "2. Analytical Mode:\n"
+                "   - Provide structured reasoning.\n"
+                "   - Break down assumptions.\n"
+                "   - Present clear logical steps.\n\n"
+                "Automatically choose the mode based on user tone.\n"
+                "Never mention knowledge cutoffs or training data."
+            ]
 
         # Inject knowledge bundle (capped at ~2000 chars to save tokens)
         if inp.knowledge_bundle:
@@ -887,7 +945,7 @@ class CognitiveModelGateway:
         api_key: str = "",
         max_tokens: int = 4096,
     ) -> CognitiveGatewayOutput:
-        """Call Google Gemini REST API."""
+        """Call Google Gemini REST API with robust structured output handling."""
         if not api_key:
             return CognitiveGatewayOutput(
                 model_name=spec.name, raw_output="",
@@ -908,11 +966,19 @@ class CognitiveModelGateway:
             # Prepend system text to first user message
             contents[0]["parts"][0]["text"] = system_text + "\n\n" + contents[0]["parts"][0]["text"]
 
+        # Ensure at least one content part exists
+        if not contents:
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False, error="No user content provided for Gemini",
+            )
+
         payload = {
             "contents": contents,
             "generationConfig": {
                 "temperature": spec.default_temperature,
                 "maxOutputTokens": max_tokens,
+                "responseMimeType": "text/plain",
             },
         }
 
@@ -927,12 +993,28 @@ class CognitiveModelGateway:
                     success=False, error=self._sanitize_provider_error(resp.status, text),
                 )
             data = await resp.json()
-            candidates = data.get("candidates", [{}])
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                text = parts[0].get("text", "") if parts else ""
-            else:
-                text = ""
+            candidates = data.get("candidates", [])
+
+            # Handle blocked or empty candidates
+            if not candidates:
+                block_reason = data.get("promptFeedback", {}).get("blockReason", "unknown")
+                return CognitiveGatewayOutput(
+                    model_name=spec.name, raw_output="",
+                    success=False, error=f"Gemini returned no candidates (block: {block_reason})",
+                )
+
+            parts = candidates[0].get("content", {}).get("parts", [])
+            text = parts[0].get("text", "") if parts else ""
+
+            # Handle finish reason SAFETY or empty text
+            finish_reason = candidates[0].get("finishReason", "")
+            if not text.strip():
+                return CognitiveGatewayOutput(
+                    model_name=spec.name, raw_output="",
+                    success=False,
+                    error=f"Gemini returned empty response (finishReason: {finish_reason})",
+                )
+
             usage = data.get("usageMetadata", {})
             return CognitiveGatewayOutput(
                 model_name=spec.name,
@@ -950,7 +1032,7 @@ class CognitiveModelGateway:
         api_key: str = "",
         max_tokens: int = 4096,
     ) -> CognitiveGatewayOutput:
-        """Call Qwen/DashScope OpenAI-compatible API."""
+        """Call Qwen/DashScope OpenAI-compatible API with structured output handling."""
         if not api_key:
             return CognitiveGatewayOutput(
                 model_name=spec.name, raw_output="",
@@ -962,9 +1044,20 @@ class CognitiveModelGateway:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
+
+        # Sanitize messages: ensure all content is plain text string
+        sanitized_messages = []
+        for msg in messages:
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                # Flatten multimodal content to text for non-vision calls
+                text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
+                content = " ".join(text_parts) if text_parts else str(content)
+            sanitized_messages.append({"role": msg["role"], "content": content})
+
         payload = {
             "model": spec.model_id,
-            "messages": messages,
+            "messages": sanitized_messages,
             "temperature": spec.default_temperature,
             "max_tokens": max_tokens,
         }
@@ -982,13 +1075,194 @@ class CognitiveModelGateway:
             data = await resp.json()
             choice = data.get("choices", [{}])[0]
             usage = data.get("usage", {})
+            raw_content = choice.get("message", {}).get("content") or ""
+
+            # Handle empty or whitespace-only responses
+            if not raw_content.strip():
+                return CognitiveGatewayOutput(
+                    model_name=spec.name, raw_output="",
+                    success=False, error=f"Qwen returned empty response",
+                )
+
             return CognitiveGatewayOutput(
                 model_name=spec.name,
-                raw_output=choice.get("message", {}).get("content") or "",
+                raw_output=raw_content,
                 tokens_used=usage.get("total_tokens", 0),
                 input_tokens=usage.get("prompt_tokens", 0),
                 output_tokens=usage.get("completion_tokens", 0),
                 success=True,
+            )
+
+    # ── NVIDIA Provider (Mistral Large 675B, Kimi K2) ────────
+
+    async def _call_nvidia(
+        self,
+        spec: CognitiveModelSpec,
+        messages: List[Dict[str, str]],
+        api_key: str = "",
+        max_tokens: int = 2000,
+    ) -> CognitiveGatewayOutput:
+        """Call NVIDIA API (OpenAI-compatible) for Mistral Large 675B and Kimi K2 Thinking."""
+        if not api_key:
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False, error=f"{spec.api_key_env} not configured",
+            )
+
+        url = spec.api_base_url or "https://integrate.api.nvidia.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+
+        # Sanitize messages to plain text
+        sanitized_messages = []
+        for msg in messages:
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
+                content = " ".join(text_parts) if text_parts else str(content)
+            sanitized_messages.append({"role": msg["role"], "content": content})
+
+        # Cap max_tokens to 2000 for NVIDIA models
+        max_tokens = min(max_tokens, 2000)
+
+        payload = {
+            "model": spec.model_id,
+            "messages": sanitized_messages,
+            "temperature": spec.default_temperature,
+            "top_p": 1.00 if "mistral" in spec.model_id else 0.24,
+            "max_tokens": max_tokens,
+            "stream": False,
+        }
+
+        # Add frequency/presence penalty for Mistral
+        if "mistral" in spec.model_id:
+            payload["frequency_penalty"] = 0.00
+            payload["presence_penalty"] = 0.00
+
+        session = await self._get_session()
+        try:
+            async with session.post(url, headers=headers, json=payload) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    if resp.status in (402, 429):
+                        self._record_failure()
+                    return CognitiveGatewayOutput(
+                        model_name=spec.name, raw_output="",
+                        success=False, error=self._sanitize_provider_error(resp.status, text),
+                    )
+                data = await resp.json()
+                choice = data.get("choices", [{}])[0]
+                usage = data.get("usage", {})
+                raw_content = choice.get("message", {}).get("content") or ""
+
+                if not raw_content.strip():
+                    return CognitiveGatewayOutput(
+                        model_name=spec.name, raw_output="",
+                        success=False, error=f"NVIDIA model returned empty response",
+                    )
+
+                return CognitiveGatewayOutput(
+                    model_name=spec.name,
+                    raw_output=raw_content,
+                    tokens_used=usage.get("total_tokens", 0),
+                    input_tokens=usage.get("prompt_tokens", 0),
+                    output_tokens=usage.get("completion_tokens", 0),
+                    success=True,
+                )
+        except Exception as e:
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False, error=f"NVIDIA API error: {str(e)}",
+            )
+
+    # ── Anthropic Provider (Claude Sonnet 4.6 — synthesis only) ──
+
+    async def _call_anthropic(
+        self,
+        spec: CognitiveModelSpec,
+        messages: List[Dict[str, str]],
+        api_key: str = "",
+        max_tokens: int = 500,
+    ) -> CognitiveGatewayOutput:
+        """Call Anthropic API for Claude Sonnet 4.6 (synthesis mode only, 500 token cap)."""
+        if not api_key:
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False, error=f"{spec.api_key_env} not configured",
+            )
+
+        url = spec.api_base_url or "https://api.anthropic.com/v1/messages"
+        headers = {
+            "x-api-key": api_key,
+            "Content-Type": "application/json",
+            "anthropic-version": "2023-06-01",
+        }
+
+        # Convert OpenAI-format messages to Anthropic format
+        system_text = ""
+        anthropic_messages = []
+        for msg in messages:
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
+                content = " ".join(text_parts) if text_parts else str(content)
+            if msg["role"] == "system":
+                system_text = content
+            else:
+                anthropic_messages.append({"role": msg["role"], "content": content})
+
+        # Cap to 500 tokens for synthesis-only usage
+        max_tokens = min(max_tokens, 500)
+
+        payload = {
+            "model": spec.model_id,
+            "messages": anthropic_messages,
+            "max_tokens": max_tokens,
+            "temperature": spec.default_temperature,
+        }
+        if system_text:
+            payload["system"] = system_text
+
+        session = await self._get_session()
+        try:
+            async with session.post(url, headers=headers, json=payload) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    if resp.status in (402, 429):
+                        self._record_failure()
+                    return CognitiveGatewayOutput(
+                        model_name=spec.name, raw_output="",
+                        success=False, error=self._sanitize_provider_error(resp.status, text),
+                    )
+                data = await resp.json()
+                # Anthropic response: { content: [{ type: "text", text: "..." }] }
+                content_blocks = data.get("content", [])
+                raw_content = ""
+                for block in content_blocks:
+                    if block.get("type") == "text":
+                        raw_content += block.get("text", "")
+
+                if not raw_content.strip():
+                    return CognitiveGatewayOutput(
+                        model_name=spec.name, raw_output="",
+                        success=False, error="Claude returned empty response",
+                    )
+
+                usage = data.get("usage", {})
+                return CognitiveGatewayOutput(
+                    model_name=spec.name,
+                    raw_output=raw_content,
+                    tokens_used=usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
+                    input_tokens=usage.get("input_tokens", 0),
+                    output_tokens=usage.get("output_tokens", 0),
+                    success=True,
+                )
+        except Exception as e:
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False, error=f"Anthropic API error: {str(e)}",
             )
 
     # ── Legacy OpenRouter methods — DISABLED ────────────────

@@ -1,16 +1,30 @@
 """
 ============================================================
-Synthesis Mode Engine — Collaborative Reasoning v1
+Synthesis Mode Engine — Multimodal Intelligence Aggregation v2
 ============================================================
 
-The opposite of Debate Mode: instead of adversarial argument,
-models COLLABORATE to build the best possible answer.
-
 Pipeline:
-    1. Primary Draft     — Best-scoring model produces initial answer
+    1. Primary Draft     — Anchor model produces initial answer
     2. Peer Review       — Each other model critiques & suggests improvements
-    3. Iterative Refine  — Primary model integrates feedback → produces v2
+    3. Iterative Refine  — Anchor model integrates feedback → produces v2
     4. Consensus Score   — All models rate the final answer
+
+Synthesis System Prompt (injected into anchor):
+    You are a multimodal intelligence aggregation system.
+
+    Your role:
+    - Ingest and process structured/unstructured data inputs
+    - Cross-reference and correlate data points across all input sources
+    - Identify patterns, anomalies, and high-confidence clusters
+    - Rank and prioritize targets/objectives by confidence score and strategic value
+    - Output a structured intelligence brief with supporting evidence
+
+    Rules:
+    - Always require human approval before finalizing any recommendation
+    - Flag low-confidence data clearly
+    - Never act autonomously — decision authority remains with human operators
+    - Cite source data for every output claim
+    - Output format adapts to user intent
 
 Output for frontend SynthesisView:
     final_answer:       Refined collaborative answer
@@ -26,6 +40,23 @@ import logging
 from typing import Any, Dict, List
 
 logger = logging.getLogger("SynthesisEngine")
+
+# ── Synthesis System Prompt ───────────────────────────────────
+SYNTHESIS_SYSTEM_PROMPT = (
+    "You are a multimodal intelligence aggregation system.\n\n"
+    "Your role:\n"
+    "- Ingest and process structured/unstructured data inputs (text, documents, signals)\n"
+    "- Cross-reference and correlate data points across all input sources\n"
+    "- Identify patterns, anomalies, and high-confidence clusters\n"
+    "- Rank and prioritize targets/objectives by confidence score and strategic value\n"
+    "- Output a structured intelligence brief with supporting evidence for each finding\n\n"
+    "Rules:\n"
+    "- Always require human approval before finalizing any recommendation\n"
+    "- Flag low-confidence data clearly\n"
+    "- Never act autonomously — decision authority remains with human operators\n"
+    "- Cite source data for every output claim\n"
+    "- Output format adapts to detected user intent\n"
+)
 
 
 def build_synthesis_result(

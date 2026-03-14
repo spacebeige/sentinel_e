@@ -142,7 +142,6 @@ const ModelProfileCard = ({ modelId, profile, expanded, onToggle }) => {
     <div className="rounded-lg overflow-hidden" style={{
       backgroundColor: 'var(--bg-tertiary)',
       border: `1px solid var(--border-secondary)`,
-      borderLeft: `3px solid ${color}`,
     }}>
       <button onClick={onToggle}
         className="w-full flex items-center justify-between p-3 text-left transition-colors"

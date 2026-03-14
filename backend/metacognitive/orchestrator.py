@@ -475,6 +475,11 @@ class MetaCognitiveOrchestrator:
             session.session_id
         )
 
+        # Inject synthesis system prompt when in synthesis mode
+        if request.sub_mode == "synthesis":
+            from core.synthesis_engine import SYNTHESIS_SYSTEM_PROMPT
+            stabilized_context["synthesis_system_prompt"] = SYNTHESIS_SYSTEM_PROMPT
+
         gateway_input = CognitiveGatewayInput(
             stabilized_context=stabilized_context,
             knowledge_bundle=knowledge_bundle,

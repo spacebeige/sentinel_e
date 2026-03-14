@@ -465,12 +465,12 @@ const DebateArena = ({ data }) => {
         </div>
       </div>
 
-      {/* ── Three-panel body ───────────────────────────────── */}
-      <div className="flex gap-3 items-start"
+      {/* ── Responsive body ─────────────────────────────────── */}
+      <div className="flex flex-col lg:flex-row gap-3 items-start"
            style={{ minHeight: 300 }}>
 
-        {/* LEFT: Timeline */}
-        <div style={{ width: 200, flexShrink: 0 }}>
+        {/* LEFT: Timeline (collapses on mobile) */}
+        <div className="w-full lg:w-[200px] lg:flex-shrink-0">
           <TimelinePanel
             timeline={debate_timeline}
             stability={consensus_stability_score}
@@ -478,7 +478,7 @@ const DebateArena = ({ data }) => {
         </div>
 
         {/* CENTER: Dynamic model columns */}
-        <div className="flex gap-2 flex-1 min-w-0 overflow-x-auto">
+        <div className="flex flex-col sm:flex-row gap-2 flex-1 min-w-0 overflow-x-auto">
           {modelList.map((model, idx) => {
             const color = modelColor(model, idx);
             return (
@@ -502,7 +502,7 @@ const DebateArena = ({ data }) => {
         </div>
 
         {/* RIGHT: Metrics + Charts */}
-        <div style={{ width: 220, flexShrink: 0 }}>
+        <div className="w-full lg:w-[220px] lg:flex-shrink-0">
           <MetricsPanel
             reasoningMetrics={reasoning_metrics}
             consensusScores={consensus_scores}

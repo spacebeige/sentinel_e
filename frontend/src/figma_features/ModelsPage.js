@@ -18,6 +18,8 @@ const ROLE_BADGES = {
   baseline: { label: 'Reasoning', color: '#6366f1' },
   conceptual: { label: 'Conceptual', color: '#8b5cf6' },
   longctx: { label: 'Long Context', color: '#f59e0b' },
+  general: { label: 'General', color: '#3b82f6' },
+  fast: { label: 'Speed', color: '#ef4444' },
 };
 
 const ROLE_DESCRIPTIONS = {
@@ -26,6 +28,7 @@ const ROLE_DESCRIPTIONS = {
   baseline: 'General-purpose reasoning engine with balanced performance and broad knowledge coverage.',
   conceptual: 'Deep conceptual analysis with large context windows and efficient inference capabilities.',
   longctx: 'Optimized for long documents, extended reasoning chains, and session-level continuity.',
+  general: 'Versatile reasoning model with broad knowledge and multi-domain capabilities.',
 };
 
 const ROLE_FEATURES = {
@@ -34,14 +37,16 @@ const ROLE_FEATURES = {
   baseline: ['General reasoning', 'Balanced performance', 'High throughput', 'Broad knowledge'],
   conceptual: ['128K context window', 'Deep conceptual analysis', 'Code specialist', 'Efficient inference'],
   longctx: ['262K context window', 'Long document analysis', 'Extended reasoning chains', 'Session continuity'],
+  general: ['Multi-domain reasoning', 'Balanced speed & quality', 'Versatile output', 'Knowledge synthesis'],
+  fast: ['Sub-second responses', 'High throughput', 'Quick verification', 'Low latency'],
 };
 
 const ROLE_SPEED = {
-  code: 'Fast', vision: 'Medium', baseline: 'Fast', conceptual: 'Medium', longctx: 'Medium',
+  code: 'Fast', vision: 'Medium', baseline: 'Fast', conceptual: 'Medium', longctx: 'Medium', general: 'Medium', fast: 'Ultra Fast',
 };
 
 const ROLE_QUALITY = {
-  code: 'High', vision: 'High', baseline: 'Good', conceptual: 'Very High', longctx: 'High',
+  code: 'High', vision: 'High', baseline: 'Good', conceptual: 'Very High', longctx: 'High', general: 'High', fast: 'Good',
 };
 
 /** Static fallback models (only used if backend is offline) */
@@ -58,7 +63,7 @@ export function ModelsPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] dark:bg-[#0f0f10] transition-colors">
-      <div className="max-w-7xl mx-auto px-6 py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

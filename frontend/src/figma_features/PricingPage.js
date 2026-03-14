@@ -12,19 +12,19 @@ const FONT = "'Inter', -apple-system, sans-serif";
 
 const plans = [
   {
-    name: 'Free', price: '$0', period: 'forever', popular: false, gradient: '',
+    name: 'Free', price: '₹0', period: 'forever', popular: false, gradient: '',
     description: 'Get started with AI — no credit card required.',
     features: ['50 messages per day', 'GPT-4o Mini access', 'Basic chat features', '7-day chat history', 'Community support'],
     cta: 'Get Started',
   },
   {
-    name: 'Pro', price: '$20', period: '/month', popular: true, gradient: 'from-[#3b82f6] to-[#06b6d4]',
+    name: 'Pro', price: '₹1,000', period: '/month', popular: true, gradient: 'from-[#3b82f6] to-[#06b6d4]',
     description: 'Unlimited access to all models and premium features.',
     features: ['Unlimited messages', 'All AI models access', 'Priority speed', 'Unlimited chat history', 'File uploads & analysis', 'Custom instructions', 'Priority support'],
     cta: 'Start Free Trial',
   },
   {
-    name: 'Team', price: '$35', period: '/user/month', popular: false, gradient: '',
+    name: 'Team', price: '₹3,000', period: '/user/month', popular: false, gradient: '',
     description: 'Collaborate with your team using shared AI workspaces.',
     features: ['Everything in Pro', 'Team workspaces', 'Admin dashboard', 'Usage analytics', 'SSO & SAML', 'API access', 'Dedicated support', 'Custom model fine-tuning'],
     cta: 'Contact Sales',
@@ -40,7 +40,7 @@ const faqs = [
 export function PricingPage() {
   return (
     <div className="min-h-screen bg-[#f5f5f7] dark:bg-[#0f0f10] transition-colors">
-      <div className="max-w-6xl mx-auto px-6 py-16">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

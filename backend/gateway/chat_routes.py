@@ -37,6 +37,7 @@ from pydantic import BaseModel, Field
 from metacognitive.cognitive_gateway import (
     COGNITIVE_MODEL_REGISTRY,
     CognitiveModelGateway,
+    MODEL_FALLBACK_MAP,
 )
 from metacognitive.schemas import CognitiveGatewayInput, QueryMode
 
@@ -203,37 +204,40 @@ async def chat_with_model(
     output, retried = await _invoke_with_retry(gateway, model_id, gateway_input)
     elapsed_ms = (time.monotonic() - start) * 1000
 
-    # ── 4. Fallback to Tier-1 anchor if still failing ─────────
+    # ── 4. Per-model fallback if still failing ──────────────────
     fallback_used = False
     fallback_model_id: Optional[str] = None
 
-    if not output.success and model_id != FALLBACK_MODEL:
-        fallback_spec = COGNITIVE_MODEL_REGISTRY.get(FALLBACK_MODEL)
-        if fallback_spec and fallback_spec.active and fallback_spec.enabled:
-            logger.warning(
-                f"[ChatRoutes] '{model_id}' failed after retries — "
-                f"falling back to '{FALLBACK_MODEL}'"
-            )
-            fallback_input = CognitiveGatewayInput(
-                user_query=req.query,
-                mode=QueryMode.RAW,
-                max_tokens_override=req.max_tokens,
-            )
-            fb_start = time.monotonic()
-            fb_output, _ = await _invoke_with_retry(
-                gateway, FALLBACK_MODEL, fallback_input, max_retries=1
-            )
-            elapsed_ms = (time.monotonic() - fb_start) * 1000
-
-            if fb_output.success:
-                output = fb_output
-                fallback_used = True
-                fallback_model_id = FALLBACK_MODEL
-            else:
-                logger.error(
-                    f"[ChatRoutes] Fallback model '{FALLBACK_MODEL}' also failed: "
-                    f"{fb_output.error}"
+    if not output.success:
+        # Use per-model fallback from MODEL_FALLBACK_MAP instead of universal fallback
+        fb_key = MODEL_FALLBACK_MAP.get(model_id)
+        if fb_key and fb_key != model_id:
+            fallback_spec = COGNITIVE_MODEL_REGISTRY.get(fb_key)
+            if fallback_spec and fallback_spec.active and fallback_spec.enabled:
+                logger.warning(
+                    f"[ChatRoutes] '{model_id}' failed after retries — "
+                    f"falling back to '{fb_key}'"
                 )
+                fallback_input = CognitiveGatewayInput(
+                    user_query=req.query,
+                    mode=QueryMode.RAW,
+                    max_tokens_override=req.max_tokens,
+                )
+                fb_start = time.monotonic()
+                fb_output, _ = await _invoke_with_retry(
+                    gateway, fb_key, fallback_input, max_retries=1
+                )
+                elapsed_ms = (time.monotonic() - fb_start) * 1000
+
+                if fb_output.success:
+                    output = fb_output
+                    fallback_used = True
+                    fallback_model_id = fb_key
+                else:
+                    logger.error(
+                        f"[ChatRoutes] Fallback model '{fb_key}' also failed: "
+                        f"{fb_output.error}"
+                    )
 
     # ── 5. Build response ─────────────────────────────────────
     if not output.success:
@@ -250,13 +254,13 @@ async def chat_with_model(
 
     # Use most recent spec for response metadata
     resolved_spec = (
-        COGNITIVE_MODEL_REGISTRY.get(FALLBACK_MODEL, spec)
+        COGNITIVE_MODEL_REGISTRY.get(fallback_model_id, spec)
         if fallback_used
         else spec
     )
 
     return ChatResponse(
-        model_id=FALLBACK_MODEL if fallback_used else model_id,
+        model_id=fallback_model_id if fallback_used else model_id,
         model_name=output.model_name,
         provider=resolved_spec.provider,
         response=output.raw_output,
