@@ -586,6 +586,13 @@ class CognitiveModelGateway:
 
         governed_max_tokens = min(scaled_cap, max(0, _available))
 
+        logger.info(
+            f"Token governor [{model_key}]: prompt_est={_prompt_estimate}, "
+            f"ctx_window={spec.context_window}, available={_available}, "
+            f"scaled_cap={scaled_cap}, governed={governed_max_tokens}, "
+            f"budget_governed={_budget_governed}"
+        )
+
         # Floor check: skip gracefully for budget-governed debate calls,
         # hard-fail only for normal calls where prompt exceeds context window.
         _min_tokens = 50 if _budget_governed else 500
@@ -1037,6 +1044,7 @@ class CognitiveModelGateway:
         async with session.post(url, json=payload, headers={"Content-Type": "application/json", "x-goog-api-key": api_key}) as resp:
             if resp.status != 200:
                 text = await resp.text()
+                logger.error(f"Gemini API error [{resp.status}] for {spec.model_id}: {text[:500]}")
                 if resp.status in (402, 429):
                     self._record_failure()
                 return CognitiveGatewayOutput(
@@ -1121,6 +1129,7 @@ class CognitiveModelGateway:
         async with session.post(url, headers=headers, json=payload) as resp:
             if resp.status != 200:
                 text = await resp.text()
+                logger.error(f"Qwen API error [{resp.status}] for {spec.model_id}: {text[:500]}")
                 if resp.status in (402, 429):
                     self._record_failure()
                 return CognitiveGatewayOutput(
@@ -1201,6 +1210,7 @@ class CognitiveModelGateway:
             async with session.post(url, headers=headers, json=payload) as resp:
                 if resp.status != 200:
                     text = await resp.text()
+                    logger.error(f"NVIDIA API error [{resp.status}] for {spec.model_id}: {text[:500]}")
                     if resp.status in (402, 429):
                         self._record_failure()
                     return CognitiveGatewayOutput(

@@ -749,20 +749,26 @@ class StructuredDebateEngine:
             latency = (time.monotonic() - start) * 1000
 
             if not raw or len(raw.strip()) < 10:
-                logger.warning(f"Model {model['id']} returned empty output in round 1")
-                return None
+                _diag = (
+                    f"Model {model['id']} returned insufficient output in round 1. "
+                    f"Raw length={len(raw) if raw else 0}, content='{(raw or '')[:200]}'"
+                )
+                logger.warning(_diag)
+                return self._failed_position(model=model, round_num=1, reason=_diag)
 
             if self._is_model_error(raw):
-                logger.warning(f"Model {model['id']} returned error in round 1: {raw[:200]}")
-                return None
+                _diag = f"Model {model['id']} returned error in round 1: {raw[:300]}"
+                logger.warning(_diag)
+                return self._failed_position(model=model, round_num=1, reason=_diag)
 
             parsed = self._parse_structured_output(raw, model, round_number=1)
             parsed.latency_ms = latency
             return parsed
 
         except Exception as e:
-            logger.error(f"Round 1 call failed for {model['id']}: {e}")
-            return None
+            _diag = f"Round 1 call failed for {model['id']}: {e}"
+            logger.error(_diag)
+            return self._failed_position(model=model, round_num=1, reason=_diag)
 
     async def _call_and_parse_round_n(
         self,
@@ -779,11 +785,17 @@ class StructuredDebateEngine:
             latency = (time.monotonic() - start) * 1000
 
             if not raw or len(raw.strip()) < 10:
-                return None
+                _diag = (
+                    f"Model {model['id']} returned insufficient output in round {round_num}. "
+                    f"Raw length={len(raw) if raw else 0}, content='{(raw or '')[:200]}'"
+                )
+                logger.warning(_diag)
+                return self._failed_position(model=model, round_num=round_num, reason=_diag)
 
             if self._is_model_error(raw):
-                logger.warning(f"Model {model['id']} returned error in round {round_num}: {raw[:200]}")
-                return None
+                _diag = f"Model {model['id']} returned error in round {round_num}: {raw[:300]}"
+                logger.warning(_diag)
+                return self._failed_position(model=model, round_num=round_num, reason=_diag)
 
             parsed = self._parse_structured_output(
                 raw, model, round_number=round_num, is_rebuttal=True
@@ -792,8 +804,9 @@ class StructuredDebateEngine:
             return parsed
 
         except Exception as e:
-            logger.error(f"Round {round_num} call failed for {model['id']}: {e}")
-            return None
+            _diag = f"Round {round_num} call failed for {model['id']}: {e}"
+            logger.error(_diag)
+            return self._failed_position(model=model, round_num=round_num, reason=_diag)
 
     # ── Structured Output Parsing ────────────────────────────
 
