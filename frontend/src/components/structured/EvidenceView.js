@@ -290,7 +290,7 @@ export default function EvidenceView({ data, boundary, confidence }) {
                   </div>
                 )}
               </div>
-            ))
+            ))}
             </>
           )}
         </div>

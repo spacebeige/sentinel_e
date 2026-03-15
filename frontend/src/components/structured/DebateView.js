@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronDown, ChevronUp, ShieldAlert, ShieldCheck, Zap, AlertTriangle } from 'lucide-react';
-import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer,
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer,
          BarChart, Bar, XAxis, YAxis, Tooltip, Cell,
-         LineChart, Line, CartesianGrid, Legend } from 'recharts';
+         LineChart, Line, AreaChart, Area, CartesianGrid, Legend } from 'recharts';
 import ConfidenceBar from './ConfidenceBar';
 import BoundaryPanel from './BoundaryPanel';
 
@@ -71,6 +71,11 @@ export default function DebateView({ data, boundary, confidence }) {
   }, [safeData.rounds]);
 
   const analysis = useMemo(() => safeData.analysis || {}, [safeData.analysis]);
+
+  const round1OnlyModels = useMemo(
+    () => safeData.round_1_only_models || [],
+    [safeData.round_1_only_models]
+  );
 
   const modelsUsed = useMemo(
     () => safeData.models_used || [],
@@ -166,6 +171,43 @@ export default function DebateView({ data, boundary, confidence }) {
     [safeData.anchor_pass]
   );
 
+  // ── Drift / Rift / Fragility metrics from debate engine ──
+  const driftRiftData = useMemo(() => {
+    const driftIndex = safeData.drift_index;
+    const riftIndex = safeData.rift_index;
+    const fragility = safeData.fragility_score;
+    const overallConf = safeData.overall_confidence;
+    const perRoundRift = safeData.per_round_rift || [];
+    const perRoundDisagreement = safeData.per_round_disagreement || [];
+    const perModelDrift = safeData.per_model_drift || {};
+
+    if (driftIndex == null && riftIndex == null) return null;
+
+    // Build per-round timeline for area chart
+    const roundTimeline = perRoundRift.map((rift, i) => ({
+      round: `R${i + 1}`,
+      rift: typeof rift === 'number' ? rift : 0,
+      disagreement: perRoundDisagreement[i] != null ? perRoundDisagreement[i] : 0,
+    }));
+
+    // Build per-model drift lines
+    const modelDriftKeys = Object.keys(perModelDrift);
+    const modelDriftData = [];
+    if (modelDriftKeys.length > 0) {
+      const maxLen = Math.max(...modelDriftKeys.map(k => (perModelDrift[k] || []).length));
+      for (let i = 0; i < maxLen; i++) {
+        const entry = { round: `R${i + 1}` };
+        modelDriftKeys.forEach(k => {
+          const vals = perModelDrift[k] || [];
+          entry[k] = vals[i] != null ? vals[i] : 0;
+        });
+        modelDriftData.push(entry);
+      }
+    }
+
+    return { driftIndex, riftIndex, fragility, overallConf, roundTimeline, modelDriftData, modelDriftKeys };
+  }, [safeData]);
+
   // ── Early return after all hooks ──
   if (!data) {
     return (
@@ -233,6 +275,25 @@ export default function DebateView({ data, boundary, confidence }) {
                   </p>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Round 1 Analysis Only Models ── */}
+      {round1OnlyModels.length > 0 && (
+        <div className="rounded-xl border border-[#60a5fa]/30 bg-[#60a5fa]/5 dark:bg-[#1e40af]/20 dark:border-[#1e40af] p-3">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span style={{ color: '#60a5fa', fontSize: '10px', lineHeight: '18px' }}>◆</span>
+            <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Round 1 Analysis Only ({round1OnlyModels.length})
+            </span>
+          </div>
+          <div className="space-y-1">
+            {round1OnlyModels.map((m, i) => (
+              <p key={i} style={{ fontFamily: FONT, fontSize: '11px', color: '#9ca3af', margin: 0, paddingLeft: '4px' }}>
+                • {m.model_name || m.model_id} — Contributed initial analysis
+              </p>
             ))}
           </div>
         </div>
@@ -512,57 +573,200 @@ export default function DebateView({ data, boundary, confidence }) {
         </div>
       )}
 
-      {/* ── Charts Row: Radar + Bar ── */}
-      {(radarData || barData) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Divergence Radar */}
-          {radarData && radarData.length >= 3 && (
+      {/* ── Divergence Dashboard ── */}
+      {(radarData || barData || driftRiftData) && (
+        <div className="space-y-3">
+          {/* Drift / Rift / Fragility Gauges */}
+          {driftRiftData && (
             <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
               <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Divergence Radar
+                Debate Health Metrics
               </span>
-              <div className="mt-2" style={{ width: '100%', height: 220 }}>
-                <ResponsiveContainer>
-                  <RadarChart data={radarData} outerRadius="70%">
-                    <PolarGrid stroke="#e5e7eb" />
-                    <PolarAngleAxis dataKey="axis" tick={{ fontSize: 10, fill: '#6e6e73' }} />
-                    {(modelsUsed.length ? modelsUsed : ['A', 'B']).map((m, mi) => {
-                      const key = typeof m === 'string' ? m : m.model_id || `M${mi}`;
-                      return (
-                        <Radar key={key} name={key} dataKey={key}
-                          stroke={MODEL_COLORS[mi % MODEL_COLORS.length]}
-                          fill={MODEL_COLORS[mi % MODEL_COLORS.length]}
-                          fillOpacity={0.15} strokeWidth={2} />
-                      );
-                    })}
-                  </RadarChart>
-                </ResponsiveContainer>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                {[
+                  {
+                    label: 'Drift Index',
+                    value: driftRiftData.driftIndex,
+                    desc: 'Position shift between rounds',
+                    color: v => v > 0.6 ? '#ef4444' : v > 0.3 ? '#f59e0b' : '#10b981',
+                    icon: '🔄',
+                  },
+                  {
+                    label: 'Rift Index',
+                    value: driftRiftData.riftIndex,
+                    desc: 'Inter-model divergence',
+                    color: v => v > 0.6 ? '#ef4444' : v > 0.3 ? '#f59e0b' : '#10b981',
+                    icon: '🔀',
+                  },
+                  {
+                    label: 'Fragility',
+                    value: driftRiftData.fragility,
+                    desc: 'Debate stability risk',
+                    color: v => v > 0.6 ? '#ef4444' : v > 0.3 ? '#f59e0b' : '#10b981',
+                    icon: '⚠️',
+                  },
+                  {
+                    label: 'Confidence',
+                    value: driftRiftData.overallConf,
+                    desc: 'Overall model agreement',
+                    color: v => v >= 0.7 ? '#10b981' : v >= 0.4 ? '#f59e0b' : '#ef4444',
+                    icon: '🎯',
+                  },
+                ].map(gauge => {
+                  const val = gauge.value != null ? gauge.value : 0;
+                  const pct = Math.round(val * 100);
+                  const gaugeColor = gauge.color(val);
+                  return (
+                    <div key={gauge.label} className="rounded-xl bg-[#f5f5f7] dark:bg-[#27272a] p-3 text-center relative overflow-hidden">
+                      {/* Background progress bar */}
+                      <div className="absolute bottom-0 left-0 h-1 rounded-b-xl transition-all" style={{
+                        width: `${pct}%`,
+                        backgroundColor: gaugeColor,
+                        opacity: 0.4,
+                      }} />
+                      <span style={{ fontSize: '16px' }}>{gauge.icon}</span>
+                      <span className="block" style={{ fontFamily: FONT, fontSize: '9px', fontWeight: 500, color: '#6e6e73', textTransform: 'uppercase', marginTop: '4px' }}>
+                        {gauge.label}
+                      </span>
+                      <span className="block" style={{ fontFamily: FONT, fontSize: '18px', fontWeight: 800, color: gaugeColor, marginTop: '2px' }}>
+                        {gauge.value != null ? `${pct}%` : '—'}
+                      </span>
+                      <span className="block" style={{ fontFamily: FONT, fontSize: '8px', color: '#aeaeb2', marginTop: '2px' }}>
+                        {gauge.desc}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Score Bar Graph */}
-          {barData && barData.length > 0 && (
-            <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
-              <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Score Breakdown
-              </span>
-              <div className="mt-2" style={{ width: '100%', height: 220 }}>
-                <ResponsiveContainer>
-                  <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 10 }}>
-                    <XAxis type="number" domain={[0, 1]} tick={{ fontSize: 10, fill: '#6e6e73' }} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#6e6e73' }} width={80} />
-                    <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12, borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.12)' }} />
-                    <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16}>
-                      {barData.map((_, i) => (
-                        <Cell key={i} fill={MODEL_COLORS[i % MODEL_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Enhanced Divergence Radar */}
+            {radarData && radarData.length >= 3 && (
+              <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Divergence Radar
+                  </span>
+                  <span style={{ fontFamily: FONT, fontSize: '9px', color: '#aeaeb2' }}>
+                    Per-axis model positions
+                  </span>
+                </div>
+                <div className="mt-2" style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer>
+                    <RadarChart data={radarData} outerRadius="70%">
+                      <PolarGrid stroke="#374151" strokeDasharray="3 3" gridType="polygon" />
+                      <PolarAngleAxis dataKey="axis" tick={{ fontSize: 9, fill: '#9ca3af', fontFamily: FONT }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 1]} tick={{ fontSize: 8, fill: '#6b7280' }} tickCount={4} />
+                      {(modelsUsed.length ? modelsUsed : ['A', 'B']).map((m, mi) => {
+                        const key = typeof m === 'string' ? m : m.model_id || `M${mi}`;
+                        const clr = MODEL_COLORS[mi % MODEL_COLORS.length];
+                        return (
+                          <Radar key={key} name={key} dataKey={key}
+                            stroke={clr} fill={clr}
+                            fillOpacity={0.12} strokeWidth={2.5} dot={{ r: 3, fill: clr }} />
+                        );
+                      })}
+                      <Legend wrapperStyle={{ fontSize: 9, fontFamily: FONT }} />
+                      <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 11, borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.15)', backgroundColor: '#1c1c1e', color: '#e5e7eb' }} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Per-Round Rift & Disagreement Area Chart */}
+            {driftRiftData && driftRiftData.roundTimeline.length > 1 && (
+              <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Round-by-Round Divergence
+                  </span>
+                  <span style={{ fontFamily: FONT, fontSize: '9px', color: '#aeaeb2' }}>
+                    Rift vs Disagreement over rounds
+                  </span>
+                </div>
+                <div className="mt-2" style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer>
+                    <AreaChart data={driftRiftData.roundTimeline} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
+                      <defs>
+                        <linearGradient id="riftGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
+                        </linearGradient>
+                        <linearGradient id="disagGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis dataKey="round" tick={{ fontSize: 10, fill: '#6e6e73' }} />
+                      <YAxis domain={[0, 1]} tick={{ fontSize: 10, fill: '#6e6e73' }} />
+                      <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 11, borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.15)', backgroundColor: '#1c1c1e', color: '#e5e7eb' }} />
+                      <Area type="monotone" dataKey="rift" name="Rift (Inter-model)" stroke="#ef4444" fill="url(#riftGrad)" strokeWidth={2} dot={{ r: 4, fill: '#ef4444' }} />
+                      <Area type="monotone" dataKey="disagreement" name="Disagreement" stroke="#f59e0b" fill="url(#disagGrad)" strokeWidth={2} dot={{ r: 4, fill: '#f59e0b' }} />
+                      <Legend wrapperStyle={{ fontSize: 9, fontFamily: FONT }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Per-Model Drift Trajectories */}
+            {driftRiftData && driftRiftData.modelDriftData.length > 1 && driftRiftData.modelDriftKeys.length > 0 && (
+              <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Model Drift Trajectories
+                  </span>
+                  <span style={{ fontFamily: FONT, fontSize: '9px', color: '#aeaeb2' }}>
+                    Per-model position shift across rounds
+                  </span>
+                </div>
+                <div className="mt-2" style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer>
+                    <LineChart data={driftRiftData.modelDriftData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis dataKey="round" tick={{ fontSize: 10, fill: '#6e6e73' }} />
+                      <YAxis domain={[0, 'auto']} tick={{ fontSize: 10, fill: '#6e6e73' }} />
+                      <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 11, borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.15)', backgroundColor: '#1c1c1e', color: '#e5e7eb' }} />
+                      <Legend wrapperStyle={{ fontSize: 9, fontFamily: FONT }} />
+                      {driftRiftData.modelDriftKeys.map((model, mi) => (
+                        <Line key={model} type="monotone" dataKey={model}
+                          name={model.length > 15 ? model.slice(0, 13) + '…' : model}
+                          stroke={MODEL_COLORS[mi % MODEL_COLORS.length]}
+                          strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Score Bar Graph */}
+            {barData && barData.length > 0 && (
+              <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
+                <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Score Breakdown
+                </span>
+                <div className="mt-2" style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 10 }}>
+                      <XAxis type="number" domain={[0, 1]} tick={{ fontSize: 10, fill: '#6e6e73' }} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#6e6e73' }} width={80} />
+                      <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12, borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,.12)' }} />
+                      <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16}>
+                        {barData.map((_, i) => (
+                          <Cell key={i} fill={MODEL_COLORS[i % MODEL_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

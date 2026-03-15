@@ -47,6 +47,15 @@ TOTAL_DEBATE_TOKEN_BUDGET = 15000
 # keeping simple queries fast and cheap.
 ROUND_HARD_CAPS: dict[int, int] = {1: 600, 2: 500, 3: 400}
 
+# Models that participate only in Round 1 (initial analysis).
+# These models tend to fail in Rounds 2-3 due to credit limits, empty responses,
+# or inability to handle structured debate rebuttals.
+ROUND_1_ONLY_MODELS = {
+    "qwen-2.5-vl",      # Vision model — contributes initial visual analysis only
+    "gemini-flash",      # Credit/quota issues in extended debates
+    "kimi-k2-thinking",  # NVIDIA model — empty responses in later rounds
+}
+
 # Adaptive budget tiers (multiplier applied to ROUND_HARD_CAPS)
 BUDGET_TIERS = {
     "short":    {"multiplier": 1.0, "total": 15000,  "max_words": 20},
@@ -254,6 +263,10 @@ class DebateResult(BaseModel):
     strongest_argument: str = ""
     weakest_argument: str = ""
     synthesis: str = ""
+    round_1_only_models: List[Dict[str, str]] = Field(
+        default_factory=list,
+        description="Models that contributed Round 1 analysis only (not failures)",
+    )
 
 
 # ============================================================

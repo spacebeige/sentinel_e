@@ -32,6 +32,7 @@ from core.ensemble_schemas import (
     TOTAL_DEBATE_TOKEN_BUDGET,
     ROUND_BUDGET_SPLIT,
     ROUND_HARD_CAPS,
+    ROUND_1_ONLY_MODELS,
     CONSENSUS_EARLY_STOP,
     STABILITY_EARLY_STOP,
     MIN_REMAINING_BUDGET,
@@ -305,7 +306,14 @@ class StructuredDebateEngine:
             per_model_budget = adaptive_round_caps.get(round_num, adaptive_round_caps.get(3, 200))
 
             # ── Filter out persistently failed models ──────────
-            active_models = [m for m in models if m["id"] not in failed_model_ids]
+            # In rounds 2+, also exclude round-1-only models (their R1 output stays in transcript)
+            if round_num > 1:
+                active_models = [
+                    m for m in models
+                    if m["id"] not in failed_model_ids and m["id"] not in ROUND_1_ONLY_MODELS
+                ]
+            else:
+                active_models = [m for m in models if m["id"] not in failed_model_ids]
             if len(active_models) < 2 and len(debate_rounds) >= 1:
                 logger.warning(
                     f"Too few active models ({len(active_models)}) after failures. "
@@ -458,7 +466,9 @@ class StructuredDebateEngine:
                     debate_rounds, prev_positions
                 )
                 round_result = await self._run_round_n(
-                    query, models, 3, transcript, prev_positions,
+                    query,
+                    [m for m in models if m["id"] not in ROUND_1_ONLY_MODELS],
+                    3, transcript, prev_positions,
                     max_tokens=per_model_r3,
                     is_final_round=True,
                 )
@@ -515,6 +525,19 @@ class StructuredDebateEngine:
                 f"spent across {len(debate_rounds)} rounds"
             )
 
+        # Identify round-1-only models that completed successfully
+        round_1_only_completed = []
+        if debate_rounds:
+            r1_model_ids = {
+                p.model_id for p in debate_rounds[0].positions
+                if p.model_id in ROUND_1_ONLY_MODELS and p.status != "failed"
+            }
+            round_1_only_completed = [
+                {"model_id": m["id"], "model_name": m.get("name", m["id"])}
+                for m in models
+                if m["id"] in r1_model_ids
+            ]
+
         return DebateResult(
             rounds=debate_rounds,
             total_rounds=len(debate_rounds),
@@ -540,6 +563,7 @@ class StructuredDebateEngine:
             strongest_argument=analysis_fields.get("strongest_argument", ""),
             weakest_argument=analysis_fields.get("weakest_argument", ""),
             synthesis=analysis_fields.get("synthesis", ""),
+            round_1_only_models=round_1_only_completed,
         )
 
     # ── Self-Healing ─────────────────────────────────────────
