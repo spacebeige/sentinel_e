@@ -231,7 +231,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
 MODEL_DEBATE_TIERS: Dict[str, int] = {
     # Tier 1 — Analysis (primary reasoning)
     "llama33-70b":     1,   # Llama 3.3 70B — analysis anchor (Groq)
-    "mistral-large-675b": 1,  # Mistral Large 675B — analysis anchor (NVIDIA)
+    # Note: mistral-large-675b removed — NVIDIA API unreliable for structured debate
     # Tier 2 — Critique (diverse argument generators)
     "mixtral-8x7b":    2,   # Mixtral 8x7B — critique A (Groq)
     "llama4-scout":     2,   # Llama 4 Scout 17B — critique B (Groq)
@@ -245,8 +245,8 @@ MODEL_DEBATE_TIERS: Dict[str, int] = {
 
 # Fallback mapping: if a model fails, replace with this model
 MODEL_FALLBACK_MAP: Dict[str, str] = {
-    "llama33-70b":         "mistral-large-675b",  # Groq 70B → NVIDIA Mistral
-    "mistral-large-675b":  "llama33-70b",         # NVIDIA Mistral → Groq 70B
+    # Note: mistral-large-675b removed from debate — use Llama 70B as primary Tier 1
+    "llama33-70b":         "mixtral-8x7b",        # Groq 70B → Mixtral (Groq)
     "mixtral-8x7b":        "llama4-scout",         # Mixtral → Llama 4 Scout
     "llama4-scout":        "kimi-k2-thinking",     # Llama 4 Scout → Kimi K2
     "qwen-2.5-vl":         "kimi-k2-thinking",     # Qwen → Kimi K2
