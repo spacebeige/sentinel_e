@@ -256,9 +256,17 @@ async def lifespan(app: FastAPI):
     global mco_orchestrator, mco_daemon, mco_bridge, cognitive_orchestrator_engine, multimodal_auditor
     logger.info("Initializing Sentinel-E v5.0 Production System...")
 
-    # Initialize DB
-    await init_db()
-    await check_redis()
+    # Initialize DB with timeout to prevent NeonDB cold start from blocking deploy
+    try:
+        await asyncio.wait_for(init_db(), timeout=20)
+    except asyncio.TimeoutError:
+        logger.warning("Database init timed out (NeonDB cold start?) — will retry on first request")
+    except Exception as e:
+        logger.warning(f"Database init failed (non-fatal): {e}")
+    try:
+        await asyncio.wait_for(check_redis(), timeout=10)
+    except (asyncio.TimeoutError, Exception) as e:
+        logger.warning(f"Redis check timed out or failed (non-fatal): {e}")
     await asyncio.to_thread(_ensure_session_sqlite_table)
 
     # Initialize core components

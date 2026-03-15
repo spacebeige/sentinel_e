@@ -72,11 +72,14 @@ from sqlalchemy.pool import NullPool
 
 # Use NullPool for NeonDB to avoid connection issues with transaction poolers
 # and ensure fresh connections are used.
+# Add connect timeout to prevent hanging on NeonDB cold starts
+if "timeout" not in connect_args:
+    connect_args["timeout"] = 15  # asyncpg connection timeout in seconds
 engine = create_async_engine(
     DATABASE_URL, 
     echo=False, 
     future=True, 
-    connect_args=connect_args, # Use the computed connect_args
+    connect_args=connect_args,
     poolclass=NullPool 
 )
 AsyncSessionLocal = sessionmaker(
@@ -122,13 +125,15 @@ class InMemoryRedisStub:
 
 try:
     if HAS_REDIS_LIB and REDIS_URL:
-        redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+        redis_client = redis.from_url(REDIS_URL, decode_responses=True, socket_timeout=5, socket_connect_timeout=5)
     elif HAS_REDIS_LIB:
         redis_client = redis.Redis(
             host=REDIS_HOST,
             port=int(REDIS_PORT),
             db=int(REDIS_DB),
             decode_responses=True,
+            socket_timeout=5,
+            socket_connect_timeout=5,
         )
     else:
         redis_client = InMemoryRedisStub()
@@ -145,34 +150,37 @@ async def get_db():
 async def init_db():
     # Only needed if using SQLAlchemy to create tables
     # For production, use Alembic migrations
-    from .models import Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        # Add image columns to existing messages table if missing
-        await conn.execute(
-            text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_b64 TEXT")
-        )
-        await conn.execute(
-            text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_mime VARCHAR")
-        )
-        # Create uploaded_assets table if not exists
-        await conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS uploaded_assets (
-                id VARCHAR PRIMARY KEY,
-                session_id VARCHAR NOT NULL,
-                file_type VARCHAR NOT NULL,
-                file_path VARCHAR,
-                base64_data TEXT,
-                summary TEXT,
-                original_filename VARCHAR,
-                file_size_bytes INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    try:
+        from .models import Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            # Add image columns to existing messages table if missing
+            await conn.execute(
+                text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_b64 TEXT")
             )
-        """))
-        await conn.execute(text("""
-            CREATE INDEX IF NOT EXISTS idx_uploaded_assets_session
-            ON uploaded_assets (session_id)
-        """))
+            await conn.execute(
+                text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_mime VARCHAR")
+            )
+            # Create uploaded_assets table if not exists
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS uploaded_assets (
+                    id VARCHAR PRIMARY KEY,
+                    session_id VARCHAR NOT NULL,
+                    file_type VARCHAR NOT NULL,
+                    file_path VARCHAR,
+                    base64_data TEXT,
+                    summary TEXT,
+                    original_filename VARCHAR,
+                    file_size_bytes INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_uploaded_assets_session
+                ON uploaded_assets (session_id)
+            """))
+    except Exception as e:
+        _db_logger.warning(f"Database init failed (non-fatal, will retry on first request): {e}")
 
 async def check_redis():
     try:
