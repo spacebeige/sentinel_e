@@ -114,13 +114,13 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     # ── Critique C (alternative perspectives via Qwen) ────────
     "qwen-2.5-vl": CognitiveModelSpec(
         name="Qwen 2.5 VL 7B",
-        model_id="qwen2.5-vl-7b-instruct",
+        model_id="qwen/qwen-2.5-vl-7b-instruct",
         provider="qwen",
         role=ModelRole.VISION,
         context_window=32768,
         max_output_tokens=1500,
         default_temperature=0.3,
-        api_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+        api_base_url="https://openrouter.ai/api/v1/chat/completions",
         api_key_env="QWEN_API_KEY",
         supports_vision=True,
     ),
@@ -1091,14 +1091,14 @@ class CognitiveModelGateway:
         api_key: str = "",
         max_tokens: int = 4096,
     ) -> CognitiveGatewayOutput:
-        """Call Qwen/DashScope OpenAI-compatible API with structured output handling."""
+        """Call Qwen via OpenRouter (OpenAI-compatible API)."""
         if not api_key:
             return CognitiveGatewayOutput(
                 model_name=spec.name, raw_output="",
                 success=False, error=f"{spec.api_key_env} not configured",
             )
 
-        url = spec.api_base_url or "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+        url = spec.api_base_url or "https://openrouter.ai/api/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
