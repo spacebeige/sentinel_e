@@ -370,6 +370,24 @@ export async function fetchMCOAnalytics(sessionId) {
   return res.data;
 }
 
+// ── Message Edit / Regenerate ────────────────────────────────
+
+/**
+ * Edit an existing message.
+ */
+export async function editMessage(messageId, content) {
+  const res = await api.put(`/api/messages/${messageId}`, { content });
+  return res.data;
+}
+
+/**
+ * Regenerate an assistant response for a given message.
+ */
+export async function regenerateMessage(messageId) {
+  const res = await api.post(`/api/messages/${messageId}/regenerate`);
+  return res.data;
+}
+
 // ── Utilities ───────────────────────────────────────────────
 
 function generateRequestId() {

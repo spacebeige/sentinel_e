@@ -33,3 +33,16 @@ class Message(Base):
     image_b64 = Column(Text, nullable=True)  # Base64 image data
     image_mime = Column(String, nullable=True)  # MIME type (e.g. image/png)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class UploadedAsset(Base):
+    __tablename__ = "uploaded_assets"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String, nullable=False, index=True)
+    file_type = Column(String, nullable=False)  # "image/png", "application/pdf", etc.
+    file_path = Column(String, nullable=True)   # local/cloud path if stored on disk
+    base64_data = Column(Text, nullable=True)   # base64-encoded file content
+    summary = Column(Text, nullable=True)       # vision model's text description
+    original_filename = Column(String, nullable=True)
+    file_size_bytes = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

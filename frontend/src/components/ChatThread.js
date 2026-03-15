@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Copy, Check, Zap, Brain, ShieldAlert } from 'lucide-react';
+import { Copy, Check, Zap, Brain, ShieldAlert, Pencil, RefreshCw } from 'lucide-react';
 import FeedbackButton from './FeedbackButton';
 import { normalizeResponse, isCodeResponse } from '../engines/responseNormalizer';
+import { editMessage, regenerateMessage } from '../services/api';
 
 /* ─── Helpers ───────────────────────────────────────────────────── */
 function formatTime(ts) {
@@ -39,30 +40,76 @@ const TypingIndicator = () => (
 );
 
 /* ─── User message ──────────────────────────────────────────────── */
-const UserBubble = ({ message }) => (
-  <div className="flex justify-end mb-5">
-    <div className="max-w-[72%] flex flex-col items-end">
-      {message.image_b64 && (
-        <img 
-          src={`data:${message.image_mime || 'image/png'};base64,${message.image_b64}`}
-          alt="Attached"
-          className="max-w-full max-h-48 rounded-xl mb-2 object-contain"
-        />
-      )}
-      <div className="px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap"
-        style={{ backgroundColor: 'var(--accent-blue)', color: '#fff' }}>
-        {message.content}
+const UserBubble = ({ message, onMessageEdited }) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(message.content);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!draft.trim() || draft === message.content) { setEditing(false); return; }
+    setSaving(true);
+    try {
+      await editMessage(message.id, draft);
+      if (onMessageEdited) onMessageEdited(message.id, draft);
+      setEditing(false);
+    } catch { console.warn('Edit failed'); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="flex justify-end mb-5 group">
+      <div className="max-w-[72%] flex flex-col items-end">
+        {message.image_b64 && (
+          <img
+            src={`data:${message.image_mime || 'image/png'};base64,${message.image_b64}`}
+            alt="Attached"
+            className="max-w-full max-h-48 rounded-xl mb-2 object-contain"
+          />
+        )}
+        {editing ? (
+          <div className="w-full">
+            <textarea
+              className="w-full px-3 py-2 rounded-xl text-sm leading-relaxed resize-none border"
+              style={{ borderColor: 'var(--border-secondary)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
+              value={draft} onChange={e => setDraft(e.target.value)} rows={3} autoFocus
+            />
+            <div className="flex gap-1.5 mt-1 justify-end">
+              <button onClick={() => { setDraft(message.content); setEditing(false); }}
+                className="text-[10px] px-2 py-0.5 rounded-md" style={{ color: 'var(--text-tertiary)' }}>Cancel</button>
+              <button onClick={handleSave} disabled={saving}
+                className="text-[10px] px-2 py-0.5 rounded-md font-medium" style={{ color: 'var(--accent-blue)' }}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap"
+            style={{ backgroundColor: 'var(--accent-blue)', color: '#fff' }}>
+            {message.content}
+          </div>
+        )}
+        <div className="flex items-center gap-2 mt-1 pr-1">
+          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+            {formatTime(message.timestamp)}
+          </span>
+          {!editing && (
+            <button onClick={() => setEditing(true)} title="Edit"
+              className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 py-0.5 px-1 rounded-md"
+              style={{ color: 'var(--text-tertiary)' }}>
+              <Pencil className="w-3 h-3" /><span className="text-[10px]">Edit</span>
+            </button>
+          )}
+        </div>
       </div>
-      <span className="text-[10px] mt-1 pr-1" style={{ color: 'var(--text-tertiary)' }}>
-        {formatTime(message.timestamp)}
-      </span>
     </div>
-  </div>
-);
+  );
+};
 
 /* ─── Assistant message ─────────────────────────────────────────── */
-const AssistantBubble = ({ message, mode, subMode }) => {
+const AssistantBubble = ({ message, mode, subMode, onRegenerate }) => {
   const [copied, setCopied] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(message.content);
@@ -71,6 +118,16 @@ const AssistantBubble = ({ message, mode, subMode }) => {
     } catch {
       console.warn('Clipboard access denied');
     }
+  };
+
+  const handleRegenerate = async () => {
+    if (!message.id || regenerating) return;
+    setRegenerating(true);
+    try {
+      await regenerateMessage(message.id);
+      if (onRegenerate) onRegenerate(message.id);
+    } catch { console.warn('Regenerate failed'); }
+    setRegenerating(false);
   };
 
   const labelText = mode === 'experimental' ? `Omega · ${subMode || 'debate'}` : 'Sentinel';
@@ -116,6 +173,12 @@ const AssistantBubble = ({ message, mode, subMode }) => {
                 ? <><Check className="w-3 h-3" /><span className="text-[10px] font-medium">Copied</span></>
                 : <><Copy className="w-3 h-3" /><span className="text-[10px]">Copy</span></>
               }
+            </button>
+            <button onClick={handleRegenerate} title="Regenerate" disabled={regenerating}
+              className="flex items-center gap-1 py-0.5 px-1.5 rounded-md transition-colors"
+              style={{ color: 'var(--text-tertiary)' }}>
+              <RefreshCw className={`w-3 h-3 ${regenerating ? 'animate-spin' : ''}`} />
+              <span className="text-[10px]">{regenerating ? 'Regenerating…' : 'Regenerate'}</span>
             </button>
             {message.runId && (
               <FeedbackButton runId={message.runId} mode={mode} subMode={subMode} />
@@ -191,7 +254,7 @@ const EmptyState = ({ mode, subMode }) => {
 };
 
 /* ─── Main component ────────────────────────────────────────────── */
-const ChatThread = ({ messages, loading, mode, subMode }) => {
+const ChatThread = ({ messages, loading, mode, subMode, onMessageEdited, onRegenerate }) => {
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -221,8 +284,8 @@ const ChatThread = ({ messages, loading, mode, subMode }) => {
         item.type === 'date'
           ? <DateSeparator key={item.key} label={item.label} />
           : item.msg.role === 'user'
-            ? <UserBubble key={item.key} message={item.msg} />
-            : <AssistantBubble key={item.key} message={item.msg} mode={mode} subMode={subMode} />
+            ? <UserBubble key={item.key} message={item.msg} onMessageEdited={onMessageEdited} />
+            : <AssistantBubble key={item.key} message={item.msg} mode={mode} subMode={subMode} onRegenerate={onRegenerate} />
       )}
       {loading && <TypingIndicator />}
       <div ref={bottomRef} className="h-4" />

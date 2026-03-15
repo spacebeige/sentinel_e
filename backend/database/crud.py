@@ -96,3 +96,83 @@ async def get_chat_messages(db: AsyncSession, chat_id: UUID) -> List[Message]:
         select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at.asc())
     )
     return result.scalars().all()
+
+
+async def create_asset(db, session_id: str, file_type: str, base64_data: str = None,
+                       file_path: str = None, summary: str = None,
+                       original_filename: str = None, file_size_bytes: int = None):
+    """Store an uploaded asset for a session."""
+    from .models import UploadedAsset
+    asset = UploadedAsset(
+        session_id=session_id,
+        file_type=file_type,
+        base64_data=base64_data,
+        file_path=file_path,
+        summary=summary,
+        original_filename=original_filename,
+        file_size_bytes=file_size_bytes,
+    )
+    db.add(asset)
+    await db.commit()
+    await db.refresh(asset)
+    return asset
+
+
+async def get_session_assets(db, session_id: str):
+    """Get all assets for a session."""
+    from .models import UploadedAsset
+    result = await db.execute(
+        select(UploadedAsset)
+        .where(UploadedAsset.session_id == session_id)
+        .order_by(UploadedAsset.created_at)
+    )
+    return result.scalars().all()
+
+
+async def update_asset_summary(db, asset_id: str, summary: str):
+    """Update the vision summary for an asset."""
+    from .models import UploadedAsset
+    result = await db.execute(
+        select(UploadedAsset).where(UploadedAsset.id == asset_id)
+    )
+    asset = result.scalar_one_or_none()
+    if asset:
+        asset.summary = summary
+        await db.commit()
+    return asset
+
+
+async def update_message(db, message_id, new_content: str):
+    """Edit a message's content."""
+    from .models import Message
+    result = await db.execute(
+        select(Message).where(Message.id == message_id)
+    )
+    msg = result.scalar_one_or_none()
+    if msg:
+        msg.content = new_content
+        await db.commit()
+    return msg
+
+
+async def delete_messages_after(db, chat_id, message_id):
+    """Delete all messages after a given message (for regeneration).
+    Returns the count of deleted messages."""
+    from .models import Message
+    # Get the target message to find its created_at
+    result = await db.execute(
+        select(Message).where(Message.id == message_id)
+    )
+    target = result.scalar_one_or_none()
+    if not target:
+        return 0
+
+    # Delete all messages after this one
+    from sqlalchemy import delete as sql_delete
+    stmt = sql_delete(Message).where(
+        Message.chat_id == chat_id,
+        Message.created_at > target.created_at
+    )
+    result = await db.execute(stmt)
+    await db.commit()
+    return result.rowcount

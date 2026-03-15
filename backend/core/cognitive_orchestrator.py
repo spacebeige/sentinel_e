@@ -28,6 +28,7 @@ Hard failures:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
@@ -56,6 +57,7 @@ from core.agreement_matrix import AgreementMatrixEngine
 from core.structured_debate_engine import StructuredDebateEngine
 from core.confidence_calibrator import ConfidenceCalibrator
 from core.ensemble_session import EnsembleSessionEngine
+from database.session_context import get_vision_summary, store_vision_summary
 
 logger = logging.getLogger("CognitiveOrchestrator")
 
@@ -164,7 +166,8 @@ class CognitiveOrchestrator:
             self._validate_minimum_models(models)
 
             structured_outputs = await self._phase1_parallel_execution(
-                query, models, image_b64=image_b64, image_mime=image_mime
+                query, models, image_b64=image_b64, image_mime=image_mime,
+                session_id=chat_id,
             )
 
             # Validate sufficient successful outputs
@@ -394,6 +397,7 @@ class CognitiveOrchestrator:
     async def _phase1_parallel_execution(
         self, query: str, models: List[Dict[str, str]],
         image_b64: Optional[str] = None, image_mime: Optional[str] = None,
+        session_id: str = "",
     ) -> List[StructuredModelOutput]:
         """Execute all models in parallel with structured output extraction.
 
@@ -407,7 +411,7 @@ class CognitiveOrchestrator:
         vision_description = None
         if image_b64:
             vision_description = await self._get_vision_description(
-                query, image_b64, image_mime, models
+                query, image_b64, image_mime, models, session_id=session_id
             )
 
         tasks = []
@@ -465,9 +469,17 @@ class CognitiveOrchestrator:
 
     async def _get_vision_description(
         self, query: str, image_b64: str, image_mime: Optional[str],
-        models: List[Dict[str, str]],
+        models: List[Dict[str, str]], session_id: str = "",
     ) -> Optional[str]:
         """Call the best available vision model to produce a text description of the image."""
+        # ── Check SQLite cache first ──
+        cache_key = hashlib.md5(image_b64[:1000].encode()).hexdigest()
+        if session_id:
+            cached = get_vision_summary(session_id, cache_key)
+            if cached:
+                logger.info(f"Vision cache hit for key={cache_key[:16]}")
+                return cached
+
         # Preferred vision models in priority order
         vision_priorities = ["gemini-flash", "qwen-2.5-vl", "claude-sonnet-4.6"]
         vision_model_id = None
@@ -500,7 +512,11 @@ class CognitiveOrchestrator:
             )
             if raw and not raw.startswith("Error:") and len(raw.strip()) > 10:
                 logger.info(f"Vision description obtained from {vision_model_id} ({len(raw)} chars)")
-                return raw.strip()
+                description = raw.strip()
+                if session_id:
+                    store_vision_summary(session_id, cache_key, vision_model_id,
+                                         description, token_count=len(description))
+                return description
             logger.warning(f"Vision model {vision_model_id} returned unusable output")
             return None
         except Exception as e:

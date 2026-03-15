@@ -155,6 +155,24 @@ async def init_db():
         await conn.execute(
             text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_mime VARCHAR")
         )
+        # Create uploaded_assets table if not exists
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS uploaded_assets (
+                id VARCHAR PRIMARY KEY,
+                session_id VARCHAR NOT NULL,
+                file_type VARCHAR NOT NULL,
+                file_path VARCHAR,
+                base64_data TEXT,
+                summary TEXT,
+                original_filename VARCHAR,
+                file_size_bytes INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_uploaded_assets_session
+            ON uploaded_assets (session_id)
+        """))
 
 async def check_redis():
     try:

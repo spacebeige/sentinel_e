@@ -38,6 +38,7 @@ from fastapi import FastAPI, HTTPException, Depends, Form, UploadFile, File, Bod
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from uuid import UUID
 
 # Add project root to path
@@ -63,7 +64,7 @@ from gateway.prompt_firewall import get_firewall
 from database.connection import get_db, init_db, check_redis, redis_client
 from database.crud import (
     create_chat, get_chat, list_chats, update_chat_metadata,
-    add_message, get_chat_messages,
+    add_message, get_chat_messages, update_message, delete_messages_after,
 )
 
 # ── Core Engine Imports ──────────────────────────────────────
@@ -375,7 +376,28 @@ app = FastAPI(
     openapi_url=None if ENV == "production" else "/openapi.json",
 )
 
+# ── Timeout Middleware ───────────────────────────────────────
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class TimeoutMiddleware(BaseHTTPMiddleware):
+    """Prevent requests from running indefinitely."""
+
+    TIMEOUT_SECONDS = 180  # 3 minutes for ensemble operations
+
+    async def dispatch(self, request, call_next):
+        try:
+            return await asyncio.wait_for(
+                call_next(request),
+                timeout=self.TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            return JSONResponse(
+                status_code=504,
+                content={"detail": "Request timed out. The ensemble analysis took too long. Please try a simpler query or fewer models."},
+            )
+
 # ── Middleware Stack (order matters: outermost first) ────────
+app.add_middleware(TimeoutMiddleware)
 app.add_middleware(ErrorHandlerMiddleware)
 app.add_middleware(RequestTrackingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -1991,6 +2013,61 @@ async def history_detail(
     user: Dict = Depends(get_current_user),
 ):
     return await get_chat_detail(chat_id, db, user)
+
+
+@app.put("/api/messages/{message_id}")
+async def edit_message(
+    message_id: int,
+    request: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    """Edit a message's content (ChatGPT-style edit)."""
+    new_content = request.get("content")
+    if not new_content:
+        raise HTTPException(status_code=400, detail="Content is required.")
+
+    msg = await update_message(db, message_id, new_content)
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found.")
+
+    return {"status": "updated", "message_id": message_id}
+
+
+@app.post("/api/messages/{message_id}/regenerate")
+async def regenerate_response(
+    message_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    """Regenerate the response after a user message.
+    Deletes all messages after the target and re-runs the query."""
+    from database.models import Message as MessageModel
+
+    # Find the target message
+    result = await db.execute(
+        select(MessageModel).where(MessageModel.id == message_id)
+    )
+    target_msg = result.scalar_one_or_none()
+    if not target_msg:
+        raise HTTPException(status_code=404, detail="Message not found.")
+
+    if target_msg.role != "user":
+        raise HTTPException(status_code=400, detail="Can only regenerate after a user message.")
+
+    # Delete all messages after this user message
+    deleted = await delete_messages_after(db, target_msg.chat_id, message_id)
+
+    # Re-run the query through the standard pipeline
+    regen_request = SentinelRequest(
+        text=target_msg.content,
+        mode="standard",
+        chat_id=str(target_msg.chat_id),
+        image_b64=target_msg.image_b64,
+        image_mime=target_msg.image_mime,
+    )
+
+    return await run_sentinel(regen_request, db, user)
 
 
 # ============================================================
