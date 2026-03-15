@@ -578,12 +578,14 @@ async def health_check():
     try:
         if redis_client:
             await redis_client.ping()
-            health["redis"] = "connected"
+            if getattr(redis_client, '_is_stub', False):
+                health["redis"] = "in_memory_fallback"
+            else:
+                health["redis"] = "connected"
         else:
             health["redis"] = "not_configured"
     except Exception:
         health["redis"] = "disconnected"
-        health["status"] = "degraded"
     return health
 
 

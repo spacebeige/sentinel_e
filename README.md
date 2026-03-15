@@ -69,13 +69,13 @@ flowchart TB
     subgraph Storage["🗃️ Persistence Layer"]
         PG[(PostgreSQL<br/>chats · messages · assets)]
         SQ[(SQLite<br/>vision cache · sessions)]
-        RD[(Redis<br/>memory · TTL)]
+        RD[("Redis (optional)<br/>session cache · TTL")]
     end
 
     Frontend -->|"HTTP + JWT"| API
     OK --> PG
     OK --> SQ
-    OK --> RD
+    OK -.-> RD
 ```
 
 ---
@@ -361,21 +361,21 @@ flowchart LR
         CA[context_assets<br/>asset_id · message_index]
     end
 
-    subgraph RD["Redis — Memory"]
-        MEM["3-tier memory<br/>short · mid · long term"]
+    subgraph RD["Redis — Optional Cache"]
+        MEM["Session mirror<br/>best-effort cache"]
         TTL["Session TTL"]
     end
 
     API[FastAPI] --> PG
     API --> SQ
-    API --> RD
+    API -.->|"optional"| RD
 ```
 
 | Database | Purpose | Schema |
 |----------|---------|--------|
 | PostgreSQL (Neon) | Primary persistence | chats, messages, uploaded_assets |
-| SQLite | Session-level cache | vision_cache, context_assets |
-| Redis (Upstash) | Memory + session TTL | 3-tier memory engine |
+| SQLite | Session-level cache | vision_cache, context_assets, session_cache |
+| Redis (optional) | Best-effort session mirror | Falls back to in-memory LRU if unavailable |
 
 **Message Storage:** Each message stores `image_b64` and `image_mime` columns so uploaded images persist in chat history and are rendered in the UI.
 
@@ -417,7 +417,7 @@ flowchart LR
 ### Diagnostics
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/health` | Health check (Redis, version) |
+| GET | `/health` | Health check (version, Redis status) |
 | GET | `/api/optimization/stats` | Observability/performance metrics |
 | POST | `/api/cross-analysis` | Cross-model comparison |
 
@@ -502,7 +502,6 @@ SERPER_API_KEY=                  # Evidence search (supplementary)
 ```
 JWT_SECRET_KEY=                  # JWT signing secret
 POSTGRES_URL=                    # PostgreSQL connection string
-REDIS_URL=                       # Redis connection string
 ENVIRONMENT=development          # development or production
 ```
 
@@ -516,6 +515,7 @@ KIMI_K2_NVIDIA_API_KEY=          # Separate key for Kimi K2
 
 ### Optional — Configuration
 ```
+REDIS_URL=                       # Redis connection string (falls back to in-memory if missing)
 ALLOWED_ORIGINS=http://localhost:3000
 MAX_INPUT_LENGTH=10000
 MAX_ROUNDS=3

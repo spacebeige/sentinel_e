@@ -183,13 +183,15 @@ async def init_db():
         _db_logger.warning(f"Database init failed (non-fatal, will retry on first request): {e}")
 
 async def check_redis():
+    global redis_client
     try:
         await redis_client.ping()
         if getattr(redis_client, '_is_stub', False):
-            print("Redis unavailable — using in-memory LRU fallback.")
+            _db_logger.info("Redis unavailable — using in-memory LRU fallback.")
         else:
-            print("Redis connection successful.")
+            _db_logger.info("Redis connection successful.")
         return True
     except Exception as e:
-        print(f"Redis connection failed: {e}")
+        _db_logger.warning(f"Redis connection failed (non-fatal, using in-memory fallback): {e}")
+        redis_client = InMemoryRedisStub()
         return False
