@@ -718,8 +718,14 @@ class CognitiveOrchestrator:
         )
 
     def _get_models(self) -> List[Dict[str, str]]:
-        """Get enabled models from bridge."""
-        return self._bridge.get_enabled_models_info()
+        """Get enabled models from bridge — excludes synthesis-only models (e.g. Claude)."""
+        from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+        all_models = self._bridge.get_enabled_models_info()
+        return [
+            m for m in all_models
+            if not COGNITIVE_MODEL_REGISTRY.get(m["id"], None)
+            or not COGNITIVE_MODEL_REGISTRY[m["id"]].synthesis_only
+        ]
 
     def _get_debate_models(self) -> List[Dict[str, str]]:
         """Get enabled models for debate — excludes synthesis-only models (e.g. Claude)."""

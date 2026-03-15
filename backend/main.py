@@ -1639,8 +1639,25 @@ async def list_available_models(user: Dict = Depends(get_current_user)):
             "enabled": spec.enabled and spec.active,
             "context_window": spec.context_window,
             "max_output_tokens": spec.max_output_tokens,
+            "synthesis_only": spec.synthesis_only,
         })
     return {"models": models}
+
+
+@app.post("/api/models/claude/toggle")
+async def toggle_claude(user: Dict = Depends(get_current_user)):
+    """Toggle Claude on/off. Claude is synthesis-only — this controls whether it participates at all."""
+    from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+    spec = COGNITIVE_MODEL_REGISTRY.get("claude-sonnet-4.6")
+    if not spec:
+        raise HTTPException(status_code=404, detail="Claude model not found in registry")
+    spec.active = not spec.active
+    return {
+        "model": "claude-sonnet-4.6",
+        "active": spec.active,
+        "synthesis_only": spec.synthesis_only,
+        "message": f"Claude is now {'enabled (synthesis only)' if spec.active else 'disabled'}"
+    }
 
 
 @app.post("/api/model/{model_id}")

@@ -124,6 +124,12 @@ export function ModelsPage() {
                           <XCircle className="w-3 h-3" /> Disabled
                         </span>
                       )}
+                      {model.synthesis_only && (
+                        <span className="px-2 py-0.5 rounded-full border flex items-center gap-1"
+                          style={{ backgroundColor: '#ede9fe', borderColor: '#c4b5fd', fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#7c3aed' }}>
+                          Synthesis Only
+                        </span>
+                      )}
                       <span className="px-3 py-1 rounded-full border" style={{
                         backgroundColor: color + '10', borderColor: color + '25', color,
                         fontFamily: FONT, fontSize: '11px', fontWeight: 600,

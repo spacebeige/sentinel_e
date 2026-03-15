@@ -61,6 +61,7 @@ class CognitiveModelSpec:
     enabled: bool = True    # Runtime flag (auto-set based on key availability)
     supports_vision: bool = False  # Whether this model accepts image inputs
     disable_reason: str = None  # Reason why model is disabled
+    synthesis_only: bool = False  # If True, model is excluded from Phase 1 and debate
 
 
 # ── Model Registry ───────────────────────────────────────────
@@ -189,6 +190,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_base_url="https://api.anthropic.com/v1/messages",
         api_key_env="ANTHROPIC_API_KEY",
         supports_vision=True,
+        synthesis_only=True,
     ),
 }
 

@@ -21,7 +21,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { fetchMCOModels, fetchChatModels } from '../services/api';
+import { fetchMCOModels, fetchChatModels, toggleClaude } from '../services/api';
 
 // ── Role → color mapping ────────────────────────────────────
 const ROLE_COLORS = {
@@ -199,6 +199,7 @@ export const DEFAULT_CHAT_MODELS = [
     active: true,
     disable_reason: null,
     debate_eligible: false,
+    synthesis_only: true,
     context_window: 500,
     max_output_tokens: 500,
   },
@@ -220,11 +221,12 @@ function transformChatModels(backendModels) {
       : '#6b7280',  // grey when disabled
     role: m.role,
     tier: m.tier,
-    tierLabel: TIER_LABELS[m.tier] || 'Debate',
+    tierLabel: m.synthesis_only ? 'Synthesis' : (TIER_LABELS[m.tier] || 'Debate'),
     enabled: m.enabled,
     active: m.active ?? m.enabled,
     disable_reason: m.disable_reason || null,
-    debate_eligible: m.enabled,
+    debate_eligible: m.synthesis_only ? false : m.enabled,
+    synthesis_only: m.synthesis_only || false,
     context_window: m.context_window,
     max_output_tokens: m.max_output_tokens,
   }));
@@ -280,6 +282,15 @@ export default function useModels() {
   // Derive debate-eligible models (tier 1, 2, 3 and enabled)
   const debateModels = chatModels.filter((m) => m.debate_eligible && m.enabled);
 
+  const handleToggleClaude = useCallback(async () => {
+    try {
+      await toggleClaude();
+      await fetchModels();
+    } catch (err) {
+      console.error('Failed to toggle Claude:', err);
+    }
+  }, [fetchModels]);
+
   return {
     mcoModels,
     chatModels,
@@ -287,6 +298,7 @@ export default function useModels() {
     loading,
     error,
     refetch: fetchModels,
+    toggleClaude: handleToggleClaude,
     ROLE_COLORS,
     ROLE_LABELS,
     TIER_LABELS,

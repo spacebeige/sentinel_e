@@ -34,7 +34,7 @@ import {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function ChatEngineV5() {
-  const { chatModels, mcoModels } = useModels();
+  const { chatModels, mcoModels, toggleClaude: onToggleClaude } = useModels();
   const [mode, setMode] = useState('standard');
   const [subMode, setSubMode] = useState(null);
   const [killActive, setKillActive] = useState(false);
@@ -344,6 +344,7 @@ export default function ChatEngineV5() {
       error={error}
       chatModels={chatModels}
       mcoModels={mcoModels}
+      onToggleClaude={onToggleClaude}
     />
   );
 }

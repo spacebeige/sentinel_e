@@ -305,6 +305,15 @@ export async function fetchChatModels() {
 }
 
 /**
+ * Toggle Claude on/off. Claude is synthesis-only.
+ * @returns {{ model, active, synthesis_only, message }}
+ */
+export async function toggleClaude() {
+  const res = await api.post('/api/models/claude/toggle');
+  return res.data;
+}
+
+/**
  * Send a query to a specific model (Standard Mode).
  * Routes to POST /chat/{modelId} with retry + fallback logic server-side.
  * 

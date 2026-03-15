@@ -121,6 +121,9 @@ export default function FigmaChatShell({
   // === Dynamic model registry ===
   chatModels: chatModelsProp,
   mcoModels,
+
+  // === Claude toggle ===
+  onToggleClaude,
 }) {
   // ============================================================
   // RESOLVED MODELS — Dynamic from props, fallback to static
@@ -1064,7 +1067,7 @@ export default function FigmaChatShell({
 
                 {/* ── Individual Models by Tier ── */}
                 {[{ tier: 1, label: 'Anchor Models' }, { tier: 2, label: 'Debate Models' }, { tier: 3, label: 'Specialist Models' }].map(({ tier, label }) => {
-                  const tierModels = resolvedModels.filter(m => !m.isMeta && m.tier === tier);
+                  const tierModels = resolvedModels.filter(m => !m.isMeta && !m.synthesis_only && m.tier === tier);
                   if (tierModels.length === 0) return null;
                   return (
                     <React.Fragment key={tier}>
@@ -1126,6 +1129,61 @@ export default function FigmaChatShell({
                     </React.Fragment>
                   );
                 })}
+
+                {/* ── Synthesis-Only Models (Claude) ── */}
+                {(() => {
+                  const synthesisModels = resolvedModels.filter(m => !m.isMeta && m.synthesis_only);
+                  if (synthesisModels.length === 0) return null;
+                  return (
+                    <>
+                      <div className="my-1.5 mx-3 border-t border-black/5 dark:border-white/10" />
+                      <div className="px-3 pt-2 pb-1 text-[#6e6e73] dark:text-[#94a3b8]"
+                        style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                        Synthesis Only
+                      </div>
+                      {synthesisModels.map((model) => {
+                        const isActive = model.enabled !== false;
+                        return (
+                          <div key={model.id} className="relative group">
+                            <div className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-default ${
+                              isActive ? 'opacity-80' : 'opacity-40'
+                            }`}>
+                              <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                                style={{ backgroundColor: '#8b5cf620' }}>
+                                <Sparkles className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+                              </div>
+                              <div className="text-left flex-1 min-w-0">
+                                <div className="text-[#1d1d1f] dark:text-[#f1f5f9] truncate"
+                                  style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}>
+                                  {model.name}
+                                </div>
+                                <div className="text-[#8b5cf6] truncate"
+                                  style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500 }}>
+                                  Synthesis only — not selectable
+                                </div>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-full border flex-shrink-0"
+                                style={{ backgroundColor: '#ede9fe', borderColor: '#c4b5fd', fontFamily: FONT, fontSize: '9px', fontWeight: 600, color: '#7c3aed' }}>
+                                SYNTH
+                              </span>
+                              {onToggleClaude && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); onToggleClaude(); }}
+                                  className="flex-shrink-0 w-9 h-5 rounded-full transition-colors relative"
+                                  style={{ backgroundColor: isActive ? '#8b5cf6' : '#d1d5db' }}
+                                  title={isActive ? 'Disable Claude' : 'Enable Claude'}
+                                >
+                                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+                                    style={{ left: isActive ? '18px' : '2px' }} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
               </motion.div>
             </>
           )}
