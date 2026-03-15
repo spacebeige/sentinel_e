@@ -158,7 +158,10 @@ class EvidenceEngine:
     def __init__(self):
         self._tavily_client = None
         self._tavily_available = False
+        self._serper_api_key = None
+        self._serper_available = False
         self._init_tavily()
+        self._init_serper()
 
     def _init_tavily(self):
         """Initialize Tavily client if API key available."""
@@ -175,6 +178,43 @@ class EvidenceEngine:
             logger.warning("Evidence Engine: tavily package not installed. Running in offline mode.")
         except Exception as e:
             logger.error(f"Evidence Engine: Tavily init failed: {e}")
+
+    def _init_serper(self):
+        """Initialize Serper API if API key available."""
+        try:
+            api_key = os.getenv("SERPER_API_KEY")
+            if api_key:
+                self._serper_api_key = api_key
+                self._serper_available = True
+                logger.info("Evidence Engine: Serper API initialized.")
+            else:
+                logger.info("Evidence Engine: SERPER_API_KEY not set. Serper unavailable.")
+        except Exception as e:
+            logger.error(f"Evidence Engine: Serper init failed: {e}")
+
+    async def _search_serper(self, query: str, max_results: int) -> List[Dict[str, Any]]:
+        """Execute search via Serper API and return results in Tavily-compatible format."""
+        import aiohttp
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "https://google.serper.dev/search",
+                    json={"q": query, "num": max_results},
+                    headers={"X-API-KEY": self._serper_api_key, "Content-Type": "application/json"},
+                ) as resp:
+                    resp.raise_for_status()
+                    data = await resp.json()
+            results = []
+            for item in data.get("organic", [])[:max_results]:
+                results.append({
+                    "url": item.get("link", ""),
+                    "title": item.get("title", ""),
+                    "content": item.get("snippet", ""),
+                })
+            return results
+        except Exception as e:
+            logger.error(f"Serper search failed: {e}")
+            return []
 
     async def search_evidence(
         self,
@@ -257,27 +297,41 @@ class EvidenceEngine:
     async def _execute_search(
         self, query: str, max_results: int, search_depth: str
     ) -> List[Dict[str, Any]]:
-        """Execute search via Tavily or return empty for offline mode."""
-        if not self._tavily_available or not self._tavily_client:
-            logger.info("Evidence Engine: offline mode — no search executed")
-            return []
+        """Execute search via Tavily (primary) with Serper fallback."""
+        results = []
 
-        try:
-            import asyncio
-            # Tavily client is sync, run in executor
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: self._tavily_client.search(
-                    query=query,
-                    search_depth=search_depth,
-                    max_results=max_results,
-                ),
-            )
-            return response.get("results", [])
-        except Exception as e:
-            logger.error(f"Evidence search failed: {e}")
-            return []
+        # Primary: Tavily
+        if self._tavily_available and self._tavily_client:
+            try:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: self._tavily_client.search(
+                        query=query,
+                        search_depth=search_depth,
+                        max_results=max_results,
+                    ),
+                )
+                results = response.get("results", [])
+            except Exception as e:
+                logger.error(f"Tavily search failed: {e}")
+
+        # Fallback / supplement: Serper
+        if self._serper_available and len(results) < max_results:
+            serper_results = await self._search_serper(query, max_results)
+            if serper_results:
+                # Deduplicate by URL
+                existing_urls = {r.get("url", "") for r in results}
+                for sr in serper_results:
+                    if sr.get("url", "") not in existing_urls:
+                        results.append(sr)
+                        existing_urls.add(sr["url"])
+
+        if not results:
+            logger.info("Evidence Engine: no search results from any provider")
+
+        return results[:max_results]
 
     def _process_source(self, raw: Dict[str, Any]) -> EvidenceSource:
         """Process a raw search result into an EvidenceSource."""

@@ -43,10 +43,11 @@ export default function DebateView({ data, boundary, confidence }) {
     const raw = safeData.rounds || [];
     const allFailed = [];
     const cleanRounds = raw.map((round, roundIdx) => {
-      const models = Array.isArray(round) ? round : [round];
+      // Support both new shape ({models, round_disagreement, ...}) and legacy (array of positions)
+      const modelList = Array.isArray(round) ? round : (round?.models ? round.models : [round]);
       const ok = [];
       const bad = [];
-      models.forEach(m => {
+      modelList.forEach(m => {
         if (!m) return;
         if (m.status === 'failed' || m.position === '[MODEL FAILED]' || (!m.argument?.trim() && !m.position?.trim())) {
           bad.push({ ...m, _roundIdx: roundIdx });
@@ -55,7 +56,16 @@ export default function DebateView({ data, boundary, confidence }) {
         }
       });
       allFailed.push(...bad);
-      return ok;
+      // Attach round-level metadata
+      const result = ok;
+      if (!Array.isArray(round) && round?.models) {
+        result._meta = {
+          round_disagreement: round.round_disagreement,
+          convergence_delta: round.convergence_delta,
+          key_conflicts: round.key_conflicts,
+        };
+      }
+      return result;
     }).filter(round => round.length > 0);
     return { rounds: cleanRounds, failedModels: allFailed };
   }, [safeData.rounds]);
@@ -247,6 +257,33 @@ export default function DebateView({ data, boundary, confidence }) {
             const models = Array.isArray(round) ? round : [round];
             return (
               <div key={roundIdx}>
+                {/* Round Transition */}
+                {roundIdx > 0 && round._meta && (
+                  <div className="flex items-center gap-3 py-2 px-3 my-1 rounded-lg bg-[#f8f9fa] dark:bg-[#1c1c1e] border border-[#e5e7eb] dark:border-[#2d2d2f]">
+                    <span style={{ fontSize: '11px' }}>📊</span>
+                    <div className="flex gap-4 text-xs" style={{ fontFamily: FONT }}>
+                      <span>
+                        <span style={{ color: '#6e6e73', fontWeight: 600 }}>Disagreement: </span>
+                        <span style={{ fontWeight: 700, color: round._meta.round_disagreement > 0.5 ? '#ef4444' : '#10b981' }}>
+                          {round._meta.round_disagreement != null ? `${Math.round(round._meta.round_disagreement * 100)}%` : '—'}
+                        </span>
+                      </span>
+                      {round._meta.convergence_delta != null && (
+                        <span>
+                          <span style={{ color: '#6e6e73', fontWeight: 600 }}>Δ Convergence: </span>
+                          <span style={{ fontWeight: 700, color: round._meta.convergence_delta > 0 ? '#10b981' : '#ef4444' }}>
+                            {round._meta.convergence_delta > 0 ? '+' : ''}{Math.round(round._meta.convergence_delta * 100)}%
+                          </span>
+                        </span>
+                      )}
+                      {round._meta.key_conflicts && round._meta.key_conflicts.length > 0 && (
+                        <span style={{ color: '#f59e0b', fontWeight: 600 }}>
+                          {round._meta.key_conflicts.length} conflict{round._meta.key_conflicts.length > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {/* Round Header */}
                 <div className="flex items-center gap-2 mb-2">
                   <span style={{ fontFamily: FONT, fontSize: '14px' }}>🧠</span>

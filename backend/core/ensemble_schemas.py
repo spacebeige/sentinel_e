@@ -470,7 +470,12 @@ class EnsembleResponse(BaseModel):
                 })
                 if pos.model_name not in all_model_names:
                     all_model_names.append(pos.model_name)
-            frontend_rounds.append(round_models)
+            frontend_rounds.append({
+                "models": round_models,
+                "round_disagreement": rnd.round_disagreement,
+                "convergence_delta": rnd.convergence_delta,
+                "key_conflicts": rnd.key_conflicts,
+            })
 
         # Build scores from model outputs (confidence as score proxy)
         scores: Dict[str, float] = {}

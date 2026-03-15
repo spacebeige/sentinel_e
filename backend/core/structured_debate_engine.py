@@ -825,6 +825,17 @@ class StructuredDebateEngine:
         vulnerabilities = self._extract_list(raw, "VULNERABILITIES")
         risks = self._extract_list(raw, "RISKS")
         confidence = self._extract_float(raw, "CONFIDENCE", default=0.5)
+
+        # If confidence is exactly 0.5 (default), try to infer from text cues
+        if confidence == 0.5:
+            lower_raw = raw.lower()
+            conf_match = re.search(r'confidence[:\s]+(?:is\s+)?(\d?\.\d+|[01])', lower_raw)
+            if conf_match:
+                try:
+                    confidence = max(0.0, min(1.0, float(conf_match.group(1))))
+                except ValueError:
+                    pass
+
         stance = self._extract_stance(raw)
 
         rebuttals = []
