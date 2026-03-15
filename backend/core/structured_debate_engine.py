@@ -579,7 +579,7 @@ class StructuredDebateEngine:
         transcript: str = "",
     ) -> DebateRound:
         """
-        Self-healing: retry failed models with fallback substitution.
+        Self-healing: retry failed models with fallback substitution in parallel.
         Uses MODEL_FALLBACK_MAP from the gateway to find substitutes.
         Never duplicates a model already in the round.
         """
@@ -594,6 +594,10 @@ class StructuredDebateEngine:
 
         active_ids = {p.model_id for p in round_result.positions if p.status != "failed"}
 
+        # Collect fallback tasks to run in parallel
+        fallback_tasks = []
+        fallback_meta = []  # (failed_pos, fallback_key)
+
         for failed_pos in failed_positions:
             fallback_key = MODEL_FALLBACK_MAP.get(failed_pos.model_id)
             if not fallback_key or fallback_key in active_ids:
@@ -603,38 +607,43 @@ class StructuredDebateEngine:
             if not spec or not spec.enabled:
                 continue
 
+            active_ids.add(fallback_key)  # reserve to avoid duplicates
             fallback_model = {"id": fallback_key, "name": spec.name, "role": spec.role.value}
             logger.info(
-                f"Self-healing: substituting '{failed_pos.model_id}' "
-                f"with fallback '{fallback_key}' in round {round_num}"
+                f"Self-healing: queuing fallback '{fallback_key}' "
+                f"for failed '{failed_pos.model_id}' in round {round_num}"
             )
 
-            try:
-                if round_num == 1:
-                    system_prompt = STRUCTURED_ROUND_1.format(query=query)
-                    result = await self._call_and_parse_round_1(
-                        fallback_model, query, system_prompt, max_tokens=per_model_budget
-                    )
-                else:
-                    own_prev = ""
-                    system_prompt = STRUCTURED_ROUND_N.format(
-                        query=query,
-                        round_number=round_num,
-                        transcript=transcript,
-                        own_previous=own_prev,
-                    )
-                    result = await self._call_and_parse_round_n(
-                        fallback_model, query, system_prompt, round_num, max_tokens=per_model_budget
-                    )
+            if round_num == 1:
+                system_prompt = STRUCTURED_ROUND_1.format(query=query)
+                fallback_tasks.append(
+                    self._call_and_parse_round_1(fallback_model, query, system_prompt, max_tokens=per_model_budget)
+                )
+            else:
+                own_prev = ""
+                system_prompt = STRUCTURED_ROUND_N.format(
+                    query=query,
+                    round_number=round_num,
+                    transcript=transcript,
+                    own_previous=own_prev,
+                )
+                fallback_tasks.append(
+                    self._call_and_parse_round_n(fallback_model, query, system_prompt, round_num, max_tokens=per_model_budget)
+                )
+            fallback_meta.append((failed_pos, fallback_key))
 
+        if fallback_tasks:
+            import asyncio
+            results = await asyncio.gather(*fallback_tasks, return_exceptions=True)
+            for i, result in enumerate(results):
+                failed_pos, fallback_key = fallback_meta[i]
+                if isinstance(result, Exception):
+                    logger.warning(f"Self-healing fallback '{fallback_key}' failed: {result}")
+                    continue
                 if result and result.position != "[MODEL FAILED]":
-                    # Replace failed position with fallback result
                     idx = round_result.positions.index(failed_pos)
                     round_result.positions[idx] = result
-                    active_ids.add(fallback_key)
                     logger.info(f"Self-healing: '{fallback_key}' succeeded as replacement")
-            except Exception as e:
-                logger.warning(f"Self-healing fallback '{fallback_key}' also failed: {e}")
 
         return round_result
 

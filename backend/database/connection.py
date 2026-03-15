@@ -74,7 +74,7 @@ from sqlalchemy.pool import NullPool
 # and ensure fresh connections are used.
 # Add connect timeout to prevent hanging on NeonDB cold starts
 if "timeout" not in connect_args:
-    connect_args["timeout"] = 15  # asyncpg connection timeout in seconds
+    connect_args["timeout"] = 10  # asyncpg connection timeout in seconds
 engine = create_async_engine(
     DATABASE_URL, 
     echo=False, 

@@ -493,7 +493,7 @@ class CognitiveModelGateway:
     async def _get_session(self) -> aiohttp.ClientSession:
         """Lazy HTTP session."""
         if self._session is None or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=120)
+            timeout = aiohttp.ClientTimeout(total=30)
             self._session = aiohttp.ClientSession(timeout=timeout)
         return self._session
 
@@ -788,62 +788,42 @@ class CognitiveModelGateway:
 
         Guarantees at least `min_success` successful responses:
         1. Invoke all selected models in parallel.
-        2. For each failure, look up MODEL_FALLBACK_MAP and retry with fallback.
-        3. If fallback also used already, try any remaining Tier-3 model.
-        4. Never duplicate a model already in the response set.
-
-        This ensures debates always complete with sufficient model diversity.
+        2. For each failure, look up MODEL_FALLBACK_MAP and retry in parallel.
+        3. Never duplicate a model already in the response set.
         """
-        # Phase 1 — Primary invocation
+        # Phase 1 — Primary invocation (all parallel)
         outputs = await self.invoke_parallel(model_keys, gateway_input)
 
         successful = sum(1 for o in outputs if o.success)
         if successful >= min_success:
             return outputs
 
-        # Phase 2 — Failsafe substitution for failed models
+        # Phase 2 — Collect all fallback tasks and run in parallel
         used_keys = set(model_keys)
         failed_indices = [i for i, o in enumerate(outputs) if not o.success]
 
-        for idx in failed_indices:
-            if successful >= min_success:
-                break
+        fallback_tasks = []
+        fallback_index_map = []
 
+        for idx in failed_indices:
             failed_key = model_keys[idx]
             fallback_key = MODEL_FALLBACK_MAP.get(failed_key)
 
-            # Try the primary fallback
             if fallback_key and fallback_key not in used_keys:
-                logger.info(
-                    f"Failsafe: {failed_key} failed, substituting {fallback_key}"
+                used_keys.add(fallback_key)
+                fallback_tasks.append(
+                    self.invoke_model(fallback_key, gateway_input.model_copy(deep=True))
                 )
-                fallback_result = await self.invoke_model(
-                    fallback_key, gateway_input.model_copy(deep=True)
-                )
-                if fallback_result.success:
-                    outputs[idx] = fallback_result
-                    used_keys.add(fallback_key)
-                    successful += 1
-                    continue
+                fallback_index_map.append(idx)
+                logger.info(f"Failsafe: {failed_key} failed, queuing {fallback_key}")
 
-            # Try any unused Tier-3 model
-            tier3_keys = [
-                k for k, t in MODEL_DEBATE_TIERS.items()
-                if t == 3 and k not in used_keys
-                and COGNITIVE_MODEL_REGISTRY[k].enabled
-            ]
-            for t3_key in tier3_keys:
-                logger.info(
-                    f"Failsafe: trying Tier-3 {t3_key} for slot {idx}"
-                )
-                t3_result = await self.invoke_model(
-                    t3_key, gateway_input.model_copy(deep=True)
-                )
-                if t3_result.success:
-                    outputs[idx] = t3_result
-                    used_keys.add(t3_key)
+        if fallback_tasks:
+            fallback_results = await asyncio.gather(*fallback_tasks, return_exceptions=True)
+            for i, result in enumerate(fallback_results):
+                idx = fallback_index_map[i]
+                if not isinstance(result, Exception) and result.success:
+                    outputs[idx] = result
                     successful += 1
-                    break
 
         logger.info(
             f"Failsafe complete: {successful}/{len(outputs)} models succeeded "
