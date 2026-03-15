@@ -39,6 +39,34 @@ from core.ensemble_schemas import MAX_DEBATE_MODELS
 
 logger = logging.getLogger("MCO-CognitiveGateway")
 
+# ── Claude Usage Tracker ──────────────────────────────────────
+# Track total tokens used by Claude to help user monitor $5 budget
+# Claude Sonnet 4: ~$3/M input tokens, ~$15/M output tokens
+_claude_usage = {
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "total_calls": 0,
+    "estimated_cost_usd": 0.0,
+}
+
+def get_claude_usage() -> dict:
+    """Return current Claude API usage statistics."""
+    return dict(_claude_usage)
+
+def _track_claude_usage(input_tokens: int, output_tokens: int):
+    """Track Claude API usage for cost monitoring."""
+    _claude_usage["total_input_tokens"] += input_tokens
+    _claude_usage["total_output_tokens"] += output_tokens
+    _claude_usage["total_calls"] += 1
+    # Claude Sonnet 4 pricing: $3/M input, $15/M output
+    cost = (input_tokens * 3.0 / 1_000_000) + (output_tokens * 15.0 / 1_000_000)
+    _claude_usage["estimated_cost_usd"] = round(_claude_usage["estimated_cost_usd"] + cost, 6)
+    logger.info(
+        f"Claude usage: call #{_claude_usage['total_calls']}, "
+        f"this call: {input_tokens}in/{output_tokens}out, "
+        f"total est. cost: ${_claude_usage['estimated_cost_usd']:.4f}"
+    )
+
 
 # ============================================================
 # Model Configuration
@@ -356,9 +384,15 @@ def _initialize_registry():
 
         if api_key:
             spec.enabled = True
-            spec.active = True
+            # Claude starts INACTIVE by default — user must toggle it ON
+            # This prevents accidental API spend on the $5 Anthropic plan
+            if spec.synthesis_only:
+                spec.active = False
+                logger.info(f"Model '{key}' ({spec.provider}): enabled but inactive (synthesis-only — toggle to activate)")
+            else:
+                spec.active = True
+                logger.info(f"Model '{key}' ({spec.provider}): enabled and active")
             spec.disable_reason = None
-            logger.info(f"Model '{key}' ({spec.provider}): enabled and active")
         else:
             spec.enabled = False
             spec.active = False
@@ -1360,12 +1394,15 @@ class CognitiveModelGateway:
                     )
 
                 usage = data.get("usage", {})
+                input_tok = usage.get("input_tokens", 0)
+                output_tok = usage.get("output_tokens", 0)
+                _track_claude_usage(input_tok, output_tok)
                 return CognitiveGatewayOutput(
                     model_name=spec.name,
                     raw_output=raw_content,
-                    tokens_used=usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
-                    input_tokens=usage.get("input_tokens", 0),
-                    output_tokens=usage.get("output_tokens", 0),
+                    tokens_used=input_tok + output_tok,
+                    input_tokens=input_tok,
+                    output_tokens=output_tok,
                     success=True,
                 )
         except Exception as e:

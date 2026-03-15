@@ -317,6 +317,11 @@ export async function toggleClaude() {
   return res.data;
 }
 
+export async function getClaudeUsage() {
+  const res = await api.get('/api/models/claude/usage');
+  return res.data;
+}
+
 /**
  * Send a query to a specific model (Standard Mode).
  * Routes to POST /chat/{modelId} with retry + fallback logic server-side.

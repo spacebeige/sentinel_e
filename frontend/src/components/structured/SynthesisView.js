@@ -158,15 +158,27 @@ export default function SynthesisView({ data, boundary, confidence }) {
                   Refined by Claude Sonnet 4.6
                 </span>
               </div>
-              <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">
+              <div className="text-sm text-[#e2e8f0] leading-relaxed whitespace-pre-wrap">
                 {data.claude_synthesis}
               </div>
+              {data.claude_usage && (
+                <div className="mt-3 pt-2 border-t border-purple-500/20 flex items-center gap-3">
+                  <span className="text-xs text-purple-300/50">
+                    Session usage: ${data.claude_usage.estimated_cost_usd?.toFixed(4) || '0.00'} / $5.00
+                  </span>
+                  <span className="text-xs text-purple-300/50">
+                    {data.claude_usage.total_calls || 0} calls
+                  </span>
+                </div>
+              )}
             </div>
           )}
           {data.claude_active === false && (
-            <p className="text-xs text-gray-500 mt-3 italic">
-              Claude synthesis is disabled. Enable it in the model picker to add refined synthesis.
-            </p>
+            <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-[#f5f5f7] dark:bg-[#27272a] rounded-lg border border-[#e5e5ea] dark:border-white/10">
+              <span className="text-xs text-[#6e6e73]">
+                💡 Claude synthesis is off by default to conserve your API budget. Toggle it on in the model picker for premium synthesis.
+              </span>
+            </div>
           )}
         </div>
       )}

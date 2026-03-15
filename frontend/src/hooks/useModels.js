@@ -196,7 +196,7 @@ export const DEFAULT_CHAT_MODELS = [
     tier: 3,
     tierLabel: 'Synthesis',
     enabled: true,
-    active: true,
+    active: false,
     disable_reason: null,
     debate_eligible: false,
     synthesis_only: true,

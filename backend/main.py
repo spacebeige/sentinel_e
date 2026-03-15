@@ -1690,6 +1690,21 @@ async def toggle_claude(user: Dict = Depends(get_current_user)):
     }
 
 
+@app.get("/api/models/claude/usage")
+async def get_claude_usage_stats(user: Dict = Depends(get_current_user)):
+    """Get Claude API usage statistics for cost monitoring."""
+    from metacognitive.cognitive_gateway import get_claude_usage, COGNITIVE_MODEL_REGISTRY
+    usage = get_claude_usage()
+    spec = COGNITIVE_MODEL_REGISTRY.get("claude-sonnet-4.6")
+    return {
+        **usage,
+        "budget_usd": 5.0,
+        "remaining_usd": round(5.0 - usage["estimated_cost_usd"], 4),
+        "active": spec.active if spec else False,
+        "enabled": spec.enabled if spec else False,
+    }
+
+
 @app.post("/api/model/{model_id}")
 async def query_individual_model(
     model_id: str,

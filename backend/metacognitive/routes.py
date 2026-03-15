@@ -570,6 +570,7 @@ async def mco_run(
                 if claude_spec and claude_spec.active and claude_spec.enabled:
                     try:
                         from models.mco_bridge import MCOModelBridge
+                        from metacognitive.cognitive_gateway import get_claude_usage
                         bridge = MCOModelBridge()
                         perspectives = []
                         for r in (response.all_results or [])[:6]:
@@ -593,6 +594,7 @@ async def mco_run(
                                 synthesis_result["claude_synthesis"] = claude_output
                                 synthesis_result["claude_active"] = True
                                 synthesis_result["refined_output"] = claude_output
+                                synthesis_result["claude_usage"] = get_claude_usage()
                                 logger.info("Claude synthesis completed successfully")
                             else:
                                 synthesis_result["claude_active"] = False
