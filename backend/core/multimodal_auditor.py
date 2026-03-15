@@ -235,15 +235,15 @@ class SystemAuditReport:
 # Maps InputType → list of registry keys that can handle it.
 # Order = preference (first = best).
 
-_VISION_MODELS = ["gemini-flash", "qwen-2.5-vl"]
+_VISION_MODELS = ["gemini-flash", "qwen-2.5-vl", "claude-sonnet-4.6"]
 _TEXT_MODELS = list(COGNITIVE_MODEL_REGISTRY.keys())
 
 CAPABILITY_MATRIX: Dict[InputType, List[str]] = {
     InputType.TEXT_ONLY: _TEXT_MODELS,
-    InputType.IMAGE_INPUT: ["gemini-flash", "qwen-2.5-vl"],
-    InputType.PDF_DOCUMENT: ["gemini-flash", "qwen-2.5-vl"],
-    InputType.MULTIMODAL: ["gemini-flash", "qwen-2.5-vl"],
-    InputType.DOCUMENT_ANALYSIS: ["gemini-flash", "qwen-2.5-vl"],
+    InputType.IMAGE_INPUT: ["gemini-flash", "qwen-2.5-vl", "claude-sonnet-4.6"],
+    InputType.PDF_DOCUMENT: ["gemini-flash", "qwen-2.5-vl", "claude-sonnet-4.6"],
+    InputType.MULTIMODAL: ["gemini-flash", "qwen-2.5-vl", "claude-sonnet-4.6"],
+    InputType.DOCUMENT_ANALYSIS: ["gemini-flash", "qwen-2.5-vl", "claude-sonnet-4.6"],
 }
 
 # Provider → shared env var (mirrors _initialize_registry)

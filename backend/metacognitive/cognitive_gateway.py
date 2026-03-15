@@ -157,8 +157,8 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         model_id="mistralai/mistral-large-3-675b-instruct-2512",
         provider="nvidia",
         role=ModelRole.CONCEPTUAL,
-        context_window=1000,
-        max_output_tokens=1000,
+        context_window=131072,
+        max_output_tokens=4000,
         default_temperature=0.15,
         api_base_url="https://integrate.api.nvidia.com/v1/chat/completions",
         api_key_env="MISTRAL_LARGE_NVIDIA_API_KEY",
@@ -170,8 +170,8 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         model_id="moonshotai/kimi-k2-thinking",
         provider="nvidia",
         role=ModelRole.CONCEPTUAL,
-        context_window=1000,
-        max_output_tokens=1000,
+        context_window=131072,
+        max_output_tokens=4000,
         default_temperature=0.2,
         api_base_url="https://integrate.api.nvidia.com/v1/chat/completions",
         api_key_env="KIMI_K2_NVIDIA_API_KEY",
@@ -183,11 +183,12 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         model_id="claude-sonnet-4-20250514",
         provider="anthropic",
         role=ModelRole.GENERAL,
-        context_window=500,
+        context_window=200000,
         max_output_tokens=500,
         default_temperature=0.3,
         api_base_url="https://api.anthropic.com/v1/messages",
         api_key_env="ANTHROPIC_API_KEY",
+        supports_vision=True,
     ),
 }
 
@@ -633,7 +634,7 @@ class CognitiveModelGateway:
 
         # ── Token Clamping ───────────────────────────────────
         # Ensure max_tokens does not exceed provider-specific hard limits
-        _PROVIDER_MAX_OUTPUT = {"groq": 8192, "gemini": 8192, "qwen": 8192, "openai": 4096, "nvidia": 1000, "anthropic": 500}
+        _PROVIDER_MAX_OUTPUT = {"groq": 8192, "gemini": 8192, "qwen": 8192, "openai": 4096, "nvidia": 4096, "anthropic": 4096}
         _provider_cap = _PROVIDER_MAX_OUTPUT.get(spec.provider, 4096)
         governed_max_tokens = max(1, min(governed_max_tokens, _provider_cap))
 
@@ -977,18 +978,42 @@ class CognitiveModelGateway:
             )
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{spec.model_id}:generateContent"
-        # Convert messages to Gemini format
+        # Convert messages to Gemini format with vision support
         contents = []
         system_text = ""
         for msg in messages:
             if msg["role"] == "system":
                 system_text = msg["content"] if isinstance(msg["content"], str) else str(msg["content"])
             else:
-                text = msg["content"] if isinstance(msg["content"], str) else str(msg["content"])
-                contents.append({"role": "user", "parts": [{"text": text}]})
+                parts = []
+                content = msg["content"]
+                if isinstance(content, list):
+                    # Multimodal content (vision/PDF)
+                    for item in content:
+                        if not isinstance(item, dict):
+                            continue
+                        if item.get("type") == "text":
+                            parts.append({"text": item.get("text", "")})
+                        elif item.get("type") == "image_url":
+                            image_url = item.get("image_url", {})
+                            url_str = image_url.get("url", "") if isinstance(image_url, dict) else str(image_url)
+                            if url_str.startswith("data:"):
+                                header, _, b64_data = url_str.partition(",")
+                                mime_type = header.split(":")[1].split(";")[0] if ":" in header else "image/png"
+                                parts.append({"inline_data": {"mime_type": mime_type, "data": b64_data}})
+                            else:
+                                parts.append({"text": f"[Image: {url_str}]"})
+                else:
+                    parts.append({"text": str(content)})
+                if parts:
+                    contents.append({"role": "user", "parts": parts})
         if system_text and contents:
-            # Prepend system text to first user message
-            contents[0]["parts"][0]["text"] = system_text + "\n\n" + contents[0]["parts"][0]["text"]
+            # Prepend system text as first text part in the first message
+            first_parts = contents[0]["parts"]
+            if first_parts and "text" in first_parts[0]:
+                first_parts[0]["text"] = system_text + "\n\n" + first_parts[0]["text"]
+            else:
+                first_parts.insert(0, {"text": system_text})
 
         # Ensure at least one content part exists
         if not contents:
@@ -1069,15 +1094,19 @@ class CognitiveModelGateway:
             "Content-Type": "application/json",
         }
 
-        # Sanitize messages: ensure all content is plain text string
+        # Sanitize messages: pass multimodal content for vision model, flatten for text-only
         sanitized_messages = []
         for msg in messages:
             content = msg.get("content", "")
             if isinstance(content, list):
-                # Flatten multimodal content to text for non-vision calls
-                text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
-                content = " ".join(text_parts) if text_parts else str(content)
-            sanitized_messages.append({"role": msg["role"], "content": content})
+                if spec.supports_vision:
+                    # Qwen VL supports OpenAI vision format — pass through
+                    sanitized_messages.append({"role": msg["role"], "content": content})
+                else:
+                    text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
+                    sanitized_messages.append({"role": msg["role"], "content": " ".join(text_parts) if text_parts else str(content)})
+            else:
+                sanitized_messages.append({"role": msg["role"], "content": content})
 
         payload = {
             "model": spec.model_id,
@@ -1124,7 +1153,7 @@ class CognitiveModelGateway:
         spec: CognitiveModelSpec,
         messages: List[Dict[str, str]],
         api_key: str = "",
-        max_tokens: int = 1000,
+        max_tokens: int = 4096,
     ) -> CognitiveGatewayOutput:
         """Call NVIDIA API (OpenAI-compatible) for Mistral Large 675B and Kimi K2 Thinking."""
         if not api_key:
@@ -1210,7 +1239,7 @@ class CognitiveModelGateway:
         api_key: str = "",
         max_tokens: int = 500,
     ) -> CognitiveGatewayOutput:
-        """Call Anthropic API for Claude Sonnet 4.6 (synthesis mode only, 500 token cap)."""
+        """Call Anthropic API for Claude Sonnet 4.6 with vision/PDF support."""
         if not api_key:
             return CognitiveGatewayOutput(
                 model_name=spec.name, raw_output="",
@@ -1224,21 +1253,52 @@ class CognitiveModelGateway:
             "anthropic-version": "2023-06-01",
         }
 
-        # Convert OpenAI-format messages to Anthropic format
+        # Convert OpenAI-format messages to Anthropic format with vision/PDF support
         system_text = ""
         anthropic_messages = []
         for msg in messages:
             content = msg.get("content", "")
-            if isinstance(content, list):
-                text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
-                content = " ".join(text_parts) if text_parts else str(content)
             if msg["role"] == "system":
-                system_text = content
+                if isinstance(content, list):
+                    text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
+                    system_text = " ".join(text_parts) if text_parts else str(content)
+                else:
+                    system_text = content
             else:
-                anthropic_messages.append({"role": msg["role"], "content": content})
-
-        # Cap to 500 tokens for synthesis-only usage
-        max_tokens = min(max_tokens, 500)
+                # Handle multimodal content (vision/PDF)
+                if isinstance(content, list):
+                    anthropic_content = []
+                    for part in content:
+                        if not isinstance(part, dict):
+                            continue
+                        if part.get("type") == "text":
+                            anthropic_content.append({"type": "text", "text": part.get("text", "")})
+                        elif part.get("type") == "image_url":
+                            image_url = part.get("image_url", {})
+                            url_str = image_url.get("url", "") if isinstance(image_url, dict) else str(image_url)
+                            if url_str.startswith("data:"):
+                                # Parse data URI: data:<media_type>;base64,<data>
+                                header, _, b64_data = url_str.partition(",")
+                                media_type = header.split(":")[1].split(";")[0] if ":" in header else "image/png"
+                                if "pdf" in media_type:
+                                    anthropic_content.append({
+                                        "type": "document",
+                                        "source": {"type": "base64", "media_type": media_type, "data": b64_data},
+                                    })
+                                else:
+                                    anthropic_content.append({
+                                        "type": "image",
+                                        "source": {"type": "base64", "media_type": media_type, "data": b64_data},
+                                    })
+                            else:
+                                anthropic_content.append({
+                                    "type": "image",
+                                    "source": {"type": "url", "url": url_str},
+                                })
+                    if anthropic_content:
+                        anthropic_messages.append({"role": msg["role"], "content": anthropic_content})
+                else:
+                    anthropic_messages.append({"role": msg["role"], "content": content})
 
         payload = {
             "model": spec.model_id,

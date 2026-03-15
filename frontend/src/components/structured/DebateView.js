@@ -205,15 +205,23 @@ export default function DebateView({ data, boundary, confidence }) {
               {failedModels.length} Model{failedModels.length > 1 ? 's' : ''} Failed
             </span>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             {failedModels.map((m, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#991b1b' }}>
-                  {m.model_label || m.model_name || m.model_id || `Model ${i + 1}`}
-                </span>
-                <span style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73' }}>
-                  — Round {(m._roundIdx || 0) + 1} · {m.argument && m.argument !== '[MODEL FAILED]' ? m.argument.slice(0, 80) : 'No response received'}
-                </span>
+              <div key={i} className="flex items-start gap-2 pl-1">
+                <span style={{ color: '#ef4444', fontSize: '10px', lineHeight: '18px' }}>●</span>
+                <div>
+                  <span style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 600, color: '#991b1b' }}>
+                    {m.model_label || m.model_name || m.model_id || `Model ${i + 1}`}
+                  </span>
+                  <span style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73' }}>
+                    {' '}— Round {(m._roundIdx || 0) + 1}
+                  </span>
+                  <p style={{ fontFamily: FONT, fontSize: '11px', color: '#9ca3af', marginTop: '2px', lineHeight: 1.4 }}>
+                    {m.argument && m.argument !== '[MODEL FAILED]'
+                      ? m.argument.slice(0, 120)
+                      : 'No response received from model'}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
@@ -284,9 +292,33 @@ export default function DebateView({ data, boundary, confidence }) {
 
                         {/* Argument */}
                         {model.argument && (
-                          <p className="dark:text-[#e2e8f0]" style={{ fontFamily: FONT, fontSize: '13px', lineHeight: 1.6, color: '#3b3b3f' }}>
-                            {(model.argument || '').slice(0, 1000)}
+                          <p className="dark:text-[#e2e8f0]" style={{ fontFamily: FONT, fontSize: '13px', lineHeight: 1.7, color: '#3b3b3f', whiteSpace: 'pre-wrap' }}>
+                            {(model.argument || '').slice(0, 3000)}
                           </p>
+                        )}
+
+                        {/* Assumptions */}
+                        {model.assumptions && model.assumptions.length > 0 && (
+                          <div className="mt-1.5">
+                            <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#3b82f6', textTransform: 'uppercase' }}>
+                              Assumptions:
+                            </span>
+                            {model.assumptions.map((a, ai) => (
+                              <p key={ai} className="dark:text-[#94a3b8]" style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73', marginTop: '2px' }}>· {a}</p>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Risks */}
+                        {model.risks && model.risks.length > 0 && (
+                          <div className="mt-1.5">
+                            <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#ef4444', textTransform: 'uppercase' }}>
+                              Risks:
+                            </span>
+                            {model.risks.map((r, ri) => (
+                              <p key={ri} className="dark:text-[#94a3b8]" style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73', marginTop: '2px' }}>· {r}</p>
+                            ))}
+                          </div>
                         )}
 
                         {/* Confidence */}

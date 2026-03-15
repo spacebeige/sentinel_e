@@ -32,7 +32,7 @@ MIN_MODELS = 3
 MIN_DEBATE_ROUNDS = 3            # Battle Platform: full 3-round debates
 MAX_DEBATE_MODELS = 9            # Hard cap: never run more than 9 models simultaneously
 MIN_ANALYTICS_OUTPUTS = 2
-TOTAL_DEBATE_TOKEN_BUDGET = 5000
+TOTAL_DEBATE_TOKEN_BUDGET = 15000
 
 # ── Battle Platform Token Budgets ────────────────────────────
 # Adaptive token budgets based on prompt complexity.
@@ -45,13 +45,13 @@ TOTAL_DEBATE_TOKEN_BUDGET = 5000
 #
 # This prevents budget starvation on complex queries while
 # keeping simple queries fast and cheap.
-ROUND_HARD_CAPS: dict[int, int] = {1: 220, 2: 140, 3: 80}
+ROUND_HARD_CAPS: dict[int, int] = {1: 600, 2: 500, 3: 400}
 
 # Adaptive budget tiers (multiplier applied to ROUND_HARD_CAPS)
 BUDGET_TIERS = {
-    "short":    {"multiplier": 1.0, "total": 5000,  "max_words": 20},
-    "medium":   {"multiplier": 1.5, "total": 7500,  "max_words": 60},
-    "research": {"multiplier": 2.0, "total": 10000, "max_words": float("inf")},
+    "short":    {"multiplier": 1.0, "total": 15000,  "max_words": 20},
+    "medium":   {"multiplier": 1.5, "total": 22500,  "max_words": 60},
+    "research": {"multiplier": 2.0, "total": 30000, "max_words": float("inf")},
 }
 
 
