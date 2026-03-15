@@ -21,33 +21,107 @@ The core insight: **agreement between models does not equal truth**. Sentinel-E 
 
 ## System Architecture
 
+```mermaid
+flowchart TB
+    subgraph Frontend["🌐 Frontend — React"]
+        UI[ChatEngineV5]
+        CT[ChatThread]
+        MV["Mode Views<br/>Debate · Evidence · Glass · Synthesis"]
+        FS[FigmaChatShell]
+        UI --> CT --> MV
+        UI --> FS
+    end
+
+    subgraph Backend["⚙️ Backend — FastAPI"]
+        API["routes.py<br/>POST /api/mco/run"]
+        OK[Omega Kernel]
+        QR[Query Router]
+
+        API --> OK --> QR
+
+        subgraph Engines["Execution Engines"]
+            STD["Standard<br/>single · ensemble"]
+            DE["Debate Engine<br/>3 rounds · 8 models"]
+            EP["Evidence Pipeline<br/>Tavily + SerperAPI"]
+            GL["Glass Mode<br/>full diagnostics"]
+            SY["Synthesis Engine<br/>+ optional Claude"]
+        end
+
+        QR --> STD
+        QR --> DE
+        QR --> EP
+        QR --> GL
+        QR --> SY
+
+        subgraph Gateway["🤖 Cognitive Gateway — Model Registry"]
+            G1["Groq ×4<br/>Llama 70B · Qwen 32B<br/>Scout 17B · Llama 8B"]
+            G2["Gemini ×1<br/>Flash 2.0"]
+            G3["NVIDIA ×2<br/>Mistral Large<br/>Kimi K2"]
+            G4["Anthropic ×1<br/>Claude Sonnet"]
+        end
+
+        STD --> Gateway
+        DE --> Gateway
+        EP --> Gateway
+        SY --> Gateway
+    end
+
+    subgraph Storage["🗃️ Persistence Layer"]
+        PG[(PostgreSQL<br/>chats · messages · assets)]
+        SQ[(SQLite<br/>vision cache · sessions)]
+        RD[(Redis<br/>memory · TTL)]
+    end
+
+    Frontend -->|"HTTP + JWT"| API
+    OK --> PG
+    OK --> SQ
+    OK --> RD
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   Frontend (React)                       │
-│  ChatEngineV5 → ChatThread → Mode Views (Debate/Glass/  │
-│  Evidence/Synthesis) → FigmaChatShell                    │
-└────────────────────┬────────────────────────────────────┘
-                     │ POST /api/mco/run + /api/run
-┌────────────────────▼────────────────────────────────────┐
-│              Backend (FastAPI + Uvicorn)                  │
-│                                                          │
-│  routes.py ──► Omega Kernel ──► Query Router             │
-│                    │                                     │
-│       ┌────────────┼────────────────┐                    │
-│       ▼            ▼                ▼                    │
-│   Standard    Debate Engine    Evidence Pipeline          │
-│   (single/    (3 rounds,       (Tavily + SerperAPI       │
-│    ensemble)   8 models)        search + scoring)        │
-│       │            │                │                    │
-│       ▼            ▼                ▼                    │
-│         Cognitive Gateway (Model Registry)                │
-│         ┌──────┬──────┬──────┬──────┐                    │
-│         │Groq  │Gemini│NVIDIA│Claude │                   │
-│         │(×4)  │(×1)  │(×2)  │(×1)  │                   │
-│         └──────┴──────┴──────┴──────┘                    │
-│                                                          │
-│  PostgreSQL ◄──► SQLite Cache ◄──► Redis Memory          │
-└──────────────────────────────────────────────────────────┘
+
+---
+
+## Request Lifecycle
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant FE as Frontend
+    participant API as FastAPI
+    participant QR as Query Router
+    participant GW as Cognitive Gateway
+    participant Models as LLM Providers
+    participant DB as PostgreSQL
+
+    User->>FE: Submit query + optional image/PDF
+    FE->>FE: Read file as base64 (if attached)
+    FE->>API: POST /api/mco/run<br/>{query, mode, sub_mode, image_b64}
+    API->>DB: Create/update chat + save message
+    API->>QR: Classify complexity<br/>(trivial · moderate · complex · expert)
+
+    alt Standard Mode
+        QR->>GW: Route to 1-N models
+        GW->>Models: Parallel API calls
+        Models-->>GW: Structured responses
+        GW-->>API: Scored + aggregated result
+    else Debate Mode
+        QR->>GW: Route to all debate-tier models
+        loop Rounds 1-3
+            GW->>Models: Distribute prompts
+            Models-->>GW: Positions + confidence
+            GW->>GW: Compute agreement matrix
+        end
+        GW-->>API: Debate result + divergence metrics
+    else Evidence Mode
+        QR->>GW: Route to models + evidence engine
+        GW->>Models: Model responses
+        GW->>GW: Tavily + SerperAPI search
+        GW->>GW: Extract claims · score sources · detect contradictions
+        GW-->>API: Claims + sources + confidence
+    end
+
+    API->>DB: Save assistant message
+    API-->>FE: JSON response
+    FE-->>User: Rendered result (mode-specific view)
 ```
 
 ---
@@ -79,8 +153,37 @@ The core insight: **agreement between models does not equal truth**. Sentinel-E 
 
 ## Operating Modes
 
+```mermaid
+flowchart LR
+    Q[User Query] --> MC{Mode<br/>Selection}
+
+    MC -->|standard| STD["🟢 Standard<br/>Single/Ensemble"]
+    MC -->|debate| DEB["🔴 Debate<br/>Adversarial 3-Round"]
+    MC -->|evidence| EVI["🔵 Evidence<br/>Fact-Check + Search"]
+    MC -->|glass| GLA["⚪ Glass<br/>Full Transparency"]
+    MC -->|synthesis| SYN["🟣 Synthesis<br/>Collaborative Build"]
+
+    STD --> OUT[Aggregated Response]
+    DEB --> OUT
+    EVI --> OUT
+    GLA --> OUT
+    SYN --> OUT
+```
+
 ### Standard Mode
 Single query → parallel model execution → scored aggregation → best response.
+
+```mermaid
+flowchart LR
+    Q[Query] --> CR{Complexity<br/>Router}
+    CR -->|trivial| S1["Llama 8B<br/>(single)"]
+    CR -->|moderate| S2["2-3 Models<br/>(parallel)"]
+    CR -->|complex| S3["Full Ensemble<br/>(all models)"]
+    S1 --> AGG[Score + Aggregate]
+    S2 --> AGG
+    S3 --> AGG
+    AGG --> R[Best Response]
+```
 
 The query router classifies complexity and routes accordingly:
 - **Trivial:** Single fast model (Llama 8B)
@@ -92,13 +195,36 @@ When an image or PDF is attached, the system uses a **vision-first strategy**: t
 ### Debate Mode
 Multi-round adversarial argumentation across up to 8 models.
 
-**Round 1:** All debate-tier models produce independent positions with confidence scores and structured arguments (position, evidence, weaknesses).
+```mermaid
+flowchart TB
+    subgraph R1["Round 1 — Independent Analysis"]
+        direction LR
+        T1A["Tier 1<br/>Llama 70B<br/>Mistral Large"]
+        T2A["Tier 2<br/>Qwen 32B · Scout<br/>Qwen VL · Kimi K2"]
+        T3A["Tier 3<br/>Gemini Flash<br/>Llama 8B"]
+    end
 
-**Round 2:** Models receive a compressed summary of Round 1 (majority stance, minority stance, key disagreement) and must respond to opposing arguments. Round-1-only models are excluded.
+    R1 -->|compress summary| SUM["Compressed Summary<br/>majority stance · minority stance<br/>key disagreement"]
 
-**Round 3 (conditional):** Triggered only if disagreement exceeds 40%. Final positions with updated confidence.
+    subgraph R2["Round 2 — Rebuttal (stable models only)"]
+        direction LR
+        T1B["Tier 1<br/>Llama 70B<br/>Mistral Large"]
+        T2B["Tier 2<br/>Qwen 32B · Scout"]
+        T3B["Tier 3<br/>Llama 8B"]
+    end
 
-**Post-debate analysis:** Agreement matrix, divergence metrics (drift index, rift index, fragility score), conflict axes, convergence assessment, and optional anchor-model evaluation.
+    SUM --> R2
+
+    R2 -->|disagreement > 40%?| R3{"Round 3<br/>Final Positions"}
+    R2 -->|disagreement ≤ 40%| POST
+
+    R3 --> POST["Post-Debate Analysis<br/>agreement matrix · drift/rift<br/>fragility · conflict axes"]
+
+    style R1 fill:#1e293b,color:#e2e8f0
+    style R2 fill:#1e293b,color:#e2e8f0
+```
+
+> **Round-1-only models** (Qwen VL, Gemini Flash, Kimi K2) contribute their analysis in Round 1 and their output is preserved in context, but they do not execute in Rounds 2-3.
 
 **Visualization:** The frontend renders a divergence dashboard with:
 - Drift/Rift/Fragility gauge cards
@@ -111,6 +237,26 @@ Multi-round adversarial argumentation across up to 8 models.
 ### Evidence Mode
 Fact-checking pipeline with real-time web search.
 
+```mermaid
+flowchart TB
+    Q[User Query] --> SEARCH["🔍 Search<br/>Tavily + SerperAPI"]
+    Q --> MODELS["🤖 Model Responses"]
+
+    SEARCH --> DEDUP["URL Deduplication"]
+    DEDUP --> SCORE["Source Scoring<br/>domain reputation<br/>0.0 — 1.0"]
+
+    MODELS --> EXTRACT["Claim Extraction<br/>filter speculative language"]
+
+    EXTRACT --> CROSS["Cross-Reference<br/>claims vs sources"]
+    SCORE --> CROSS
+
+    CROSS --> CONF{"Confidence<br/>≥ 20%?"}
+    CONF -->|yes| VIS["visible_claims<br/>shown to user"]
+    CONF -->|no| HIDE["hidden claims<br/>retained internally"]
+
+    CROSS --> CONTRA["Contradiction<br/>Detection"]
+```
+
 1. **Search:** Queries Tavily API (primary) and SerperAPI (supplementary/fallback) for real-time web results. URLs are deduplicated across both providers.
 2. **Source Scoring:** Each source gets a reliability score based on domain reputation (e.g., nature.com → 0.90, wikipedia.org → 0.70, reddit.com → 0.35).
 3. **Claim Extraction:** Model outputs are parsed into individual claims. Only factual, verifiable statements are treated as claims — speculative language ("might indicate", "could suggest") is filtered out.
@@ -122,6 +268,28 @@ Full transparency/diagnostic mode. Shows the complete internal state: model reas
 
 ### Synthesis Mode
 Collaborative reasoning where models build on each other rather than argue.
+
+```mermaid
+flowchart TB
+    Q[Query] --> ALL["All Models<br/>parallel execution"]
+
+    ALL --> BEST["📝 Highest-Scoring Model<br/>produces Draft"]
+    ALL --> REST["Other Models"]
+
+    REST --> R1["Review 1<br/>endorsement"]
+    REST --> R2["Review 2<br/>refinement"]
+    REST --> R3["Review 3<br/>alternative"]
+
+    BEST --> FINAL["✅ Final Synthesis"]
+    R1 --> FINAL
+    R2 --> FINAL
+    R3 --> FINAL
+
+    FINAL --> CLAUDE{"Claude<br/>toggled on?"}
+    CLAUDE -->|yes| REF["🟣 Claude Refined Synthesis<br/>500 token cap · cost tracked"]
+    CLAUDE -->|no| OUT[Output to User]
+    REF --> OUT
+```
 
 1. **Draft:** Highest-scoring model produces the initial answer
 2. **Peer Review:** Each other model critiques the draft (endorsement, refinement, or alternative)
@@ -136,27 +304,36 @@ Collaborative reasoning where models build on each other rather than argue.
 
 Sentinel-E supports image and PDF input across all modes.
 
-### How Images Flow Through the System
+### How Images and PDFs Flow Through the System
 
-```
-User uploads image
-    ↓
-ChatEngineV5.js reads file as base64
-    ↓
-sendMCOQuery() includes image_b64 + image_mime in request body
-    ↓
-POST /api/mco/run receives image_b64, image_mime params
-    ↓
-routes.py forwards to orchestrator/debate engine
-    ↓
-Vision-first strategy:
-    1. Check SQLite cache for existing vision summary
-    2. Local preprocessing (OCR + compression)
-    3. If PDF with sufficient text → skip vision API entirely
-    4. Otherwise → send compressed image to vision model
-    5. Cache the vision description in SQLite
-    ↓
-Vision summary distributed to all non-vision models as text context
+```mermaid
+flowchart TB
+    UP["📎 User uploads<br/>image or PDF"] --> FE["ChatEngineV5.js<br/>read as base64"]
+
+    FE --> API["POST /api/mco/run<br/>image_b64 + image_mime"]
+
+    API --> CACHE{"SQLite<br/>vision cache<br/>hit?"}
+    CACHE -->|hit| REUSE["Use cached<br/>vision summary"]
+    CACHE -->|miss| PRE["Local Preprocessing"]
+
+    PRE --> TYPE{"File type?"}
+
+    TYPE -->|PDF| PYMUPDF["PyMuPDF<br/>extract text"]
+    PYMUPDF --> ENOUGH{"Text ><br/>100 chars?"}
+    ENOUGH -->|yes| SKIP["✅ Skip vision API<br/>use extracted text"]
+    ENOUGH -->|no| VISION
+
+    TYPE -->|Image| OCR["OpenCV + pytesseract<br/>OCR text extraction"]
+    OCR --> COMPRESS["Pillow resize<br/>max 1024px + JPEG"]
+    COMPRESS --> VISION["Vision Model<br/>Qwen VL or Gemini"]
+
+    VISION --> SUMMARY["Structured Description<br/>objects · text · scene · entities"]
+    SKIP --> SUMMARY
+    REUSE --> SUMMARY
+
+    SUMMARY --> DIST["Distributed to all<br/>non-vision models<br/>as text context"]
+
+    SUMMARY --> SQLCACHE["Cache in SQLite<br/>for future messages"]
 ```
 
 ### Local Preprocessing (file_preprocessor.py)
@@ -170,6 +347,29 @@ Before sending anything to a vision API, the system preprocesses locally to mini
 ---
 
 ## Database Architecture
+
+```mermaid
+flowchart LR
+    subgraph PG["PostgreSQL — Primary"]
+        CHATS[chats]
+        MSGS[messages<br/>+ image_b64 · image_mime]
+        ASSETS[uploaded_assets<br/>asset_id · file_type · file_hash]
+    end
+
+    subgraph SQ["SQLite — Session Cache"]
+        VC[vision_cache<br/>image_hash → summary]
+        CA[context_assets<br/>asset_id · message_index]
+    end
+
+    subgraph RD["Redis — Memory"]
+        MEM["3-tier memory<br/>short · mid · long term"]
+        TTL["Session TTL"]
+    end
+
+    API[FastAPI] --> PG
+    API --> SQ
+    API --> RD
+```
 
 | Database | Purpose | Schema |
 |----------|---------|--------|
@@ -372,6 +572,32 @@ Tavily is the primary search provider. If Tavily returns fewer results than requ
 
 ---
 
+## Confidence Computation
+
+```mermaid
+flowchart LR
+    subgraph Inputs
+        PR["Parse Success Rate<br/>did models return<br/>valid structured output?"]
+        CI["Consensus Integrity<br/>do models agree<br/>on the core answer?"]
+        FI["Fragility Index<br/>does the answer survive<br/>stress testing?"]
+        DS["Debate Score<br/>adversarial quality<br/>of arguments"]
+    end
+
+    PR --> WP["Weighted<br/>Confidence<br/>Pipeline"]
+    CI --> WP
+    FI --> WP
+    DS --> WP
+
+    WP --> FC["Final Confidence<br/>0.0 — 1.0"]
+
+    FC --> HIGH["≥ 85%: High Stability"]
+    FC --> MOD["65-84%: Moderate"]
+    FC --> LOW["40-64%: Low Stability"]
+    FC --> UNS["< 40%: Unstable"]
+```
+
+---
+
 ## Core Principles
 
 - **Agreement ≠ Truth** — Multiple models agreeing does not make them correct. Consensus must be stress-tested.
@@ -383,6 +609,17 @@ Tavily is the primary search provider. If Tavily returns fewer results than requ
 ---
 
 ## Architecture Statement
+
+```mermaid
+flowchart TB
+    LLM["Foundation Models<br/>Groq · Gemini · NVIDIA · Anthropic"]
+    SE["🛡️ Sentinel-E<br/>Meta-Cognitive<br/>Orchestration Layer"]
+    USER["End Users"]
+
+    LLM --> SE
+    SE --> USER
+    SE -.->|"interrogates<br/>assumptions"| LLM
+```
 
 Sentinel-E does not replace language models. It **structurally interrogates them**. When models agree, Sentinel-E evaluates whether the agreement is structurally stable under perturbation. When they disagree, it maps the fault lines and reports them transparently.
 
