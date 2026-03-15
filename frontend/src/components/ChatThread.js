@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Copy, Check, Zap, Brain, ShieldAlert, Pencil, RefreshCw } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import FeedbackButton from './FeedbackButton';
 import { normalizeResponse, isCodeResponse } from '../engines/responseNormalizer';
 import { editMessage, regenerateMessage } from '../services/api';
@@ -44,6 +46,15 @@ const UserBubble = ({ message, onMessageEdited }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
   const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { console.warn('Clipboard access denied'); }
+  };
 
   const handleSave = async () => {
     if (!draft.trim() || draft === message.content) { setEditing(false); return; }
@@ -93,11 +104,21 @@ const UserBubble = ({ message, onMessageEdited }) => {
             {formatTime(message.timestamp)}
           </span>
           {!editing && (
-            <button onClick={() => setEditing(true)} title="Edit"
-              className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 py-0.5 px-1 rounded-md"
-              style={{ color: 'var(--text-tertiary)' }}>
-              <Pencil className="w-3 h-3" /><span className="text-[10px]">Edit</span>
-            </button>
+            <>
+              <button onClick={handleCopy} title="Copy"
+                className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 py-0.5 px-1 rounded-md"
+                style={{ color: copied ? 'var(--accent-green)' : 'var(--text-tertiary)' }}>
+                {copied
+                  ? <><Check className="w-3 h-3" /><span className="text-[10px]">Copied</span></>
+                  : <><Copy className="w-3 h-3" /><span className="text-[10px]">Copy</span></>
+                }
+              </button>
+              <button onClick={() => setEditing(true)} title="Edit"
+                className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 py-0.5 px-1 rounded-md"
+                style={{ color: 'var(--text-tertiary)' }}>
+                <Pencil className="w-3 h-3" /><span className="text-[10px]">Edit</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -153,11 +174,7 @@ const AssistantBubble = ({ message, mode, subMode, onRegenerate }) => {
                 <code>{message.content.replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '')}</code>
               </pre>
             ) : (
-              normalizeResponse(message.content).split('\n\n').filter(Boolean).map((para, i) => (
-                <p key={i} className="mb-2 last:mb-0" style={{ color: 'var(--text-primary)' }}>
-                  {para}
-                </p>
-              ))
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeResponse(message.content)}</ReactMarkdown>
             )}
           </div>
         </div>

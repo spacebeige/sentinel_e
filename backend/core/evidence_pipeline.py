@@ -28,6 +28,13 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("EvidencePipeline")
 
+CLAIM_VISIBILITY_THRESHOLD = 0.20  # Only show claims with ≥20% confidence
+
+_SPECULATIVE_PHRASES = frozenset({
+    "might indicate", "could suggest", "possibly means",
+    "may be", "it seems", "perhaps",
+})
+
 
 async def build_evidence_result(
     query: str,
@@ -87,7 +94,11 @@ async def build_evidence_result(
     for r in valid_results:
         model_name = r.output.model_name
         text = r.output.raw_output or ""
-        sentences = [s.strip() for s in text.replace("\n", ". ").split(".") if len(s.strip()) > 20]
+        sentences = [
+            s.strip() for s in text.replace("\n", ". ").split(".")
+            if len(s.strip()) > 20
+            and not any(p in s.lower() for p in _SPECULATIVE_PHRASES)
+        ]
 
         for sentence in sentences[:10]:  # Max 10 claims per model
             # Simple claim scoring based on evidence match
@@ -123,8 +134,10 @@ async def build_evidence_result(
                 "agreement": round(r.score.final_score, 3) if hasattr(r, 'score') else 0.5,
             })
 
+    visible_claims = [c for c in all_claims if c.get("final_confidence", 0) >= CLAIM_VISIBILITY_THRESHOLD]
+
     phase_log[-1]["status"] = "complete"
-    phase_log[-1]["detail"] = f"Extracted {len(all_claims)} claims from {len(valid_results)} models"
+    phase_log[-1]["detail"] = f"Extracted {len(all_claims)} claims from {len(valid_results)} models ({len(visible_claims)} visible)"
 
     # Step 3: Format sources
     sources = []
@@ -192,6 +205,7 @@ async def build_evidence_result(
 
     return {
         "all_claims": all_claims,
+        "visible_claims": visible_claims,
         "contradictions": contradictions,
         "bayesian_confidence": round(bayesian_confidence, 4),
         "agreement_score": round(agreement_score, 4),

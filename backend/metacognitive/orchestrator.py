@@ -486,6 +486,8 @@ class MetaCognitiveOrchestrator:
             session_summary=session_summary,
             user_query=request.query,
             mode=QueryMode.RESEARCH if request.mode == OperatingMode.EXPERIMENTAL else QueryMode.RAW,
+            image_b64=request.image_b64,
+            image_mime=request.image_mime,
         )
 
         # Parallel invocation with automatic fallback substitution

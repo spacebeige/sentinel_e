@@ -26,7 +26,8 @@ export default function EvidenceView({ data, boundary, confidence }) {
 
   if (!data) return null;
 
-  const claims = data.all_claims || [];
+  const allClaims = data.all_claims || [];
+  const displayClaims = data.visible_claims || allClaims;
   const contradictions = data.contradictions || [];
   const citations = data.verbatim_citations || [];
   const phaseLog = data.phase_log || [];
@@ -38,7 +39,7 @@ export default function EvidenceView({ data, boundary, confidence }) {
   const refinedOutput = data.refined_output || data.synthesis || data.refined || null;
 
   const sections = [
-    { id: 'claims', label: `Claims (${claims.length})` },
+    { id: 'claims', label: `Claims (${displayClaims.length})` },
     { id: 'contradictions', label: `Contradictions (${contradictions.length})` },
     ...(citations.length > 0 ? [{ id: 'citations', label: `Citations (${citations.length})` }] : []),
     { id: 'pipeline', label: 'Pipeline' },
@@ -65,7 +66,7 @@ export default function EvidenceView({ data, boundary, confidence }) {
             Forensic Evidence
           </span>
           <span style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73' }}>
-            {claims.length} claims · {contradictions.length} contradictions
+            {displayClaims.length} claims · {contradictions.length} contradictions
           </span>
         </div>
 
@@ -210,12 +211,18 @@ export default function EvidenceView({ data, boundary, confidence }) {
       {/* ── Claims Table ── */}
       {activeSection === 'claims' && (
         <div className="space-y-1.5">
-          {claims.length === 0 ? (
+          {displayClaims.length === 0 ? (
             <p style={{ fontFamily: FONT, fontSize: '13px', color: '#aeaeb2', textAlign: 'center', padding: '16px 0' }}>
               No claims extracted
             </p>
           ) : (
-            claims.map((claim, idx) => (
+            <>
+            {allClaims.length > displayClaims.length && (
+              <p className="text-xs text-gray-400 mt-1">
+                Showing {displayClaims.length} significant claims of {allClaims.length} total
+              </p>
+            )}
+            {displayClaims.map((claim, idx) => (
               <div key={idx} className="rounded-xl border border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e] shadow-sm overflow-hidden">
                 <button
                   onClick={() => setExpandedClaim(expandedClaim === idx ? null : idx)}
@@ -284,6 +291,7 @@ export default function EvidenceView({ data, boundary, confidence }) {
                 )}
               </div>
             ))
+            </>
           )}
         </div>
       )}

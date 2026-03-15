@@ -205,12 +205,16 @@ export default function ChatEngineV5() {
           chatId,
           mode: 'experimental',
           subMode: (subMode === 'glass' && killActive) ? 'glass' : subMode,
+          image_b64: userMsg.image_b64 || null,
+          image_mime: userMsg.image_mime || null,
         });
       } else {
         // Standard mode → MCO
         result = await sendMCOQuery(text, {
           chatId,
           mode: 'standard',
+          image_b64: userMsg.image_b64 || null,
+          image_mime: userMsg.image_mime || null,
         });
       }
 

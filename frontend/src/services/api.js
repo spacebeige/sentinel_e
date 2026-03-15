@@ -269,6 +269,8 @@ export async function sendMCOQuery(query, options = {}) {
     subMode = null,
     selectedModel = null,
     forceRetrieval = false,
+    image_b64 = null,
+    image_mime = null,
   } = options;
 
   const body = {
@@ -279,6 +281,8 @@ export async function sendMCOQuery(query, options = {}) {
   };
   if (chatId) body.chat_id = chatId;
   if (subMode) body.sub_mode = subMode;
+  if (image_b64) body.image_b64 = image_b64;
+  if (image_mime) body.image_mime = image_mime;
 
   const res = await api.post('/api/mco/run', body);
   return res.data;

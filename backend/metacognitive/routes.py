@@ -89,6 +89,8 @@ async def mco_run(
     session_id: Optional[str] = Body(None),
     force_retrieval: bool = Body(False),
     selected_model: Optional[str] = Body(None),
+    image_b64: Optional[str] = Body(None),
+    image_mime: Optional[str] = Body(None),
     db: AsyncSession = Depends(get_db),
     user: Dict = Depends(get_current_user),
 ):
@@ -137,7 +139,7 @@ async def mco_run(
             user_id=user["user_id"],
         )
 
-    await add_message(db, chat.id, "user", query)
+    await add_message(db, chat.id, "user", query, image_b64=image_b64, image_mime=image_mime)
 
     # ══════════════════════════════════════════════════════════
     # QUERY COMPLEXITY CHECK — Skip debate for trivial queries
@@ -170,6 +172,8 @@ async def mco_run(
                 query=query,
                 chat_id=str(chat.id),
                 rounds=3,
+                image_b64=image_b64,
+                image_mime=image_mime,
             )
         except EnsembleFailure as ef:
             logger.error(f"Debate ensemble hard failure: {ef}")
@@ -297,6 +301,8 @@ async def mco_run(
         chat_id=str(chat.id),
         force_retrieval=force_retrieval,
         selected_model=selected_model,
+        image_b64=image_b64,
+        image_mime=image_mime,
     )
 
     # Execute 10-step protocol
