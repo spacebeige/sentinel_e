@@ -471,7 +471,9 @@ class CognitiveOrchestrator:
         self, query: str, image_b64: str, image_mime: Optional[str],
         models: List[Dict[str, str]], session_id: str = "",
     ) -> Optional[str]:
-        """Call the best available vision model to produce a text description of the image."""
+        """Produce a text description of an image/PDF.
+        Uses local preprocessing (OCR, PyMuPDF) first to minimize API token usage.
+        Falls back to vision API only when local extraction is insufficient."""
         # ── Check SQLite cache first ──
         cache_key = hashlib.md5(image_b64[:1000].encode()).hexdigest()
         if session_id:
@@ -480,7 +482,35 @@ class CognitiveOrchestrator:
                 logger.info(f"Vision cache hit for key={cache_key[:16]}")
                 return cached
 
-        # Preferred vision models in priority order
+        # ── Local preprocessing (OCR / PyMuPDF) ──────────────────
+        local_text = None
+        compressed_b64, compressed_mime = image_b64, image_mime
+        try:
+            from core.file_preprocessor import preprocess_file
+            prep = preprocess_file(image_b64, image_mime)
+            local_text = prep.get("extracted_text")
+            compressed_b64 = prep.get("compressed_b64", image_b64)
+            compressed_mime = prep.get("compressed_mime", image_mime)
+
+            if prep.get("skip_vision_api") and local_text:
+                # PDF text extraction yielded enough content — skip vision API
+                meta = prep.get("metadata", {})
+                meta_line = ""
+                if meta.get("page_count"):
+                    meta_line = f" ({meta['page_count']} pages"
+                    if meta.get("title"):
+                        meta_line += f", title: {meta['title']}"
+                    meta_line += ")"
+                description = f"[Document content{meta_line}]\n{local_text}"
+                logger.info(f"Using local PDF extraction — skipped vision API ({len(local_text)} chars)")
+                if session_id:
+                    store_vision_summary(session_id, cache_key, "local-pymupdf",
+                                         description, token_count=len(description) // 4)
+                return description
+        except Exception as prep_err:
+            logger.debug(f"Local preprocessing unavailable: {prep_err}")
+
+        # ── Vision API fallback ──────────────────────────────────
         vision_priorities = ["gemini-flash", "qwen-2.5-vl", "claude-sonnet-4.6"]
         vision_model_id = None
         for vid in vision_priorities:
@@ -490,17 +520,21 @@ class CognitiveOrchestrator:
                 if spec and spec.enabled:
                     vision_model_id = vid
                     break
-        # Fallback: any vision model in the active model list
         if not vision_model_id:
             for m in models:
                 if self._model_supports_vision(m["id"]):
                     vision_model_id = m["id"]
                     break
         if not vision_model_id:
+            # No vision model — return local text if we have any
+            if local_text:
+                logger.info("No vision model available — using local OCR/extraction only")
+                return f"[Locally extracted text]\n{local_text}"
             logger.warning("No vision model available for image description")
             return None
 
         try:
+            # Augment prompt with locally extracted text if available
             if image_mime and image_mime == 'application/pdf':
                 description_prompt = (
                     "Analyze this PDF document. Extract and summarize: key topics, main arguments, "
@@ -513,20 +547,31 @@ class CognitiveOrchestrator:
                     "layout, colors, and any relevant context. Be thorough but concise. "
                     f"The user's question about this image is: {query}"
                 )
+            if local_text:
+                description_prompt += f"\n\n[OCR text detected locally]: {local_text[:2000]}"
+
+            # Use compressed image to save tokens
             raw = await self._call_model(
                 vision_model_id, description_prompt, "",
-                image_b64=image_b64, image_mime=image_mime,
+                image_b64=compressed_b64, image_mime=compressed_mime,
             )
             if raw and not raw.startswith("Error:") and len(raw.strip()) > 10:
                 logger.info(f"Vision description obtained from {vision_model_id} ({len(raw)} chars)")
                 description = raw.strip()
                 if session_id:
                     store_vision_summary(session_id, cache_key, vision_model_id,
-                                         description, token_count=len(description))
+                                         description, token_count=len(description) // 4)
                 return description
+            # Vision API failed — fall back to local text if available
+            if local_text:
+                logger.info("Vision API returned unusable output — using local extraction")
+                return f"[Locally extracted text]\n{local_text}"
             logger.warning(f"Vision model {vision_model_id} returned unusable output")
             return None
         except Exception as e:
+            if local_text:
+                logger.info(f"Vision API failed ({e}) — using local extraction")
+                return f"[Locally extracted text]\n{local_text}"
             logger.warning(f"Vision description failed ({vision_model_id}): {e}")
             return None
 
