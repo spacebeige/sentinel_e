@@ -557,13 +557,55 @@ async def mco_run(
         if effective_sub_mode == "synthesis":
             try:
                 from core.synthesis_engine import build_synthesis_result
-                omega_metadata["synthesis_result"] = build_synthesis_result(
+                synthesis_result = build_synthesis_result(
                     all_results=response.all_results,
                     scoring_breakdown=response.scoring_breakdown,
                     divergence_metrics=divergence,
                     aggregated_answer=response.aggregated_answer,
                     winning_model=response.winning_model,
                 )
+
+                # Call Claude for refined synthesis if toggled ON
+                claude_spec = COGNITIVE_MODEL_REGISTRY.get("claude-sonnet-4.6")
+                if claude_spec and claude_spec.active and claude_spec.enabled:
+                    try:
+                        from models.mco_bridge import MCOModelBridge
+                        bridge = MCOModelBridge()
+                        perspectives = []
+                        for r in (response.all_results or [])[:6]:
+                            if r.output.success and r.output.raw_output:
+                                perspectives.append(
+                                    f"[{r.output.model_name}]: {r.output.raw_output[:800]}"
+                                )
+                        if perspectives:
+                            synthesis_prompt = (
+                                "Multiple AI models analyzed a query. Synthesize their perspectives "
+                                "into a clear, comprehensive final answer. Integrate strengths, "
+                                "resolve contradictions, and structure the response clearly.\n\n"
+                                + "\n\n".join(perspectives)
+                            )
+                            claude_output = await bridge.call_model(
+                                "claude-sonnet-4.6", synthesis_prompt,
+                                "You are a synthesis expert combining multiple AI perspectives.",
+                                max_tokens=500,
+                            )
+                            if claude_output and not claude_output.startswith("Error:"):
+                                synthesis_result["claude_synthesis"] = claude_output
+                                synthesis_result["claude_active"] = True
+                                synthesis_result["refined_output"] = claude_output
+                                logger.info("Claude synthesis completed successfully")
+                            else:
+                                synthesis_result["claude_active"] = False
+                                logger.warning(f"Claude synthesis failed: {claude_output}")
+                        else:
+                            synthesis_result["claude_active"] = False
+                    except Exception as claude_err:
+                        logger.warning(f"Claude synthesis skipped: {claude_err}")
+                        synthesis_result["claude_active"] = False
+                else:
+                    synthesis_result["claude_active"] = False
+
+                omega_metadata["synthesis_result"] = synthesis_result
             except Exception as syn_err:
                 logger.error(f"Synthesis pipeline failed: {syn_err}")
                 omega_metadata["synthesis_result"] = None

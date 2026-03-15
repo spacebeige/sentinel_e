@@ -148,6 +148,26 @@ export default function SynthesisView({ data, boundary, confidence }) {
               </p>
             </div>
           )}
+
+          {/* Claude refined synthesis */}
+          {data.claude_active && data.claude_synthesis && (
+            <div className="mt-4 border border-purple-500/30 rounded-xl p-4 bg-purple-500/5">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-purple-400 text-sm font-medium">✦ Claude Synthesis</span>
+                <span className="text-xs text-purple-300/60 px-2 py-0.5 bg-purple-500/10 rounded-full">
+                  Refined by Claude Sonnet 4.6
+                </span>
+              </div>
+              <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">
+                {data.claude_synthesis}
+              </div>
+            </div>
+          )}
+          {data.claude_active === false && (
+            <p className="text-xs text-gray-500 mt-3 italic">
+              Claude synthesis is disabled. Enable it in the model picker to add refined synthesis.
+            </p>
+          )}
         </div>
       )}
 

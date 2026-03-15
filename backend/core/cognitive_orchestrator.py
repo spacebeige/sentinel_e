@@ -501,11 +501,18 @@ class CognitiveOrchestrator:
             return None
 
         try:
-            description_prompt = (
-                "Describe this image in detail. Include all visible text, objects, "
-                "layout, colors, and any relevant context. Be thorough but concise. "
-                f"The user's question about this image is: {query}"
-            )
+            if image_mime and image_mime == 'application/pdf':
+                description_prompt = (
+                    "Analyze this PDF document. Extract and summarize: key topics, main arguments, "
+                    "important data points, conclusions, and any notable figures or tables. "
+                    f"The user's question about this document is: {query}"
+                )
+            else:
+                description_prompt = (
+                    "Describe this image in detail. Include all visible text, objects, "
+                    "layout, colors, and any relevant context. Be thorough but concise. "
+                    f"The user's question about this image is: {query}"
+                )
             raw = await self._call_model(
                 vision_model_id, description_prompt, "",
                 image_b64=image_b64, image_mime=image_mime,

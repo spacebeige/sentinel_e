@@ -37,7 +37,7 @@ Output for frontend SynthesisView:
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("SynthesisEngine")
 
@@ -260,3 +260,45 @@ def _empty_synthesis() -> Dict[str, Any]:
         "synthesis_graph": {"nodes": [], "edges": []},
         "winning_model": "unknown",
     }
+
+
+async def claude_synthesize(model_outputs: list, aggregated_answer: str, query: str = "") -> Optional[str]:
+    """Call Claude to produce a refined synthesis of all model outputs.
+    Only called when Claude is toggled ON in the registry."""
+    from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+
+    claude_spec = COGNITIVE_MODEL_REGISTRY.get("claude-sonnet-4.6")
+    if not claude_spec or not claude_spec.active or not claude_spec.enabled:
+        return None
+
+    # Build a concise prompt with all model perspectives
+    perspectives = []
+    for i, result in enumerate(model_outputs[:6], 1):  # Cap at 6 to save tokens
+        model_name = result.get("model", f"Model {i}")
+        output = result.get("output", "")[:800]  # Truncate each to ~200 tokens
+        perspectives.append(f"[{model_name}]: {output}")
+
+    synthesis_prompt = (
+        "You are a synthesis expert. Multiple AI models analyzed the same query. "
+        "Review their perspectives and produce a refined, comprehensive answer that:\n"
+        "- Integrates the strongest points from each model\n"
+        "- Resolves any contradictions\n"
+        "- Provides a clear, well-structured final answer\n\n"
+        f"Models' analyses:\n" + "\n\n".join(perspectives) + "\n\n"
+        "Produce a refined synthesis:"
+    )
+
+    try:
+        from models.mco_bridge import MCOModelBridge
+        bridge = MCOModelBridge()
+        result = await bridge.call_model(
+            "claude-sonnet-4.6", synthesis_prompt,
+            "You synthesize multiple expert perspectives into a clear, authoritative answer.",
+            max_tokens=500,
+        )
+        if result and not result.startswith("Error:"):
+            return result
+    except Exception as e:
+        logger.warning(f"Claude synthesis call failed: {e}")
+
+    return None

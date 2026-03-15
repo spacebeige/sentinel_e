@@ -590,7 +590,7 @@ async def _read_upload_as_b64(file) -> tuple:
     if len(contents) > MAX_IMAGE_BYTES:
         raise HTTPException(
             status_code=413,
-            detail=f"Image exceeds {MAX_IMAGE_BYTES // (1024*1024)}MB limit.",
+            detail=f"File exceeds {MAX_IMAGE_BYTES // (1024*1024)}MB limit.",
         )
     mime = file.content_type or "image/png"
     return base64.b64encode(contents).decode("utf-8"), mime

@@ -176,7 +176,7 @@ export default function ChatEngineV5() {
       content: text || `[File: ${file?.name}]`,
       timestamp: new Date().toISOString(),
     };
-    if (file && file.type?.startsWith('image/')) {
+    if (file && (file.type?.startsWith('image/') || file.type === 'application/pdf')) {
       try {
         const reader = new FileReader();
         const dataUrl = await new Promise((resolve) => {
@@ -185,6 +185,9 @@ export default function ChatEngineV5() {
         });
         userMsg.image_b64 = dataUrl.split(',')[1];
         userMsg.image_mime = file.type;
+        if (file.type === 'application/pdf') {
+          userMsg.pdf_filename = file.name;
+        }
       } catch { /* ignore preview failure */ }
     }
     setMessages(prev => [...prev, userMsg]);

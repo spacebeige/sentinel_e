@@ -70,12 +70,19 @@ const UserBubble = ({ message, onMessageEdited }) => {
   return (
     <div className="flex justify-end mb-5 group">
       <div className="max-w-[72%] flex flex-col items-end">
-        {message.image_b64 && (
+        {message.image_b64 && message.image_mime !== 'application/pdf' && (
           <img
             src={`data:${message.image_mime || 'image/png'};base64,${message.image_b64}`}
             alt="Attached"
             className="max-w-full max-h-48 rounded-xl mb-2 object-contain"
           />
+        )}
+        {message.image_b64 && message.image_mime === 'application/pdf' && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-gray-700/50 rounded-xl mb-2 text-sm">
+            <span className="text-red-400 text-lg">📄</span>
+            <span className="text-gray-200">{message.pdf_filename || 'Document.pdf'}</span>
+            <span className="text-gray-400 text-xs">PDF attached</span>
+          </div>
         )}
         {editing ? (
           <div className="w-full">
