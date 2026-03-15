@@ -75,12 +75,16 @@ async def add_message(
     db: AsyncSession,
     chat_id: UUID,
     role: str,
-    content: str
+    content: str,
+    image_b64: str = None,
+    image_mime: str = None
 ) -> Message:
     new_message = Message(
         chat_id=chat_id,
         role=role,
-        content=content
+        content=content,
+        image_b64=image_b64,
+        image_mime=image_mime
     )
     db.add(new_message)
     await db.commit()

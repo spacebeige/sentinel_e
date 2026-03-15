@@ -620,7 +620,8 @@ async def run_sentinel(
         chat_name = generate_chat_name(effective_text, request.mode)
         chat = await create_chat(db, chat_name, request.mode, user_id=user_id)
 
-    await add_message(db, chat.id, "user", effective_text)
+    await add_message(db, chat.id, "user", effective_text,
+                      image_b64=request.image_b64, image_mime=request.image_mime)
 
     # ── Session & Memory ─────────────────────────────────────
     kernel, memory = await _get_session(str(chat.id), user_id)
@@ -1968,6 +1969,9 @@ async def get_messages(
             "role": m.role,
             "content": m.content,
             "timestamp": m.created_at.isoformat() if m.created_at else None,
+            "has_image": bool(m.image_b64),
+            "image_b64": m.image_b64 if m.image_b64 else None,
+            "image_mime": m.image_mime if m.image_mime else None,
         }
         for m in msgs
     ]

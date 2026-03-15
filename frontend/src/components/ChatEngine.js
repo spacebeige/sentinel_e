@@ -146,6 +146,18 @@ export default function ChatEngine() {
     setLastQueryText(text || '');
 
     const userMsg = { role: 'user', content: text || `[File: ${file?.name}]`, timestamp: new Date().toISOString() };
+    if (file && file.type?.startsWith('image/')) {
+      try {
+        const reader = new FileReader();
+        const dataUrl = await new Promise((resolve) => {
+          reader.onload = (e) => resolve(e.target.result);
+          reader.readAsDataURL(file);
+        });
+        const b64 = dataUrl.split(',')[1];
+        userMsg.image_b64 = b64;
+        userMsg.image_mime = file.type;
+      } catch { /* ignore preview failure */ }
+    }
     setMessages(prev => [...prev, userMsg]);
 
     // Record user message in memory layer
@@ -260,7 +272,7 @@ export default function ChatEngine() {
       const res = await axios.get(`${API_BASE}/api/chat/${run.id}/messages`);
       const loaded = (res.data || [])
         .filter(m => m.role === 'user' || m.role === 'assistant')
-        .map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp || run.timestamp }));
+        .map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp || run.timestamp, image_b64: m.image_b64 || null, image_mime: m.image_mime || null }));
       setMessages(loaded);
     } catch (err) {
       console.error('Failed to load messages:', err);

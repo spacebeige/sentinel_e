@@ -176,6 +176,17 @@ export default function ChatEngineV5() {
       content: text || `[File: ${file?.name}]`,
       timestamp: new Date().toISOString(),
     };
+    if (file && file.type?.startsWith('image/')) {
+      try {
+        const reader = new FileReader();
+        const dataUrl = await new Promise((resolve) => {
+          reader.onload = (e) => resolve(e.target.result);
+          reader.readAsDataURL(file);
+        });
+        userMsg.image_b64 = dataUrl.split(',')[1];
+        userMsg.image_mime = file.type;
+      } catch { /* ignore preview failure */ }
+    }
     setMessages(prev => [...prev, userMsg]);
     memoryManager.recordMessage(userMsg, mode, subMode);
 
@@ -292,6 +303,8 @@ export default function ChatEngineV5() {
           role: m.role,
           content: m.content,
           timestamp: m.timestamp || run.timestamp,
+          image_b64: m.image_b64 || null,
+          image_mime: m.image_mime || null,
         }));
       setMessages(loaded);
     } catch (err) {

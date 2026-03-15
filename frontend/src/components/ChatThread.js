@@ -42,6 +42,13 @@ const TypingIndicator = () => (
 const UserBubble = ({ message }) => (
   <div className="flex justify-end mb-5">
     <div className="max-w-[72%] flex flex-col items-end">
+      {message.image_b64 && (
+        <img 
+          src={`data:${message.image_mime || 'image/png'};base64,${message.image_b64}`}
+          alt="Attached"
+          className="max-w-full max-h-48 rounded-xl mb-2 object-contain"
+        />
+      )}
       <div className="px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap"
         style={{ backgroundColor: 'var(--accent-blue)', color: '#fff' }}>
         {message.content}

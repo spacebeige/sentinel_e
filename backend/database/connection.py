@@ -7,6 +7,7 @@ except Exception:  # pragma: no cover - environment-dependent
     HAS_REDIS_LIB = False
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 from dotenv import load_dotenv
 
 # Load .env from backend root (one level up from database/)
@@ -147,6 +148,13 @@ async def init_db():
     from .models import Base
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Add image columns to existing messages table if missing
+        await conn.execute(
+            text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_b64 TEXT")
+        )
+        await conn.execute(
+            text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_mime VARCHAR")
+        )
 
 async def check_redis():
     try:

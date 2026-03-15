@@ -30,4 +30,6 @@ class Message(Base):
     chat_id = Column(UUID(as_uuid=True), index=True, nullable=False)
     role = Column(String, nullable=False) # user | assistant | model_groq | model_qwen | model_llama70b
     content = Column(Text, nullable=False)
+    image_b64 = Column(Text, nullable=True)  # Base64 image data
+    image_mime = Column(String, nullable=True)  # MIME type (e.g. image/png)
     created_at = Column(DateTime, default=datetime.utcnow)
