@@ -387,7 +387,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
     expose_headers=["X-Request-ID", "X-Response-Time"],
 )
@@ -779,6 +779,7 @@ async def run_sentinel(
         sub_mode=sub_mode,
         selected_model=getattr(request, "selected_model", None),
         model_registry=COGNITIVE_MODEL_REGISTRY,
+        image_b64=request.image_b64,
     )
     logger.info(
         f"Routing decision: path={routing_decision.path.value}, "
@@ -802,6 +803,8 @@ async def run_sentinel(
 
             raw_output = await mco_bridge.call_model(
                 single_model_id, effective_text, "",
+                image_b64=request.image_b64,
+                image_mime=request.image_mime,
             )
             kernel_latency = tracer.end_span("kernel")
 
@@ -889,6 +892,8 @@ async def run_sentinel(
 
             raw_output = await mco_bridge.call_model(
                 fast_model, effective_text, "",
+                image_b64=request.image_b64,
+                image_mime=request.image_mime,
             )
             kernel_latency = tracer.end_span("kernel")
 
@@ -902,6 +907,8 @@ async def run_sentinel(
                 if fallback_model:
                     raw_output = await mco_bridge.call_model(
                         fallback_model, effective_text, "",
+                        image_b64=request.image_b64,
+                        image_mime=request.image_mime,
                     )
                     if raw_output.startswith("Error:"):
                         logger.error(f"Fallback model '{fallback_model}' also failed: {raw_output}")

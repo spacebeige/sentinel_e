@@ -111,6 +111,7 @@ def route_query(
     sub_mode: Optional[str] = None,
     selected_model: Optional[str] = None,
     model_registry: Optional[dict] = None,
+    image_b64: Optional[str] = None,
 ) -> RoutingDecision:
     """
     Determine the execution path for a query.
@@ -121,11 +122,31 @@ def route_query(
         sub_mode: Sub-mode (debate, glass, evidence, stress)
         selected_model: If user explicitly selected a specific model
         model_registry: The COGNITIVE_MODEL_REGISTRY dict
+        image_b64: Base64-encoded image attachment (forces non-trivial routing)
 
     Returns:
         RoutingDecision with path, reason, and configuration.
     """
     complexity = classify_query_complexity(query)
+
+    # ── Multimodal override: image attached → never trivial ──
+    if image_b64:
+        if selected_model:
+            return RoutingDecision(
+                path=ExecutionPath.SINGLE_MODEL,
+                reason=f"Multimodal input with user-selected model: {selected_model}",
+                selected_model=selected_model,
+                skip_debate=True,
+                query_complexity="analytical",
+            )
+        model_filter = _determine_model_filter(model_registry)
+        return RoutingDecision(
+            path=ExecutionPath.DEBATE_EXTERNAL if model_filter == "external" else ExecutionPath.DEBATE_HYBRID,
+            reason="Multimodal input requires vision-capable ensemble",
+            skip_debate=mode not in ("experimental", "research"),
+            model_filter=model_filter,
+            query_complexity="analytical",
+        )
 
     # ── Path 1: Single Model Selection ───────────────────────
     if selected_model:
