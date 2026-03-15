@@ -280,6 +280,56 @@ async def mco_run(
             }
 
     # ══════════════════════════════════════════════════════════
+    # FAST-PATH: Trivial queries bypass the full 10-step protocol
+    # Uses a single fast model for instant response (e.g., "hi", "hello")
+    # ══════════════════════════════════════════════════════════
+    if query_complexity == "trivial" and not selected_model and not image_b64:
+        import time as _time
+        _fast_start = _time.monotonic()
+        logger.info(f"Fast-path: trivial query '{query[:30]}' — single model, no MCO protocol")
+
+        # Pick the fastest available model (prefer Groq Llama 8B)
+        _FAST_MODEL_PRIORITY = ["llama31-8b", "llama4-scout", "mixtral-8x7b", "llama33-70b"]
+        fast_model = None
+        for mk in _FAST_MODEL_PRIORITY:
+            spec = COGNITIVE_MODEL_REGISTRY.get(mk)
+            if spec and spec.active and spec.enabled:
+                fast_model = mk
+                break
+
+        if fast_model:
+            from metacognitive.schemas import CognitiveGatewayInput, QueryMode
+            gateway_input = CognitiveGatewayInput(
+                user_query=query,
+                mode=QueryMode.RAW,
+            )
+            try:
+                output = await orch.cognitive_gateway.invoke_model(fast_model, gateway_input)
+                if output.success and output.raw_output.strip():
+                    answer = output.raw_output.strip()
+                    await add_message(db, chat.id, "assistant", answer)
+                    _elapsed = (_time.monotonic() - _fast_start) * 1000
+                    logger.info(f"Fast-path complete in {_elapsed:.0f}ms via {fast_model}")
+                    return {
+                        "chat_id": str(chat.id),
+                        "session_id": str(chat.id),
+                        "mode": mode,
+                        "sub_mode": sub_mode,
+                        "formatted_output": answer,
+                        "aggregated_answer": answer,
+                        "confidence": 0.95,
+                        "data": {"priority_answer": answer},
+                        "omega_metadata": {
+                            "winning_model": fast_model,
+                            "winning_score": 0.95,
+                            "latency_ms": round(_elapsed, 1),
+                            "fast_path": True,
+                        },
+                    }
+            except Exception as fast_err:
+                logger.warning(f"Fast-path failed ({fast_err}), falling through to MCO")
+
+    # ══════════════════════════════════════════════════════════
     # STANDARD MCO PIPELINE (non-debate modes)
     # ══════════════════════════════════════════════════════════
 
@@ -301,6 +351,7 @@ async def mco_run(
         chat_id=str(chat.id),
         force_retrieval=force_retrieval,
         selected_model=selected_model,
+        query_complexity=query_complexity,
         image_b64=image_b64,
         image_mime=image_mime,
     )

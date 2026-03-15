@@ -460,14 +460,18 @@ class MetaCognitiveOrchestrator:
                 long_context=long_context,
             )
 
+        # Reduce model count for simple queries to cut latency
+        complexity = getattr(request, "query_complexity", None)
+        if complexity == "simple" and len(model_keys) > 3:
+            model_keys = model_keys[:3]
+            logger.info(f"Simple query — reduced to {len(model_keys)} models")
+
         # PHASE 1: Assert at least one model selected
         if not model_keys:
             raise RuntimeError(
                 "No models selected for execution. Check model registry and API keys."
             )
 
-        # PHASE 8: Debug logging (temporary)
-        logger.info(f"Enabled models from registry: {[k for k, v in COGNITIVE_MODEL_REGISTRY.items() if v.enabled]}")
         logger.info(f"Invoking {len(model_keys)} models: {model_keys}")
 
         # Build gateway input (identical for all)
@@ -490,10 +494,10 @@ class MetaCognitiveOrchestrator:
             image_mime=request.image_mime,
         )
 
-        # Parallel invocation with automatic fallback substitution
-        # Uses invoke_parallel_failsafe to guarantee minimum model success
+        # Parallel invocation — use fewer required successes for simpler queries
+        min_required = 1 if complexity in ("trivial", "simple") else min(3, len(model_keys))
         outputs = await self.cognitive_gateway.invoke_parallel_failsafe(
-            model_keys, gateway_input, min_success=min(3, len(model_keys))
+            model_keys, gateway_input, min_success=min_required
         )
 
         # PHASE 1: Assert outputs exist — no silent empty success

@@ -230,6 +230,7 @@ class OrchestratorRequest(BaseModel):
     attachments: List[str] = Field(default_factory=list)
     force_retrieval: bool = False
     selected_model: Optional[str] = None  # Single Model Focus Mode
+    query_complexity: Optional[str] = None  # trivial | simple | analytical
     image_b64: Optional[str] = None
     image_mime: Optional[str] = None
 
