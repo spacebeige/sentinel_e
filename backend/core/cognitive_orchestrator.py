@@ -118,7 +118,7 @@ class CognitiveOrchestrator:
         self._confidence_calibrator = ConfidenceCalibrator()
         self._debate_engine = StructuredDebateEngine(
             call_model=self._call_model,
-            get_enabled_models=self._get_models,
+            get_enabled_models=self._get_debate_models,
         )
         # Session engines are per-session, stored externally
         self._sessions: Dict[str, EnsembleSessionEngine] = {}
@@ -720,6 +720,12 @@ class CognitiveOrchestrator:
     def _get_models(self) -> List[Dict[str, str]]:
         """Get enabled models from bridge."""
         return self._bridge.get_enabled_models_info()
+
+    def _get_debate_models(self) -> List[Dict[str, str]]:
+        """Get enabled models for debate — excludes synthesis-only models (e.g. Claude)."""
+        from metacognitive.cognitive_gateway import MODEL_DEBATE_TIERS
+        all_models = self._bridge.get_enabled_models_info()
+        return [m for m in all_models if m["id"] in MODEL_DEBATE_TIERS]
 
     def _validate_minimum_models(self, models: List[Dict[str, str]]):
         """Validate minimum model count."""

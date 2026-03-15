@@ -634,7 +634,7 @@ class CognitiveModelGateway:
 
         # ── Token Clamping ───────────────────────────────────
         # Ensure max_tokens does not exceed provider-specific hard limits
-        _PROVIDER_MAX_OUTPUT = {"groq": 8192, "gemini": 8192, "qwen": 8192, "openai": 4096, "nvidia": 4096, "anthropic": 4096}
+        _PROVIDER_MAX_OUTPUT = {"groq": 8192, "gemini": 8192, "qwen": 8192, "openai": 4096, "nvidia": 4096, "anthropic": 500}
         _provider_cap = _PROVIDER_MAX_OUTPUT.get(spec.provider, 4096)
         governed_max_tokens = max(1, min(governed_max_tokens, _provider_cap))
 
@@ -1299,6 +1299,19 @@ class CognitiveModelGateway:
                         anthropic_messages.append({"role": msg["role"], "content": anthropic_content})
                 else:
                     anthropic_messages.append({"role": msg["role"], "content": content})
+
+        # ── Input token cap: ~500 tokens (≈2000 chars) ──
+        # Truncate system text and message content to stay within budget
+        _INPUT_CHAR_CAP = 2000  # ~500 tokens at 4 chars/token
+        if system_text and len(system_text) > _INPUT_CHAR_CAP:
+            system_text = system_text[:_INPUT_CHAR_CAP - 20] + "\n...[truncated]"
+        for amsg in anthropic_messages:
+            c = amsg.get("content", "")
+            if isinstance(c, str) and len(c) > _INPUT_CHAR_CAP:
+                amsg["content"] = c[:_INPUT_CHAR_CAP - 20] + "\n...[truncated]"
+
+        # ── Output token cap: 500 tokens ──
+        max_tokens = min(max_tokens, 500)
 
         payload = {
             "model": spec.model_id,
