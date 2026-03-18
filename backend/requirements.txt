@@ -10,6 +10,7 @@ aiohttp
 requests
 python-dotenv
 tavily-python
+websockets>=12.0
 
 # ── Database ──
 sqlalchemy>=2.0.0
