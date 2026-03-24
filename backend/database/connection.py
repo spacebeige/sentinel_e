@@ -67,20 +67,24 @@ _db_logger = logging.getLogger("Database")
 _db_logger.info("Connecting to database...")
 # SECURITY: Never log connection strings or credentials
 
-# PostgreSQL Async Engine Configuration
-from sqlalchemy.pool import NullPool
+# FIX #8: Use proper connection pooling instead of NullPool
+# Prevents connection exhaustion at scale (100+ concurrent users)
+from sqlalchemy.pool import QueuePool
 
-# Use NullPool for NeonDB to avoid connection issues with transaction poolers
-# and ensure fresh connections are used.
-# Add connect timeout to prevent hanging on NeonDB cold starts
+# PostgreSQL Async Engine Configuration with proper connection pooling
 if "timeout" not in connect_args:
     connect_args["timeout"] = 10  # asyncpg connection timeout in seconds
+
 engine = create_async_engine(
     DATABASE_URL, 
     echo=False, 
     future=True, 
     connect_args=connect_args,
-    poolclass=NullPool 
+    poolclass=QueuePool,
+    pool_size=20,           # Keep 20 connections open
+    max_overflow=40,        # Allow up to 40 additional temporary connections
+    pool_pre_ping=True,     # Verify connection health before using
+    pool_recycle=3600,      # Recycle connections after 1 hour
 )
 AsyncSessionLocal = sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False

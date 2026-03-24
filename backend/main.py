@@ -114,6 +114,13 @@ from gateway.chat_routes import router as chat_router
 
 # ── Admin Routes ──────────────────────────────────────────────
 from gateway.admin_routes import router as admin_router
+from gateway.workflow_admin_routes import router as workflow_admin_router
+
+# ── Critical Security & Stability Fixes ───────────────────
+from fixes.session_cache_manager import SessionCacheManager
+from fixes.exception_handling import log_unhandled_exceptions, safe_execute
+from fixes.config_validation import validate_production_config
+from fixes.session_ownership_validation import validate_kernel_before_use
 
 # ── Logging ──────────────────────────────────────────────────
 settings = get_settings()
@@ -138,11 +145,11 @@ mco_daemon: Optional[BackgroundDaemon] = None
 mco_bridge = None  # MCOModelBridge — unified model client
 cognitive_orchestrator_engine: Optional[CognitiveCoreEngine] = None  # Cognitive Engine v7.0
 multimodal_auditor: Optional[MultimodalAuditor] = None  # Multimodal Capability Auditor
-omega_sessions: Dict[str, OmegaCognitiveKernel] = {}
-memory_sessions: Dict[str, MemoryEngine] = {}
 
-# Maximum in-memory sessions to prevent memory leak
-MAX_SESSIONS = 500
+# FIX #1: Replace unbounded dictionaries with SessionCacheManager (thread-safe LRU with TTL)
+# Prevents memory leak crashes; auto-evicts expired sessions
+omega_sessions: SessionCacheManager = SessionCacheManager(max_sessions=500, ttl_minutes=60)
+memory_sessions: SessionCacheManager = SessionCacheManager(max_sessions=500, ttl_minutes=60)
 SESSION_SQLITE_PATH = os.path.join(os.path.dirname(__file__), "data", "session_cache.db")
 _SQLITE_SESSION_TABLE_READY = False
 
@@ -259,6 +266,18 @@ async def lifespan(app: FastAPI):
     global orchestrator, omega_kernel, knowledge_learner, cognitive_rag, analytics_engine
     global mco_orchestrator, mco_daemon, mco_bridge, cognitive_orchestrator_engine, multimodal_auditor
     logger.info("Initializing Sentinel-E v5.0 Production System...")
+
+    # FIX #5: Validate production configuration on startup (fail fast)
+    try:
+        validate_production_config()
+        logger.info("✅ Production configuration validated")
+    except ValueError as e:
+        logger.error(f"Configuration validation failed: {e}")
+        if ENV == "production":
+            raise
+
+    # FIX #2: Install global exception handler (catch unhandled exceptions)
+    log_unhandled_exceptions()
 
     # Initialize DB with timeout to prevent NeonDB cold start from blocking deploy
     try:
@@ -441,6 +460,7 @@ app.include_router(battle_router)
 
 # ── Admin Routes ──────────────────────────────────────────────
 app.include_router(admin_router)
+app.include_router(workflow_admin_router)
 
 # ── Standard Mode Router (POST /chat/{model_id}) ──────────────
 app.include_router(chat_router)
@@ -451,14 +471,12 @@ app.include_router(chat_router)
 # ============================================================
 
 def _evict_sessions():
-    """Evict oldest sessions when limit reached."""
-    global omega_sessions, memory_sessions
-    if len(omega_sessions) > MAX_SESSIONS:
-        keys = list(omega_sessions.keys())[:MAX_SESSIONS // 4]
-        for k in keys:
-            omega_sessions.pop(k, None)
-            memory_sessions.pop(k, None)
-        logger.info(f"Evicted {len(keys)} sessions (limit: {MAX_SESSIONS})")
+    """
+    DEPRECATED: Session eviction now handled by SessionCacheManager.
+    This function is kept for backward compatibility but is no longer needed.
+    SessionCacheManager automatically evicts oldest sessions when max capacity reached.
+    """
+    pass  # No-op; SessionCacheManager handles this safely
 
 
 async def _persist_session(chat_id: str, kernel: OmegaCognitiveKernel, memory: MemoryEngine):
@@ -557,14 +575,15 @@ async def _get_session(chat_id: str, user_id: str = ""):
         return kernel, memory
 
     # Create new session with ownership metadata
-    _evict_sessions()
+    # Note: Session eviction is now handled automatically by SessionCacheManager (LRU+TTL)
     kernel = OmegaCognitiveKernel(
         sigma_orchestrator=orchestrator,
         knowledge_learner=knowledge_learner,
         cloud_client=mco_bridge,
     )
-    # ✅ Store owner user_id for future validation
+    # ✅ FIX #5: Store ownership metadata for session hijacking prevention
     kernel._owner_user_id = user_id
+    kernel._session_id = chat_id  # Session ownership validation requires this
     
     memory = MemoryEngine(user_id=user_id)
     omega_sessions[chat_id] = kernel
@@ -718,6 +737,14 @@ async def run_sentinel(
 
     # ── Session & Memory ─────────────────────────────────────
     kernel, memory = await _get_session(str(chat.id), user_id)
+    
+    # ✅ FIX #5: Validate kernel ownership before using it (prevents session hijacking)
+    try:
+        await validate_kernel_before_use(kernel, user_id, str(chat.id))
+    except ValueError as e:
+        logger.error(f"Kernel validation failed: {e}")
+        raise HTTPException(status_code=403, detail="Session validation failed")
+    
     memory.add_message("user", effective_text)
 
     # ── Conversation History ─────────────────────────────────
@@ -2186,14 +2213,20 @@ async def omega_session_state(
     chat_id: str,
     user: Dict = Depends(get_current_user),
 ):
+    user_id = user["user_id"]
+    
     if chat_id in omega_sessions:
         kernel = omega_sessions[chat_id]
+        # ✅ FIX #5: Verify ownership before returning session state
+        if hasattr(kernel, '_owner_user_id') and kernel._owner_user_id != user_id:
+            logger.warning(f"Unauthorized session access: {chat_id} by {user_id}")
+            raise HTTPException(status_code=403, detail="Access denied")
         return {
             "chat_id": chat_id,
             "session_state": kernel.get_session_state(),
             "initialized": kernel.is_initialized(),
         }
-    kernel, _ = await _restore_session(chat_id)
+    kernel, _ = await _restore_session(chat_id, user_id)
     if kernel:
         return {
             "chat_id": chat_id,
@@ -2208,11 +2241,19 @@ async def session_descriptive(
     chat_id: str,
     user: Dict = Depends(get_current_user),
 ):
+    user_id = user["user_id"]
+    
     kernel = omega_sessions.get(chat_id)
     if not kernel:
-        kernel, _ = await _restore_session(chat_id)
+        kernel, _ = await _restore_session(chat_id, user_id)
     if not kernel:
         return {"error": "Session not found", "chat_id": chat_id}
+    
+    # ✅ FIX #5: Verify ownership before returning session details
+    if hasattr(kernel, '_owner_user_id') and kernel._owner_user_id != user_id:
+        logger.warning(f"Unauthorized session access: {chat_id} by {user_id}")
+        raise HTTPException(status_code=403, detail="Access denied")
+    
     try:
         return kernel.session.get_descriptive_summary()
     except Exception as e:
@@ -2226,12 +2267,18 @@ async def cross_model_analysis(
     llm_response: str = Body(""),
     user: Dict = Depends(get_current_user),
 ):
+    user_id = user["user_id"]
+    
     if not mco_orchestrator or not mco_orchestrator.cognitive_gateway:
         raise HTTPException(status_code=503, detail="System not ready")
 
     try:
         if not llm_response and chat_id and chat_id in omega_sessions:
             kernel = omega_sessions[chat_id]
+            # ✅ FIX #5: Verify kernel ownership
+            if hasattr(kernel, '_owner_user_id') and kernel._owner_user_id != user_id:
+                logger.warning(f"Unauthorized session access: {chat_id} by {user_id}")
+                raise HTTPException(status_code=403, detail="Access denied")
             session_state = kernel.get_session_state()
             llm_response = session_state.get("last_response", "")
 
