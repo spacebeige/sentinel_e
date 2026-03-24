@@ -32,21 +32,32 @@ import ChatPage from './pages/ChatPage';
 import PricingPageWrapper from './pages/PricingPageWrapper';
 import ModelsPageWrapper from './pages/ModelsPageWrapper';
 import AdminDashboard from './pages/AdminDashboard';
+import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
     <CognitiveStoreProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/chat" element={<ChatPage />} />
-            <Route path="/pricing" element={<PricingPageWrapper />} />
-            <Route path="/models" element={<ModelsPageWrapper />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<Layout />}>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/pricing" element={<PricingPageWrapper />} />
+              <Route path="/models" element={<ModelsPageWrapper />} />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </ErrorBoundary>
     </CognitiveStoreProvider>
   );
 }

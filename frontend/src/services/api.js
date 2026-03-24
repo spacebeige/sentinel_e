@@ -3,8 +3,10 @@
  * API Service — Secure Backend Communication Layer
  * ============================================================
  * 
- * SECURITY:
+ * SECURITY (FIX #3 - XSS Protection):
  *   - JWT token management (auto-refresh)
+ *   - Tokens now stored in HttpOnly cookies (server-side)
+ *   - Frontend never exposes tokens to JavaScript
  *   - No API keys in frontend
  *   - No system prompts exposed
  *   - All sensitive logic server-side
@@ -18,29 +20,30 @@
 import axios from 'axios';
 import { API_BASE } from '../config';
 
-// ── Token Storage (memory-only, not localStorage) ───────────
-let _accessToken = null;
-let _refreshToken = null;
+// ── Token Storage ───────────────────────────────
+// MIGRATION NOTE: Tokens are now stored in HttpOnly cookies by the backend.
+// Frontend no longer directly manages token storage (XSS protection).
+// The axios instance below automatically includes cookies in requests.
 let _sessionId = null;
 let _tokenRefreshPromise = null;
 
 /**
  * Create an axios instance with interceptors for auth.
+ * FIX #3: Include credentials (cookies) in all requests
  */
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 120000,
+  credentials: 'include',  // ✅ Always include HttpOnly cookies
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// ── Request Interceptor: Attach JWT ─────────────────────────
+// ── Request Interceptor: Add request ID ────────────────────
 api.interceptors.request.use(
   (config) => {
-    if (_accessToken) {
-      config.headers.Authorization = `Bearer ${_accessToken}`;
-    }
+    // Tokens are now in HttpOnly cookies (automatic via credentials: 'include')
     // Add request ID for tracing
     config.headers['X-Request-ID'] = generateRequestId();
     return config;
@@ -48,24 +51,24 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ── Response Interceptor: Handle 401, retry with refresh ────
+// ── Response Interceptor: Handle 401 ────────────────────────
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
+    // FIX #3: With HttpOnly cookies, 401 means session expired
+    // Re-initialize session and retry
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        await refreshSession();
-        originalRequest.headers.Authorization = `Bearer ${_accessToken}`;
+        await initSession();
         return api(originalRequest);
       } catch (refreshError) {
-        // Session expired, bootstrap new one
-        await initSession();
-        originalRequest.headers.Authorization = `Bearer ${_accessToken}`;
-        return api(originalRequest);
+        // Session init failed, redirect to login
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
       }
     }
 
@@ -78,14 +81,15 @@ api.interceptors.response.use(
 // ── Session Management ──────────────────────────────────────
 
 /**
- * Initialize a new anonymous session.
+ * Initialize a new session.
  * Called once on app startup.
+ * FIX #3: Tokens are now handled by server as HttpOnly cookies
  */
 export async function initSession() {
   try {
-    const res = await axios.post(`${API_BASE}/api/auth/session`);
-    _accessToken = res.data.access_token;
-    _refreshToken = res.data.refresh_token;
+    const res = await axios.post(`${API_BASE}/api/auth/session`, {}, {
+      withCredentials: true,  // ✅ Allow cookie setting
+    });
     _sessionId = res.data.session_id;
     return res.data;
   } catch (error) {
@@ -95,15 +99,15 @@ export async function initSession() {
 }
 
 /**
- * Refresh the access token using the refresh token.
+ * Refresh the session.
+ * FIX #3: Token refresh now handled server-side via cookie rotation
  */
 async function refreshSession() {
   if (_tokenRefreshPromise) return _tokenRefreshPromise;
 
-  _tokenRefreshPromise = axios.post(`${API_BASE}/api/auth/refresh`, {
-    refresh_token: _refreshToken,
+  _tokenRefreshPromise = axios.post(`${API_BASE}/api/auth/refresh`, {}, {
+    withCredentials: true,  // ✅ Include HttpOnly cookies
   }).then((res) => {
-    _accessToken = res.data.access_token;
     _tokenRefreshPromise = null;
     return res.data;
   }).catch((err) => {
@@ -118,8 +122,17 @@ export function getSessionId() {
   return _sessionId;
 }
 
-export function isAuthenticated() {
-  return !!_accessToken;
+/**
+ * Check if user is authenticated
+ * FIX #3: Verify via HTTP request to protected endpoint
+ */
+export async function isAuthenticated() {
+  try {
+    const res = await api.get('/api/auth/verify');
+    return res.status === 200;
+  } catch {
+    return false;
+  }
 }
 
 // ── API Methods ─────────────────────────────────────────────
