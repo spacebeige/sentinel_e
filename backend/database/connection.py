@@ -67,11 +67,14 @@ _db_logger = logging.getLogger("Database")
 _db_logger.info("Connecting to database...")
 # SECURITY: Never log connection strings or credentials
 
-# FIX #8: Use proper connection pooling instead of NullPool
-# Prevents connection exhaustion at scale (100+ concurrent users)
-from sqlalchemy.pool import QueuePool
+# NOTE: For async engines (create_async_engine), SQLAlchemy does NOT support QueuePool
+# Use NullPool for async PostgreSQL connections - connection pooling is handled by:
+# 1. asyncpg's built-in connection pooling (backend default)
+# 2. pgbouncer or similar proxy (Render deployment default)
+# 3. PostgreSQL's connection pooling at the server level
+from sqlalchemy.pool import NullPool
 
-# PostgreSQL Async Engine Configuration with proper connection pooling
+# PostgreSQL Async Engine Configuration
 if "timeout" not in connect_args:
     connect_args["timeout"] = 10  # asyncpg connection timeout in seconds
 
@@ -80,9 +83,7 @@ engine = create_async_engine(
     echo=False, 
     future=True, 
     connect_args=connect_args,
-    poolclass=QueuePool,
-    pool_size=20,           # Keep 20 connections open
-    max_overflow=40,        # Allow up to 40 additional temporary connections
+    poolclass=NullPool,  # Required for async engines - connection pooling handled by pgbouncer/asyncpg
     pool_pre_ping=True,     # Verify connection health before using
     pool_recycle=3600,      # Recycle connections after 1 hour
 )
