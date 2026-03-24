@@ -5,7 +5,8 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Sigma, Sun, Moon } from 'lucide-react';
+import { Menu, X, Sigma, Sun, Moon, Shield } from 'lucide-react';
+import { useAdminRole } from '../hooks/useAdminRole';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -18,6 +19,7 @@ const navLinks = [
 
 export default function Navbar() {
   const location = useLocation();
+  const { isAdmin } = useAdminRole();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dark, setDark] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -87,6 +89,23 @@ export default function Navbar() {
               </Link>
             );
           })}
+          
+          {/* Admin Link (Conditional) */}
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className={`px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 ${
+                location.pathname === '/admin'
+                  ? dark ? 'bg-purple-600/30 text-purple-300' : 'bg-purple-100 text-purple-700'
+                  : dark ? 'text-purple-300/60 hover:text-purple-300 hover:bg-purple-600/10' : 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'
+              }`}
+              style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 500 }}
+              title="Admin Dashboard"
+            >
+              <Shield className="w-4 h-4" />
+              Admin
+            </Link>
+          )}
         </div>
 
         {/* Right side: Theme Toggle + CTA */}
@@ -148,6 +167,40 @@ export default function Navbar() {
                 className={`block px-4 py-2.5 rounded-xl mb-1 transition-all ${
                   isActive
                     ? dark ? 'bg-white text-[#1d1d1f]' : 'bg-[#1d1d1f] text-white'
+                    : dark ? 'text-white/60 hover:bg-white/10' : 'text-[#6e6e73] hover:bg-black/5'
+                }`}
+                style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 500 }}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className={`px-4 py-2.5 rounded-xl mb-1 transition-all flex items-center gap-2 ${
+                location.pathname === '/admin'
+                  ? dark ? 'bg-purple-600/30 text-purple-300' : 'bg-purple-100 text-purple-700'
+                  : dark ? 'text-purple-300/60 hover:bg-purple-600/10' : 'text-purple-600 hover:bg-purple-50'
+              }`}
+              style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 500 }}
+            >
+              <Shield className="w-4 h-4" />
+              Admin Dashboard
+            </Link>
+          )}
+          <Link
+            to="/chat"
+            className="block text-center mt-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] text-white"
+            style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 500 }}
+          >
+            Try Free
+          </Link>
+        </div>
+      )}
+    </nav>
+  );
+}
                     : dark ? 'text-white/60 hover:bg-white/10' : 'text-[#6e6e73] hover:bg-black/5'
                 }`}
                 style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 500 }}

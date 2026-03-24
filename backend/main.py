@@ -53,6 +53,7 @@ from gateway.auth import (
     create_access_token, create_refresh_token,
     get_current_user, get_optional_user, decode_token,
 )
+from gateway.firebase_service import get_firebase_service, firebase_is_enabled
 from gateway.middleware import (
     RateLimitMiddleware, SecurityHeadersMiddleware,
     RequestTrackingMiddleware, ErrorHandlerMiddleware,
@@ -110,6 +111,9 @@ from evaluation.routes import router as battle_router
 
 # ── Standard Mode (direct model routing) ─────────────────────
 from gateway.chat_routes import router as chat_router
+
+# ── Admin Routes ──────────────────────────────────────────────
+from gateway.admin_routes import router as admin_router
 
 # ── Logging ──────────────────────────────────────────────────
 settings = get_settings()
@@ -268,6 +272,13 @@ async def lifespan(app: FastAPI):
     except (asyncio.TimeoutError, Exception) as e:
         logger.warning(f"Redis check timed out or failed (non-fatal): {e}")
     await asyncio.to_thread(_ensure_session_sqlite_table)
+
+    # Initialize Firebase Admin SDK
+    firebase_service = await asyncio.to_thread(get_firebase_service)
+    if firebase_is_enabled():
+        logger.info("✓ Firebase Admin SDK initialized successfully")
+    else:
+        logger.warning("Firebase Admin SDK not initialized (optional — backend will work without it)")
 
     # Initialize core components
     orchestrator = SentinelSigmaOrchestratorV4()
@@ -428,6 +439,9 @@ app.include_router(mco_router)
 # ── Battle Platform v2 Router ────────────────────────────────
 app.include_router(battle_router)
 
+# ── Admin Routes ──────────────────────────────────────────────
+app.include_router(admin_router)
+
 # ── Standard Mode Router (POST /chat/{model_id}) ──────────────
 app.include_router(chat_router)
 
@@ -448,9 +462,13 @@ def _evict_sessions():
 
 
 async def _persist_session(chat_id: str, kernel: OmegaCognitiveKernel, memory: MemoryEngine):
-    """Persist session to SQLite (primary) with Redis as optional best-effort mirror."""
+    """Persist session to SQLite (primary) with Redis as optional best-effort mirror.
+    
+    ✅ Includes ownership metadata for security validation on restore.
+    """
     try:
         session_data = {
+            "owner_user_id": getattr(kernel, '_owner_user_id', None),  # ✅ Store owner
             "omega": kernel.serialize_session(),
             "memory": memory.serialize(),
         }
@@ -463,12 +481,16 @@ async def _persist_session(chat_id: str, kernel: OmegaCognitiveKernel, memory: M
             settings.REDIS_SESSION_TTL,
             payload,
         )
+        logger.debug(f"✓ Persisted session {chat_id} for user {session_data.get('owner_user_id')}")
     except Exception as e:
         logger.warning(f"Session persist failed: {e}")
 
 
 async def _restore_session(chat_id: str, user_id: str = ""):
-    """Restore session from SQLite first, then Redis fallback for backward compatibility."""
+    """Restore session from SQLite first, then Redis fallback for backward compatibility.
+    
+    ✅ Validates user ownership before restoring.
+    """
     try:
         cached = await asyncio.to_thread(_sqlite_read_session, chat_id)
         if not cached:
@@ -478,43 +500,76 @@ async def _restore_session(chat_id: str, user_id: str = ""):
             return None, None
 
         data = json.loads(cached)
+        
+        # ✅ Verify ownership metadata
+        owner_user_id = data.get("owner_user_id")
+        if owner_user_id and user_id and owner_user_id != user_id:
+            logger.warning(f"🔒 SECURITY: Session restore ownership mismatch - chat_id={chat_id}, attempted_by={user_id}, owner={owner_user_id}")
+            raise HTTPException(status_code=403, detail="Unauthorized: Cannot restore session owned by another user")
+        
         kernel = OmegaCognitiveKernel.restore_from_session(
             data.get("omega", {}),
             sigma_orchestrator=orchestrator,
             knowledge_learner=knowledge_learner,
             cloud_client=mco_bridge,
         )
+        # ✅ Set owner on restored kernel
+        kernel._owner_user_id = user_id or owner_user_id
+        
         memory = MemoryEngine.deserialize(data.get("memory", {}))
+        memory.user_id = user_id  # ✅ Update to current user
+        
         return kernel, memory
+    except HTTPException:
+        raise  # Re-raise authorization errors
     except Exception as e:
         logger.warning(f"Session restore failed: {e}")
     return None, None
 
 
 async def _get_session(chat_id: str, user_id: str = ""):
-    """Get or create session pair."""
+    """Get or create session pair with user ownership validation."""
     global omega_sessions, memory_sessions
 
+    # ✅ Check cache ownership - verify user owns this session
     if chat_id in omega_sessions:
-        return omega_sessions[chat_id], memory_sessions.get(chat_id, MemoryEngine(user_id=user_id))
+        cached_kernel = omega_sessions[chat_id]
+        cached_memory = memory_sessions.get(chat_id, None)
+        
+        # Verify ownership if metadata exists
+        if hasattr(cached_kernel, '_owner_user_id') and cached_kernel._owner_user_id:
+            if cached_kernel._owner_user_id != user_id:
+                logger.warning(f"🔒 SECURITY: Attempted unauthorized session access - chat_id={chat_id}, attempted_by={user_id}, owner={cached_kernel._owner_user_id}")
+                raise HTTPException(status_code=403, detail="Unauthorized: This session belongs to another user")
+        
+        # Return cached session if ownership verified
+        if not cached_memory:
+            cached_memory = MemoryEngine(user_id=user_id)
+            memory_sessions[chat_id] = cached_memory
+        return cached_kernel, cached_memory
 
-    # Try persisted cache (SQLite first, Redis fallback)
+    # Try persisted cache (SQLite first, Redis fallback) with user validation
     kernel, memory = await _restore_session(chat_id, user_id)
     if kernel:
         omega_sessions[chat_id] = kernel
         memory_sessions[chat_id] = memory
+        logger.debug(f"✓ Restored session {chat_id} for user {user_id}")
         return kernel, memory
 
-    # Create new
+    # Create new session with ownership metadata
     _evict_sessions()
     kernel = OmegaCognitiveKernel(
         sigma_orchestrator=orchestrator,
         knowledge_learner=knowledge_learner,
         cloud_client=mco_bridge,
     )
+    # ✅ Store owner user_id for future validation
+    kernel._owner_user_id = user_id
+    
     memory = MemoryEngine(user_id=user_id)
     omega_sessions[chat_id] = kernel
     memory_sessions[chat_id] = memory
+    logger.debug(f"✓ Created new session {chat_id} for user {user_id}")
     return kernel, memory
 
 
@@ -647,7 +702,13 @@ async def run_sentinel(
     # ── Chat Resolution ──────────────────────────────────────
     chat = None
     if request.chat_id:
-        chat = await get_chat(db, request.chat_id)
+        # ✅ Verify user owns this chat
+        chat = await get_chat(db, request.chat_id, user_id=user_id)
+        if request.chat_id and not chat:
+            # Chat ID provided but doesn't exist or doesn't belong to user
+            logger.warning(f"Unauthorized chat access attempt: {request.chat_id} by {user_id}")
+            raise HTTPException(status_code=403, detail="Chat not found or unauthorized access")
+    
     if not chat:
         chat_name = generate_chat_name(effective_text, request.mode)
         chat = await create_chat(db, chat_name, request.mode, user_id=user_id)
@@ -662,7 +723,8 @@ async def run_sentinel(
     # ── Conversation History ─────────────────────────────────
     history = []
     try:
-        stored = await get_chat_messages(db, chat.id)
+        # ✅ Pass user_id to verify ownership
+        stored = await get_chat_messages(db, chat.id, user_id=user_id)
         if len(stored) > 1:
             for msg in stored[-settings.SHORT_TERM_MEMORY_SIZE:]:
                 history.append({"role": msg.role, "content": msg.content})
@@ -1518,7 +1580,12 @@ async def run_compressed(
     # Resolve chat for session continuity
     chat = None
     if request.chat_id:
-        chat = await get_chat(db, request.chat_id)
+        # ✅ Verify user owns this chat
+        chat = await get_chat(db, request.chat_id, user_id=user_id)
+        if request.chat_id and not chat:
+            logger.warning(f"Unauthorized chat access attempt: {request.chat_id} by {user_id}")
+            raise HTTPException(status_code=403, detail="Chat not found or unauthorized access")
+    
     if not chat:
         chat_name = generate_chat_name(effective_text, "compressed")
         chat = await create_chat(db, chat_name, "compressed", user_id=user_id)
@@ -1985,7 +2052,9 @@ async def get_chats_list(
     db: AsyncSession = Depends(get_db),
     user: Dict = Depends(get_current_user),
 ):
-    chats = await list_chats(db, limit, offset)
+    # ✅ Pass user_id to filter chats by owner
+    user_id = user["user_id"]
+    chats = await list_chats(db, user_id, limit, offset)
     return chats
 
 
@@ -1995,7 +2064,9 @@ async def history_alias(
     db: AsyncSession = Depends(get_db),
     user: Dict = Depends(get_current_user),
 ):
-    return await list_chats(db, limit, offset)
+    # ✅ Pass user_id to filter chats by owner
+    user_id = user["user_id"]
+    return await list_chats(db, user_id, limit, offset)
 
 
 @app.get("/api/chat/{chat_id}")
@@ -2004,10 +2075,13 @@ async def get_chat_detail(
     db: AsyncSession = Depends(get_db),
     user: Dict = Depends(get_current_user),
 ):
-    chat = await get_chat(db, chat_id)
+    user_id = user["user_id"]
+    # ✅ Verify user owns this chat
+    chat = await get_chat(db, chat_id, user_id=user_id)
     if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
-    messages = await get_chat_messages(db, chat_id)
+        raise HTTPException(status_code=403, detail="Chat not found or unauthorized")
+    
+    messages = await get_chat_messages(db, chat_id, user_id=user_id)
     return {"chat": chat, "messages": messages}
 
 
@@ -2017,7 +2091,15 @@ async def get_messages(
     db: AsyncSession = Depends(get_db),
     user: Dict = Depends(get_current_user),
 ):
-    msgs = await get_chat_messages(db, chat_id)
+    user_id = user["user_id"]
+    # ✅ Verify user owns this chat before returning messages
+    msgs = await get_chat_messages(db, chat_id, user_id=user_id)
+    if not msgs:
+        # Check if chat exists but user doesn't own it
+        chat = await get_chat(db, chat_id)
+        if chat and chat.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Unauthorized: Cannot access this chat")
+    
     return [
         {
             "role": m.role,

@@ -1,0 +1,93 @@
+2026-03-21 20:42:35,928 INFO [INIT] Loaded environment from: /Users/ashwinagarkhed/AVA-AI-Voice-Agent-for-Asterisk/awaaz/.env
+
+=== SCRIPT DETECTION TESTS ===
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='mr' | expected_script='devanagari' | detected_script='devanagari' | is_native=True | text_sample='नमस्कार! तुम्ही AWAAZ मध्ये आहात.'
+  [PASS] lang=mr   | script=devanagari   (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='hi' | expected_script='devanagari' | detected_script='devanagari' | is_native=True | text_sample='नमस्ते, आप कैसे हैं?'
+  [PASS] lang=hi   | script=devanagari   (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='ta' | expected_script='tamil' | detected_script='tamil' | is_native=True | text_sample='வணக்கம், எப்படி இருக்கீங்க?'
+  [PASS] lang=ta   | script=tamil        (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='te' | expected_script='telugu' | detected_script='telugu' | is_native=True | text_sample='నమస్కారం, మీరు ఎలా ఉన్నారు?'
+  [PASS] lang=te   | script=telugu       (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='kn' | expected_script='kannada' | detected_script='kannada' | is_native=True | text_sample='ನಮಸ್ಕಾರ, ನೀವು ಹೇಗಿದ್ದೀರಿ?'
+  [PASS] lang=kn   | script=kannada      (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='ml' | expected_script='malayalam' | detected_script='malayalam' | is_native=True | text_sample='നമസ്കാരം, സുഖമാണോ?'
+  [PASS] lang=ml   | script=malayalam    (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='bn' | expected_script='bengali' | detected_script='bengali' | is_native=True | text_sample='নমস্কার, আপনি কেমন আছেন?'
+  [PASS] lang=bn   | script=bengali      (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='gu' | expected_script='gujarati' | detected_script='gujarati' | is_native=True | text_sample='નમસ્તે, તમે કેમ છો?'
+  [PASS] lang=gu   | script=gujarati     (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='pa' | expected_script='gurmukhi' | detected_script='gurmukhi' | is_native=True | text_sample='ਸਤ ਸ੍ਰੀ ਅਕਾਲ, ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ?'
+  [PASS] lang=pa   | script=gurmukhi     (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='ar' | expected_script='arabic' | detected_script='arabic' | is_native=True | text_sample='مرحبا، كيف حالك؟'
+  [PASS] lang=ar   | script=arabic       (ok) | native=True (ok) | providers=['elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='ur' | expected_script='arabic' | detected_script='arabic' | is_native=True | text_sample='آپ کیسے ہیں؟'
+  [PASS] lang=ur   | script=arabic       (ok) | native=True (ok) | providers=['elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='en' | expected_script='latin' | detected_script='latin' | is_native=True | text_sample='Hello, how are you?'
+  [PASS] lang=en   | script=latin        (ok) | native=True (ok) | providers=['elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='fr' | expected_script='latin' | detected_script='latin' | is_native=True | text_sample='Bonjour, comment allez-vous?'
+  [PASS] lang=fr   | script=latin        (ok) | native=True (ok) | providers=['elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='ru' | expected_script='cyrillic' | detected_script='cyrillic' | is_native=True | text_sample='Здравствуйте, как дела?'
+  [PASS] lang=ru   | script=cyrillic     (ok) | native=True (ok) | providers=['elevenlabs', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='zh' | expected_script='cjk' | detected_script='cjk' | is_native=True | text_sample='你好，你怎么样？'
+  [PASS] lang=zh   | script=cjk          (ok) | native=True (ok) | providers=['elevenlabs', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='ja' | expected_script='cjk' | detected_script='cjk' | is_native=True | text_sample='こんにちは、お元気ですか？'
+  [PASS] lang=ja   | script=cjk          (ok) | native=True (ok) | providers=['elevenlabs', 'gtts']
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='mr' | expected_script='devanagari' | detected_script='latin' | is_native=False | text_sample='Hello world'
+  [FAIL] lang=mr   | script=latin        (WRONG, expected devanagari) | native=False (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+
+SOME TESTS FAILED
+
+=== TTS SYNTHESIS TEST (Marathi) ===
+2026-03-21 20:42:35,934 DEBUG [D1-SCRIPT] lang='mr' | expected_script='devanagari' | detected_script='devanagari' | is_native=True | text_sample='नमस्कार! तुम्ही AWAAZ मध्ये आहात.'
+2026-03-21 20:42:35,935 DEBUG [D2-ROUTING] lang='mr' | script=devanagari | native_script=True | provider_chain=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:35,935 DEBUG [D3-REQUEST] provider=sarvam | lang='mr' | sarvam_lang='mr-IN' | speaker='anushka' | pace=0.9 | text_len=33
+2026-03-21 20:42:35,944 DEBUG Starting new HTTPS connection (1): api.sarvam.ai:443
+2026-03-21 20:42:36,025 DEBUG https://api.sarvam.ai:443 "POST /text-to-speech HTTP/1.1" 400 231
+2026-03-21 20:42:36,025 DEBUG [D4-RESPONSE] provider=sarvam | status=400 | latency=90ms
+2026-03-21 20:42:36,025 WARNING [D5-ERROR] provider='sarvam' failed | lang='mr' | error=[D5-ERROR] sarvam 400 | lang='mr' | body={"error":{"message":"Pitch and loudness parameters are currently not supported for the Bulbul V3 model. Please do not pass these values.","code":"invalid_request_error","request_id":"20260321_b419fa8d-ef67-4471-9a6d-fb835e176189"}} | trying next provider
+2026-03-21 20:42:36,027 DEBUG [D3-REQUEST] provider=elevenlabs | voice='pFZP5JQG7iQjIQuC4Bku' | model='eleven_multilingual_v2' | lang='mr' | text_len=33 | url=https://api.elevenlabs.io/v1/text-to-speech/pFZP5JQG7iQjIQuC4Bku
+2026-03-21 20:42:36,029 DEBUG Starting new HTTPS connection (1): api.elevenlabs.io:443
+2026-03-21 20:42:37,422 DEBUG https://api.elevenlabs.io:443 "POST /v1/text-to-speech/pFZP5JQG7iQjIQuC4Bku HTTP/1.1" 200 None
+2026-03-21 20:42:37,441 DEBUG [D4-RESPONSE] provider=elevenlabs | status=200 | latency=1414ms | content_type=audio/mpeg
+2026-03-21 20:42:37,444 INFO [D6-SUCCESS] provider=elevenlabs | lang='mr' | path=/tmp/test_mr.wav | bytes=53960 | latency=1414ms
+  Provider used : elevenlabs
+  Output path   : /tmp/test_mr.wav
+  Time          : 1.51s
+
+=== TTS SYNTHESIS TEST (Tamil) ===
+2026-03-21 20:42:37,447 DEBUG [D1-SCRIPT] lang='ta' | expected_script='tamil' | detected_script='tamil' | is_native=True | text_sample='வணக்கம்!'
+2026-03-21 20:42:37,447 DEBUG [D2-ROUTING] lang='ta' | script=tamil | native_script=True | provider_chain=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:37,447 DEBUG [D3-REQUEST] provider=sarvam | lang='ta' | sarvam_lang='ta-IN' | speaker='ritu' | pace=0.95 | text_len=8
+2026-03-21 20:42:37,450 DEBUG Starting new HTTPS connection (1): api.sarvam.ai:443
+2026-03-21 20:42:37,518 DEBUG https://api.sarvam.ai:443 "POST /text-to-speech HTTP/1.1" 400 231
+2026-03-21 20:42:37,519 DEBUG [D4-RESPONSE] provider=sarvam | status=400 | latency=71ms
+2026-03-21 20:42:37,519 WARNING [D5-ERROR] provider='sarvam' failed | lang='ta' | error=[D5-ERROR] sarvam 400 | lang='ta' | body={"error":{"message":"Pitch and loudness parameters are currently not supported for the Bulbul V3 model. Please do not pass these values.","code":"invalid_request_error","request_id":"20260321_82f3590e-cea4-425b-8594-047c03abf281"}} | trying next provider
+2026-03-21 20:42:37,520 DEBUG [D3-REQUEST] provider=elevenlabs | voice='pFZP5JQG7iQjIQuC4Bku' | model='eleven_multilingual_v2' | lang='ta' | text_len=8 | url=https://api.elevenlabs.io/v1/text-to-speech/pFZP5JQG7iQjIQuC4Bku
+2026-03-21 20:42:37,524 DEBUG Starting new HTTPS connection (1): api.elevenlabs.io:443
+2026-03-21 20:42:38,764 DEBUG https://api.elevenlabs.io:443 "POST /v1/text-to-speech/pFZP5JQG7iQjIQuC4Bku HTTP/1.1" 200 None
+2026-03-21 20:42:38,772 DEBUG [D4-RESPONSE] provider=elevenlabs | status=200 | latency=1251ms | content_type=audio/mpeg
+2026-03-21 20:42:38,774 INFO [D6-SUCCESS] provider=elevenlabs | lang='ta' | path=/tmp/test_ta.wav | bytes=16762 | latency=1251ms
+  Provider: elevenlabs | Time: 1.33s
+
+=== TTS SYNTHESIS TEST (Arabic) ===
+2026-03-21 20:42:38,777 DEBUG [D1-SCRIPT] lang='ar' | expected_script='arabic' | detected_script='arabic' | is_native=True | text_sample='مرحبا!'
+2026-03-21 20:42:38,777 DEBUG [D2-ROUTING] lang='ar' | script=arabic | native_script=True | provider_chain=['elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:38,777 DEBUG [D3-REQUEST] provider=elevenlabs | voice='pFZP5JQG7iQjIQuC4Bku' | model='eleven_multilingual_v2' | lang='ar' | text_len=6 | url=https://api.elevenlabs.io/v1/text-to-speech/pFZP5JQG7iQjIQuC4Bku
+2026-03-21 20:42:38,780 DEBUG Starting new HTTPS connection (1): api.elevenlabs.io:443
+2026-03-21 20:42:40,018 DEBUG https://api.elevenlabs.io:443 "POST /v1/text-to-speech/pFZP5JQG7iQjIQuC4Bku HTTP/1.1" 200 None
+2026-03-21 20:42:40,028 DEBUG [D4-RESPONSE] provider=elevenlabs | status=200 | latency=1250ms | content_type=audio/mpeg
+2026-03-21 20:42:40,029 INFO [D6-SUCCESS] provider=elevenlabs | lang='ar' | path=/tmp/test_ar.wav | bytes=18016 | latency=1250ms
+  Provider: elevenlabs | Time: 1.25s
+
+=== TTS SYNTHESIS TEST (English) ===
+2026-03-21 20:42:40,032 DEBUG [D1-SCRIPT] lang='en' | expected_script='latin' | detected_script='latin' | is_native=True | text_sample='Hello, world!'
+2026-03-21 20:42:40,032 DEBUG [D2-ROUTING] lang='en' | script=latin | native_script=True | provider_chain=['elevenlabs', 'groq', 'gtts']
+2026-03-21 20:42:40,032 DEBUG [D3-REQUEST] provider=elevenlabs | voice='pFZP5JQG7iQjIQuC4Bku' | model='eleven_multilingual_v2' | lang='en' | text_len=13 | url=https://api.elevenlabs.io/v1/text-to-speech/pFZP5JQG7iQjIQuC4Bku
+2026-03-21 20:42:40,035 DEBUG Starting new HTTPS connection (1): api.elevenlabs.io:443
+2026-03-21 20:42:41,283 DEBUG https://api.elevenlabs.io:443 "POST /v1/text-to-speech/pFZP5JQG7iQjIQuC4Bku HTTP/1.1" 200 None
+2026-03-21 20:42:41,295 DEBUG [D4-RESPONSE] provider=elevenlabs | status=200 | latency=1263ms | content_type=audio/mpeg
+2026-03-21 20:42:41,297 INFO [D6-SUCCESS] provider=elevenlabs | lang='en' | path=/tmp/test_en.wav | bytes=18852 | latency=1263ms
+  Provider: elevenlabs | Time: 1.27s
+
+Done.

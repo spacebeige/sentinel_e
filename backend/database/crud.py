@@ -6,6 +6,9 @@ from sqlalchemy.future import select
 from sqlalchemy import update
 from .models import Chat, Message
 import json
+import logging
+
+logger = logging.getLogger("CRUD")
 
 async def create_chat(
     db: AsyncSession, 
@@ -25,13 +28,26 @@ async def create_chat(
     await db.refresh(new_chat)
     return new_chat
 
-async def get_chat(db: AsyncSession, chat_id: UUID) -> Optional[Chat]:
-    result = await db.execute(select(Chat).where(Chat.id == chat_id))
+async def get_chat(db: AsyncSession, chat_id: UUID, user_id: Optional[str] = None) -> Optional[Chat]:
+    """Get a chat by ID. If user_id provided, verify ownership."""
+    query = select(Chat).where(Chat.id == chat_id)
+    if user_id:
+        # ✅ Verify user owns this chat
+        query = query.where(Chat.user_id == user_id)
+        logger.debug(f"Query: get_chat for {chat_id} by user {user_id}")
+    result = await db.execute(query)
     return result.scalars().first()
 
-async def list_chats(db: AsyncSession, limit: int = 50, offset: int = 0) -> List[Chat]:
+async def list_chats(db: AsyncSession, user_id: str, limit: int = 50, offset: int = 0) -> List[Chat]:
+    """List chats for a specific user."""
+    # ✅ REQUIRED: user_id filter to prevent cross-user data exposure
+    logger.debug(f"Query: list_chats for user {user_id}")
     result = await db.execute(
-        select(Chat).order_by(Chat.updated_at.desc()).limit(limit).offset(offset)
+        select(Chat)
+        .where(Chat.user_id == user_id)
+        .order_by(Chat.updated_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     return result.scalars().all()
 
@@ -91,10 +107,30 @@ async def add_message(
     await db.refresh(new_message)
     return new_message
 
-async def get_chat_messages(db: AsyncSession, chat_id: UUID) -> List[Message]:
-    result = await db.execute(
-        select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at.asc())
-    )
+async def get_chat_messages(db: AsyncSession, chat_id: UUID, user_id: Optional[str] = None) -> List[Message]:
+    """Get messages for a chat. If user_id provided, verify ownership."""
+    from sqlalchemy import and_
+    
+    # ✅ Verify chat ownership before returning messages
+    if user_id:
+        result = await db.execute(
+            select(Message)
+            .join(Chat, Message.chat_id == Chat.id)
+            .where(
+                and_(
+                    Message.chat_id == chat_id,
+                    Chat.user_id == user_id  # ✅ Ownership check
+                )
+            )
+            .order_by(Message.created_at.asc())
+        )
+        logger.debug(f"Query: get_chat_messages for {chat_id} by user {user_id}")
+    else:
+        result = await db.execute(
+            select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at.asc())
+        )
+        logger.debug(f"Query: get_chat_messages for {chat_id} (no user verification)")
+    
     return result.scalars().all()
 
 

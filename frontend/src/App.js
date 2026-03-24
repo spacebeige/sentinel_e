@@ -31,6 +31,7 @@ import LandingPage from './pages/LandingPage';
 import ChatPage from './pages/ChatPage';
 import PricingPageWrapper from './pages/PricingPageWrapper';
 import ModelsPageWrapper from './pages/ModelsPageWrapper';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/pricing" element={<PricingPageWrapper />} />
             <Route path="/models" element={<ModelsPageWrapper />} />
+            <Route path="/admin" element={<AdminDashboard />} />
           </Route>
         </Routes>
       </BrowserRouter>

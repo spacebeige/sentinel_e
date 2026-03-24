@@ -1,10 +1,23 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Integer, Text, ARRAY, JSON
+from sqlalchemy import Column, String, DateTime, Integer, Text, ARRAY, JSON, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
+
+
+class User(Base):
+    """User profiles with role management."""
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(String, unique=True, index=True, nullable=False)  # JWT sub claim
+    email = Column(String, unique=True, index=True, nullable=True)
+    role = Column(String, default="user", nullable=False)  # "user" | "admin" | "moderator"
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class Chat(Base):
     __tablename__ = "chats"

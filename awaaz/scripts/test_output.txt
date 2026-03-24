@@ -1,0 +1,13 @@
+
+[TEST] Running self-test...
+[DENOISE] noisereduce library loaded (spectral gating)
+[VAD] webrtcvad loaded (aggressiveness=2)
+
+  Self-test results:
+  ✓  NoiseReducer: OK  (SNR -10.2dB)
+  ✓  VADEngine (webrtcvad): OK  (is_speech=True)
+  ✓  QualityValidator: OK  (GOOD)
+  ✓  WAV save/load: OK
+  ✓  MicCalibrator (default): OK  (GOOD)
+
+  ALL TESTS PASSED

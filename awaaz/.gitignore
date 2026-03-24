@@ -1,0 +1,76 @@
+# AWAAZ .gitignore
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Audio files (temp)
+*.wav
+*.ulaw
+*.mp3
+tmp/
+temp/
+
+# Models (large, should not commit)
+*.bin
+models/
+*.pt
+*.pth
+
+# Docker
+.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Metrics/Monitoring
+*.prom
+
+# Temp files
+.pytest_cache/
+.coverage
+htmlcov/

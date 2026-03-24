@@ -7,6 +7,7 @@ Implements:
 - Token verification middleware
 - Anonymous session bootstrapping (auto-issued on first visit)
 - User identity isolation for chats
+- Admin role management
 """
 
 import uuid
@@ -78,6 +79,7 @@ async def get_current_user(
 ) -> Dict[str, Any]:
     """
     Extract user identity from JWT.
+    Queries database to populate role information.
     
     In development mode with no token, auto-bootstrap an anonymous session.
     In production, require valid JWT.
@@ -86,8 +88,33 @@ async def get_current_user(
 
     if credentials and credentials.credentials:
         payload = decode_token(credentials.credentials)
+        user_id = payload["sub"]
+        
+        # ✅ Query database for user's role
+        role = "user"  # default
+        try:
+            from database.connection import get_db
+            from sqlalchemy.future import select
+            from database.models import User
+            
+            # Create async database session
+            async def get_user_role():
+                from database.connection import AsyncSessionLocal
+                async with AsyncSessionLocal() as db:
+                    result = await db.execute(select(User).where(User.user_id == user_id))
+                    user = result.scalars().first()
+                    return user.role if user else "user"
+            
+            # Run in thread pool to avoid blocking
+            import asyncio
+            role = await asyncio.get_event_loop().run_in_executor(None, lambda: asyncio.run(get_user_role()))
+        except Exception as e:
+            logger.debug(f"Role lookup failed (non-fatal): {e}")
+            role = payload.get("role", "user")
+        
         return {
-            "user_id": payload["sub"],
+            "user_id": user_id,
+            "role": role,
             "token_type": payload.get("type", "access"),
             "authenticated": True,
         }
@@ -98,6 +125,7 @@ async def get_current_user(
         logger.debug(f"Anonymous session bootstrapped: {anon_id}")
         return {
             "user_id": anon_id,
+            "role": "user",
             "token_type": "anonymous",
             "authenticated": False,
         }

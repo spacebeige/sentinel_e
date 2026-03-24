@@ -1,0 +1,176 @@
+
+=== SCRIPT DETECTION TESTS ===
+2026-03-21 20:28:08,887 DEBUG [D1-SCRIPT] lang='mr' | expected_script='devanagari' | detected_script='devanagari' | is_native=True | text_sample='नमस्कार! तुम्ही AWAAZ मध्ये आहात.'
+  [PASS] lang=mr   | script=devanagari   (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,887 DEBUG [D1-SCRIPT] lang='hi' | expected_script='devanagari' | detected_script='devanagari' | is_native=True | text_sample='नमस्ते, आप कैसे हैं?'
+  [PASS] lang=hi   | script=devanagari   (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,887 DEBUG [D1-SCRIPT] lang='ta' | expected_script='tamil' | detected_script='tamil' | is_native=True | text_sample='வணக்கம், எப்படி இருக்கீங்க?'
+  [PASS] lang=ta   | script=tamil        (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,887 DEBUG [D1-SCRIPT] lang='te' | expected_script='telugu' | detected_script='telugu' | is_native=True | text_sample='నమస్కారం, మీరు ఎలా ఉన్నారు?'
+  [PASS] lang=te   | script=telugu       (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,887 DEBUG [D1-SCRIPT] lang='kn' | expected_script='kannada' | detected_script='kannada' | is_native=True | text_sample='ನಮಸ್ಕಾರ, ನೀವು ಹೇಗಿದ್ದೀರಿ?'
+  [PASS] lang=kn   | script=kannada      (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,887 DEBUG [D1-SCRIPT] lang='ml' | expected_script='malayalam' | detected_script='malayalam' | is_native=True | text_sample='നമസ്കാരം, സുഖമാണോ?'
+  [PASS] lang=ml   | script=malayalam    (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,887 DEBUG [D1-SCRIPT] lang='bn' | expected_script='bengali' | detected_script='bengali' | is_native=True | text_sample='নমস্কার, আপনি কেমন আছেন?'
+  [PASS] lang=bn   | script=bengali      (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,887 DEBUG [D1-SCRIPT] lang='gu' | expected_script='gujarati' | detected_script='gujarati' | is_native=True | text_sample='નમસ્તે, તમે કેમ છો?'
+  [PASS] lang=gu   | script=gujarati     (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,887 DEBUG [D1-SCRIPT] lang='pa' | expected_script='gurmukhi' | detected_script='gurmukhi' | is_native=True | text_sample='ਸਤ ਸ੍ਰੀ ਅਕਾਲ, ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ?'
+  [PASS] lang=pa   | script=gurmukhi     (ok) | native=True (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,887 DEBUG [D1-SCRIPT] lang='ar' | expected_script='arabic' | detected_script='arabic' | is_native=True | text_sample='مرحبا، كيف حالك؟'
+  [PASS] lang=ar   | script=arabic       (ok) | native=True (ok) | providers=['elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,887 DEBUG [D1-SCRIPT] lang='ur' | expected_script='arabic' | detected_script='arabic' | is_native=True | text_sample='آپ کیسے ہیں؟'
+  [PASS] lang=ur   | script=arabic       (ok) | native=True (ok) | providers=['elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,887 DEBUG [D1-SCRIPT] lang='en' | expected_script='latin' | detected_script='latin' | is_native=True | text_sample='Hello, how are you?'
+  [PASS] lang=en   | script=latin        (ok) | native=True (ok) | providers=['elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,888 DEBUG [D1-SCRIPT] lang='fr' | expected_script='latin' | detected_script='latin' | is_native=True | text_sample='Bonjour, comment allez-vous?'
+  [PASS] lang=fr   | script=latin        (ok) | native=True (ok) | providers=['elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,888 DEBUG [D1-SCRIPT] lang='ru' | expected_script='cyrillic' | detected_script='cyrillic' | is_native=True | text_sample='Здравствуйте, как дела?'
+  [PASS] lang=ru   | script=cyrillic     (ok) | native=True (ok) | providers=['elevenlabs', 'gtts']
+2026-03-21 20:28:08,888 DEBUG [D1-SCRIPT] lang='zh' | expected_script='cjk' | detected_script='cjk' | is_native=True | text_sample='你好，你怎么样？'
+  [PASS] lang=zh   | script=cjk          (ok) | native=True (ok) | providers=['elevenlabs', 'gtts']
+2026-03-21 20:28:08,888 DEBUG [D1-SCRIPT] lang='ja' | expected_script='cjk' | detected_script='cjk' | is_native=True | text_sample='こんにちは、お元気ですか？'
+  [PASS] lang=ja   | script=cjk          (ok) | native=True (ok) | providers=['elevenlabs', 'gtts']
+2026-03-21 20:28:08,888 DEBUG [D1-SCRIPT] lang='mr' | expected_script='devanagari' | detected_script='latin' | is_native=False | text_sample='Hello world'
+  [FAIL] lang=mr   | script=latin        (WRONG, expected devanagari) | native=False (ok) | providers=['sarvam', 'elevenlabs', 'groq', 'gtts']
+
+SOME TESTS FAILED
+
+=== TTS SYNTHESIS TEST (Marathi) ===
+2026-03-21 20:28:08,888 DEBUG [D1-SCRIPT] lang='mr' | expected_script='devanagari' | detected_script='devanagari' | is_native=True | text_sample='नमस्कार! तुम्ही AWAAZ मध्ये आहात.'
+2026-03-21 20:28:08,888 DEBUG [D2-ROUTING] lang='mr' | is_native_script=True | provider_order=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:08,888 WARNING [D5-ERROR] provider='sarvam' failed | lang='mr' | error=SARVAM_API_KEY missing | trying next provider
+2026-03-21 20:28:08,888 WARNING [D5-ERROR] provider='elevenlabs' failed | lang='mr' | error=ELEVENLABS_API_KEY missing | trying next provider
+2026-03-21 20:28:08,888 WARNING [D5-ERROR] provider='groq' failed | lang='mr' | error=GROQ_API_KEY missing | trying next provider
+2026-03-21 20:28:08,895 DEBUG [D3-REQUEST] provider=gtts | lang='mr' | gtts_lang='mr' | text_len=33
+2026-03-21 20:28:08,895 DEBUG text: नमस्कार! तुम्ही AWAAZ मध्ये आहात.
+2026-03-21 20:28:08,896 DEBUG tld: com
+2026-03-21 20:28:08,896 DEBUG lang: mr
+2026-03-21 20:28:08,896 DEBUG slow: False
+2026-03-21 20:28:08,896 DEBUG lang_check: True
+2026-03-21 20:28:08,896 DEBUG pre_processor_funcs: [<function tone_marks at 0x103d97c40>, <function end_of_line at 0x103d97420>, <function abbreviations at 0x103da09a0>, <function word_sub at 0x103da0a40>]
+2026-03-21 20:28:08,896 DEBUG tokenizer_func: <bound method Tokenizer.run of re.compile('(?<=\\?).|(?<=!).|(?<=？).|(?<=！).|(?<!\\.[a-z])\\. |(?<!\\.[a-z]), |(?<!\\d):|\\\n|\\)|…|\\]|¿|，|。|;|、|\\[|¡|‥|：|—|\\(|،', re.IGNORECASE) from: [<function tone_marks at 0x103da0b80>, <function period_comma at 0x103da0c20>, <function colon at 0x103da0cc0>, <function other_punctuation at 0x103da0d60>]>
+2026-03-21 20:28:08,896 DEBUG timeout: None
+2026-03-21 20:28:08,896 DEBUG langs: {'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'Arabic', 'bg': 'Bulgarian', 'bn': 'Bengali', 'bs': 'Bosnian', 'ca': 'Catalan', 'cs': 'Czech', 'cy': 'Welsh', 'da': 'Danish', 'de': 'German', 'el': 'Greek', 'en': 'English', 'es': 'Spanish', 'et': 'Estonian', 'eu': 'Basque', 'fi': 'Finnish', 'fr': 'French', 'fr-CA': 'French (Canada)', 'gl': 'Galician', 'gu': 'Gujarati', 'ha': 'Hausa', 'hi': 'Hindi', 'hr': 'Croatian', 'hu': 'Hungarian', 'id': 'Indonesian', 'is': 'Icelandic', 'it': 'Italian', 'iw': 'Hebrew', 'ja': 'Japanese', 'jw': 'Javanese', 'km': 'Khmer', 'kn': 'Kannada', 'ko': 'Korean', 'la': 'Latin', 'lt': 'Lithuanian', 'lv': 'Latvian', 'ml': 'Malayalam', 'mr': 'Marathi', 'ms': 'Malay', 'my': 'Myanmar (Burmese)', 'ne': 'Nepali', 'nl': 'Dutch', 'no': 'Norwegian', 'pa': 'Punjabi (Gurmukhi)', 'pl': 'Polish', 'pt': 'Portuguese (Brazil)', 'pt-PT': 'Portuguese (Portugal)', 'ro': 'Romanian', 'ru': 'Russian', 'si': 'Sinhala', 'sk': 'Slovak', 'sq': 'Albanian', 'sr': 'Serbian', 'su': 'Sundanese', 'sv': 'Swedish', 'sw': 'Swahili', 'ta': 'Tamil', 'te': 'Telugu', 'th': 'Thai', 'tl': 'Filipino', 'tr': 'Turkish', 'uk': 'Ukrainian', 'ur': 'Urdu', 'vi': 'Vietnamese', 'yue': 'Cantonese', 'zh-CN': 'Chinese (Simplified)', 'zh-TW': 'Chinese (Mandarin/Taiwan)', 'zh': 'Chinese (Mandarin)'}
+2026-03-21 20:28:08,896 DEBUG pre-processing: <function tone_marks at 0x103d97c40>
+2026-03-21 20:28:08,896 DEBUG pre-processing: <function end_of_line at 0x103d97420>
+2026-03-21 20:28:08,896 DEBUG pre-processing: <function abbreviations at 0x103da09a0>
+2026-03-21 20:28:08,896 DEBUG pre-processing: <function word_sub at 0x103da0a40>
+2026-03-21 20:28:08,897 DEBUG text_parts: ['नमस्कार!  तुम्ही AWAAZ मध्ये आहात.']
+2026-03-21 20:28:08,897 DEBUG text_parts: 1
+2026-03-21 20:28:08,897 DEBUG data-0: f.req=%5B%5B%5B%22jQ1olc%22%2C%22%5B%5C%22%5C%5Cu0928%5C%5Cu092e%5C%5Cu0938%5C%5Cu094d%5C%5Cu0915%5C%5Cu093e%5C%5Cu0930%21%20%20%5C%5Cu0924%5C%5Cu0941%5C%5Cu092e%5C%5Cu094d%5C%5Cu0939%5C%5Cu0940%20AWAAZ%20%5C%5Cu092e%5C%5Cu0927%5C%5Cu094d%5C%5Cu092f%5C%5Cu0947%20%5C%5Cu0906%5C%5Cu0939%5C%5Cu093e%5C%5Cu0924.%5C%22%2C%5C%22mr%5C%22%2Cnull%2C%5C%22null%5C%22%5D%22%2Cnull%2C%22generic%22%5D%5D%5D&
+2026-03-21 20:28:08,903 DEBUG Starting new HTTPS connection (1): translate.google.com:443
+2026-03-21 20:28:09,221 DEBUG https://translate.google.com:443 "POST /_/TranslateWebserverUi/data/batchexecute HTTP/1.1" 200 None
+2026-03-21 20:28:09,269 DEBUG headers-0: {'Referer': 'http://translate.google.com/', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.106 Safari/537.36', 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8', 'Content-Length': '396'}
+2026-03-21 20:28:09,269 DEBUG url-0: https://translate.google.com/_/TranslateWebserverUi/data/batchexecute
+2026-03-21 20:28:09,269 DEBUG status-0: 200
+2026-03-21 20:28:09,270 DEBUG part-0 written to <_io.BufferedWriter name='/tmp/test_mr.wav'>
+2026-03-21 20:28:09,270 DEBUG part-0 created
+2026-03-21 20:28:09,271 DEBUG Saved to /tmp/test_mr.wav
+2026-03-21 20:28:09,272 INFO [D6-SUCCESS] provider=gtts | lang='mr' | path=/tmp/test_mr.wav | bytes=25536 | latency=376ms
+  Provider used : gtts
+  Output path   : /tmp/test_mr.wav
+  Time          : 0.38s
+
+=== TTS SYNTHESIS TEST (Tamil) ===
+2026-03-21 20:28:09,272 DEBUG [D1-SCRIPT] lang='ta' | expected_script='tamil' | detected_script='tamil' | is_native=True | text_sample='வணக்கம்!'
+2026-03-21 20:28:09,272 DEBUG [D2-ROUTING] lang='ta' | is_native_script=True | provider_order=['sarvam', 'elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:09,273 WARNING [D5-ERROR] provider='sarvam' failed | lang='ta' | error=SARVAM_API_KEY missing | trying next provider
+2026-03-21 20:28:09,273 WARNING [D5-ERROR] provider='elevenlabs' failed | lang='ta' | error=ELEVENLABS_API_KEY missing | trying next provider
+2026-03-21 20:28:09,273 WARNING [D5-ERROR] provider='groq' failed | lang='ta' | error=GROQ_API_KEY missing | trying next provider
+2026-03-21 20:28:09,273 DEBUG [D3-REQUEST] provider=gtts | lang='ta' | gtts_lang='ta' | text_len=8
+2026-03-21 20:28:09,273 DEBUG text: வணக்கம்!
+2026-03-21 20:28:09,273 DEBUG tld: com
+2026-03-21 20:28:09,273 DEBUG lang: ta
+2026-03-21 20:28:09,273 DEBUG slow: False
+2026-03-21 20:28:09,273 DEBUG lang_check: True
+2026-03-21 20:28:09,273 DEBUG pre_processor_funcs: [<function tone_marks at 0x103d97c40>, <function end_of_line at 0x103d97420>, <function abbreviations at 0x103da09a0>, <function word_sub at 0x103da0a40>]
+2026-03-21 20:28:09,273 DEBUG tokenizer_func: <bound method Tokenizer.run of re.compile('(?<=\\?).|(?<=!).|(?<=？).|(?<=！).|(?<!\\.[a-z])\\. |(?<!\\.[a-z]), |(?<!\\d):|\\\n|\\)|…|\\]|¿|，|。|;|、|\\[|¡|‥|：|—|\\(|،', re.IGNORECASE) from: [<function tone_marks at 0x103da0b80>, <function period_comma at 0x103da0c20>, <function colon at 0x103da0cc0>, <function other_punctuation at 0x103da0d60>]>
+2026-03-21 20:28:09,273 DEBUG timeout: None
+2026-03-21 20:28:09,273 DEBUG langs: {'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'Arabic', 'bg': 'Bulgarian', 'bn': 'Bengali', 'bs': 'Bosnian', 'ca': 'Catalan', 'cs': 'Czech', 'cy': 'Welsh', 'da': 'Danish', 'de': 'German', 'el': 'Greek', 'en': 'English', 'es': 'Spanish', 'et': 'Estonian', 'eu': 'Basque', 'fi': 'Finnish', 'fr': 'French', 'fr-CA': 'French (Canada)', 'gl': 'Galician', 'gu': 'Gujarati', 'ha': 'Hausa', 'hi': 'Hindi', 'hr': 'Croatian', 'hu': 'Hungarian', 'id': 'Indonesian', 'is': 'Icelandic', 'it': 'Italian', 'iw': 'Hebrew', 'ja': 'Japanese', 'jw': 'Javanese', 'km': 'Khmer', 'kn': 'Kannada', 'ko': 'Korean', 'la': 'Latin', 'lt': 'Lithuanian', 'lv': 'Latvian', 'ml': 'Malayalam', 'mr': 'Marathi', 'ms': 'Malay', 'my': 'Myanmar (Burmese)', 'ne': 'Nepali', 'nl': 'Dutch', 'no': 'Norwegian', 'pa': 'Punjabi (Gurmukhi)', 'pl': 'Polish', 'pt': 'Portuguese (Brazil)', 'pt-PT': 'Portuguese (Portugal)', 'ro': 'Romanian', 'ru': 'Russian', 'si': 'Sinhala', 'sk': 'Slovak', 'sq': 'Albanian', 'sr': 'Serbian', 'su': 'Sundanese', 'sv': 'Swedish', 'sw': 'Swahili', 'ta': 'Tamil', 'te': 'Telugu', 'th': 'Thai', 'tl': 'Filipino', 'tr': 'Turkish', 'uk': 'Ukrainian', 'ur': 'Urdu', 'vi': 'Vietnamese', 'yue': 'Cantonese', 'zh-CN': 'Chinese (Simplified)', 'zh-TW': 'Chinese (Mandarin/Taiwan)', 'zh': 'Chinese (Mandarin)'}
+2026-03-21 20:28:09,273 DEBUG pre-processing: <function tone_marks at 0x103d97c40>
+2026-03-21 20:28:09,273 DEBUG pre-processing: <function end_of_line at 0x103d97420>
+2026-03-21 20:28:09,273 DEBUG pre-processing: <function abbreviations at 0x103da09a0>
+2026-03-21 20:28:09,273 DEBUG pre-processing: <function word_sub at 0x103da0a40>
+2026-03-21 20:28:09,273 DEBUG text_parts: ['வணக்கம்!']
+2026-03-21 20:28:09,273 DEBUG text_parts: 1
+2026-03-21 20:28:09,273 DEBUG data-0: f.req=%5B%5B%5B%22jQ1olc%22%2C%22%5B%5C%22%5C%5Cu0bb5%5C%5Cu0ba3%5C%5Cu0b95%5C%5Cu0bcd%5C%5Cu0b95%5C%5Cu0bae%5C%5Cu0bcd%21%5C%22%2C%5C%22ta%5C%22%2Cnull%2C%5C%22null%5C%22%5D%22%2Cnull%2C%22generic%22%5D%5D%5D&
+2026-03-21 20:28:09,274 DEBUG Starting new HTTPS connection (1): translate.google.com:443
+2026-03-21 20:28:09,540 DEBUG https://translate.google.com:443 "POST /_/TranslateWebserverUi/data/batchexecute HTTP/1.1" 200 None
+2026-03-21 20:28:09,542 DEBUG headers-0: {'Referer': 'http://translate.google.com/', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.106 Safari/537.36', 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8', 'Content-Length': '210'}
+2026-03-21 20:28:09,542 DEBUG url-0: https://translate.google.com/_/TranslateWebserverUi/data/batchexecute
+2026-03-21 20:28:09,542 DEBUG status-0: 200
+2026-03-21 20:28:09,542 DEBUG part-0 written to <_io.BufferedWriter name='/tmp/test_ta.wav'>
+2026-03-21 20:28:09,543 DEBUG part-0 created
+2026-03-21 20:28:09,546 DEBUG Saved to /tmp/test_ta.wav
+2026-03-21 20:28:09,547 INFO [D6-SUCCESS] provider=gtts | lang='ta' | path=/tmp/test_ta.wav | bytes=9984 | latency=273ms
+  Provider: gtts | Time: 0.27s
+
+=== TTS SYNTHESIS TEST (Arabic) ===
+2026-03-21 20:28:09,547 DEBUG [D1-SCRIPT] lang='ar' | expected_script='arabic' | detected_script='arabic' | is_native=True | text_sample='مرحبا!'
+2026-03-21 20:28:09,547 DEBUG [D2-ROUTING] lang='ar' | is_native_script=True | provider_order=['elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:09,547 WARNING [D5-ERROR] provider='elevenlabs' failed | lang='ar' | error=ELEVENLABS_API_KEY missing | trying next provider
+2026-03-21 20:28:09,547 WARNING [D5-ERROR] provider='groq' failed | lang='ar' | error=GROQ_API_KEY missing | trying next provider
+2026-03-21 20:28:09,547 DEBUG [D3-REQUEST] provider=gtts | lang='ar' | gtts_lang='ar' | text_len=6
+2026-03-21 20:28:09,547 DEBUG text: مرحبا!
+2026-03-21 20:28:09,547 DEBUG tld: com
+2026-03-21 20:28:09,547 DEBUG lang: ar
+2026-03-21 20:28:09,547 DEBUG slow: False
+2026-03-21 20:28:09,547 DEBUG lang_check: True
+2026-03-21 20:28:09,547 DEBUG pre_processor_funcs: [<function tone_marks at 0x103d97c40>, <function end_of_line at 0x103d97420>, <function abbreviations at 0x103da09a0>, <function word_sub at 0x103da0a40>]
+2026-03-21 20:28:09,547 DEBUG tokenizer_func: <bound method Tokenizer.run of re.compile('(?<=\\?).|(?<=!).|(?<=？).|(?<=！).|(?<!\\.[a-z])\\. |(?<!\\.[a-z]), |(?<!\\d):|\\\n|\\)|…|\\]|¿|，|。|;|、|\\[|¡|‥|：|—|\\(|،', re.IGNORECASE) from: [<function tone_marks at 0x103da0b80>, <function period_comma at 0x103da0c20>, <function colon at 0x103da0cc0>, <function other_punctuation at 0x103da0d60>]>
+2026-03-21 20:28:09,547 DEBUG timeout: None
+2026-03-21 20:28:09,547 DEBUG langs: {'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'Arabic', 'bg': 'Bulgarian', 'bn': 'Bengali', 'bs': 'Bosnian', 'ca': 'Catalan', 'cs': 'Czech', 'cy': 'Welsh', 'da': 'Danish', 'de': 'German', 'el': 'Greek', 'en': 'English', 'es': 'Spanish', 'et': 'Estonian', 'eu': 'Basque', 'fi': 'Finnish', 'fr': 'French', 'fr-CA': 'French (Canada)', 'gl': 'Galician', 'gu': 'Gujarati', 'ha': 'Hausa', 'hi': 'Hindi', 'hr': 'Croatian', 'hu': 'Hungarian', 'id': 'Indonesian', 'is': 'Icelandic', 'it': 'Italian', 'iw': 'Hebrew', 'ja': 'Japanese', 'jw': 'Javanese', 'km': 'Khmer', 'kn': 'Kannada', 'ko': 'Korean', 'la': 'Latin', 'lt': 'Lithuanian', 'lv': 'Latvian', 'ml': 'Malayalam', 'mr': 'Marathi', 'ms': 'Malay', 'my': 'Myanmar (Burmese)', 'ne': 'Nepali', 'nl': 'Dutch', 'no': 'Norwegian', 'pa': 'Punjabi (Gurmukhi)', 'pl': 'Polish', 'pt': 'Portuguese (Brazil)', 'pt-PT': 'Portuguese (Portugal)', 'ro': 'Romanian', 'ru': 'Russian', 'si': 'Sinhala', 'sk': 'Slovak', 'sq': 'Albanian', 'sr': 'Serbian', 'su': 'Sundanese', 'sv': 'Swedish', 'sw': 'Swahili', 'ta': 'Tamil', 'te': 'Telugu', 'th': 'Thai', 'tl': 'Filipino', 'tr': 'Turkish', 'uk': 'Ukrainian', 'ur': 'Urdu', 'vi': 'Vietnamese', 'yue': 'Cantonese', 'zh-CN': 'Chinese (Simplified)', 'zh-TW': 'Chinese (Mandarin/Taiwan)', 'zh': 'Chinese (Mandarin)'}
+2026-03-21 20:28:09,548 DEBUG pre-processing: <function tone_marks at 0x103d97c40>
+2026-03-21 20:28:09,548 DEBUG pre-processing: <function end_of_line at 0x103d97420>
+2026-03-21 20:28:09,548 DEBUG pre-processing: <function abbreviations at 0x103da09a0>
+2026-03-21 20:28:09,548 DEBUG pre-processing: <function word_sub at 0x103da0a40>
+2026-03-21 20:28:09,548 DEBUG text_parts: ['مرحبا!']
+2026-03-21 20:28:09,548 DEBUG text_parts: 1
+2026-03-21 20:28:09,548 DEBUG data-0: f.req=%5B%5B%5B%22jQ1olc%22%2C%22%5B%5C%22%5C%5Cu0645%5C%5Cu0631%5C%5Cu062d%5C%5Cu0628%5C%5Cu0627%21%5C%22%2C%5C%22ar%5C%22%2Cnull%2C%5C%22null%5C%22%5D%22%2Cnull%2C%22generic%22%5D%5D%5D&
+2026-03-21 20:28:09,549 DEBUG Starting new HTTPS connection (1): translate.google.com:443
+2026-03-21 20:28:09,843 DEBUG https://translate.google.com:443 "POST /_/TranslateWebserverUi/data/batchexecute HTTP/1.1" 200 None
+2026-03-21 20:28:09,845 DEBUG headers-0: {'Referer': 'http://translate.google.com/', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.106 Safari/537.36', 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8', 'Content-Length': '188'}
+2026-03-21 20:28:09,845 DEBUG url-0: https://translate.google.com/_/TranslateWebserverUi/data/batchexecute
+2026-03-21 20:28:09,845 DEBUG status-0: 200
+2026-03-21 20:28:09,845 DEBUG part-0 written to <_io.BufferedWriter name='/tmp/test_ar.wav'>
+2026-03-21 20:28:09,845 DEBUG part-0 created
+2026-03-21 20:28:09,848 DEBUG Saved to /tmp/test_ar.wav
+2026-03-21 20:28:09,849 INFO [D6-SUCCESS] provider=gtts | lang='ar' | path=/tmp/test_ar.wav | bytes=9792 | latency=301ms
+  Provider: gtts | Time: 0.3s
+
+=== TTS SYNTHESIS TEST (English) ===
+2026-03-21 20:28:09,849 DEBUG [D1-SCRIPT] lang='en' | expected_script='latin' | detected_script='latin' | is_native=True | text_sample='Hello, world!'
+2026-03-21 20:28:09,849 DEBUG [D2-ROUTING] lang='en' | is_native_script=True | provider_order=['elevenlabs', 'groq', 'gtts']
+2026-03-21 20:28:09,849 WARNING [D5-ERROR] provider='elevenlabs' failed | lang='en' | error=ELEVENLABS_API_KEY missing | trying next provider
+2026-03-21 20:28:09,849 WARNING [D5-ERROR] provider='groq' failed | lang='en' | error=GROQ_API_KEY missing | trying next provider
+2026-03-21 20:28:09,849 DEBUG [D3-REQUEST] provider=gtts | lang='en' | gtts_lang='en' | text_len=13
+2026-03-21 20:28:09,849 DEBUG text: Hello, world!
+2026-03-21 20:28:09,849 DEBUG tld: com
+2026-03-21 20:28:09,849 DEBUG lang: en
+2026-03-21 20:28:09,849 DEBUG slow: False
+2026-03-21 20:28:09,849 DEBUG lang_check: True
+2026-03-21 20:28:09,849 DEBUG pre_processor_funcs: [<function tone_marks at 0x103d97c40>, <function end_of_line at 0x103d97420>, <function abbreviations at 0x103da09a0>, <function word_sub at 0x103da0a40>]
+2026-03-21 20:28:09,849 DEBUG tokenizer_func: <bound method Tokenizer.run of re.compile('(?<=\\?).|(?<=!).|(?<=？).|(?<=！).|(?<!\\.[a-z])\\. |(?<!\\.[a-z]), |(?<!\\d):|\\\n|\\)|…|\\]|¿|，|。|;|、|\\[|¡|‥|：|—|\\(|،', re.IGNORECASE) from: [<function tone_marks at 0x103da0b80>, <function period_comma at 0x103da0c20>, <function colon at 0x103da0cc0>, <function other_punctuation at 0x103da0d60>]>
+2026-03-21 20:28:09,849 DEBUG timeout: None
+2026-03-21 20:28:09,850 DEBUG langs: {'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'Arabic', 'bg': 'Bulgarian', 'bn': 'Bengali', 'bs': 'Bosnian', 'ca': 'Catalan', 'cs': 'Czech', 'cy': 'Welsh', 'da': 'Danish', 'de': 'German', 'el': 'Greek', 'en': 'English', 'es': 'Spanish', 'et': 'Estonian', 'eu': 'Basque', 'fi': 'Finnish', 'fr': 'French', 'fr-CA': 'French (Canada)', 'gl': 'Galician', 'gu': 'Gujarati', 'ha': 'Hausa', 'hi': 'Hindi', 'hr': 'Croatian', 'hu': 'Hungarian', 'id': 'Indonesian', 'is': 'Icelandic', 'it': 'Italian', 'iw': 'Hebrew', 'ja': 'Japanese', 'jw': 'Javanese', 'km': 'Khmer', 'kn': 'Kannada', 'ko': 'Korean', 'la': 'Latin', 'lt': 'Lithuanian', 'lv': 'Latvian', 'ml': 'Malayalam', 'mr': 'Marathi', 'ms': 'Malay', 'my': 'Myanmar (Burmese)', 'ne': 'Nepali', 'nl': 'Dutch', 'no': 'Norwegian', 'pa': 'Punjabi (Gurmukhi)', 'pl': 'Polish', 'pt': 'Portuguese (Brazil)', 'pt-PT': 'Portuguese (Portugal)', 'ro': 'Romanian', 'ru': 'Russian', 'si': 'Sinhala', 'sk': 'Slovak', 'sq': 'Albanian', 'sr': 'Serbian', 'su': 'Sundanese', 'sv': 'Swedish', 'sw': 'Swahili', 'ta': 'Tamil', 'te': 'Telugu', 'th': 'Thai', 'tl': 'Filipino', 'tr': 'Turkish', 'uk': 'Ukrainian', 'ur': 'Urdu', 'vi': 'Vietnamese', 'yue': 'Cantonese', 'zh-CN': 'Chinese (Simplified)', 'zh-TW': 'Chinese (Mandarin/Taiwan)', 'zh': 'Chinese (Mandarin)'}
+2026-03-21 20:28:09,850 DEBUG pre-processing: <function tone_marks at 0x103d97c40>
+2026-03-21 20:28:09,850 DEBUG pre-processing: <function end_of_line at 0x103d97420>
+2026-03-21 20:28:09,850 DEBUG pre-processing: <function abbreviations at 0x103da09a0>
+2026-03-21 20:28:09,850 DEBUG pre-processing: <function word_sub at 0x103da0a40>
+2026-03-21 20:28:09,850 DEBUG text_parts: ['Hello, world!']
+2026-03-21 20:28:09,850 DEBUG text_parts: 1
+2026-03-21 20:28:09,850 DEBUG data-0: f.req=%5B%5B%5B%22jQ1olc%22%2C%22%5B%5C%22Hello%2C%20world%21%5C%22%2C%5C%22en%5C%22%2Cnull%2C%5C%22null%5C%22%5D%22%2Cnull%2C%22generic%22%5D%5D%5D&
+2026-03-21 20:28:09,851 DEBUG Starting new HTTPS connection (1): translate.google.com:443
+2026-03-21 20:28:10,080 DEBUG https://translate.google.com:443 "POST /_/TranslateWebserverUi/data/batchexecute HTTP/1.1" 200 None
+2026-03-21 20:28:10,087 DEBUG headers-0: {'Referer': 'http://translate.google.com/', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.106 Safari/537.36', 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8', 'Content-Length': '149'}
+2026-03-21 20:28:10,087 DEBUG url-0: https://translate.google.com/_/TranslateWebserverUi/data/batchexecute
+2026-03-21 20:28:10,087 DEBUG status-0: 200
+2026-03-21 20:28:10,088 DEBUG part-0 written to <_io.BufferedWriter name='/tmp/test_en.wav'>
+2026-03-21 20:28:10,088 DEBUG part-0 created
+2026-03-21 20:28:10,090 DEBUG Saved to /tmp/test_en.wav
+2026-03-21 20:28:10,091 INFO [D6-SUCCESS] provider=gtts | lang='en' | path=/tmp/test_en.wav | bytes=13248 | latency=241ms
+  Provider: gtts | Time: 0.24s
+
+Done.
