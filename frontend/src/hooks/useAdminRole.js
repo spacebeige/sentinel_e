@@ -3,7 +3,7 @@
  * Decodes JWT token to get role claim
  */
 import { useState, useEffect } from 'react';
-import jwt_decode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 
 export function useAdminRole() {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -19,7 +19,7 @@ export function useAdminRole() {
       }
 
       try {
-        const decoded = jwt_decode(token);
+        const decoded = jwtDecode(token);
         // Role is populated by backend on auth
         const role = decoded.role || 'user';
         setIsAdmin(role === 'admin');

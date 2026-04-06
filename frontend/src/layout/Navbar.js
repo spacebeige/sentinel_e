@@ -201,23 +201,3 @@ export default function Navbar() {
     </nav>
   );
 }
-                    : dark ? 'text-white/60 hover:bg-white/10' : 'text-[#6e6e73] hover:bg-black/5'
-                }`}
-                style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 500 }}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-          <Link
-            to="/chat"
-            className="block text-center mt-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] text-white"
-            style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 500 }}
-          >
-            Try Free
-          </Link>
-        </div>
-      )}
-    </nav>
-  );
-}

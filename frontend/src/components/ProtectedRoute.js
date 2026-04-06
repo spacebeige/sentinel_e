@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import jwt_decode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 
 export function ProtectedRoute({ children }) {
   const token = localStorage.getItem('access_token');
@@ -15,7 +15,7 @@ export function ProtectedRoute({ children }) {
   }
 
   try {
-    const decoded = jwt_decode(token);
+    const decoded = jwtDecode(token);
     const role = decoded.role || 'user';
 
     // Not admin → redirect to chat

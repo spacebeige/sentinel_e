@@ -16,9 +16,9 @@ import json
 import os
 from datetime import datetime, timedelta
 
-from backend.database.models import User, Session as DBSession
-from backend.gateway.auth import get_current_user, require_admin
-from backend.database.connection import get_db
+from database.models import User, Chat as DBSession
+from gateway.auth import get_current_user, require_admin
+from database.connection import get_db
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 

@@ -5,7 +5,8 @@ Prevents hard-to-debug silent failures in production.
 """
 
 from typing import Optional
-from pydantic import BaseSettings, validator
+from pydantic import validator
+from pydantic_settings import BaseSettings
 import sys
 import logging
 
@@ -24,7 +25,7 @@ def validate_production_config():
     errors = []
     
     # Check critical environment variables
-    if settings.ENV == "production":
+    if settings.is_production:
         # Database
         if not settings.POSTGRES_HOST or settings.POSTGRES_HOST == "localhost":
             errors.append("❌ POSTGRES_HOST must be configured for production (not localhost)")
@@ -53,7 +54,7 @@ def validate_production_config():
         for error in errors:
             logger.error(error)
         
-        if settings.ENV == "production":
+        if settings.is_production:
             logger.critical("🛑 Refusing to start in production with invalid config")
             sys.exit(1)
         else:

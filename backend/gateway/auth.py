@@ -145,3 +145,20 @@ async def get_optional_user(
         return await get_current_user(credentials)
     except HTTPException:
         return None
+
+import functools
+
+def require_admin():
+    """Decorator to require admin role for a route."""
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            current_user = kwargs.get("current_user")
+            # If current_user is provided and is not admin (and not anon in dev), deny access
+            if current_user and current_user.get("role") != "admin":
+                settings = get_settings()
+                if settings.is_production:
+                    raise HTTPException(status_code=403, detail="Admin privileges required")
+            return await func(*args, **kwargs)
+        return wrapper
+    return decorator

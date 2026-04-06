@@ -5,8 +5,8 @@ Fixes: Session hijacking by ensuring per-request ownership verification
 
 from fastapi import Request, HTTPException, status
 from sqlalchemy.orm import Session as DBSession
-from backend.database.models import User, Session as SessionModel
-from backend.gateway.auth import decode_token, get_current_user
+from database.models import User, Chat as SessionModel
+from gateway.auth import decode_token, get_current_user
 from typing import Optional
 import logging
 
@@ -22,28 +22,12 @@ async def verify_session_ownership(
 ) -> bool:
     """
     Verify that a session belongs to the requesting user.
-    Called on EVERY session access, not just restore.
-    
-    Fixes: Session hijacking gap
-    
-    Args:
-        request: FastAPI request
-        user_id: ID of user making request
-        session_id: ID of session being accessed
-        db: Database session
-        cache_kernel: Cached kernel object (if any)
-    
-    Returns:
-        True if valid, raises HTTPException if not
-    
-    Raises:
-        HTTPException(403) if session doesn't belong to user
     """
     
     # Check database ownership
     db_session = db.query(SessionModel).filter(
         SessionModel.id == session_id,
-        SessionModel._owner_user_id == user_id
+        SessionModel.user_id == user_id
     ).first()
     
     if not db_session:
@@ -57,12 +41,12 @@ async def verify_session_ownership(
         )
     
     # CRITICAL: Also verify cached kernel ownership (not just DB)
-    if cache_kernel and hasattr(cache_kernel, '_owner_user_id'):
-        if cache_kernel._owner_user_id != user_id:
+    if cache_kernel and hasattr(cache_kernel, 'user_id'):
+        if cache_kernel.user_id != user_id:
             logger.critical(
-                f"🔴 KERNEL CACHE MISMATCH: Cached kernel {cache_kernel._owner_user_id} "
+                f"🔴 KERNEL CACHE MISMATCH: Cached kernel {cache_kernel.user_id} "
                 f"doesn't match requesting user {user_id}!",
-                extra={"session_id": session_id, "cached_owner": cache_kernel._owner_user_id}
+                extra={"session_id": session_id, "cached_owner": cache_kernel.user_id}
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
