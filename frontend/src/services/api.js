@@ -330,7 +330,7 @@ export async function fetchMCOAnalytics(sessionId) {
 export async function editMessage(messageId, content) {
   const res = await api.put(`/api/messages/${messageId}`, { content });
   return res.data;
-// }const detail = error.response.data?.detail;
+}//const detail = error.response.data?.detail;
 
 /**
  * Regenerate an assistant response for a given message.
