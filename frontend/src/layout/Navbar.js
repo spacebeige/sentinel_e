@@ -5,6 +5,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LogOut, Menu, Moon, Shield, Sigma, Sun, X } from 'lucide-react';
+import { UserButton } from '@clerk/clerk-react';
 import { useAuthContext } from '../hooks/useAuthContext';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -180,37 +181,12 @@ export default function Navbar() {
               )}
 
               <div
-                className={`flex items-center gap-3 px-3 py-2 rounded-full border ${
+                className={`flex items-center justify-center p-1 rounded-full border ${
                   dark ? 'bg-white/6 border-white/10 text-white' : 'bg-white border-black/5 text-[#0f172a]'
                 }`}
               >
-                <UserAvatar name={displayName} />
-                <div className="min-w-0">
-                  <div
-                    className="truncate"
-                    style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 600, maxWidth: '128px' }}
-                  >
-                    {displayName}
-                  </div>
-                  <div
-                    className={dark ? 'text-white/45' : 'text-[#64748b]'}
-                    style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500 }}
-                  >
-                    {user?.provider ? `${user.provider} session` : 'Authenticated'}
-                  </div>
-                </div>
+                <UserButton appearance={{ elements: { userButtonAvatarBox: "w-9 h-9" } }} />
               </div>
-
-              <button
-                onClick={signOut}
-                className={`px-4 py-2 rounded-full transition-all flex items-center gap-2 ${
-                  dark ? 'text-white/72 hover:text-white hover:bg-white/10' : 'text-[#475569] hover:text-[#0f172a] hover:bg-black/5'
-                }`}
-                style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 500 }}
-              >
-                <LogOut className="w-4 h-4" />
-                Sign Out
-              </button>
             </>
           ) : (
             <button
@@ -271,7 +247,7 @@ export default function Navbar() {
             {isAuthenticated ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <UserAvatar name={displayName} />
+                  <UserButton appearance={{ elements: { userButtonAvatarBox: "w-9 h-9" } }} />
                   <div className="min-w-0">
                     <div
                       className={`truncate ${dark ? 'text-white' : 'text-[#0f172a]'}`}
@@ -295,16 +271,6 @@ export default function Navbar() {
                   >
                     Open Chat
                   </Link>
-                  <button
-                    onClick={signOut}
-                    className={`px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 ${
-                      dark ? 'bg-white/8 text-white' : 'bg-white text-[#0f172a]'
-                    }`}
-                    style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
-                  </button>
                 </div>
               </div>
             ) : (

@@ -190,12 +190,25 @@ export default function FigmaChatShell({
         feedbackGiven: localFeedback[`msg-${i}`] || null,
       };
 
-      // Enrich the LAST assistant message with omega metadata from response
-      // Ensemble is always active — always attach metadata
+      // If we have reasoning_json from history, attach it.
+      let enrichedMsg = { ...base };
+      if (msg.reasoning_json) {
+        enrichedMsg = {
+          ...enrichedMsg,
+          mode: msg.reasoning_json.sub_mode || msg.reasoning_json.mode || subMode || 'standard',
+          confidence: msg.reasoning_json.confidence,
+          boundaryResult: msg.reasoning_json.boundary_result,
+          reasoningTrace: msg.reasoning_json.reasoning_trace,
+          confidenceEvolution: msg.reasoning_json.confidence_evolution,
+          omegaMetadata: msg.reasoning_json,
+        };
+      }
+
+      // Enrich the LAST assistant message with omega metadata from the current 'response' prop
       if (msg.role === 'assistant' && i === messages.length - 1 && response) {
         const resolvedMode = response.omega_metadata?.sub_mode || response.sub_mode || response.mode || response.omega_metadata?.mode || subMode || 'standard';
-        return {
-          ...base,
+        enrichedMsg = {
+          ...enrichedMsg,
           mode: resolvedMode,
           chatId: response.chat_id || activeChatId,
           confidence: response.confidence,
@@ -206,7 +219,7 @@ export default function FigmaChatShell({
         };
       }
 
-      return base;
+      return enrichedMsg;
     });
   }, [messages, response, subMode, activeChatId, localFeedback]);
 

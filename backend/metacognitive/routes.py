@@ -186,8 +186,42 @@ async def mco_run(
             payload = ensemble_response.to_frontend_payload()
             formatted_output = ensemble_response.formatted_output
 
+            confidence = ensemble_response.confidence.final_confidence
+            ens_entropy = ensemble_response.ensemble_metrics.disagreement_entropy
+            ens_fragility = ensemble_response.ensemble_metrics.fragility_score
+
+            omega_metadata = payload.get("omega_metadata", {})
+            omega_metadata.update({
+                "version": "7.1.0-cognitive",
+                "mode": "debate",
+                "sub_mode": "debate",
+                "confidence": confidence,
+                "entropy": ens_entropy,
+                "fragility": ens_fragility,
+                "fragility_index": ens_fragility,
+                "ensemble_metrics": payload.get("ensemble_metrics", {}),
+                "debate_result": payload.get("debate_result", {}),
+                "debate_rounds": payload.get("debate_rounds", []),
+                "model_outputs": payload.get("model_outputs", []),
+                "agreement_matrix": payload.get("agreement_matrix", {}),
+                "drift_metrics": payload.get("drift_metrics", {}),
+                "tactical_map": payload.get("tactical_map", []),
+                "confidence_graph": payload.get("confidence_graph", payload.get("calibrated_confidence", {})),
+                "session_intelligence": payload.get("session_intelligence", {}),
+                "session_analytics": payload.get("session_analytics", {}),
+                "model_status": payload.get("model_status", []),
+                "reasoning_trace": {
+                    "engine": "CognitiveCoreEngine",
+                    "pipeline": "cognitive_v7_debate",
+                    "models_executed": ensemble_response.models_executed,
+                    "models_succeeded": ensemble_response.models_succeeded,
+                    "models_failed": ensemble_response.models_failed,
+                    "debate_rounds": ensemble_response.debate_result.total_rounds,
+                },
+            })
+
             # Persist
-            await add_message(db, chat.id, "assistant", formatted_output)
+            await add_message(db, chat.id, "assistant", formatted_output, reasoning_json=omega_metadata)
             await update_chat_metadata(
                 db, chat.id,
                 priority_answer=formatted_output,
@@ -200,10 +234,6 @@ async def mco_run(
                 },
                 rounds=ensemble_response.debate_result.total_rounds,
             )
-
-            confidence = ensemble_response.confidence.final_confidence
-            ens_entropy = ensemble_response.ensemble_metrics.disagreement_entropy
-            ens_fragility = ensemble_response.ensemble_metrics.fragility_score
 
             omega_metadata = payload.get("omega_metadata", {})
             omega_metadata.update({
@@ -307,8 +337,14 @@ async def mco_run(
                 output = await orch.cognitive_gateway.invoke_model(fast_model, gateway_input)
                 if output.success and output.raw_output.strip():
                     answer = output.raw_output.strip()
-                    await add_message(db, chat.id, "assistant", answer)
                     _elapsed = (_time.monotonic() - _fast_start) * 1000
+                    omega_metadata = {
+                        "winning_model": fast_model,
+                        "winning_score": 0.95,
+                        "latency_ms": round(_elapsed, 1),
+                        "fast_path": True,
+                    }
+                    await add_message(db, chat.id, "assistant", answer, reasoning_json=omega_metadata)
                     logger.info(f"Fast-path complete in {_elapsed:.0f}ms via {fast_model}")
                     return {
                         "chat_id": str(chat.id),
@@ -319,12 +355,7 @@ async def mco_run(
                         "aggregated_answer": answer,
                         "confidence": 0.95,
                         "data": {"priority_answer": answer},
-                        "omega_metadata": {
-                            "winning_model": fast_model,
-                            "winning_score": 0.95,
-                            "latency_ms": round(_elapsed, 1),
-                            "fast_path": True,
-                        },
+                        "omega_metadata": omega_metadata,
                     }
             except Exception as fast_err:
                 logger.warning(f"Fast-path failed ({fast_err}), falling through to MCO")
@@ -374,24 +405,62 @@ async def mco_run(
             detail="No response generated. Please try again.",
         )
 
-    # Persist assistant response
-    await add_message(db, chat.id, "assistant", response.aggregated_answer)
-    await update_chat_metadata(
-        db, chat.id,
-        priority_answer=response.aggregated_answer,
-        machine_metadata={
-            "mco_version": "1.0.0",
-            "mode": response.mode.value,
-            "winning_model": response.winning_model,
-            "winning_score": response.winning_score,
-            "drift_score": response.drift_score,
-            "volatility_score": response.volatility_score,
+    # ── Build omega_metadata (unified frontend contract) ────
+    all_outputs_serialized = [
+        {
+            "model_name": r.output.model_name,
+            "raw_output": r.output.raw_output,
+            "tokens_used": r.output.tokens_used,
+            "latency_ms": round(r.output.latency_ms, 1),
+            "success": r.output.success,
+            "error": r.output.error,
+            "score": {
+                "topic_alignment": round(r.score.topic_alignment, 4),
+                "knowledge_grounding": round(r.score.knowledge_grounding, 4),
+                "specificity": round(r.score.specificity, 4),
+                "confidence_calibration": round(r.score.confidence_calibration, 4),
+                "drift_penalty": round(r.score.drift_penalty, 4),
+                "final_score": round(r.score.final_score, 4),
+            },
+        }
+        for r in response.all_results
+    ]
+
+    scoring_serialized = [
+        {
+            "model": s.model_name,
+            "T": round(s.topic_alignment, 4),
+            "K": round(s.knowledge_grounding, 4),
+            "S": round(s.specificity, 4),
+            "C": round(s.confidence_calibration, 4),
+            "D": round(s.drift_penalty, 4),
+            "final": round(s.final_score, 4),
+        }
+        for s in (response.scoring_breakdown or [])
+    ]
+
+    divergence = response.divergence_metrics or {}
+
+    omega_metadata = {
+        "mode": response.mode.value,
+        "sub_mode": response.sub_mode or sub_mode,
+        "confidence": round(response.winning_score, 4),
+        "winning_model": response.winning_model,
+        "model_count": len(response.all_results),
+        "latency_ms": round(response.latency_ms, 1),
+        "drift_score": round(response.drift_score, 4),
+        "volatility_score": round(response.volatility_score, 4),
+        "session_state": {
+            "session_id": response.session_id,
             "refinement_cycles": response.refinement_cycles,
-            "latency_ms": response.latency_ms,
-            "model_count": len(response.all_results),
+            "drift_score": round(response.drift_score, 4),
+            "volatility_score": round(response.volatility_score, 4),
+            "inferred_domain": divergence.get("domain_classification", None),
         },
-        rounds=1,
-    )
+        "all_outputs": all_outputs_serialized,
+        "scoring_breakdown": scoring_serialized,
+        "divergence_metrics": divergence,
+    }
 
     # Build API response
     result = {
@@ -674,6 +743,25 @@ async def mco_run(
                 for s in (response.scoring_breakdown or [])
             },
         }
+
+    # Persist assistant response
+    await add_message(db, chat.id, "assistant", response.aggregated_answer, reasoning_json=omega_metadata)
+    await update_chat_metadata(
+        db, chat.id,
+        priority_answer=response.aggregated_answer,
+        machine_metadata={
+            "mco_version": "1.0.0",
+            "mode": response.mode.value,
+            "winning_model": response.winning_model,
+            "winning_score": response.winning_score,
+            "drift_score": response.drift_score,
+            "volatility_score": response.volatility_score,
+            "refinement_cycles": response.refinement_cycles,
+            "latency_ms": response.latency_ms,
+            "model_count": len(response.all_results),
+        },
+        rounds=1,
+    )
 
     result["omega_metadata"] = omega_metadata
     result["data"] = {"priority_answer": response.aggregated_answer}

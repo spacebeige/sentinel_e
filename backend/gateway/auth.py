@@ -3,8 +3,7 @@
 Authentication & Session Management
 ============================================================
 Primary auth path:
-- SuperTokens ThirdParty (Google + GitHub)
-- SuperTokens Session (httpOnly cookies)
+- Clerk JWT verification (Bearer token)
 - Neon-backed user profile upsert into existing users table
 
 Legacy compatibility:
@@ -28,36 +27,101 @@ from gateway.config import get_settings
 logger = logging.getLogger("Auth")
 security = HTTPBearer(auto_error=False)
 
-try:
-    from supertokens_python import (
-        InputAppInfo,
-        SupertokensConfig,
-        get_all_cors_headers as supertokens_get_all_cors_headers,
-        init as supertokens_init,
+
+@functools.lru_cache(maxsize=4)
+def _jwks_client_for_url(jwks_url: str) -> jwt.PyJWKClient:
+    return jwt.PyJWKClient(jwks_url)
+
+
+def _clerk_requested() -> bool:
+    settings = get_settings()
+    return bool(settings.clerk_jwks_url or settings.CLERK_JWT_ISSUER)
+
+
+def _pick_identity_value(*values: Optional[str]) -> Optional[str]:
+    for value in values:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _extract_email_from_payload(payload: Dict[str, Any]) -> Optional[str]:
+    direct_email = _pick_identity_value(
+        payload.get("email"),
+        payload.get("email_address"),
+        payload.get("primary_email_address"),
+        payload.get("https://clerk.dev/email"),
     )
-    from supertokens_python.framework.fastapi import get_middleware as get_supertokens_middleware_impl
-    from supertokens_python.recipe.session import SessionContainer
-    from supertokens_python.recipe.session.framework.fastapi import verify_session as supertokens_verify_session
-    import supertokens_python.recipe.session as SessionRecipe
-    import supertokens_python.recipe.thirdparty as ThirdPartyRecipe
-    from supertokens_python.recipe.thirdparty import SignInAndUpFeature
-    from supertokens_python.recipe.thirdparty.provider import (
-        ProviderClientConfig,
-        ProviderConfig,
-        ProviderInput,
+    if direct_email:
+        return direct_email
+
+    email_addresses = payload.get("email_addresses")
+    if isinstance(email_addresses, list):
+        for item in email_addresses:
+            if isinstance(item, dict):
+                candidate = _pick_identity_value(item.get("email_address"), item.get("email"))
+                if candidate:
+                    return candidate
+            elif isinstance(item, str) and item.strip():
+                return item.strip()
+
+    return None
+
+
+def _extract_name_from_payload(payload: Dict[str, Any], email: Optional[str]) -> Optional[str]:
+    first_name = _pick_identity_value(payload.get("first_name"), payload.get("given_name"))
+    last_name = _pick_identity_value(payload.get("last_name"), payload.get("family_name"))
+
+    composed_name = None
+    if first_name or last_name:
+        composed_name = " ".join(part for part in [first_name, last_name] if part)
+
+    return _pick_identity_value(
+        payload.get("name"),
+        payload.get("full_name"),
+        composed_name,
+        email.split("@")[0] if email else None,
     )
-    from supertokens_python.recipe.thirdparty.providers.github import Github
-    from supertokens_python.recipe.thirdparty.providers.google import Google
-
-    SUPERTOKENS_SDK_AVAILABLE = True
-    SUPERTOKENS_IMPORT_ERROR: Optional[Exception] = None
-except Exception as exc:  # pragma: no cover - environment-dependent
-    SessionContainer = Any  # type: ignore
-    SUPERTOKENS_SDK_AVAILABLE = False
-    SUPERTOKENS_IMPORT_ERROR = exc
 
 
-_SUPERTOKENS_INITIALIZED = False
+def _decode_clerk_token(token: str) -> Dict[str, Any]:
+    settings = get_settings()
+
+    jwks_url = settings.clerk_jwks_url
+    if not jwks_url:
+        raise HTTPException(status_code=503, detail="Clerk JWKS URL is not configured.")
+
+    try:
+        signing_key = _jwks_client_for_url(jwks_url).get_signing_key_from_jwt(token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail="Invalid authentication token") from exc
+
+    decode_kwargs: Dict[str, Any] = {
+        "key": signing_key.key,
+        "algorithms": ["RS256"],
+        "options": {
+            "verify_aud": bool(settings.CLERK_JWT_AUDIENCE),
+            "verify_iss": bool(settings.CLERK_JWT_ISSUER),
+        },
+    }
+
+    if settings.CLERK_JWT_AUDIENCE:
+        decode_kwargs["audience"] = settings.CLERK_JWT_AUDIENCE
+
+    if settings.CLERK_JWT_ISSUER:
+        decode_kwargs["issuer"] = settings.CLERK_JWT_ISSUER
+
+    try:
+        payload = jwt.decode(token, **decode_kwargs)
+    except jwt.ExpiredSignatureError as exc:
+        raise HTTPException(status_code=401, detail="Authentication token expired") from exc
+    except jwt.InvalidTokenError as exc:
+        raise HTTPException(status_code=401, detail="Invalid authentication token") from exc
+
+    if not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="Authentication token missing subject")
+
+    return payload
 
 
 def create_access_token(
@@ -108,137 +172,23 @@ def decode_token(token: str) -> Dict[str, Any]:
         raise HTTPException(status_code=401, detail="Invalid token") from exc
 
 
-def _supertokens_requested() -> bool:
-    return bool(get_settings().SUPERTOKENS_CONNECTION_URI)
+def get_auth_cors_headers() -> List[str]:
+    """Additional CORS headers required by auth layer."""
+    return ["Authorization"]
 
 
-def _supertokens_enabled() -> bool:
-    return _supertokens_requested() and SUPERTOKENS_SDK_AVAILABLE
+def get_auth_middleware():
+    """No framework middleware required for Clerk JWT auth."""
+    return None
 
 
-def _build_provider_input(
-    third_party_id: str,
-    client_id: str,
-    client_secret: str,
-    scope: Optional[List[str]] = None,
-) -> ProviderInput:
-    return ProviderInput(
-        config=ProviderConfig(
-            third_party_id=third_party_id,
-            clients=[
-                ProviderClientConfig(
-                    client_id=client_id,
-                    client_secret=client_secret,
-                    scope=scope,
-                )
-            ],
-        )
-    )
-
-
-def _build_supertokens_providers() -> List[Any]:
-    settings = get_settings()
-    providers: List[Any] = []
-
-    if settings.GOOGLE_OAUTH_CLIENT_ID and settings.GOOGLE_OAUTH_CLIENT_SECRET:
-        providers.append(
-            Google(
-                _build_provider_input(
-                    "google",
-                    settings.GOOGLE_OAUTH_CLIENT_ID,
-                    settings.GOOGLE_OAUTH_CLIENT_SECRET,
-                    scope=["openid", "email", "profile"],
-                )
-            )
-        )
-
-    if settings.GITHUB_OAUTH_CLIENT_ID and settings.GITHUB_OAUTH_CLIENT_SECRET:
-        providers.append(
-            Github(
-                _build_provider_input(
-                    "github",
-                    settings.GITHUB_OAUTH_CLIENT_ID,
-                    settings.GITHUB_OAUTH_CLIENT_SECRET,
-                    scope=["read:user", "user:email"],
-                )
-            )
-        )
-
-    return providers
-
-
-def init_supertokens() -> bool:
-    global _SUPERTOKENS_INITIALIZED
-
-    if _SUPERTOKENS_INITIALIZED:
-        return True
-
-    if not _supertokens_requested():
-        return False
-
-    if not SUPERTOKENS_SDK_AVAILABLE:
-        logger.error("SuperTokens SDK import failed: %s", SUPERTOKENS_IMPORT_ERROR)
-        return False
-
-    settings = get_settings()
-    providers = _build_supertokens_providers()
-
-    try:
-        supertokens_init(
-            app_info=InputAppInfo(
-                app_name=settings.APP_NAME,
-                api_domain=settings.API_DOMAIN,
-                website_domain=settings.WEBSITE_DOMAIN,
-                api_base_path=settings.SUPERTOKENS_API_BASE_PATH,
-                website_base_path=settings.SUPERTOKENS_WEBSITE_BASE_PATH,
-            ),
-            framework="fastapi",
-            supertokens_config=SupertokensConfig(
-                connection_uri=settings.SUPERTOKENS_CONNECTION_URI,
-                api_key=settings.SUPERTOKENS_API_KEY or None,
-            ),
-            recipe_list=[
-                ThirdPartyRecipe.init(
-                    sign_in_and_up_feature=SignInAndUpFeature(providers=providers)
-                ),
-                SessionRecipe.init(
-                    cookie_secure=settings.supertokens_cookie_secure,
-                    cookie_same_site=settings.supertokens_cookie_same_site,
-                    cookie_domain=settings.SUPERTOKENS_COOKIE_DOMAIN,
-                    anti_csrf="VIA_TOKEN",
-                    expose_access_token_to_frontend_in_cookie_based_auth=False,
-                ),
-            ],
-            mode="asgi",
-            telemetry=False,
-            debug=settings.DEBUG,
-        )
-    except Exception as exc:  # pragma: no cover - environment-dependent
-        logger.error("SuperTokens initialization failed: %s", exc)
-        return False
-
-    _SUPERTOKENS_INITIALIZED = True
-    logger.info(
-        "SuperTokens initialized with %d third-party provider(s).",
-        len(providers),
-    )
-    return True
-
-
+# Backward-compatible aliases used by legacy imports.
 def get_supertokens_cors_headers() -> List[str]:
-    if not init_supertokens():
-        return []
-    try:
-        return supertokens_get_all_cors_headers()
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.warning("Failed to fetch SuperTokens CORS headers: %s", exc)
-        return []
+    return get_auth_cors_headers()
 
 
 def get_supertokens_middleware():
-    if not init_supertokens():
-        return None
-    return get_supertokens_middleware_impl()
+    return get_auth_middleware()
 
 
 async def _load_role_for_user(user_id: str, fallback_role: str = "user") -> str:
@@ -251,35 +201,55 @@ async def _load_role_for_user(user_id: str, fallback_role: str = "user") -> str:
         return fallback_role
 
 
-async def _get_current_user_from_supertokens(
-    request: Request,
+async def _get_current_user_from_clerk_token(
+    credentials: Optional[HTTPAuthorizationCredentials],
     *,
     session_required: bool,
 ) -> Optional[Dict[str, Any]]:
-    if not init_supertokens():
-        if _supertokens_requested():
-            raise HTTPException(status_code=503, detail="Authentication is not available.")
+    if not credentials or not credentials.credentials:
+        if session_required:
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         return None
 
-    verifier = supertokens_verify_session(session_required=session_required)
-    session = await verifier(request)
-    if session is None:
-        return None
+    payload = _decode_clerk_token(credentials.credentials)
 
-    payload = session.get_access_token_payload() or {}
-    user_id = session.get_user_id()
-    role = await _load_role_for_user(user_id, payload.get("role", "user"))
+    clerk_id = payload["sub"]
+    user_id = clerk_id
+    role = payload.get("role", "user")
+    
+    try:
+        from sqlalchemy import select
+        from database.models import User
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(User).where(User.clerk_user_id == clerk_id))
+            user = result.scalars().first()
+            if not user:
+                result = await db.execute(select(User).where(User.user_id == clerk_id))
+                user = result.scalars().first()
+            
+            if user:
+                user_id = user.user_id
+                role = user.role
+    except Exception as exc:
+        logger.debug("User lookup failed for %s: %s", clerk_id, exc)
+
+    email = _extract_email_from_payload(payload)
+    name = _extract_name_from_payload(payload, email)
 
     return {
         "user_id": user_id,
         "role": role,
-        "token_type": "session",
+        "token_type": "clerk_jwt",
         "authenticated": True,
-        "session": session,
+        "session": None,
         "session_payload": payload,
-        "email": payload.get("email"),
-        "name": payload.get("name"),
-        "provider": payload.get("provider"),
+        "email": email,
+        "name": name,
+        "provider": "clerk",
     }
 
 
@@ -331,11 +301,11 @@ async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Dict[str, Any]:
     """
-    Resolve the current user from SuperTokens sessions when configured.
+    Resolve the current user from Clerk JWTs when configured.
     Falls back to the legacy JWT path for backward compatibility.
     """
-    if _supertokens_requested():
-        user = await _get_current_user_from_supertokens(request, session_required=True)
+    if _clerk_requested():
+        user = await _get_current_user_from_clerk_token(credentials, session_required=True)
         if user is None:  # pragma: no cover - defensive
             raise HTTPException(status_code=401, detail="Authentication required")
         return user
@@ -349,20 +319,13 @@ async def get_optional_user(
 ) -> Optional[Dict[str, Any]]:
     """Like get_current_user but returns None instead of raising."""
     try:
-        if _supertokens_requested():
-            return await _get_current_user_from_supertokens(
-                request, session_required=False
+        if _clerk_requested():
+            return await _get_current_user_from_clerk_token(
+                credentials, session_required=False
             )
         return await _get_current_user_from_legacy_token(credentials)
     except HTTPException:
         return None
-
-
-def _pick_identity_value(*values: Optional[str]) -> Optional[str]:
-    for value in values:
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
 
 
 async def sync_authenticated_user(
@@ -378,17 +341,20 @@ async def sync_authenticated_user(
         email,
         current_user.get("email"),
         payload.get("email"),
+        payload.get("email_address"),
     )
     resolved_name = _pick_identity_value(
         name,
         current_user.get("name"),
         payload.get("name"),
+        payload.get("full_name"),
         resolved_email.split("@")[0] if resolved_email else None,
     )
     resolved_provider = _pick_identity_value(
         provider,
         current_user.get("provider"),
         payload.get("provider"),
+        "clerk" if _clerk_requested() else None,
     )
 
     user_record = await upsert_authenticated_user(
@@ -407,20 +373,6 @@ async def sync_authenticated_user(
             "provider": user_record.provider,
         }
     )
-
-    session: Optional[SessionContainer] = current_user.get("session")
-    if session is not None:
-        desired_claims = {"role": user_record.role}
-        if user_record.email:
-            desired_claims["email"] = user_record.email
-        if user_record.name:
-            desired_claims["name"] = user_record.name
-        if user_record.provider:
-            desired_claims["provider"] = user_record.provider
-
-        current_payload = session.get_access_token_payload() or {}
-        if any(current_payload.get(key) != value for key, value in desired_claims.items()):
-            await session.merge_into_access_token_payload(desired_claims)
 
     return user_record
 
@@ -466,6 +418,3 @@ def require_admin():
         return wrapper
 
     return decorator
-
-
-init_supertokens()

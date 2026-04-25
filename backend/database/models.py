@@ -13,6 +13,7 @@ class User(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(String, unique=True, index=True, nullable=False)  # JWT sub claim
+    clerk_user_id = Column(String, unique=True, index=True, nullable=True)
     email = Column(String, unique=True, index=True, nullable=True)
     name = Column(String, nullable=True)
     provider = Column(String, nullable=True)
@@ -47,6 +48,7 @@ class Message(Base):
     content = Column(Text, nullable=False)
     image_b64 = Column(Text, nullable=True)  # Base64 image data
     image_mime = Column(String, nullable=True)  # MIME type (e.g. image/png)
+    reasoning_json = Column(JSONB, nullable=True)  # Structured reasoning artifacts per assistant turn
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class UploadedAsset(Base):

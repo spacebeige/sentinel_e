@@ -1,9 +1,9 @@
 /**
  * ============================================================
- * Auth Context Hook
+ * Auth Context Hook (Clerk Edition)
  * ============================================================
  *
- * Global auth state for SuperTokens + backend user profile sync.
+ * Global auth state using Clerk + backend user profile sync.
  */
 
 import {
@@ -15,105 +15,88 @@ import {
   useState,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  AUTH_REQUIRED_EVENT,
-  AUTH_STATE_CHANGED_EVENT,
-  USER_ROLES,
-  SuperTokensWrapper,
-  getCurrentUser,
-  handleAuthCallbackIfPresent,
-  signOutUser,
-} from '../services/firebaseAuth';
+import { useUser, useAuth, useClerk } from '@clerk/clerk-react';
+import api from '../services/api';
 
 const AuthContext = createContext(null);
+
+export let getClerkToken = async () => null;
 
 export const AuthProvider = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  
+  const { isLoaded, isSignedIn, user: clerkUser } = useUser();
+  const { getToken, signOut: clerkSignOut } = useAuth();
+  const clerk = useClerk();
+
   const [loading, setLoading] = useState(true);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authIntent, setAuthIntent] = useState('/chat');
   const [authError, setAuthError] = useState('');
+  const [syncedUser, setSyncedUser] = useState(null);
+
+  // Expose getToken globally for API interceptors
+  getClerkToken = async () => {
+    try {
+      return await getToken();
+    } catch (e) {
+      return null;
+    }
+  };
 
   const refreshUser = useCallback(async () => {
+    if (!isSignedIn || !clerkUser) {
+      setSyncedUser(null);
+      setLoading(false);
+      return null;
+    }
+
     try {
-      const currentUser = await getCurrentUser();
-      setUser(currentUser);
-      return currentUser;
+      const email = clerkUser.primaryEmailAddress?.emailAddress;
+      const name = clerkUser.fullName || email?.split('@')[0];
+      
+      const payload = {
+        email,
+        name,
+        provider: 'clerk'
+      };
+
+      // Ensure backend syncs this user
+      const response = await api.post('/api/auth/sync-user', payload);
+      setSyncedUser(response.data);
+      return response.data;
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.error('Auth refresh failed:', error);
+        console.error('Auth sync failed:', error);
       }
-      setUser(null);
+      setSyncedUser(null);
       return null;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isSignedIn, clerkUser]);
 
   useEffect(() => {
-    let active = true;
-
-    const bootstrap = async () => {
-      try {
-        const handled = await handleAuthCallbackIfPresent();
-        if (handled) return;
-      } catch (error) {
-        if (active) {
-          setAuthError(error instanceof Error ? error.message : 'Authentication failed.');
-          setAuthModalOpen(true);
-        }
-      }
-
-      if (active) {
-        await refreshUser();
-      }
-    };
-
-    bootstrap();
-
-    return () => {
-      active = false;
-    };
-  }, [refreshUser]);
+    if (isLoaded) {
+      refreshUser();
+    }
+  }, [isLoaded, refreshUser]);
 
   const openAuthModal = useCallback((options = {}) => {
     const nextPath = options.returnTo || options.redirectTo || location.pathname || '/chat';
     setAuthIntent(nextPath);
     setAuthError(options.error || '');
-    setAuthModalOpen(true);
-  }, [location.pathname]);
+    clerk.openSignIn({ redirectUrl: nextPath });
+  }, [clerk, location.pathname]);
 
   const closeAuthModal = useCallback(() => {
     setAuthModalOpen(false);
     setAuthError('');
   }, []);
 
-  useEffect(() => {
-    const onAuthRequired = (event) => {
-      openAuthModal(event.detail || {});
-    };
-
-    const onAuthStateChanged = async () => {
-      const nextUser = await refreshUser();
-      if (nextUser) {
-        setAuthModalOpen(false);
-        setAuthError('');
-      }
-    };
-
-    window.addEventListener(AUTH_REQUIRED_EVENT, onAuthRequired);
-    window.addEventListener(AUTH_STATE_CHANGED_EVENT, onAuthStateChanged);
-
-    return () => {
-      window.removeEventListener(AUTH_REQUIRED_EVENT, onAuthRequired);
-      window.removeEventListener(AUTH_STATE_CHANGED_EVENT, onAuthStateChanged);
-    };
-  }, [openAuthModal, refreshUser]);
-
   const handleLoginSuccess = useCallback((userData) => {
-    setUser(userData);
+    setSyncedUser(userData);
     setAuthModalOpen(false);
     setAuthError('');
 
@@ -124,33 +107,43 @@ export const AuthProvider = ({ children }) => {
   }, [authIntent, location.pathname, navigate]);
 
   const signOut = useCallback(async () => {
-    await signOutUser();
-    setUser(null);
+    await clerkSignOut();
+    setSyncedUser(null);
     setAuthModalOpen(false);
     setAuthError('');
     navigate('/');
-  }, [navigate]);
+  }, [clerkSignOut, navigate]);
 
   const requireAuth = useCallback((options = {}) => {
-    if (user) {
+    if (isSignedIn) {
       return true;
     }
     openAuthModal(options);
     return false;
-  }, [openAuthModal, user]);
+  }, [openAuthModal, isSignedIn]);
 
   const value = useMemo(() => {
-    const role = user?.role || null;
+    // If we haven't synced yet but Clerk says we're signed in, provide a temporary user object
+    const effectiveUser = syncedUser || (isSignedIn && clerkUser ? {
+      user_id: clerkUser.id,
+      email: clerkUser.primaryEmailAddress?.emailAddress,
+      name: clerkUser.fullName,
+      role: 'user',
+      provider: 'clerk'
+    } : null);
+
+    const role = effectiveUser?.role || null;
+    
     return {
-      user,
+      user: effectiveUser,
       role,
-      loading,
+      loading: !isLoaded || (isSignedIn && !syncedUser && loading),
       authModalOpen,
       authIntent,
       authError,
-      isAuthenticated: Boolean(user),
-      isAdmin: role === USER_ROLES.ADMIN,
-      isUser: role === USER_ROLES.USER,
+      isAuthenticated: isSignedIn,
+      isAdmin: role === 'admin',
+      isUser: role === 'user',
       openAuthModal,
       closeAuthModal,
       refreshUser,
@@ -160,22 +153,25 @@ export const AuthProvider = ({ children }) => {
       onLoginSuccess: handleLoginSuccess,
     };
   }, [
-    authError,
-    authIntent,
-    authModalOpen,
-    closeAuthModal,
-    handleLoginSuccess,
+    syncedUser,
+    isSignedIn,
+    clerkUser,
+    isLoaded,
     loading,
+    authModalOpen,
+    authIntent,
+    authError,
     openAuthModal,
+    closeAuthModal,
     refreshUser,
     requireAuth,
     signOut,
-    user,
+    handleLoginSuccess,
   ]);
 
   return (
     <AuthContext.Provider value={value}>
-      <SuperTokensWrapper>{children}</SuperTokensWrapper>
+      {children}
     </AuthContext.Provider>
   );
 };
