@@ -26,7 +26,7 @@ import { getDefaultPipelineSteps } from '../engines/modeController';
 import memoryManager from '../engines/memoryManager';
 import { evaluateResponse } from '../engines/cognitiveGovernor';
 import {
-  initSession, checkHealth as apiCheckHealth,
+  checkHealth as apiCheckHealth,
   sendMCOQuery, sendDirectModelQuery,
   getHistory, getChatMessages, getSessionDescriptive, getOmegaSession,
 } from '../services/api';
@@ -55,18 +55,6 @@ export default function ChatEngineV5() {
   // Default to Sentinel Standard aggregate mode (not an individual model)
   const SENTINEL_STD = { id: 'sentinel-std', name: 'Sentinel-E Standard', provider: 'Aggregated', color: '#3b82f6', category: 'standard', isMeta: true, enabled: true };
   const [selectedModel, setSelectedModel] = useState(SENTINEL_STD);
-
-  // ── Session Bootstrap ────────────────────────────────────
-  useEffect(() => {
-    const bootstrap = async () => {
-      try {
-        await initSession();
-      } catch {
-        // Will work without auth in dev mode
-      }
-    };
-    bootstrap();
-  }, []);
 
   // ── Mode Sync ────────────────────────────────────────────
   // Individual models (tier-based, no category) always run in standard mode.
