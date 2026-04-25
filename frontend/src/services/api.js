@@ -19,35 +19,41 @@
 
 import axios from 'axios';
 import { API_BASE } from '../config';
-import { attemptSessionRefresh, requestAuthModal } from './firebaseAuth';
+import { getClerkToken } from '../hooks/useAuthContext';
 
 // ── Token Storage ───────────────────────────────
-// MIGRATION NOTE: Tokens are now stored in HttpOnly cookies by the backend.
-// Frontend no longer directly manages token storage (XSS protection).
-// The axios instance below automatically includes cookies in requests.
+// MIGRATION NOTE: Tokens are now fetched dynamically via Clerk React context
 let _sessionId = null;
-let _tokenRefreshPromise = null;
 
 /**
  * Create an axios instance with interceptors for auth.
- * FIX #3: Include credentials (cookies) in all requests
+ * Includes credentials for any remaining cookie-based logic,
+ * but primarily relies on Clerk Bearer tokens now.
  */
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 120000,
-  withCredentials: true,   // ✅ Always include HttpOnly cookies
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// ── Request Interceptor: Add request ID ────────────────────
+// ── Request Interceptor: Add request ID and Clerk Token ───
 api.interceptors.request.use(
-  (config) => {
-    // Tokens are now in HttpOnly cookies (automatic via credentials: 'include')
-    // Add request ID for tracing
+  async (config) => {
     config.headers['X-Request-ID'] = generateRequestId();
     config.withCredentials = true;
+    
+    try {
+      const token = await getClerkToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (err) {
+      console.warn("Failed to retrieve Clerk token for request", err);
+    }
+    
     return config;
   },
   (error) => Promise.reject(error)
@@ -57,24 +63,6 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-
-    // FIX #3: With HttpOnly cookies, 401 means access token/session may be stale.
-    // First try server-side refresh rotation, then fallback to full session init.
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        await refreshSession();
-        return api(originalRequest);
-      } catch (_refreshError) {
-        if (typeof window !== 'undefined') {
-          requestAuthModal({ returnTo: window.location.pathname || '/chat' });
-        }
-        return Promise.reject(new Error('Please sign in to continue.'));
-      }
-    }
-
     // Sanitize error for display
     const sanitizedError = sanitizeError(error);
     return Promise.reject(sanitizedError);
@@ -83,16 +71,9 @@ api.interceptors.response.use(
 
 // ── Session Management ──────────────────────────────────────
 
-/**
- * Initialize a new session.
- * Called once on app startup.
- * FIX #3: Tokens are now handled by server as HttpOnly cookies
- */
 export async function initSession() {
   try {
-    const res = await axios.post(`${API_BASE}/api/auth/session`, {}, {
-      withCredentials: true,
-    });
+    const res = await api.post(`${API_BASE}/api/auth/session`, {});
     _sessionId = res.data?.user?.user_id || null;
     return res.data;
   } catch (error) {
@@ -101,29 +82,6 @@ export async function initSession() {
     }
     return null;
   }
-}
-
-/**
- * Refresh the session.
- * FIX #3: Token refresh now handled server-side via cookie rotation
- */
-async function refreshSession() {
-  if (_tokenRefreshPromise) return _tokenRefreshPromise;
-
-  _tokenRefreshPromise = attemptSessionRefresh()
-    .then((didRefresh) => {
-      _tokenRefreshPromise = null;
-      if (!didRefresh) {
-        throw new Error('Unable to refresh session.');
-      }
-      return didRefresh;
-    })
-    .catch((err) => {
-      _tokenRefreshPromise = null;
-      throw err;
-    });
-
-  return _tokenRefreshPromise;
 }
 
 export function getSessionId() {

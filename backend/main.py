@@ -2176,12 +2176,14 @@ async def get_messages(
     
     return [
         {
+            "id": str(m.id),
             "role": m.role,
             "content": m.content,
             "timestamp": m.created_at.isoformat() if m.created_at else None,
             "has_image": bool(m.image_b64),
             "image_b64": m.image_b64 if m.image_b64 else None,
             "image_mime": m.image_mime if m.image_mime else None,
+            "reasoning_json": m.reasoning_json,
         }
         for m in msgs
     ]

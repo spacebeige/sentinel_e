@@ -14,7 +14,7 @@ Sentinel-E is a complete system for multi-model AI reasoning:
 - **10-Phase Orchestrator** for intelligent query routing and execution
 - **Admin Dashboard** with 5-tab interface for system monitoring
 - **Boundary Detection** with severity-driven safety policies
-- **SuperTokens + Neon Authentication** with Google/GitHub login and secure sessions
+- **Clerk + Neon Authentication** with Google/GitHub login and secure sessions
 - **Multi-Tier Memory** (session, short-term, long-term)
 - **Real-Time Evidence Verification** with Tavily and SerperAPI
 - **Confidence Calibration** from model agreement, not self-reported certainty
@@ -65,7 +65,7 @@ When you submit a query:
 
 ```
 FRONTEND (React)
-  ↓ HTTP + SuperTokens session cookies
+  ↓ HTTP + Clerk JWT Bearer Token
 BACKEND (FastAPI)
   ├─ API Gateway (auth, admin, middleware)
   ├─ Cognitive Orchestrator (10-phase pipeline)
@@ -115,15 +115,8 @@ ALLOWED_ORIGINS=http://localhost:3000,https://your-frontend.vercel.app
 API_DOMAIN=http://localhost:8000
 WEBSITE_DOMAIN=http://localhost:3000
 
-SUPERTOKENS_CONNECTION_URI=your_supertokens_core_or_managed_uri
-SUPERTOKENS_API_KEY=
-SUPERTOKENS_API_BASE_PATH=/auth
-SUPERTOKENS_WEBSITE_BASE_PATH=/auth
-
-GOOGLE_OAUTH_CLIENT_ID=your_google_client_id
-GOOGLE_OAUTH_CLIENT_SECRET=your_google_client_secret
-GITHUB_OAUTH_CLIENT_ID=your_github_client_id
-GITHUB_OAUTH_CLIENT_SECRET=your_github_client_secret
+CLERK_SECRET_KEY=your_clerk_secret_key
+CLERK_JWT_ISSUER=your_clerk_jwt_issuer_url
 
 GROQ_API_KEY=your_key
 GEMINI_API_KEY=your_key
@@ -160,8 +153,7 @@ npm start
 
 ```env
 REACT_APP_API_URL=http://localhost:8000
-REACT_APP_AUTH_API_BASE_PATH=/auth
-REACT_APP_AUTH_WEBSITE_BASE_PATH=/auth
+REACT_APP_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 ```
 
 Access: `http://localhost:3000`
@@ -175,40 +167,21 @@ Access: `http://localhost:3000`
 1. Create a Neon Postgres database.
 2. Copy the pooled connection string into `DATABASE_URL`.
 3. Keep `sslmode=require` in the URL; Sentinel-E converts it for `asyncpg` automatically.
-4. On first backend startup, the existing SQLAlchemy init extends the `users` table with:
-   - `id`
-   - `user_id`
-   - `email`
-   - `name`
-   - `provider`
-   - `role`
-   - `created_at`
+4. On first backend startup, the existing SQLAlchemy init extends the `users` table with `clerk_user_id` mapping.
 
-### SuperTokens
+### Clerk Setup
 
-1. Create or self-host a SuperTokens Core instance.
-2. Set `SUPERTOKENS_CONNECTION_URI` and `SUPERTOKENS_API_KEY` if your core requires one.
-3. Keep `API_DOMAIN` pointed at Render/FastAPI and `WEBSITE_DOMAIN` pointed at Vercel/React.
-4. `ALLOWED_ORIGINS` must include every frontend origin that will send cookies.
-
-### Google OAuth
-
-1. Create an OAuth client in Google Cloud.
-2. Add your frontend callback origin and the SuperTokens backend callback URL from `/auth/callback/google`.
-3. Put the client ID/secret into `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`.
-
-### GitHub OAuth
-
-1. Create an OAuth app in GitHub Developer Settings.
-2. Set the callback URL to your backend auth callback at `/auth/callback/github`.
-3. Put the client ID/secret into `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET`.
+1. Create an application in the Clerk dashboard.
+2. Go to API Keys and copy the **Publishable Key** into `frontend/.env.local`.
+3. Copy the **Secret Key** into `backend/.env`.
+4. Copy the JWT issuer URL into `CLERK_JWT_ISSUER`.
 
 ### Frontend Auth Flow
 
-- `Login / Sign Up` now opens a modal, not a dedicated auth page.
-- Google/GitHub sessions are stored in secure httpOnly cookies.
-- Chat and Models routes open the auth modal when the user is not signed in.
-- After sign-in, the navbar updates with the synced user profile from Neon.
+- `Login / Sign Up` triggers the Clerk sign-in modal/flow via `<SignIn />`.
+- Clerk manages the session, returning a JWT token using `useAuth()`.
+- The frontend `api.js` automatically fetches the token using `getToken()` and passes it in the `Authorization: Bearer` header to the backend.
+- The backend verifies the JWT and securely syncs the user profile into Neon PostgreSQL using `sync_authenticated_user`.
 
 ---
 
@@ -224,8 +197,8 @@ Access: `http://localhost:3000`
 
 ### How It Works
 
-1. SuperTokens creates the session and stores it in secure cookies
-2. Backend verifies the session on protected requests
+1. Clerk creates the session and provides short-lived JWTs
+2. Backend verifies the JWT on protected requests
 3. Sentinel-E upserts the authenticated user into Neon without duplicating by email
 4. Endpoints check role with `@require_admin()` decorator
 5. All data filtered by user_id (session isolation)
@@ -235,7 +208,7 @@ Access: `http://localhost:3000`
 ```bash
 curl -X POST 'http://localhost:8000/api/admin/users/make-admin' \
   -H 'Content-Type: application/json' \
-  --cookie "sAccessToken=<your_session_cookie>; sRefreshToken=<your_refresh_cookie>" \
+  -H "Authorization: Bearer <your_clerk_jwt>" \
   -d '{"email": "user@example.com"}'
 ```
 
@@ -559,8 +532,7 @@ sentinel_e/
 
 - [ ] API keys in `.env`
 - [ ] Database URL configured
-- [ ] SuperTokens connection URI configured
-- [ ] Google + GitHub OAuth credentials set
+- [ ] Clerk Publishable and Secret Keys configured
 - [ ] Node 20+ installed
 - [ ] Python 3.11+ installed
 - [ ] PostgreSQL running
@@ -578,7 +550,7 @@ sentinel_e/
 ✅ **Transparency** — Full reasoning visibility (Glass mode)  
 ✅ **Admin Dashboard** — System monitoring and management  
 ✅ **Safety Policies** — Severity-driven refusal system  
-✅ **SuperTokens + Neon Auth** — Social login and session management  
+✅ **Clerk + Neon Auth** — Social login and secure session management  
 ✅ **Confidence Calibration** — From model agreement, not self-reported  
 ✅ **Memory Engine** — 3-tier caching system  
 ✅ **Production Ready** — Tested and deployed

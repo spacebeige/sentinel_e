@@ -307,11 +307,13 @@ export default function ChatEngineV5() {
       const loaded = (data || [])
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .map(m => ({
+          id: m.id,
           role: m.role,
           content: m.content,
           timestamp: m.timestamp || run.timestamp,
           image_b64: m.image_b64 || null,
           image_mime: m.image_mime || null,
+          reasoning_json: m.reasoning_json || null,
         }));
       setMessages(loaded);
     } catch (err) {

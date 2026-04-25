@@ -33,25 +33,29 @@ async def upsert_authenticated_user(
 ) -> User:
     """
     Upsert an authenticated user without duplicating records.
-
-    If the same email signs in via a different provider / SuperTokens user id,
-    we re-key the existing profile and migrate chat ownership to preserve history.
     """
     normalized_email = email.strip().lower() if email else None
     normalized_name = name.strip() if isinstance(name, str) and name.strip() else None
     normalized_provider = provider.strip().lower() if isinstance(provider, str) and provider.strip() else None
 
-    existing = await get_user_by_user_id(db, user_id)
+    # Check by clerk_user_id if provider is clerk, otherwise user_id
+    existing = None
+    if normalized_provider == "clerk":
+        result = await db.execute(select(User).where(User.clerk_user_id == user_id))
+        existing = result.scalars().first()
+        
+    if not existing:
+        existing = await get_user_by_user_id(db, user_id)
+        
     if not existing and normalized_email:
         existing = await get_user_by_email(db, normalized_email)
-        if existing and existing.user_id != user_id:
-            old_user_id = existing.user_id
-            existing.user_id = user_id
-            result = await db.execute(select(Chat).where(Chat.user_id == old_user_id))
-            for chat in result.scalars().all():
-                chat.user_id = user_id
-
+        
     if existing:
+        if normalized_provider == "clerk":
+            existing.clerk_user_id = user_id
+        else:
+            existing.user_id = user_id
+            
         if normalized_email:
             existing.email = normalized_email
         if normalized_name:
@@ -66,7 +70,8 @@ async def upsert_authenticated_user(
         return existing
 
     new_user = User(
-        user_id=user_id,
+        user_id=user_id if normalized_provider != "clerk" else f"legacy_{user_id}",
+        clerk_user_id=user_id if normalized_provider == "clerk" else None,
         email=normalized_email,
         name=normalized_name or (normalized_email.split("@")[0] if normalized_email else None),
         provider=normalized_provider,
@@ -160,14 +165,16 @@ async def add_message(
     role: str,
     content: str,
     image_b64: str = None,
-    image_mime: str = None
+    image_mime: str = None,
+    reasoning_json: dict = None
 ) -> Message:
     new_message = Message(
         chat_id=chat_id,
         role=role,
         content=content,
         image_b64=image_b64,
-        image_mime=image_mime
+        image_mime=image_mime,
+        reasoning_json=reasoning_json
     )
     db.add(new_message)
     await db.commit()

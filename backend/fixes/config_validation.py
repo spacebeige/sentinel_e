@@ -49,9 +49,9 @@ def validate_production_config():
         if settings.DATABASE_URL and ("password_placeholder" in settings.DATABASE_URL):
             errors.append("❌ DATABASE_URL missing credentials or using placeholder")
 
-        # SuperTokens
-        if not settings.SUPERTOKENS_CONNECTION_URI:
-            errors.append("❌ SUPERTOKENS_CONNECTION_URI must be configured for production")
+        # Clerk
+        if not settings.CLERK_JWT_ISSUER and not settings.CLERK_JWKS_URL:
+            errors.append("❌ CLERK_JWT_ISSUER or CLERK_JWKS_URL must be configured for production")
         if not settings.API_DOMAIN.startswith("https://"):
             errors.append("❌ API_DOMAIN must use https in production")
         if not settings.WEBSITE_DOMAIN.startswith("https://"):

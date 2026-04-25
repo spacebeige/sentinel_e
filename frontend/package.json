@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@clerk/clerk-react": "^5.61.6",
     "axios": "^1.7.7",
     "framer-motion": "^12.34.3",
     "jwt-decode": "^4.0.0",

@@ -39,12 +39,11 @@ class Settings(BaseSettings):
     MAX_INPUT_LENGTH: int = 50000  # characters
     MAX_ROUNDS: int = 10
 
-    # ── SuperTokens ──────────────────────────────────────────
-    SUPERTOKENS_CONNECTION_URI: str = ""
-    SUPERTOKENS_API_KEY: str = ""
-    SUPERTOKENS_API_BASE_PATH: str = "/auth"
-    SUPERTOKENS_WEBSITE_BASE_PATH: str = "/auth"
-    SUPERTOKENS_COOKIE_DOMAIN: Optional[str] = None
+    # ── Clerk JWT Auth ───────────────────────────────────────
+    CLERK_JWT_ISSUER: str = ""
+    CLERK_JWKS_URL: str = ""
+    CLERK_JWT_AUDIENCE: Optional[str] = None
+    CLERK_DEV_ALLOW_ANONYMOUS: bool = True
 
     @field_validator("DEBUG", mode="before")
     @classmethod
@@ -122,12 +121,12 @@ class Settings(BaseSettings):
         return self.ENVIRONMENT == "production"
 
     @property
-    def supertokens_cookie_secure(self) -> bool:
-        return self.is_production
-
-    @property
-    def supertokens_cookie_same_site(self) -> str:
-        return "none" if self.is_production else "lax"
+    def clerk_jwks_url(self) -> str:
+        if self.CLERK_JWKS_URL:
+            return self.CLERK_JWKS_URL
+        if self.CLERK_JWT_ISSUER:
+            return f"{self.CLERK_JWT_ISSUER.rstrip('/')}/.well-known/jwks.json"
+        return ""
 
     @property
     def effective_database_url(self) -> str:

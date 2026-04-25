@@ -190,7 +190,7 @@ async def system_architecture(
             "layers": [
                 {
                     "name": "API Gateway",
-                    "component": "FastAPI + SuperTokens Session Auth",
+                    "component": "FastAPI + Clerk JWT Auth",
                     "responsibility": "Request routing, authentication, rate limiting"
                 },
                 {
@@ -246,7 +246,7 @@ async def system_architecture(
             ]
         },
         "integrations": [
-            "SuperTokens (Google/GitHub auth + secure sessions)",
+            "Clerk (Google/GitHub auth + secure JWT sessions)",
             "Groq LPU (fast inference)",
             "Google Gemini (multimodal)",
             "Qwen (specialized reasoning)",
