@@ -56,3 +56,4 @@ opencv-python-headless
 # streamlit
 # matplotlib
 # seaborn
+python-jose[cryptography]
