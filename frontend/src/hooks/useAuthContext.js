@@ -57,18 +57,18 @@ export const AuthProvider = ({ children }) => {
       const name = clerkUser.fullName || email?.split('@')[0];
       
       const payload = {
+        user_id: clerkUser.id,
         email,
         name,
-        provider: 'clerk'
+        provider: 'clerk',
+        role: 'user'
       };
 
-      // Ensure backend syncs this user
-      const response = await api.post('/api/auth/sync-user', payload);
-      setSyncedUser(response.data);
-      return response.data;
+      setSyncedUser(payload);
+      return payload;
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.error('Auth sync failed:', error);
+        console.error('Auth refresh failed:', error);
       }
       setSyncedUser(null);
       return null;

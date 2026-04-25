@@ -23,17 +23,14 @@ import { getClerkToken } from '../hooks/useAuthContext';
 
 // ── Token Storage ───────────────────────────────
 // MIGRATION NOTE: Tokens are now fetched dynamically via Clerk React context
-let _sessionId = null;
 
 /**
  * Create an axios instance with interceptors for auth.
- * Includes credentials for any remaining cookie-based logic,
- * but primarily relies on Clerk Bearer tokens now.
+ * primarily relies on Clerk Bearer tokens now.
  */
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 120000,
-  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -43,7 +40,6 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     config.headers['X-Request-ID'] = generateRequestId();
-    config.withCredentials = true;
     
     try {
       const token = await getClerkToken();
@@ -68,38 +64,6 @@ api.interceptors.response.use(
     return Promise.reject(sanitizedError);
   }
 );
-
-// ── Session Management ──────────────────────────────────────
-
-export async function initSession() {
-  try {
-    const res = await api.post(`${API_BASE}/api/auth/session`, {});
-    _sessionId = res.data?.user?.user_id || null;
-    return res.data;
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Session bootstrap failed:', error);
-    }
-    return null;
-  }
-}
-
-export function getSessionId() {
-  return _sessionId;
-}
-
-/**
- * Check if user is authenticated
- * FIX #3: Verify via HTTP request to protected endpoint
- */
-export async function isAuthenticated() {
-  try {
-    const res = await api.get('/api/auth/verify');
-    return res.status === 200;
-  } catch {
-    return false;
-  }
-}
 
 // ── API Methods ─────────────────────────────────────────────
 
@@ -396,7 +360,7 @@ function sanitizeError(error) {
 
   switch (status) {
     case 400:
-      return new Error(typeof detail === 'string' ? detail : 'Invalid request. Please try rephrasing.');
+      return new Error('Invalid request. Please try rephrasing.');
     case 401:
       return new Error('Please sign in to continue.');
     case 404:
@@ -406,7 +370,7 @@ function sanitizeError(error) {
     case 429:
       return new Error('Too many requests. Please wait a moment.');
     case 502:
-      return new Error(typeof detail === 'string' ? detail : 'Provider unavailable. Please try again.');
+      return new Error('Provider unavailable. Please try again.');
     case 503:
       return new Error('The system is starting up. Please try again in a moment.');
     default:
