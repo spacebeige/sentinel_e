@@ -50,9 +50,8 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 # ── Gateway Layer Imports ────────────────────────────────────
 from gateway.config import get_settings
 from gateway.auth import (
-    create_access_token, create_refresh_token,
-    get_current_user, get_optional_user, decode_token,
-    serialize_current_user, sync_authenticated_user,
+    get_current_user,
+    get_optional_user,
 )
 from gateway.firebase_service import get_firebase_service, firebase_is_enabled
 from gateway.middleware import (
