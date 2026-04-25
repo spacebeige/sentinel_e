@@ -57,18 +57,23 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // FIX #3: With HttpOnly cookies, 401 means session expired
-    // Re-initialize session and retry
+    // FIX #3: With HttpOnly cookies, 401 means access token/session may be stale.
+    // First try server-side refresh rotation, then fallback to full session init.
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        await initSession();
+        await refreshSession();
         return api(originalRequest);
-      } catch (refreshError) {
-        // Session init failed, redirect to login
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
+      } catch (_refreshError) {
+        try {
+          await initSession();
+          return api(originalRequest);
+        } catch (sessionError) {
+          // Session init failed, redirect to login
+          window.location.href = '/login';
+          return Promise.reject(sessionError);
+        }
       }
     }
 
