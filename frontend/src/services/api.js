@@ -330,7 +330,7 @@ export async function fetchMCOAnalytics(sessionId) {
 export async function editMessage(messageId, content) {
   const res = await api.put(`/api/messages/${messageId}`, { content });
   return res.data;
-}
+// }const detail = error.response.data?.detail;
 
 /**
  * Regenerate an assistant response for a given message.
@@ -356,7 +356,7 @@ function sanitizeError(error) {
   }
 
   const status = error.response.status;
-  const detail = error.response.data?.detail;
+  
 
   switch (status) {
     case 400:
