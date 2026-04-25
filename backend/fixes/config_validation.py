@@ -27,7 +27,7 @@ def validate_production_config():
     # Check critical environment variables
     if settings.is_production:
         # Database
-        if not settings.POSTGRES_HOST or settings.POSTGRES_HOST == "localhost":
+        if not settings.DATABASE_URL and (not settings.POSTGRES_HOST or settings.POSTGRES_HOST == "localhost"):
             errors.append("❌ POSTGRES_HOST must be configured for production (not localhost)")
         
         # Cache
@@ -46,8 +46,16 @@ def validate_production_config():
             errors.append("❌ JWT_SECRET_KEY too short (must be 32+ characters)")
         
         # Database URL
-        if "password" not in settings.DATABASE_URL or "password_placeholder" in settings.DATABASE_URL:
+        if settings.DATABASE_URL and ("password_placeholder" in settings.DATABASE_URL):
             errors.append("❌ DATABASE_URL missing credentials or using placeholder")
+
+        # SuperTokens
+        if not settings.SUPERTOKENS_CONNECTION_URI:
+            errors.append("❌ SUPERTOKENS_CONNECTION_URI must be configured for production")
+        if not settings.API_DOMAIN.startswith("https://"):
+            errors.append("❌ API_DOMAIN must use https in production")
+        if not settings.WEBSITE_DOMAIN.startswith("https://"):
+            errors.append("❌ WEBSITE_DOMAIN must use https in production")
     
     if errors:
         logger.error("⚠️  CONFIGURATION VALIDATION FAILED:")

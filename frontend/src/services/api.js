@@ -4,7 +4,7 @@
  * ============================================================
  * 
  * SECURITY (FIX #3 - XSS Protection):
- *   - JWT token management (auto-refresh)
+ *   - SuperTokens session management (auto-refresh)
  *   - Tokens now stored in HttpOnly cookies (server-side)
  *   - Frontend never exposes tokens to JavaScript
  *   - No API keys in frontend
@@ -19,6 +19,7 @@
 
 import axios from 'axios';
 import { API_BASE } from '../config';
+import { attemptSessionRefresh, requestAuthModal } from './firebaseAuth';
 
 // ── Token Storage ───────────────────────────────
 // MIGRATION NOTE: Tokens are now stored in HttpOnly cookies by the backend.
@@ -34,7 +35,7 @@ let _tokenRefreshPromise = null;
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 120000,
-  credentials: 'include',  // ✅ Always include HttpOnly cookies
+  withCredentials: true,   // ✅ Always include HttpOnly cookies
   headers: {
     'Content-Type': 'application/json',
   },
@@ -46,6 +47,7 @@ api.interceptors.request.use(
     // Tokens are now in HttpOnly cookies (automatic via credentials: 'include')
     // Add request ID for tracing
     config.headers['X-Request-ID'] = generateRequestId();
+    config.withCredentials = true;
     return config;
   },
   (error) => Promise.reject(error)
@@ -66,14 +68,10 @@ api.interceptors.response.use(
         await refreshSession();
         return api(originalRequest);
       } catch (_refreshError) {
-        try {
-          await initSession();
-          return api(originalRequest);
-        } catch (sessionError) {
-          // Session init failed, redirect to login
-          window.location.href = '/login';
-          return Promise.reject(sessionError);
+        if (typeof window !== 'undefined') {
+          requestAuthModal({ returnTo: window.location.pathname || '/chat' });
         }
+        return Promise.reject(new Error('Please sign in to continue.'));
       }
     }
 
@@ -93,12 +91,14 @@ api.interceptors.response.use(
 export async function initSession() {
   try {
     const res = await axios.post(`${API_BASE}/api/auth/session`, {}, {
-      withCredentials: true,  // ✅ Allow cookie setting
+      withCredentials: true,
     });
-    _sessionId = res.data.session_id;
+    _sessionId = res.data?.user?.user_id || null;
     return res.data;
   } catch (error) {
-    console.warn('Session init failed, running without auth');
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Session bootstrap failed:', error);
+    }
     return null;
   }
 }
@@ -110,15 +110,18 @@ export async function initSession() {
 async function refreshSession() {
   if (_tokenRefreshPromise) return _tokenRefreshPromise;
 
-  _tokenRefreshPromise = axios.post(`${API_BASE}/api/auth/refresh`, {}, {
-    withCredentials: true,  // ✅ Include HttpOnly cookies
-  }).then((res) => {
-    _tokenRefreshPromise = null;
-    return res.data;
-  }).catch((err) => {
-    _tokenRefreshPromise = null;
-    throw err;
-  });
+  _tokenRefreshPromise = attemptSessionRefresh()
+    .then((didRefresh) => {
+      _tokenRefreshPromise = null;
+      if (!didRefresh) {
+        throw new Error('Unable to refresh session.');
+      }
+      return didRefresh;
+    })
+    .catch((err) => {
+      _tokenRefreshPromise = null;
+      throw err;
+    });
 
   return _tokenRefreshPromise;
 }
@@ -427,7 +430,7 @@ function generateRequestId() {
  */
 function sanitizeError(error) {
   if (!error.response) {
-    return new Error('Unable to reach the server. Please check your connection.');
+    return new Error('Unable to reach the service right now.');
   }
 
   const status = error.response.status;
@@ -437,7 +440,7 @@ function sanitizeError(error) {
     case 400:
       return new Error(typeof detail === 'string' ? detail : 'Invalid request. Please try rephrasing.');
     case 401:
-      return new Error('Session expired. Please refresh the page.');
+      return new Error('Please sign in to continue.');
     case 404:
       return new Error('The requested resource was not found.');
     case 413:

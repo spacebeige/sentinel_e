@@ -24,13 +24,10 @@ export function MakeAdminForm({ onSuccess }) {
     setStatus(null);
 
     try {
-      const token = localStorage.getItem('access_token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
       const response = await axios.post(
         `${API_BASE}/api/admin/users/make-admin`,
         { email },
-        { headers }
+        { withCredentials: true }
       );
 
       setStatus({
@@ -44,7 +41,7 @@ export function MakeAdminForm({ onSuccess }) {
     } catch (error) {
       setStatus({
         type: 'error',
-        message: error.response?.data?.detail || 'Failed to promote user',
+        message: 'Failed to promote user.',
       });
     } finally {
       setLoading(false);

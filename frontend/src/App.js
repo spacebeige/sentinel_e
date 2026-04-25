@@ -34,28 +34,45 @@ import ModelsPageWrapper from './pages/ModelsPageWrapper';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
+import { AuthProvider } from './hooks/useAuthContext';
 
 function App() {
   return (
     <CognitiveStoreProvider>
       <ErrorBoundary>
         <BrowserRouter>
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/chat" element={<ChatPage />} />
-              <Route path="/pricing" element={<PricingPageWrapper />} />
-              <Route path="/models" element={<ModelsPageWrapper />} />
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute>
-                    <AdminDashboard />
-                  </ProtectedRoute>
-                }
-              />
-            </Route>
-          </Routes>
+          <AuthProvider>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<LandingPage />} />
+                <Route
+                  path="/chat"
+                  element={
+                    <ProtectedRoute>
+                      <ChatPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/pricing" element={<PricingPageWrapper />} />
+                <Route
+                  path="/models"
+                  element={
+                    <ProtectedRoute>
+                      <ModelsPageWrapper />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <AdminDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+              </Route>
+            </Routes>
+          </AuthProvider>
         </BrowserRouter>
       </ErrorBoundary>
     </CognitiveStoreProvider>

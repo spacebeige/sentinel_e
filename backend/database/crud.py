@@ -4,11 +4,78 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update
-from .models import Chat, Message
+from .models import Chat, Message, User
 import json
 import logging
 
 logger = logging.getLogger("CRUD")
+
+
+async def get_user_by_user_id(db: AsyncSession, user_id: str) -> Optional[User]:
+    result = await db.execute(select(User).where(User.user_id == user_id))
+    return result.scalars().first()
+
+
+async def get_user_by_email(db: AsyncSession, email: Optional[str]) -> Optional[User]:
+    if not email:
+        return None
+    result = await db.execute(select(User).where(User.email == email))
+    return result.scalars().first()
+
+
+async def upsert_authenticated_user(
+    db: AsyncSession,
+    *,
+    user_id: str,
+    email: Optional[str] = None,
+    name: Optional[str] = None,
+    provider: Optional[str] = None,
+) -> User:
+    """
+    Upsert an authenticated user without duplicating records.
+
+    If the same email signs in via a different provider / SuperTokens user id,
+    we re-key the existing profile and migrate chat ownership to preserve history.
+    """
+    normalized_email = email.strip().lower() if email else None
+    normalized_name = name.strip() if isinstance(name, str) and name.strip() else None
+    normalized_provider = provider.strip().lower() if isinstance(provider, str) and provider.strip() else None
+
+    existing = await get_user_by_user_id(db, user_id)
+    if not existing and normalized_email:
+        existing = await get_user_by_email(db, normalized_email)
+        if existing and existing.user_id != user_id:
+            old_user_id = existing.user_id
+            existing.user_id = user_id
+            result = await db.execute(select(Chat).where(Chat.user_id == old_user_id))
+            for chat in result.scalars().all():
+                chat.user_id = user_id
+
+    if existing:
+        if normalized_email:
+            existing.email = normalized_email
+        if normalized_name:
+            existing.name = normalized_name
+        elif not existing.name and normalized_email:
+            existing.name = normalized_email.split("@")[0]
+        if normalized_provider:
+            existing.provider = normalized_provider
+        existing.updated_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(existing)
+        return existing
+
+    new_user = User(
+        user_id=user_id,
+        email=normalized_email,
+        name=normalized_name or (normalized_email.split("@")[0] if normalized_email else None),
+        provider=normalized_provider,
+        role="user",
+    )
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    return new_user
 
 async def create_chat(
     db: AsyncSession, 

@@ -1,34 +1,35 @@
-/**
- * ProtectedRoute — Admin Role Verification Component
- * Redirects non-admin users to /chat
- */
-import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode';
+import React, { useEffect } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuthContext } from '../hooks/useAuthContext';
 
-export function ProtectedRoute({ children }) {
-  const token = localStorage.getItem('access_token');
+export function ProtectedRoute({ children, requireAdmin = false }) {
+  const location = useLocation();
+  const {
+    loading,
+    isAuthenticated,
+    isAdmin,
+    openAuthModal,
+  } = useAuthContext();
 
-  // No token or invalid token → redirect to chat
-  if (!token) {
-    return <Navigate to="/chat" replace />;
-  }
-
-  try {
-    const decoded = jwtDecode(token);
-    const role = decoded.role || 'user';
-
-    // Not admin → redirect to chat
-    if (role !== 'admin') {
-      return <Navigate to="/chat" replace />;
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      openAuthModal({ returnTo: location.pathname });
     }
+  }, [isAuthenticated, loading, location.pathname, openAuthModal]);
 
-    // Admin → render component
-    return children;
-  } catch (error) {
-    console.error('Token decode error:', error);
+  if (loading) {
+    return <div className="min-h-[40vh]" />;
+  }
+
+  if (!isAuthenticated) {
+    return <div className="min-h-[40vh]" />;
+  }
+
+  if (requireAdmin && !isAdmin) {
     return <Navigate to="/chat" replace />;
   }
+
+  return children;
 }
 
 export default ProtectedRoute;

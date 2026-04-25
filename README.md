@@ -14,7 +14,7 @@ Sentinel-E is a complete system for multi-model AI reasoning:
 - **10-Phase Orchestrator** for intelligent query routing and execution
 - **Admin Dashboard** with 5-tab interface for system monitoring
 - **Boundary Detection** with severity-driven safety policies
-- **Firebase Integration** for authentication and user management
+- **SuperTokens + Neon Authentication** with Google/GitHub login and secure sessions
 - **Multi-Tier Memory** (session, short-term, long-term)
 - **Real-Time Evidence Verification** with Tavily and SerperAPI
 - **Confidence Calibration** from model agreement, not self-reported certainty
@@ -65,7 +65,7 @@ When you submit a query:
 
 ```
 FRONTEND (React)
-  ↓ HTTP + JWT
+  ↓ HTTP + SuperTokens session cookies
 BACKEND (FastAPI)
   ├─ API Gateway (auth, admin, middleware)
   ├─ Cognitive Orchestrator (10-phase pipeline)
@@ -107,25 +107,37 @@ source .venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-2. Create `.env` file:
+2. Create `backend/.env`:
 
 ```env
+ENVIRONMENT=development
+ALLOWED_ORIGINS=http://localhost:3000,https://your-frontend.vercel.app
+API_DOMAIN=http://localhost:8000
+WEBSITE_DOMAIN=http://localhost:3000
+
+SUPERTOKENS_CONNECTION_URI=your_supertokens_core_or_managed_uri
+SUPERTOKENS_API_KEY=
+SUPERTOKENS_API_BASE_PATH=/auth
+SUPERTOKENS_WEBSITE_BASE_PATH=/auth
+
+GOOGLE_OAUTH_CLIENT_ID=your_google_client_id
+GOOGLE_OAUTH_CLIENT_SECRET=your_google_client_secret
+GITHUB_OAUTH_CLIENT_ID=your_github_client_id
+GITHUB_OAUTH_CLIENT_SECRET=your_github_client_secret
+
 GROQ_API_KEY=your_key
 GEMINI_API_KEY=your_key
 NVIDIA_API_KEY=your_key
 ANTHROPIC_API_KEY=your_key
 TAVILY_API_KEY=your_key
 SERPER_API_KEY=your_key
-FIREBASE_PROJECT_ID=sentinel-c69c7
-FIREBASE_PRIVATE_KEY=your_key
-JWT_SECRET_KEY=your_secret
-DATABASE_URL=postgresql://user:pass@localhost/sentinel_e
+DATABASE_URL=postgresql://user:pass@your-neon-host/sentinel_e?sslmode=require
 ```
 
 3. Initialize database:
 
 ```bash
-psql -U postgres -d sentinel_e -f backend/storage/schema.sql
+psql "$DATABASE_URL" -f backend/storage/schema.sql
 ```
 
 4. Start backend:
@@ -147,12 +159,56 @@ npm start
 2. Create `frontend/.env.local`:
 
 ```env
-REACT_APP_FIREBASE_API_KEY=AIzaSyAeqmYqh_18lyXmhPyVMbWKUcmJ07QNzEI
-REACT_APP_FIREBASE_PROJECT_ID=sentinel-c69c7
 REACT_APP_API_URL=http://localhost:8000
+REACT_APP_AUTH_API_BASE_PATH=/auth
+REACT_APP_AUTH_WEBSITE_BASE_PATH=/auth
 ```
 
 Access: `http://localhost:3000`
+
+---
+
+## Auth Setup
+
+### Neon PostgreSQL
+
+1. Create a Neon Postgres database.
+2. Copy the pooled connection string into `DATABASE_URL`.
+3. Keep `sslmode=require` in the URL; Sentinel-E converts it for `asyncpg` automatically.
+4. On first backend startup, the existing SQLAlchemy init extends the `users` table with:
+   - `id`
+   - `user_id`
+   - `email`
+   - `name`
+   - `provider`
+   - `role`
+   - `created_at`
+
+### SuperTokens
+
+1. Create or self-host a SuperTokens Core instance.
+2. Set `SUPERTOKENS_CONNECTION_URI` and `SUPERTOKENS_API_KEY` if your core requires one.
+3. Keep `API_DOMAIN` pointed at Render/FastAPI and `WEBSITE_DOMAIN` pointed at Vercel/React.
+4. `ALLOWED_ORIGINS` must include every frontend origin that will send cookies.
+
+### Google OAuth
+
+1. Create an OAuth client in Google Cloud.
+2. Add your frontend callback origin and the SuperTokens backend callback URL from `/auth/callback/google`.
+3. Put the client ID/secret into `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`.
+
+### GitHub OAuth
+
+1. Create an OAuth app in GitHub Developer Settings.
+2. Set the callback URL to your backend auth callback at `/auth/callback/github`.
+3. Put the client ID/secret into `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET`.
+
+### Frontend Auth Flow
+
+- `Login / Sign Up` now opens a modal, not a dedicated auth page.
+- Google/GitHub sessions are stored in secure httpOnly cookies.
+- Chat and Models routes open the auth modal when the user is not signed in.
+- After sign-in, the navbar updates with the synced user profile from Neon.
 
 ---
 
@@ -168,19 +224,18 @@ Access: `http://localhost:3000`
 
 ### How It Works
 
-1. JWT token issued on session creation
-2. Backend queries User table for role on each request
-3. Endpoints check role with `@require_admin()` decorator
-4. All data filtered by user_id (session isolation)
+1. SuperTokens creates the session and stores it in secure cookies
+2. Backend verifies the session on protected requests
+3. Sentinel-E upserts the authenticated user into Neon without duplicating by email
+4. Endpoints check role with `@require_admin()` decorator
+5. All data filtered by user_id (session isolation)
 
 ### Promote to Admin
 
 ```bash
-TOKEN=$(curl -X POST http://localhost:8000/api/auth/session | jq -r '.access_token')
-
 curl -X POST 'http://localhost:8000/api/admin/users/make-admin' \
   -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
+  --cookie "sAccessToken=<your_session_cookie>; sRefreshToken=<your_refresh_cookie>" \
   -d '{"email": "user@example.com"}'
 ```
 
@@ -265,7 +320,7 @@ npm start
 # Health check
 curl http://localhost:8000/health
 
-# Create session
+# Auth status
 curl -X POST http://localhost:8000/api/auth/session
 
 # List models
@@ -275,7 +330,7 @@ curl http://localhost:8000/api/models
 ### Using the System
 
 1. Visit `http://localhost:3000`
-2. System creates anonymous session automatically
+2. Open `Login / Sign Up` and authenticate with Google or GitHub
 3. Type query and select mode (Standard/Debate/Evidence/Glass/Synthesis)
 4. Submit query
 5. View response with reasoning transparency
@@ -293,8 +348,9 @@ curl http://localhost:8000/api/models
 
 ### Authentication
 
-- `POST /api/auth/session` — Create session + JWT
-- `POST /api/auth/refresh` — Refresh token
+- `POST /api/auth/session` — Current auth/session status
+- `GET /api/auth/me` — Current signed-in user
+- `POST /api/auth/sync-user` — Upsert signed-in user into Neon
 
 ### Models
 
@@ -334,7 +390,7 @@ curl http://localhost:8000/api/models
 
 **messages**: Chat messages (message_id, chat_id, role, content, image_b64)
 
-**users**: Accounts (user_id, email, role, active)
+**users**: Accounts (`user_id`, `email`, `name`, `provider`, `role`, `active`)
 
 **uploaded_assets**: Files (asset_id, session_id, file_type, file_hash)
 
@@ -356,9 +412,9 @@ Best-effort session mirror with configurable TTL
 
 ### Access
 
-1. Create session and get JWT token
+1. Sign in with Google or GitHub
 2. Promote user: `/api/admin/users/make-admin`
-3. Login as admin user
+3. Refresh the session or sign in again if role changed
 4. Visit `/admin` route
 
 ### 5 Tabs
@@ -470,7 +526,7 @@ sentinel_e/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/ (Chat, Mode views, Dashboard)
-│   │   ├── services/ (API, Firebase, session)
+│   │   ├── services/ (API, auth, session)
 │   │   ├── pages/ (AdminDashboard)
 │   │   └── App.js
 │   ├── package.json
@@ -503,8 +559,8 @@ sentinel_e/
 
 - [ ] API keys in `.env`
 - [ ] Database URL configured
-- [ ] Firebase credentials set
-- [ ] JWT secret generated
+- [ ] SuperTokens connection URI configured
+- [ ] Google + GitHub OAuth credentials set
 - [ ] Node 20+ installed
 - [ ] Python 3.11+ installed
 - [ ] PostgreSQL running
@@ -522,7 +578,7 @@ sentinel_e/
 ✅ **Transparency** — Full reasoning visibility (Glass mode)  
 ✅ **Admin Dashboard** — System monitoring and management  
 ✅ **Safety Policies** — Severity-driven refusal system  
-✅ **Firebase Integration** — Auth and session management  
+✅ **SuperTokens + Neon Auth** — Social login and session management  
 ✅ **Confidence Calibration** — From model agreement, not self-reported  
 ✅ **Memory Engine** — 3-tier caching system  
 ✅ **Production Ready** — Tested and deployed
@@ -544,9 +600,9 @@ sentinel_e/
 
 ---
 
-## 🔐 Production-Ready Authentication Stack (SuperTokens + Neon + Next.js)
+## 🔐 Legacy SuperTokens Reference App
 
-> **Note:** This is a fully isolated, production-grade authentication system built in `/supertokens-auth` — it does **not** affect the main Sentinel-E backend/frontend. Use it as a reference, a drop-in, or a standalone auth service.
+> **Note:** Sentinel-E now uses the integrated FastAPI + React auth flow documented above. The `/supertokens-auth` directory remains as a separate reference implementation only.
 
 ### What's Included
 

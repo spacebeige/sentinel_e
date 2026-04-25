@@ -27,6 +27,7 @@ tenacity
 PyJWT>=2.8.0
 bcrypt>=4.0.0
 firebase-admin>=6.0.0
+supertokens-python>=0.26.0
 
 # ── v2 Architecture ──
 aiosqlite>=0.20.0

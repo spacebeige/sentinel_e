@@ -10,7 +10,7 @@ import os
 from typing import List, Optional
 from functools import lru_cache
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
 
 # Determine base directory
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -32,10 +32,32 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     ALLOWED_ORIGINS: str = Field(default="http://localhost:3000", description="Comma-separated CORS origins")
+    API_DOMAIN: str = Field(default="http://localhost:8000", description="Backend public origin for auth/session callbacks")
+    WEBSITE_DOMAIN: str = Field(default="http://localhost:3000", description="Primary frontend origin")
     RATE_LIMIT_REQUESTS: int = 60
     RATE_LIMIT_WINDOW_SECONDS: int = 60
     MAX_INPUT_LENGTH: int = 50000  # characters
     MAX_ROUNDS: int = 10
+
+    # ── SuperTokens ──────────────────────────────────────────
+    SUPERTOKENS_CONNECTION_URI: str = ""
+    SUPERTOKENS_API_KEY: str = ""
+    SUPERTOKENS_API_BASE_PATH: str = "/auth"
+    SUPERTOKENS_WEBSITE_BASE_PATH: str = "/auth"
+    SUPERTOKENS_COOKIE_DOMAIN: Optional[str] = None
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def parse_debug_flag(cls, value):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on", "debug"}:
+                return True
+            if normalized in {"0", "false", "no", "off", "release", "prod", "production"}:
+                return False
+        return value
 
     # ── LLM Providers ────────────────────────────────────────
     GROQ_API_KEY: str = ""
@@ -43,6 +65,10 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     QWEN_API_KEY: str = ""
     TAVILY_API_KEY: str = ""
+    GOOGLE_OAUTH_CLIENT_ID: str = ""
+    GOOGLE_OAUTH_CLIENT_SECRET: str = ""
+    GITHUB_OAUTH_CLIENT_ID: str = ""
+    GITHUB_OAUTH_CLIENT_SECRET: str = ""
 
     # ── MCO Per-Model Keys (provider isolation) ───────────────
     QWEN3_CODER_API_KEY: str = ""
@@ -94,6 +120,14 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"
+
+    @property
+    def supertokens_cookie_secure(self) -> bool:
+        return self.is_production
+
+    @property
+    def supertokens_cookie_same_site(self) -> str:
+        return "none" if self.is_production else "lax"
 
     @property
     def effective_database_url(self) -> str:

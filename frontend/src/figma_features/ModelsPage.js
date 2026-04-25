@@ -83,7 +83,7 @@ export function ModelsPage() {
           {error && (
             <div className="flex items-center justify-center gap-2 mt-4 text-[#f59e0b]">
               <AlertCircle className="w-4 h-4" />
-              <span style={{ fontFamily: FONT, fontSize: '13px' }}>Using cached model data — backend offline</span>
+              <span style={{ fontFamily: FONT, fontSize: '13px' }}>Using cached model data.</span>
             </div>
           )}
         </motion.div>

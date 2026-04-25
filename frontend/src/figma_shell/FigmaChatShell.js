@@ -225,12 +225,13 @@ export default function FigmaChatShell({
   // ============================================================
 
   const handleSendLocal = useCallback(() => {
+    if (!backendOnline) return;
     if (!input.trim() && !attachedFile) return;
     handleSubmit({ text: input.trim(), file: attachedFile });
     setInput('');
     setAttachedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  }, [input, attachedFile, handleSubmit, setInput]);
+  }, [backendOnline, input, attachedFile, handleSubmit, setInput]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -704,7 +705,7 @@ export default function FigmaChatShell({
       return (
         <div className="px-4 py-12 text-center">
           <WifiOff className="w-8 h-8 text-[#aeaeb2] mx-auto mb-2" />
-          <p style={{ fontFamily: FONT, fontSize: '12px', color: '#aeaeb2' }}>Backend offline</p>
+          <p style={{ fontFamily: FONT, fontSize: '12px', color: '#aeaeb2' }}>Session analytics are unavailable right now.</p>
         </div>
       );
     }
@@ -961,7 +962,7 @@ export default function FigmaChatShell({
                 <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#fef3c7]/60">
                   <WifiOff className="w-3 h-3 text-[#f59e0b]" />
                   <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500, color: '#f59e0b' }}>
-                    Offline
+                    Unavailable
                   </span>
                 </div>
               )}
@@ -998,24 +999,6 @@ export default function FigmaChatShell({
             </button>
           </div>
         </div>
-
-        {/* ---------- OFFLINE BANNER ---------- */}
-        <AnimatePresence>
-          {!backendOnline && serverStatus !== 'unknown' && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="bg-[#fffbeb] border-b border-[#f59e0b]/20 px-4 py-2 flex items-center gap-2"
-            >
-              <AlertCircle className="w-3.5 h-3.5 text-[#f59e0b] flex-shrink-0" />
-              <span style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 500, color: '#92400e' }}>
-                Backend offline — start your FastAPI server at localhost:8000 for live AI.
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* ---------- MODEL PICKER DROPDOWN ---------- */}
         <AnimatePresence>
@@ -1515,6 +1498,7 @@ export default function FigmaChatShell({
               <div className="flex items-end gap-2">
                 <button
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={!backendOnline}
                   className={`p-2 rounded-full transition-colors flex-shrink-0 ${
                     attachedFile ? 'bg-[#e0f2fe] dark:bg-[#1e3a5f]' : 'hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
@@ -1535,8 +1519,11 @@ export default function FigmaChatShell({
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  disabled={!backendOnline || loading}
                   placeholder={
-                    activeSubMode
+                    !backendOnline
+                      ? 'Service temporarily unavailable'
+                      : activeSubMode
                       ? PRO_SUB_MODES.find(m => m.id === activeSubMode)?.placeholder
                       : 'Message Sentinel-E...'
                   }
@@ -1547,18 +1534,18 @@ export default function FigmaChatShell({
 
                 <button
                   onClick={handleSendLocal}
-                  disabled={(!input.trim() && !attachedFile) || loading}
+                  disabled={!backendOnline || (!input.trim() && !attachedFile) || loading}
                   className="p-2 rounded-full flex-shrink-0 transition-all"
                   style={{
-                    backgroundColor: (!input.trim() && !attachedFile) || loading
+                    backgroundColor: !backendOnline || (!input.trim() && !attachedFile) || loading
                       ? '#e5e5ea'
                       : activeSubMode
                         ? PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color
                         : '#007aff',
-                    color: (input.trim() || attachedFile) && !loading ? 'white' : '#aeaeb2',
-                    boxShadow: (input.trim() || attachedFile) && !loading && activeSubMode
+                    color: backendOnline && (input.trim() || attachedFile) && !loading ? 'white' : '#aeaeb2',
+                    boxShadow: backendOnline && (input.trim() || attachedFile) && !loading && activeSubMode
                       ? `0 4px 12px ${PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color}40`
-                      : (input.trim() || attachedFile) && !loading
+                      : backendOnline && (input.trim() || attachedFile) && !loading
                         ? '0 4px 12px rgba(0,122,255,0.3)'
                         : 'none',
                   }}

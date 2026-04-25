@@ -80,7 +80,7 @@ async def make_user_admin(
         }
     except Exception as e:
         logger.error(f"Error promoting user: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to update user role.")
 
 
 @router.get("/system/stats")
@@ -172,7 +172,7 @@ async def system_statistics(
         }
     except Exception as e:
         logger.error(f"Error fetching system stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to fetch system statistics.")
 
 
 @router.get("/system/architecture")
@@ -190,7 +190,7 @@ async def system_architecture(
             "layers": [
                 {
                     "name": "API Gateway",
-                    "component": "FastAPI + JWT Auth",
+                    "component": "FastAPI + SuperTokens Session Auth",
                     "responsibility": "Request routing, authentication, rate limiting"
                 },
                 {
@@ -246,7 +246,7 @@ async def system_architecture(
             ]
         },
         "integrations": [
-            "Firebase (authentication + session mgmt)",
+            "SuperTokens (Google/GitHub auth + secure sessions)",
             "Groq LPU (fast inference)",
             "Google Gemini (multimodal)",
             "Qwen (specialized reasoning)",
@@ -300,7 +300,7 @@ async def web_analytics(
         }
     except Exception as e:
         logger.error(f"Error fetching web analytics: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to fetch analytics.")
 
 
 @router.get("/feedback-summary")
@@ -353,4 +353,4 @@ async def feedback_summary(
         }
     except Exception as e:
         logger.error(f"Error fetching feedback: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to fetch feedback summary.")

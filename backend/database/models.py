@@ -14,6 +14,8 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(String, unique=True, index=True, nullable=False)  # JWT sub claim
     email = Column(String, unique=True, index=True, nullable=True)
+    name = Column(String, nullable=True)
+    provider = Column(String, nullable=True)
     role = Column(String, default="user", nullable=False)  # "user" | "admin" | "moderator"
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

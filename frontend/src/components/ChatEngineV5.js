@@ -4,7 +4,7 @@
  * ============================================================
  * 
  * SECURITY CHANGES from v4:
- *   - All API calls through services/api.js (JWT auth)
+ *   - All API calls through services/api.js (session auth)
  *   - No API keys in frontend
  *   - No system prompt exposure
  *   - No model routing logic client-side

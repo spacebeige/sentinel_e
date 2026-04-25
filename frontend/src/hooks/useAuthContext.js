@@ -3,72 +3,179 @@
  * Auth Context Hook
  * ============================================================
  *
- * Global authentication state management
- * Usage: const { user, role, signIn, signOut } = useAuthContext()
+ * Global auth state for SuperTokens + backend user profile sync.
  */
 
-import { createContext, useContext, useEffect, useState } from 'react';
-import { getCurrentUser, signOutUser, USER_ROLES } from '../services/firebaseAuth';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  AUTH_REQUIRED_EVENT,
+  AUTH_STATE_CHANGED_EVENT,
+  USER_ROLES,
+  SuperTokensWrapper,
+  getCurrentUser,
+  handleAuthCallbackIfPresent,
+  signOutUser,
+} from '../services/firebaseAuth';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authIntent, setAuthIntent] = useState('/chat');
+  const [authError, setAuthError] = useState('');
 
-  // Check auth status on mount and listen for changes
+  const refreshUser = useCallback(async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      return currentUser;
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Auth refresh failed:', error);
+      }
+      setUser(null);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const checkAuth = async () => {
+    let active = true;
+
+    const bootstrap = async () => {
       try {
-        const currentUser = await getCurrentUser();
-        if (currentUser) {
-          setUser(currentUser);
-          setRole(currentUser.role || USER_ROLES.USER);
-        }
+        const handled = await handleAuthCallbackIfPresent();
+        if (handled) return;
       } catch (error) {
-        console.error('Error checking auth status:', error);
-      } finally {
-        setLoading(false);
+        if (active) {
+          setAuthError(error instanceof Error ? error.message : 'Authentication failed.');
+          setAuthModalOpen(true);
+        }
+      }
+
+      if (active) {
+        await refreshUser();
       }
     };
 
-    checkAuth();
+    bootstrap();
+
+    return () => {
+      active = false;
+    };
+  }, [refreshUser]);
+
+  const openAuthModal = useCallback((options = {}) => {
+    const nextPath = options.returnTo || options.redirectTo || location.pathname || '/chat';
+    setAuthIntent(nextPath);
+    setAuthError(options.error || '');
+    setAuthModalOpen(true);
+  }, [location.pathname]);
+
+  const closeAuthModal = useCallback(() => {
+    setAuthModalOpen(false);
+    setAuthError('');
   }, []);
 
-  const handleSignOut = async () => {
-    try {
-      const result = await signOutUser();
-      if (result.success) {
-        setUser(null);
-        setRole(null);
+  useEffect(() => {
+    const onAuthRequired = (event) => {
+      openAuthModal(event.detail || {});
+    };
+
+    const onAuthStateChanged = async () => {
+      const nextUser = await refreshUser();
+      if (nextUser) {
+        setAuthModalOpen(false);
+        setAuthError('');
       }
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
+    };
 
-  const handleLoginSuccess = (userData) => {
+    window.addEventListener(AUTH_REQUIRED_EVENT, onAuthRequired);
+    window.addEventListener(AUTH_STATE_CHANGED_EVENT, onAuthStateChanged);
+
+    return () => {
+      window.removeEventListener(AUTH_REQUIRED_EVENT, onAuthRequired);
+      window.removeEventListener(AUTH_STATE_CHANGED_EVENT, onAuthStateChanged);
+    };
+  }, [openAuthModal, refreshUser]);
+
+  const handleLoginSuccess = useCallback((userData) => {
     setUser(userData);
-    setRole(userData.role || USER_ROLES.USER);
-  };
+    setAuthModalOpen(false);
+    setAuthError('');
 
-  const isAdmin = role === USER_ROLES.ADMIN;
-  const isUser = role === USER_ROLES.USER;
+    const destination = authIntent || '/chat';
+    if (location.pathname !== destination) {
+      navigate(destination);
+    }
+  }, [authIntent, location.pathname, navigate]);
+
+  const signOut = useCallback(async () => {
+    await signOutUser();
+    setUser(null);
+    setAuthModalOpen(false);
+    setAuthError('');
+    navigate('/');
+  }, [navigate]);
+
+  const requireAuth = useCallback((options = {}) => {
+    if (user) {
+      return true;
+    }
+    openAuthModal(options);
+    return false;
+  }, [openAuthModal, user]);
+
+  const value = useMemo(() => {
+    const role = user?.role || null;
+    return {
+      user,
+      role,
+      loading,
+      authModalOpen,
+      authIntent,
+      authError,
+      isAuthenticated: Boolean(user),
+      isAdmin: role === USER_ROLES.ADMIN,
+      isUser: role === USER_ROLES.USER,
+      openAuthModal,
+      closeAuthModal,
+      refreshUser,
+      requireAuth,
+      setAuthError,
+      signOut,
+      onLoginSuccess: handleLoginSuccess,
+    };
+  }, [
+    authError,
+    authIntent,
+    authModalOpen,
+    closeAuthModal,
+    handleLoginSuccess,
+    loading,
+    openAuthModal,
+    refreshUser,
+    requireAuth,
+    signOut,
+    user,
+  ]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        role,
-        loading,
-        isAdmin,
-        isUser,
-        signOut: handleSignOut,
-        onLoginSuccess: handleLoginSuccess,
-      }}
-    >
-      {children}
+    <AuthContext.Provider value={value}>
+      <SuperTokensWrapper>{children}</SuperTokensWrapper>
     </AuthContext.Provider>
   );
 };

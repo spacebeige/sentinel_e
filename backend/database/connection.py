@@ -159,6 +159,12 @@ async def init_db():
         from .models import Base
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(
+                text("ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR")
+            )
+            await conn.execute(
+                text("ALTER TABLE users ADD COLUMN IF NOT EXISTS provider VARCHAR")
+            )
             # Add image columns to existing messages table if missing
             await conn.execute(
                 text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_b64 TEXT")

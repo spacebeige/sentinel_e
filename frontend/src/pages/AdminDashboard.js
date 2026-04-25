@@ -35,14 +35,12 @@ const AdminDashboard = () => {
   const fetchAdminData = useCallback(async () => {
     try {
       setError(null);
-      const token = localStorage.getItem('access_token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       const [statsRes, archRes, analyticsRes, feedbackRes] = await Promise.all([
-        axios.get(`${API_BASE}/api/admin/system/stats`, { headers }).catch(e => ({ status: 500 })),
-        axios.get(`${API_BASE}/api/admin/system/architecture`, { headers }).catch(e => ({ status: 500 })),
-        axios.get(`${API_BASE}/api/admin/web-analytics?days=7`, { headers }).catch(e => ({ status: 500 })),
-        axios.get(`${API_BASE}/api/admin/feedback-summary`, { headers }).catch(e => ({ status: 500 })),
+        axios.get(`${API_BASE}/api/admin/system/stats`, { withCredentials: true }).catch(() => ({ status: 500 })),
+        axios.get(`${API_BASE}/api/admin/system/architecture`, { withCredentials: true }).catch(() => ({ status: 500 })),
+        axios.get(`${API_BASE}/api/admin/web-analytics?days=7`, { withCredentials: true }).catch(() => ({ status: 500 })),
+        axios.get(`${API_BASE}/api/admin/feedback-summary`, { withCredentials: true }).catch(() => ({ status: 500 })),
       ]);
 
       if (statsRes.data) setSystemStats(statsRes.data);
@@ -684,9 +682,7 @@ function OrchestratorTab() {
   useEffect(() => {
     const fetchOrchestratorData = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await axios.get(`${API_BASE}/api/admin/orchestrator/performance`, { headers });
+        const res = await axios.get(`${API_BASE}/api/admin/orchestrator/performance`, { withCredentials: true });
         setOrchestratorData(res.data);
       } catch (err) {
         console.log('Orchestrator metrics not available yet');
@@ -802,9 +798,7 @@ function MemoryTab() {
   useEffect(() => {
     const fetchMemoryData = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await axios.get(`${API_BASE}/api/admin/memory/learning`, { headers });
+        const res = await axios.get(`${API_BASE}/api/admin/memory/learning`, { withCredentials: true });
         setMemoryData(res.data);
       } catch (err) {
         console.log('Memory metrics not available yet');
@@ -946,9 +940,7 @@ function ModelsTab() {
   useEffect(() => {
     const fetchModelData = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        await axios.get(`${API_BASE}/api/admin/models/performance`, { headers });
+        await axios.get(`${API_BASE}/api/admin/models/performance`, { withCredentials: true });
       } catch (err) {
         console.log('Model metrics not available yet');
       } finally {

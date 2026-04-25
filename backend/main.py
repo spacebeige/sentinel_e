@@ -52,6 +52,8 @@ from gateway.config import get_settings
 from gateway.auth import (
     create_access_token, create_refresh_token,
     get_current_user, get_optional_user, decode_token,
+    get_supertokens_cors_headers, get_supertokens_middleware,
+    serialize_current_user, sync_authenticated_user,
 )
 from gateway.firebase_service import get_firebase_service, firebase_is_enabled
 from gateway.middleware import (
@@ -436,6 +438,9 @@ class TimeoutMiddleware(BaseHTTPMiddleware):
 
 # ── Middleware Stack (order matters: outermost first) ────────
 app.add_middleware(TimeoutMiddleware)
+supertokens_middleware = get_supertokens_middleware()
+if supertokens_middleware is not None:
+    app.add_middleware(supertokens_middleware)
 app.add_middleware(ErrorHandlerMiddleware)
 app.add_middleware(RequestTrackingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -443,12 +448,18 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(InputValidationMiddleware)
 
 # Strict CORS
+cors_headers = sorted({
+    "Authorization",
+    "Content-Type",
+    "X-Request-ID",
+    *get_supertokens_cors_headers(),
+})
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+    allow_headers=cors_headers,
     expose_headers=["X-Request-ID", "X-Response-Time"],
 )
 
@@ -597,35 +608,71 @@ async def _get_session(chat_id: str, user_id: str = ""):
 # ============================================================
 
 @app.post("/api/auth/session")
-async def create_session():
+async def session_status(user: Optional[Dict] = Depends(get_optional_user)):
     """
-    Bootstrap an anonymous session.
-    Returns a JWT token for session continuity.
+    Return current auth/session status for frontend bootstrap.
     """
-    session_id = f"session-{uuid_lib.uuid4().hex[:16]}"
-    access_token = create_access_token(session_id)
-    refresh_token = create_refresh_token(session_id)
-
+    if not user or not user.get("authenticated"):
+        return {"authenticated": False, "user": None}
     return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "session_id": session_id,
+        "authenticated": True,
+        "user": serialize_current_user(user),
     }
 
 
 @app.post("/api/auth/refresh")
-async def refresh_session(refresh_token: str = Body(..., embed=True)):
-    """Refresh an expired access token."""
+async def refresh_session(
+    refresh_token: Optional[str] = Body(default=None, embed=True),
+    user: Optional[Dict] = Depends(get_optional_user),
+):
+    """Legacy refresh endpoint kept for backward compatibility."""
+    if user and user.get("authenticated"):
+        return {"authenticated": True, "user": serialize_current_user(user)}
+
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="No active session")
+
     payload = decode_token(refresh_token)
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-    new_access = create_access_token(payload["sub"])
     return {
-        "access_token": new_access,
+        "access_token": create_access_token(payload["sub"]),
         "token_type": "bearer",
     }
+
+
+@app.get("/api/auth/me")
+async def current_user(
+    user: Dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    existing = await sync_authenticated_user(
+        db,
+        user,
+        email=user.get("email"),
+        name=user.get("name"),
+        provider=user.get("provider"),
+    )
+    return serialize_current_user(user, existing)
+
+
+@app.post("/api/auth/sync-user")
+async def sync_user(
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+    email: Optional[str] = Body(default=None),
+    name: Optional[str] = Body(default=None),
+    provider: Optional[str] = Body(default=None),
+):
+    synced_user = await sync_authenticated_user(
+        db,
+        user,
+        email=email,
+        name=name,
+        provider=provider,
+    )
+    return serialize_current_user(user, synced_user)
 
 
 # ============================================================

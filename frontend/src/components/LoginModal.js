@@ -1,252 +1,166 @@
-/**
- * ============================================================
- * Login Modal Component
- * ============================================================
- *
- * Handles:
- * - User login/signup flows
- * - Form validation
- * - Error handling
- * - Role selection for new accounts
- * - Toggle between login and signup modes
- */
-
-import React, { useState } from 'react';
-import {
-  signInUser,
-  createUser,
-  USER_ROLES,
-} from '../services/firebaseAuth';
+import React, { useEffect, useState } from 'react';
+import { Loader2, X } from 'lucide-react';
+import { authenticateWithProvider } from '../services/firebaseAuth';
 import '../styles/LoginModal.css';
 
-const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
-  const [mode, setMode] = useState('login'); // 'login' or 'signup'
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [selectedRole, setSelectedRole] = useState(USER_ROLES.USER);
+const TABS = [
+  { id: 'login', label: 'Login', title: 'Welcome back', subtitle: 'Continue with your preferred provider to access chat and models.' },
+  { id: 'signup', label: 'Sign Up', title: 'Create your account', subtitle: 'Start with Google or GitHub and your session will stay synced across refreshes.' },
+];
+
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="auth-provider-icon">
+      <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.3-1.7 3.9-5.4 3.9-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C17 3.3 14.7 2.2 12 2.2 6.6 2.2 2.2 6.6 2.2 12S6.6 21.8 12 21.8c6.9 0 9.4-4.8 9.4-7.3 0-.5-.1-.9-.1-1.3H12Z" />
+    </svg>
+  );
+}
+
+function GithubMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="auth-provider-icon auth-provider-icon--github">
+      <path fill="currentColor" d="M12 2.2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.8c-2.9.6-3.5-1.2-3.5-1.2-.5-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 .1 1.6 1 1.6 1 .9 1.6 2.5 1.1 3.1.9.1-.7.4-1.1.7-1.4-2.3-.3-4.8-1.2-4.8-5.3 0-1.2.4-2.2 1-3-.1-.3-.4-1.3.1-2.8 0 0 .9-.3 3 .9a10.2 10.2 0 0 1 5.4 0c2.1-1.2 3-.9 3-.9.6 1.5.2 2.5.1 2.8.6.8 1 1.8 1 3 0 4.1-2.5 5-4.9 5.3.4.3.8 1 .8 2v2.9c0 .3.2.6.7.5A10 10 0 0 0 12 2.2Z" />
+    </svg>
+  );
+}
+
+export default function LoginModal({
+  isOpen,
+  initialError = '',
+  onClose,
+  onLoginSuccess,
+  returnTo = '/chat',
+}) {
+  const [mode, setMode] = useState('login');
+  const [loadingProvider, setLoadingProvider] = useState(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
-  // Form validation
-  const validateForm = () => {
-    if (!email.trim()) {
-      setError('Email is required');
-      return false;
+  useEffect(() => {
+    if (!isOpen) {
+      setLoadingProvider(null);
+      setError('');
+      setMode('login');
+      return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError('Please enter a valid email address');
-      return false;
-    }
+    setError(initialError || '');
+  }, [initialError, isOpen]);
 
-    if (!password || password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return false;
-    }
+  useEffect(() => {
+    if (!isOpen) return undefined;
 
-    if (mode === 'signup' && !displayName.trim()) {
-      setError('Display name is required');
-      return false;
-    }
-
-    return true;
-  };
-
-  // Handle login
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (!validateForm()) return;
-
-    setLoading(true);
-    const result = await signInUser(email, password);
-
-    if (result.success) {
-      onLoginSuccess(result.user);
-      resetForm();
-      onClose();
-    } else {
-      setError(result.error || 'Failed to sign in');
-    }
-
-    setLoading(false);
-  };
-
-  // Handle signup
-  const handleSignup = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (!validateForm()) return;
-
-    setLoading(true);
-    const result = await createUser(email, password, selectedRole, displayName);
-
-    if (result.success) {
-      // Auto-login after signup
-      const loginResult = await signInUser(email, password);
-      if (loginResult.success) {
-        onLoginSuccess(loginResult.user);
-        resetForm();
-        onClose();
-      } else {
-        setError('Account created but auto-login failed. Please login manually.');
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape' && !loadingProvider) {
+        onClose?.();
       }
-    } else {
-      setError(result.error || 'Failed to create account');
-    }
+    };
 
-    setLoading(false);
-  };
-
-  const resetForm = () => {
-    setEmail('');
-    setPassword('');
-    setDisplayName('');
-    setSelectedRole(USER_ROLES.USER);
-    setError('');
-    setShowPassword(false);
-  };
-
-  const toggleMode = () => {
-    resetForm();
-    setMode(mode === 'login' ? 'signup' : 'login');
-  };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, loadingProvider, onClose]);
 
   if (!isOpen) return null;
 
+  const activeTab = TABS.find((tab) => tab.id === mode) || TABS[0];
+
+  const handleProviderAuth = async (provider) => {
+    setError('');
+    setLoadingProvider(provider);
+
+    try {
+      const user = await authenticateWithProvider(provider, { returnTo });
+      onLoginSuccess?.(user);
+      onClose?.();
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : 'Unable to start authentication.');
+    } finally {
+      setLoadingProvider(null);
+    }
+  };
+
   return (
-    <div className="login-modal-overlay">
-      <div className="login-modal-container">
-        {/* Header */}
-        <div className="login-modal-header">
-          <h2>Sentinel-E Authentication</h2>
-          <button className="login-modal-close" onClick={() => {
-            resetForm();
-            onClose();
-          }}>
-            ✕
-          </button>
-        </div>
+    <div
+      className="login-modal-overlay"
+      onClick={() => {
+        if (!loadingProvider) onClose?.();
+      }}
+    >
+      <div
+        className="login-modal-container"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="login-modal-backdrop" />
 
-        {/* Form */}
-        <form onSubmit={mode === 'login' ? handleLogin : handleSignup} className="login-form">
-          {/* Email */}
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              disabled={loading}
-            />
+        <div className="login-modal-content">
+          <div className="login-modal-header">
+            <div>
+              <div className="login-modal-kicker">Secure Access</div>
+              <h2>{activeTab.title}</h2>
+              <p>{activeTab.subtitle}</p>
+            </div>
+            <button
+              className="login-modal-close"
+              onClick={() => onClose?.()}
+              disabled={Boolean(loadingProvider)}
+              aria-label="Close authentication modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Display Name (Signup only) */}
-          {mode === 'signup' && (
-            <div className="form-group">
-              <label htmlFor="displayName">Full Name</label>
-              <input
-                type="text"
-                id="displayName"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="John Doe"
-                disabled={loading}
-              />
-            </div>
-          )}
-
-          {/* Password */}
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <div className="password-input-wrapper">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                disabled={loading}
-              />
+          <div className="login-modal-tabs" role="tablist" aria-label="Authentication mode">
+            {TABS.map((tab) => (
               <button
+                key={tab.id}
                 type="button"
-                className="password-toggle"
-                onClick={() => setShowPassword(!showPassword)}
-                disabled={loading}
+                role="tab"
+                aria-selected={mode === tab.id}
+                className={`login-modal-tab ${mode === tab.id ? 'login-modal-tab--active' : ''}`}
+                onClick={() => {
+                  setMode(tab.id);
+                  setError('');
+                }}
+                disabled={Boolean(loadingProvider)}
               >
-                {showPassword ? '🙈' : '👁️'}
+                {tab.label}
               </button>
-            </div>
+            ))}
           </div>
 
-          {/* Role Selection (Signup only) */}
-          {mode === 'signup' && (
-            <div className="form-group">
-              <label>Account Type</label>
-              <div className="role-selector">
-                <label className="role-option">
-                  <input
-                    type="radio"
-                    value={USER_ROLES.USER}
-                    checked={selectedRole === USER_ROLES.USER}
-                    onChange={(e) => setSelectedRole(e.target.value)}
-                    disabled={loading}
-                  />
-                  <span>Regular User</span>
-                  <small>Standard access to chat interface</small>
-                </label>
-                <label className="role-option">
-                  <input
-                    type="radio"
-                    value={USER_ROLES.ADMIN}
-                    checked={selectedRole === USER_ROLES.ADMIN}
-                    onChange={(e) => setSelectedRole(e.target.value)}
-                    disabled={loading}
-                  />
-                  <span>Admin</span>
-                  <small>Full access including monitoring dashboard</small>
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && <div className="error-message">{error}</div>}
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="submit-button"
-            disabled={loading}
-          >
-            {loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Create Account'}
-          </button>
-        </form>
-
-        {/* Toggle Mode */}
-        <div className="login-modal-footer">
-          <p>
-            {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
+          <div className="login-modal-body">
             <button
               type="button"
-              className="toggle-mode-button"
-              onClick={toggleMode}
-              disabled={loading}
+              className="auth-provider-button"
+              onClick={() => handleProviderAuth('google')}
+              disabled={Boolean(loadingProvider)}
             >
-              {mode === 'login' ? 'Sign Up' : 'Sign In'}
+              <span className="auth-provider-mark">
+                {loadingProvider === 'google' ? <Loader2 className="w-4 h-4 animate-spin" /> : <GoogleMark />}
+              </span>
+              <span>Continue with Google</span>
             </button>
-          </p>
+
+            <button
+              type="button"
+              className="auth-provider-button"
+              onClick={() => handleProviderAuth('github')}
+              disabled={Boolean(loadingProvider)}
+            >
+              <span className="auth-provider-mark auth-provider-mark--github">
+                {loadingProvider === 'github' ? <Loader2 className="w-4 h-4 animate-spin" /> : <GithubMark />}
+              </span>
+              <span>Continue with GitHub</span>
+            </button>
+
+            {error && <div className="error-message">{error}</div>}
+
+            <div className="login-modal-footer">
+              <span>Sessions use secure httpOnly cookies.</span>
+              <span>No internal backend errors are exposed in the UI.</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
-};
-
-export default LoginModal;
+}
