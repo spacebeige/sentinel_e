@@ -1,0 +1,1329 @@
+{
+  "type": "directory",
+  "name": "sentinel_e",
+  "children": [
+    {
+      "type": "file",
+      "name": "BOUNDARY_QUICK_REFERENCE.md"
+    },
+    {
+      "type": "file",
+      "name": "ADMIN_IMPLEMENTATION_COMPLETE.md"
+    },
+    {
+      "type": "file",
+      "name": "GOVERNANCE_ARCHITECTURE_MAPPING.md"
+    },
+    {
+      "type": "file",
+      "name": ".DS_Store"
+    },
+    {
+      "type": "file",
+      "name": "test_knowledge_learning.py"
+    },
+    {
+      "type": "file",
+      "name": "HEALTHCARE_GOVERNANCE_ARCHITECTURE.md"
+    },
+    {
+      "type": "directory",
+      "name": "frontend",
+      "children": [
+        {
+          "type": "file",
+          "name": "tailwind.config.js"
+        },
+        {
+          "type": "file",
+          "name": ".DS_Store"
+        },
+        {
+          "type": "file",
+          "name": ".env.local"
+        },
+        {
+          "type": "file",
+          "name": "vercel.json"
+        },
+        {
+          "type": "directory",
+          "name": "node_modules",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "public",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": ".gitignore"
+        },
+        {
+          "type": "file",
+          "name": "package-lock.json"
+        },
+        {
+          "type": "file",
+          "name": "package.json"
+        },
+        {
+          "type": "directory",
+          "name": "build",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": ".env.example"
+        },
+        {
+          "type": "directory",
+          "name": "src",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        }
+      ],
+      "file_count": 8,
+      "dir_count": 4
+    },
+    {
+      "type": "file",
+      "name": "dump.rdb"
+    },
+    {
+      "type": "file",
+      "name": "collaborative_network_input.json"
+    },
+    {
+      "type": "directory",
+      "name": ".pytest_cache",
+      "children": [
+        {
+          "type": "file",
+          "name": "CACHEDIR.TAG"
+        },
+        {
+          "type": "file",
+          "name": "README.md"
+        },
+        {
+          "type": "file",
+          "name": ".gitignore"
+        },
+        {
+          "type": "directory",
+          "name": "v",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        }
+      ],
+      "file_count": 3,
+      "dir_count": 1
+    },
+    {
+      "type": "file",
+      "name": "test_critical_thinking.py"
+    },
+    {
+      "type": "file",
+      "name": "ADMIN_DASHBOARD_SETUP.md"
+    },
+    {
+      "type": "file",
+      "name": "FIREBASE_SETUP_GUIDE.md"
+    },
+    {
+      "type": "directory",
+      "name": "figma_ui",
+      "children": [
+        {
+          "type": "file",
+          "name": "index.html"
+        },
+        {
+          "type": "file",
+          "name": ".DS_Store"
+        },
+        {
+          "type": "file",
+          "name": "ATTRIBUTIONS (1).md"
+        },
+        {
+          "type": "directory",
+          "name": "dist",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "postcss.config.mjs"
+        },
+        {
+          "type": "file",
+          "name": "Guidelines.md"
+        },
+        {
+          "type": "directory",
+          "name": "node_modules",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "package-lock.json"
+        },
+        {
+          "type": "file",
+          "name": "package.json"
+        },
+        {
+          "type": "file",
+          "name": "vite.config.ts"
+        },
+        {
+          "type": "directory",
+          "name": ".vscode",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": ".env.development"
+        },
+        {
+          "type": "directory",
+          "name": "src",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        }
+      ],
+      "file_count": 9,
+      "dir_count": 4
+    },
+    {
+      "type": "file",
+      "name": "SENTINEL_E_PROVIDER_AUDIT_REPORT.md"
+    },
+    {
+      "type": "file",
+      "name": "FIREBASE_BACKEND_INTEGRATION.md"
+    },
+    {
+      "type": "file",
+      "name": "PR_OUTPUT.json"
+    },
+    {
+      "type": "directory",
+      "name": "node_modules",
+      "children": [
+        {
+          "type": "directory",
+          "name": "idb",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "@types",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": ".bin",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "tailwind-merge",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "strip-ansi",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "web-vitals",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": ".DS_Store"
+        },
+        {
+          "type": "directory",
+          "name": "require-directory",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "escalade",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "wrap-ansi",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "y18n",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "tslib",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "safe-buffer",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "marked",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "is-fullwidth-code-point",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "yargs-parser",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "color-name",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "websocket-driver",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "lucide-react",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "lodash.camelcase",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "undici-types",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "ansi-regex",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "color-convert",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "get-caller-file",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "clsx",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": ".package-lock.json"
+        },
+        {
+          "type": "directory",
+          "name": "long",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "faye-websocket",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "firebase",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "class-variance-authority",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "ansi-styles",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "websocket-extensions",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "protobufjs",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "cliui",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "@firebase",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "yargs",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "@protobufjs",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "string-width",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "http-parser-js",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "@grpc",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "react",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "emoji-regex",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        }
+      ],
+      "file_count": 2,
+      "dir_count": 40
+    },
+    {
+      "type": "file",
+      "name": "BOUNDARY_INTEGRATION_SUMMARY.md"
+    },
+    {
+      "type": "file",
+      "name": "test_input.json"
+    },
+    {
+      "type": "file",
+      "name": ".npmrc"
+    },
+    {
+      "type": "directory",
+      "name": "backend",
+      "children": [
+        {
+          "type": "directory",
+          "name": "fixes",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "database",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "experimental",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "main_legacy.py"
+        },
+        {
+          "type": "directory",
+          "name": "ranking",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": ".DS_Store"
+        },
+        {
+          "type": "directory",
+          "name": "core",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "analysis",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "memory",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "requirements.txt"
+        },
+        {
+          "type": "directory",
+          "name": ".pytest_cache",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "shadow_boundaries.py"
+        },
+        {
+          "type": "file",
+          "name": "Dockerfile"
+        },
+        {
+          "type": "file",
+          "name": "AUTONOMOUS_REASONING_ENGINE.md"
+        },
+        {
+          "type": "directory",
+          "name": "optimization",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "providers",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "pyproject.toml"
+        },
+        {
+          "type": "file",
+          "name": "REWRITE_PROGRESS.md"
+        },
+        {
+          "type": "directory",
+          "name": "tests",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "utils",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "models",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "__pycache__",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "test_deliberation.py"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_x_omega_cognitive.py"
+        },
+        {
+          "type": "directory",
+          "name": "storage",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "standard",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "sentinel",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "run_sentinel_sigma_v4.py"
+        },
+        {
+          "type": "directory",
+          "name": "sigma",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "test_prompt_wiring.py"
+        },
+        {
+          "type": "directory",
+          "name": "common",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "risk_boundaries.py"
+        },
+        {
+          "type": "directory",
+          "name": "viz",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "retrieval",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": ".env"
+        },
+        {
+          "type": "directory",
+          "name": "engines",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "static",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": ".venv",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "evaluation",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "compressed",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "venv",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": ".env.example"
+        },
+        {
+          "type": "directory",
+          "name": "monitoring",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "main.py"
+        },
+        {
+          "type": "directory",
+          "name": "data",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "gateway",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "metacognitive",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        }
+      ],
+      "file_count": 16,
+      "dir_count": 31
+    },
+    {
+      "type": "file",
+      "name": "GOVERNANCE_FILES_QUICK_REFERENCE.md"
+    },
+    {
+      "type": "file",
+      "name": "PHASE2_QUICK_REFERENCE.md"
+    },
+    {
+      "type": "directory",
+      "name": "__pycache__",
+      "children": [
+        {
+          "type": "file",
+          "name": "critical_thinking.cpython-311.pyc"
+        },
+        {
+          "type": "file",
+          "name": "test_critical_thinking.cpython-311-pytest-9.0.2.pyc"
+        },
+        {
+          "type": "file",
+          "name": "test_knowledge_learning.cpython-311-pytest-9.0.2.pyc"
+        },
+        {
+          "type": "file",
+          "name": "test_boundaries.cpython-311-pytest-9.0.2.pyc"
+        }
+      ],
+      "file_count": 4,
+      "dir_count": 0
+    },
+    {
+      "type": "file",
+      "name": "ADMIN_SETUP.sh"
+    },
+    {
+      "type": "file",
+      "name": "README.md"
+    },
+    {
+      "type": "file",
+      "name": "structure_summary_script.py"
+    },
+    {
+      "type": "file",
+      "name": "DEPENDENCY_AUDIT.md"
+    },
+    {
+      "type": "directory",
+      "name": "sentinel_history",
+      "children": [
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-07T09:11:38.164684_2ee8ab36-3494-45c8-84d1-d6015f5bb978.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260203T220237890682_b44411ee-00b4-45a6-b768-b17dba7349e0.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-10T16:57:01.699708_f756e105-71fa-4ce6-8ee0-0a603d592b67.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_cognitive_ccbcc9850e.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260201T165605246690_58d0ac15-e638-4a18-829b-271ca84cc917.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260201T192513001427_dbc0dbbe-cc7b-40d6-8f0a-90f81c8cad08.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-18T06:01:35.501699_15f4770a-455c-42d4-b0fa-04002a6630ef.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260202T222752765507_594b16bf-1163-40da-89a3-6fe915c96848.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260217T234330_ce3ae789-b63e-4b69-a84b-ec070488e540.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260203T221209783397_a14aef7a-7610-4711-8d3d-ff9c7d55d91b.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-11T06:43:43.201358_3bab95e9-afd2-47d5-ab47-db76ecc91792.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260202T222749232171_38093a55-7070-4f5c-a477-0c96d7d28c60.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_omega_f7d866dc2a.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-11T08:54:46.357165_1c498e64-4828-4c9a-b9f9-28647ff9d073.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-08T15:24:08.036371_fc5d08ff-bc93-4fba-b6b1-381fefc11d51.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-11T07:33:14.695589_4e31c1b4-0c47-4107-9cd6-504cc2bee4a0.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260203T222036696242_170984ba-dd5a-4391-baab-3f4d24e6faef.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-09T17:07:24.096239_cdcb76c7-57be-4d05-abb0-168a8c6e943e.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-09T16:59:10.347840_a1c0ffc6-47f5-4081-9f60-d06aedd151aa.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-18T02:15:57.682856_1cd0a87c-9cd0-4e02-b457-6b1ba59c6600.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260217T234254_36df0698-3a52-406e-8090-b4762f6cbf18.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-09T16:35:29.843650_91b5fcbf-2385-472a-a11a-045dcb249597.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-09T17:13:23.750580_4b90a0c0-2884-46c0-8348-5c2760ca118f.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260201T170506291480_7771ca11-4d08-42f3-881c-7c99e8e13882.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-09T17:07:50.384026_8586c401-6c26-427b-add2-521df86e4759.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-18T06:20:43.434426_aab6c942-513b-4c67-ba35-7f412bf13f2c.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260217T234543_a391d822-bfcb-423d-a6f5-e47d5f36da54.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260201T165600311013_de879808-2ef6-485f-8f07-b4fff91d84b3.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-07T09:17:33.073450_6a953049-fc75-484e-830a-344e3cc25286.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260217T230148_deabd3f1-4906-4c64-b2df-a3ed7be1507e.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-07T08:23:22.324116_90bc1e67-0194-4b70-b997-95beef42decb.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-08T15:24:24.055730_ab9a2d15-a1fd-49a3-96fa-327df54c150d.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260217T234434_ab98a574-0a9a-4812-ba38-a19f136aaa67.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-09T17:08:14.902649_d86d3624-2036-4770-b8f6-6cfea12b2110.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-07T09:16:44.132110_e1808e39-1c68-470d-a0f2-a15a9e88608b.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-10T17:53:51.450334_0bef6bb8-f946-4b97-b5f3-3cc07e4e6210.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260217T234521_a857edf3-e915-429a-a94e-24277c57b405.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-17T16:53:15.981884_6336815d-e117-49e4-98e5-e6f55add4b95.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-07T09:15:34.705139_560c7980-a8a4-47c2-8a98-4582f77a5c88.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260201T192509504788_b84c66f9-1a47-4c9d-ad4b-6f6a54ec6b60.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-08T05:03:38.638562_1cafc799-3c91-4958-87af-6e5d7a70edeb.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-07T08:51:31.506039_192bae83-fd6d-4718-8df6-7d18a47fd24d.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-08T04:14:41.247303_3bb1b092-63e9-437c-8293-f92afc7a1204.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-07T09:17:18.643840_c412d22f-af72-4de3-b24f-63b96dedce8d.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260201T170510087101_104bf72f-c2de-4ce1-8481-e862f706fc52.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-07T08:48:10.005135_3b168e29-ebdf-4e5b-917a-f96c7dbf5597.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260217T234618_e953b833-21bb-4de1-97e8-75c18d743e2c.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_run_20260203T220240939198_ad2f4316-b277-4703-b746-c1895595347a.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-07T09:16:03.100228_e8e0fb2e-6249-486e-8b4d-2be2c76a8baa.json"
+        },
+        {
+          "type": "file",
+          "name": "sentinel_sigma_run_2026-02-08T04:32:03.213211_42b2fa63-3186-4845-9992-0db3973b8f1f.json"
+        }
+      ],
+      "file_count": 50,
+      "dir_count": 0
+    },
+    {
+      "type": "file",
+      "name": ".gitignore"
+    },
+    {
+      "type": "file",
+      "name": "package-lock.json"
+    },
+    {
+      "type": "file",
+      "name": "package.json"
+    },
+    {
+      "type": "directory",
+      "name": ".venv",
+      "children": [
+        {
+          "type": "directory",
+          "name": "bin",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "include",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "etc",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "pyvenv.cfg"
+        },
+        {
+          "type": "file",
+          "name": ".gitignore"
+        },
+        {
+          "type": "directory",
+          "name": "lib",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "share",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        }
+      ],
+      "file_count": 2,
+      "dir_count": 5
+    },
+    {
+      "type": "file",
+      "name": ".nvmrc"
+    },
+    {
+      "type": "file",
+      "name": "critical_thinking.py"
+    },
+    {
+      "type": "file",
+      "name": "debug_requests.py"
+    },
+    {
+      "type": "file",
+      "name": "PHASE2_COMPLETION_REPORT.md"
+    },
+    {
+      "type": "file",
+      "name": "GOVERNANCE_FILE_IMPLEMENTATION_GUIDE.md"
+    },
+    {
+      "type": "directory",
+      "name": ".git",
+      "children": [
+        {
+          "type": "file",
+          "name": "ORIG_HEAD"
+        },
+        {
+          "type": "file",
+          "name": "config"
+        },
+        {
+          "type": "directory",
+          "name": "objects",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "HEAD"
+        },
+        {
+          "type": "directory",
+          "name": "info",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "logs",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "description"
+        },
+        {
+          "type": "directory",
+          "name": "hooks",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "directory",
+          "name": "refs",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        },
+        {
+          "type": "file",
+          "name": "index"
+        },
+        {
+          "type": "file",
+          "name": "COMMIT_EDITMSG"
+        },
+        {
+          "type": "file",
+          "name": "FETCH_HEAD"
+        }
+      ],
+      "file_count": 7,
+      "dir_count": 5
+    },
+    {
+      "type": "directory",
+      "name": ".vscode",
+      "children": [
+        {
+          "type": "file",
+          "name": "settings.json"
+        },
+        {
+          "type": "file",
+          "name": "tasks.json"
+        }
+      ],
+      "file_count": 2,
+      "dir_count": 0
+    },
+    {
+      "type": "file",
+      "name": "FIREBASE_INTEGRATION_GUIDE.md"
+    },
+    {
+      "type": "file",
+      "name": "sentinel_knowledge.json"
+    },
+    {
+      "type": "file",
+      "name": "debug_keys.py"
+    },
+    {
+      "type": "directory",
+      "name": "data",
+      "children": [
+        {
+          "type": "file",
+          "name": ".DS_Store"
+        },
+        {
+          "type": "directory",
+          "name": "faiss_index",
+          "children": [],
+          "file_count": 0,
+          "dir_count": 0
+        }
+      ],
+      "file_count": 1,
+      "dir_count": 1
+    },
+    {
+      "type": "file",
+      "name": "SESSION_HANDLING_DEBUG_REPORT.md"
+    },
+    {
+      "type": "file",
+      "name": "structure_summary.json"
+    },
+    {
+      "type": "file",
+      "name": "_validate_openrouter_removal.py"
+    },
+    {
+      "type": "file",
+      "name": "test_boundaries.py"
+    },
+    {
+      "type": "file",
+      "name": "input_output_example.json"
+    },
+    {
+      "type": "file",
+      "name": "_verify_refactor.py"
+    },
+    {
+      "type": "file",
+      "name": "_test_imports.py"
+    },
+    {
+      "type": "file",
+      "name": "SESSION_HANDLING_FIX_SUMMARY.md"
+    },
+    {
+      "type": "file",
+      "name": "PHASE2_IMPLEMENTATION_SUMMARY.md"
+    },
+    {
+      "type": "file",
+      "name": "ENSEMBLE_EXECUTION_CONTRACT.md"
+    },
+    {
+      "type": "file",
+      "name": "KNOWLEDGE_LEARNING_GUIDE.md"
+    }
+  ],
+  "file_count": 149,
+  "dir_count": 102
+}

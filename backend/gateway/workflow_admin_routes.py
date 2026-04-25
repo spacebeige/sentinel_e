@@ -4,7 +4,6 @@ Workflow System Admin Endpoints
 ============================================================
 Extended admin routes for monitoring workflow systems:
 - Mode Analytics
-- Awaaz Voice Integration Metrics
 - Orchestrator Performance
 - Memory & Learning System Statistics
 - Model Performance Tracking
@@ -14,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from database.models import User, Chat as DBSession
 from gateway.auth import get_current_user, require_admin
@@ -47,36 +46,6 @@ async def get_modes_analytics(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/awaaz/metrics")
-@require_admin()
-async def get_awaaz_metrics(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get Awaaz voice integration metrics"""
-    try:
-        # Placeholder metrics - integrate with actual Awaaz data later
-        return {
-            "stt_success_rate": 98.2,
-            "total_uploads": 1247,
-            "avg_processing_time": 2.3,
-            "languages_supported": [
-                "Hindi", "Marathi", "Tamil", "Telugu", 
-                "Kannada", "Bengali", "English", "Urdu", "Hinglish"
-            ],
-            "intent_classifications": {
-                "Complaint": 342,
-                "Question": 512,
-                "Feedback": 393
-            },
-            "top_language": "Hindi",
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/orchestrator/performance")
 @require_admin()

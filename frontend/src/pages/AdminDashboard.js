@@ -106,7 +106,6 @@ const AdminDashboard = () => {
               { id: 'overview', label: 'Overview', icon: Activity },
               { id: 'analytics', label: 'Analytics', icon: TrendingUp },
               { id: 'modes', label: 'Modes', icon: Zap },
-              { id: 'awaaz', label: 'Voice', icon: Brain },
               { id: 'orchestrator', label: 'Orchestrator', icon: RefreshCw },
               { id: 'memory', label: 'Memory', icon: Brain },
               { id: 'models', label: 'Models', icon: Activity },
@@ -160,9 +159,6 @@ const AdminDashboard = () => {
 
         {/* Modes Tab */}
         {activeTab === 'modes' && <ModesTab stats={systemStats} />}
-
-        {/* Awaaz Tab */}
-        {activeTab === 'awaaz' && <AwaazTab />}
 
         {/* Orchestrator Tab */}
         {activeTab === 'orchestrator' && <OrchestratorTab />}
@@ -677,117 +673,6 @@ function ModesTab({ stats }) {
     </div>
   );
 }
-
-
-// ============================================================
-// AWAAZ VOICE INTEGRATION TAB
-// ============================================================
-function AwaazTab() {
-  const [awaazData, setAwaazData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
-  useEffect(() => {
-    const fetchAwaazData = async () => {
-      try {
-        const token = localStorage.getItem('access_token');
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await axios.get(`${API_BASE}/api/admin/awaaz/metrics`, { headers });
-        setAwaazData(res.data);
-      } catch (err) {
-        console.log('Awaaz metrics not available yet');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAwaazData();
-  }, [API_BASE]);
-
-  if (loading) return <LoadingScreen />;
-
-  return (
-    <div className="space-y-12">
-      {/* STT Performance */}
-      <section>
-        <h2 className="text-xl font-bold mb-6" style={{ fontFamily: FONT }}>
-          Speech-to-Text Performance
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gradient-to-br from-[#34c759] to-[#00d084] rounded-2xl p-8 text-white">
-            <p className="text-sm opacity-90">Success Rate</p>
-            <h3 className="text-4xl font-bold mt-2">
-              {awaazData?.stt_success_rate || '98'}%
-            </h3>
-          </div>
-          <div className="bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] rounded-2xl p-8 text-white">
-            <p className="text-sm opacity-90">Total Uploads</p>
-            <h3 className="text-4xl font-bold mt-2">
-              {awaazData?.total_uploads || 0}
-            </h3>
-          </div>
-          <div className="bg-gradient-to-br from-[#8b5cf6] to-[#a78bfa] rounded-2xl p-8 text-white">
-            <p className="text-sm opacity-90">Avg Processing Time</p>
-            <h3 className="text-4xl font-bold mt-2">
-              {awaazData?.avg_processing_time || '2.3'}s
-            </h3>
-          </div>
-        </div>
-      </section>
-
-      {/* Language Distribution */}
-      <section>
-        <h2 className="text-xl font-bold mb-6" style={{ fontFamily: FONT }}>
-          Language Distribution
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(['Hindi', 'Marathi', 'Tamil', 'Telugu', 'Kannada', 'Bengali', 'English', 'Urdu', 'Hinglish']).map((lang, i) => (
-            <motion.div
-              key={lang}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: i * 0.05 }}
-              className="bg-white rounded-xl p-6 border border-black/5"
-            >
-              <h3 className="font-semibold text-[#1d1d1f] mb-3">{lang}</h3>
-              <div className="space-y-2">
-                <p className="text-2xl font-bold text-[#3b82f6]">
-                  {Math.floor(Math.random() * 150) + 10}
-                </p>
-                <p className="text-xs text-[#6e6e73]">transcriptions</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* NLP Classification */}
-      <section>
-        <h2 className="text-xl font-bold mb-6" style={{ fontFamily: FONT }}>
-          Intent Classification
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {['Complaint', 'Question', 'Feedback'].map((intent, i) => (
-            <motion.div
-              key={intent}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: i * 0.1 }}
-              className="bg-white rounded-xl p-6 border border-black/5"
-            >
-              <h3 className="font-semibold text-[#1d1d1f] capitalize mb-2">{intent}</h3>
-              <p className="text-3xl font-bold text-[#3b82f6]">
-                {Math.floor(Math.random() * 80) + 5}
-              </p>
-              <p className="text-xs text-[#6e6e73] mt-2">detected</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-
 // ============================================================
 // ORCHESTRATOR PERFORMANCE TAB
 // ============================================================

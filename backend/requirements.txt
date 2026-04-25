@@ -53,7 +53,5 @@ Pillow
 pytesseract
 opencv-python-headless
 # streamlit
-# faster-whisper
-# edge-tts
 # matplotlib
 # seaborn
