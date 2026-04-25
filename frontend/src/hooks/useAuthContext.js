@@ -16,7 +16,7 @@ import {
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useUser, useAuth, useClerk } from '@clerk/clerk-react';
-import api from '../services/api';
+// import api from '../services/api';
 
 const AuthContext = createContext(null);
 
