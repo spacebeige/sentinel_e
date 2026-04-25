@@ -1,0 +1,15 @@
+{
+  "name": "supertokens-auth-stack",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "core:up": "docker compose up -d",
+    "core:down": "docker compose down",
+    "backend:install": "cd backend && npm install",
+    "frontend:install": "cd frontend && npm install",
+    "backend:dev": "cd backend && npm run dev",
+    "frontend:dev": "cd frontend && npm run dev",
+    "backend:start": "cd backend && npm start",
+    "frontend:start": "cd frontend && npm start"
+  }
+}

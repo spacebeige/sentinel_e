@@ -541,4 +541,47 @@ sentinel_e/
 
 ---
 
+
+---
+
+## 🔐 Production-Ready Authentication Stack (SuperTokens + Neon + Next.js)
+
+> **Note:** This is a fully isolated, production-grade authentication system built in `/supertokens-auth` — it does **not** affect the main Sentinel-E backend/frontend. Use it as a reference, a drop-in, or a standalone auth service.
+
+### What's Included
+
+- **Backend:** Express.js + SuperTokens Node SDK (ThirdParty + Session recipes)
+- **Frontend:** Next.js App Router + SuperTokens React SDK (prebuilt UI, protected dashboard)
+- **Database:** Neon PostgreSQL (schema + migrations)
+- **Core:** Self-hosted SuperTokens Core (Docker Compose)
+- **Deliverables:**
+  - `/supertokens-auth/backend` — Express API, session middleware, Neon integration
+  - `/supertokens-auth/frontend` — Next.js App Router, prebuilt auth UI, protected dashboard
+  - `/supertokens-auth/db` — SQL schema, migration scripts
+  - `/supertokens-auth/docker-compose.yml` — SuperTokens Core
+  - `/supertokens-auth/README.md` — Step-by-step setup, OAuth config, deployment
+  - `.env.example` files for all components
+
+### Key Features
+
+- Google & GitHub OAuth (ThirdParty recipe)
+- Secure HTTPOnly cookie sessions (production-ready)
+- CORS with credentials, CSRF protection, secure cookie defaults
+- Protected API routes (`/api/auth/me`, `/api/protected/dashboard`, etc.)
+- Neon upsert on login, role-ready schema
+- Next.js protected dashboard, prebuilt auth UI, logout/session flows
+- All code and config isolated from main Sentinel-E app
+
+### Quick Start
+
+1. Copy `.env.example` files in `/supertokens-auth/backend`, `/frontend`, and `/db` to `.env` and fill secrets (see `/supertokens-auth/README.md` for details)
+2. Start SuperTokens Core: `docker-compose up -d` in `/supertokens-auth`
+3. Run backend: `cd backend && npm install && npm start`
+4. Run frontend: `cd frontend && npm install && npm run dev`
+5. Open `http://localhost:3000` and sign in with Google/GitHub
+
+See `/supertokens-auth/README.md` for full setup, OAuth callback config, and deployment notes.
+
+---
+
 _Sentinel-E is a production-grade multi-model reasoning engine built with FastAPI, React, and modern AI orchestration._
