@@ -1,124 +1,198 @@
+# """
+# ============================================================
+# Sentinel-E Production Configuration
+# ============================================================
+# Centralized configuration with environment-based overrides.
+# No hardcoded secrets. No debug printing of credentials.
+# """
+
+# import os
+# from typing import List, Optional
+# from functools import lru_cache
+# from pydantic_settings import BaseSettings
+# from pydantic import Field, field_validator
+
+# # Determine base directory
+# BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+
+# class Settings(BaseSettings):
+#     """Production settings — all secrets from environment."""
+
+#     # ── Application ──────────────────────────────────────────
+#     APP_NAME: str = "Sentinel-E"
+#     APP_VERSION: str = "5.0.0"
+#     ENVIRONMENT: str = Field(default="development", description="development | staging | production")
+#     DEBUG: bool = False
+#     LOG_LEVEL: str = "INFO"
+
+#     # ── Security ─────────────────────────────────────────────
+#     JWT_SECRET_KEY: str = Field(default="CHANGE-ME-IN-PRODUCTION-USE-openssl-rand-hex-64", description="JWT signing key")
+#     JWT_ALGORITHM: str = "HS256"
+#     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+#     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+#     ALLOWED_ORIGINS: str = Field(default="http://localhost:3000", description="Comma-separated CORS origins")
+#     API_DOMAIN: str = Field(default="http://localhost:8000", description="Backend public origin for auth/session callbacks")
+#     WEBSITE_DOMAIN: str = Field(default="http://localhost:3000", description="Primary frontend origin")
+#     RATE_LIMIT_REQUESTS: int = 60
+#     RATE_LIMIT_WINDOW_SECONDS: int = 60
+#     MAX_INPUT_LENGTH: int = 50000  # characters
+#     MAX_ROUNDS: int = 10
+
+#     # ── Clerk JWT Auth ───────────────────────────────────────
+#     CLERK_JWT_ISSUER: str = ""
+#     CLERK_JWKS_URL: str = ""
+#     CLERK_JWT_AUDIENCE: Optional[str] = None
+#     CLERK_DEV_ALLOW_ANONYMOUS: bool = True
+
+#     @field_validator("DEBUG", mode="before")
+#     @classmethod
+#     def parse_debug_flag(cls, value):
+#         if isinstance(value, bool):
+#             return value
+#         if isinstance(value, str):
+#             normalized = value.strip().lower()
+#             if normalized in {"1", "true", "yes", "on", "debug"}:
+#                 return True
+#             if normalized in {"0", "false", "no", "off", "release", "prod", "production"}:
+#                 return False
+#         return value
+
+#     # ── LLM Providers ────────────────────────────────────────
+#     GROQ_API_KEY: str = ""
+#     # OPENROUTER_API_KEY — disabled (credits exhausted 2026-03-09)
+#     GEMINI_API_KEY: str = ""
+#     QWEN_API_KEY: str = ""
+#     TAVILY_API_KEY: str = ""
+#     GOOGLE_OAUTH_CLIENT_ID: str = ""
+#     GOOGLE_OAUTH_CLIENT_SECRET: str = ""
+#     GITHUB_OAUTH_CLIENT_ID: str = ""
+#     GITHUB_OAUTH_CLIENT_SECRET: str = ""
+
+#     # ── MCO Per-Model Keys (provider isolation) ───────────────
+#     QWEN3_CODER_API_KEY: str = ""
+#     QWEN3_VL_API_KEY: str = ""
+#     NEMOTRON_API_KEY: str = ""
+#     KIMI_API_KEY: str = ""
+#     NVIDIA_API_KEY: str = ""
+#     KIMI_K2_NVIDIA_API_KEY: str = ""
+#     KIMI_K2_NVIDIA_API_KEY_FALLBACK: str = ""
+#     MISTRAL_LARGE_NVIDIA_API_KEY: str = ""
+#     ANTHROPIC_API_KEY: str = ""
+
+#     # ── Database ─────────────────────────────────────────────
+#     POSTGRES_URL: str = ""
+#     POSTGRES_USER: str = "postgres"
+#     POSTGRES_PASSWORD: str = ""
+#     POSTGRES_DB: str = "sentinel_sigma"
+#     POSTGRES_HOST: str = "localhost"
+#     POSTGRES_PORT: str = "5432"
+#     DATABASE_URL: str = ""
+
+#     # ── Redis ────────────────────────────────────────────────
+#     REDIS_URL: str = ""
+#     REDIS_HOST: str = "localhost"
+#     REDIS_PORT: str = "6379"
+#     REDIS_DB: str = "0"
+#     REDIS_SESSION_TTL: int = 7200  # 2 hours
+
+#     # ── Memory System ────────────────────────────────────────
+#     SHORT_TERM_MEMORY_SIZE: int = 12  # messages
+#     ROLLING_SUMMARY_INTERVAL: int = 8  # every N exchanges
+#     ROLLING_SUMMARY_MAX_TOKENS: int = 500
+
+#     # ── RAG ──────────────────────────────────────────────────
+#     RAG_CONFIDENCE_THRESHOLD: float = 0.6
+#     RAG_MAX_SOURCES: int = 5
+#     RAG_TAVILY_MAX_RESULTS: int = 5
+
+#     # ── Provider Defaults ────────────────────────────────────
+#     DEFAULT_PROVIDER: str = "groq"
+#     TOKEN_BUDGET_PER_REQUEST: int = 4096
+#     MAX_RETRY_ATTEMPTS: int = 3
+#     RETRY_BASE_DELAY: float = 1.0
+
+#     @property
+#     def cors_origins(self) -> List[str]:
+#         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
+
+#     @property
+#     def is_production(self) -> bool:
+#         return self.ENVIRONMENT == "production"
+
+#     @property
+#     def clerk_jwks_url(self) -> str:
+#         if self.CLERK_JWKS_URL:
+#             return self.CLERK_JWKS_URL
+#         if self.CLERK_JWT_ISSUER:
+#             return f"{self.CLERK_JWT_ISSUER.rstrip('/')}/.well-known/jwks.json"
+#         return ""
+
+#     @property
+#     def effective_database_url(self) -> str:
+#         """Resolve database URL with asyncpg compatibility."""
+#         url = self.DATABASE_URL or self.POSTGRES_URL
+#         if url:
+#             if url.startswith("postgresql://"):
+#                 url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+#             # Strip parameters incompatible with asyncpg
+#             from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+#             parsed = urlparse(url)
+#             params = parse_qs(parsed.query)
+#             params.pop("sslmode", None)
+#             params.pop("channel_binding", None)
+#             new_query = urlencode(params, doseq=True)
+#             return urlunparse(parsed._replace(query=new_query))
+#         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+
+#     @property
+#     def effective_ssl_required(self) -> bool:
+#         url = self.DATABASE_URL or self.POSTGRES_URL
+#         if url and "sslmode=require" in url:
+#             return True
+#         return False
+
+#     class Config:
+#         env_file = os.path.join(BASE_DIR, ".env")
+#         env_file_encoding = "utf-8"
+#         extra = "ignore"
+
+
+# @lru_cache()
+# def get_settings() -> Settings:
+#     """Singleton settings instance."""
+#     return Settings()
 """
-============================================================
 Sentinel-E Production Configuration
-============================================================
-Centralized configuration with environment-based overrides.
-No hardcoded secrets. No debug printing of credentials.
 """
 
 import os
 from typing import List, Optional
 from functools import lru_cache
 from pydantic_settings import BaseSettings
-from pydantic import Field, field_validator
-
-# Determine base directory
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+from pydantic import Field
 
 
 class Settings(BaseSettings):
-    """Production settings — all secrets from environment."""
-
-    # ── Application ──────────────────────────────────────────
-    APP_NAME: str = "Sentinel-E"
-    APP_VERSION: str = "5.0.0"
-    ENVIRONMENT: str = Field(default="development", description="development | staging | production")
+    # ── Core ─────────────────────────────
+    ENVIRONMENT: str = "development"
     DEBUG: bool = False
-    LOG_LEVEL: str = "INFO"
 
-    # ── Security ─────────────────────────────────────────────
-    JWT_SECRET_KEY: str = Field(default="CHANGE-ME-IN-PRODUCTION-USE-openssl-rand-hex-64", description="JWT signing key")
+    # ── JWT (legacy fallback) ────────────
+    JWT_SECRET_KEY: str = "sk_test_5ljBfPazgOVSbrxeL9kz1Ypa2co5yoryh9F3oahClZ"
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
-    ALLOWED_ORIGINS: str = Field(default="http://localhost:3000", description="Comma-separated CORS origins")
-    API_DOMAIN: str = Field(default="http://localhost:8000", description="Backend public origin for auth/session callbacks")
-    WEBSITE_DOMAIN: str = Field(default="http://localhost:3000", description="Primary frontend origin")
-    RATE_LIMIT_REQUESTS: int = 60
-    RATE_LIMIT_WINDOW_SECONDS: int = 60
-    MAX_INPUT_LENGTH: int = 50000  # characters
-    MAX_ROUNDS: int = 10
 
-    # ── Clerk JWT Auth ───────────────────────────────────────
-    CLERK_JWT_ISSUER: str = ""
-    CLERK_JWKS_URL: str = ""
+    # ── CORS ────────────────────────────
+    ALLOWED_ORIGINS: str = "http://localhost:3000"
+
+    # ── Clerk Auth (CRITICAL) ───────────
+    CLERK_JWT_ISSUER: str = "https://rational-tiger-62.clerk.accounts.dev"
+    CLERK_JWKS_URL: str = "https://rational-tiger-62.clerk.accounts.dev/.well-known/jwks.json"
     CLERK_JWT_AUDIENCE: Optional[str] = None
-    CLERK_DEV_ALLOW_ANONYMOUS: bool = True
-
-    @field_validator("DEBUG", mode="before")
-    @classmethod
-    def parse_debug_flag(cls, value):
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, str):
-            normalized = value.strip().lower()
-            if normalized in {"1", "true", "yes", "on", "debug"}:
-                return True
-            if normalized in {"0", "false", "no", "off", "release", "prod", "production"}:
-                return False
-        return value
-
-    # ── LLM Providers ────────────────────────────────────────
-    GROQ_API_KEY: str = ""
-    # OPENROUTER_API_KEY — disabled (credits exhausted 2026-03-09)
-    GEMINI_API_KEY: str = ""
-    QWEN_API_KEY: str = ""
-    TAVILY_API_KEY: str = ""
-    GOOGLE_OAUTH_CLIENT_ID: str = ""
-    GOOGLE_OAUTH_CLIENT_SECRET: str = ""
-    GITHUB_OAUTH_CLIENT_ID: str = ""
-    GITHUB_OAUTH_CLIENT_SECRET: str = ""
-
-    # ── MCO Per-Model Keys (provider isolation) ───────────────
-    QWEN3_CODER_API_KEY: str = ""
-    QWEN3_VL_API_KEY: str = ""
-    NEMOTRON_API_KEY: str = ""
-    KIMI_API_KEY: str = ""
-    NVIDIA_API_KEY: str = ""
-    KIMI_K2_NVIDIA_API_KEY: str = ""
-    KIMI_K2_NVIDIA_API_KEY_FALLBACK: str = ""
-    MISTRAL_LARGE_NVIDIA_API_KEY: str = ""
-    ANTHROPIC_API_KEY: str = ""
-
-    # ── Database ─────────────────────────────────────────────
-    POSTGRES_URL: str = ""
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = ""
-    POSTGRES_DB: str = "sentinel_sigma"
-    POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: str = "5432"
-    DATABASE_URL: str = ""
-
-    # ── Redis ────────────────────────────────────────────────
-    REDIS_URL: str = ""
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: str = "6379"
-    REDIS_DB: str = "0"
-    REDIS_SESSION_TTL: int = 7200  # 2 hours
-
-    # ── Memory System ────────────────────────────────────────
-    SHORT_TERM_MEMORY_SIZE: int = 12  # messages
-    ROLLING_SUMMARY_INTERVAL: int = 8  # every N exchanges
-    ROLLING_SUMMARY_MAX_TOKENS: int = 500
-
-    # ── RAG ──────────────────────────────────────────────────
-    RAG_CONFIDENCE_THRESHOLD: float = 0.6
-    RAG_MAX_SOURCES: int = 5
-    RAG_TAVILY_MAX_RESULTS: int = 5
-
-    # ── Provider Defaults ────────────────────────────────────
-    DEFAULT_PROVIDER: str = "groq"
-    TOKEN_BUDGET_PER_REQUEST: int = 4096
-    MAX_RETRY_ATTEMPTS: int = 3
-    RETRY_BASE_DELAY: float = 1.0
 
     @property
     def cors_origins(self) -> List[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
-
-    @property
-    def is_production(self) -> bool:
-        return self.ENVIRONMENT == "production"
 
     @property
     def clerk_jwks_url(self) -> str:
@@ -129,36 +203,10 @@ class Settings(BaseSettings):
         return ""
 
     @property
-    def effective_database_url(self) -> str:
-        """Resolve database URL with asyncpg compatibility."""
-        url = self.DATABASE_URL or self.POSTGRES_URL
-        if url:
-            if url.startswith("postgresql://"):
-                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-            # Strip parameters incompatible with asyncpg
-            from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
-            parsed = urlparse(url)
-            params = parse_qs(parsed.query)
-            params.pop("sslmode", None)
-            params.pop("channel_binding", None)
-            new_query = urlencode(params, doseq=True)
-            return urlunparse(parsed._replace(query=new_query))
-        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-
-    @property
-    def effective_ssl_required(self) -> bool:
-        url = self.DATABASE_URL or self.POSTGRES_URL
-        if url and "sslmode=require" in url:
-            return True
-        return False
-
-    class Config:
-        env_file = os.path.join(BASE_DIR, ".env")
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT == "production"
 
 
 @lru_cache()
 def get_settings() -> Settings:
-    """Singleton settings instance."""
     return Settings()
