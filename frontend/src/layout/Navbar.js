@@ -2,9 +2,9 @@
  * Navbar.js — Application Shell Navigation
  * Modal-first auth integrated into the existing design system.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, Menu, Moon, Shield, Sigma, Sun, X } from 'lucide-react';
+import { Menu, Moon, Shield, Sigma, Sun, X } from 'lucide-react';
 import { UserButton } from '@clerk/clerk-react';
 import { useAuthContext } from '../hooks/useAuthContext';
 
@@ -17,20 +17,6 @@ const navLinks = [
   { to: '/pricing', label: 'Pricing', protected: false },
 ];
 
-function UserAvatar({ name }) {
-  const initials = useMemo(() => {
-    if (!name) return 'SE';
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    return parts.slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'SE';
-  }, [name]);
-
-  return (
-    <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#3b82f6] via-[#0ea5e9] to-[#5eead4] flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
-      <span style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 700 }}>{initials}</span>
-    </div>
-  );
-}
-
 export default function Navbar() {
   const location = useLocation();
   const {
@@ -38,7 +24,6 @@ export default function Navbar() {
     isAuthenticated,
     loading,
     openAuthModal,
-    signOut,
     user,
   } = useAuthContext();
 
