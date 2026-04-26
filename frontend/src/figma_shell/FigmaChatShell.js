@@ -906,8 +906,8 @@ export default function FigmaChatShell({
       <div className="flex-1 flex flex-col min-w-0">
 
         {/* ---------- CHAT HEADER ---------- */}
-        <div className="flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/10">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between px-2 sm:px-4 py-3 bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/10 overflow-hidden">
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
             {/* History toggle */}
             <button
               onClick={() => setShowHistory(!showHistory)}
@@ -917,15 +917,17 @@ export default function FigmaChatShell({
               <History className="w-4 h-4 text-[#6e6e73] dark:text-[#94a3b8]" />
             </button>
 
-            {/* Model picker trigger */}
+            {/* Model picker trigger — responsive width */}
             <button
               onClick={() => setShowModelPicker(!showModelPicker)}
-              className="flex items-center justify-between gap-2 w-[280px] min-w-[280px] max-w-[280px] px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              className="flex items-center justify-between gap-2 min-w-0 max-w-[280px] px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
             >
               <div className="flex items-center gap-2 min-w-0">
                 <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: selectedModel.color }} />
                 <span className="text-[#1d1d1f] dark:text-[#f1f5f9] truncate"
-                style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 600 }}>
+                  style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 600, maxWidth: '200px' }}
+                  title={selectedModel.name}
+                >
                   {selectedModel.name}
                 </span>
               </div>
@@ -933,11 +935,15 @@ export default function FigmaChatShell({
             </button>
 
             {/* Mode badge — shows active mode/model */}
+            {/* Mode badge — hidden on small screens to prevent overflow */}
+            <div className="hidden sm:flex">
             {selectedModel && !selectedModel.isMeta && selectedModel.id !== 'sentinel-std' && selectedModel.id !== 'sentinel-exp' ? (
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
                 style={{ backgroundColor: selectedModel.color + '15' }}>
                 <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: selectedModel.color }} />
-                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: selectedModel.color }}>
+                <span className="truncate" style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: selectedModel.color, maxWidth: '160px' }}
+                  title={`Running: ${selectedModel.name}`}
+                >
                   Running: {selectedModel.name}
                 </span>
               </div>
@@ -956,6 +962,7 @@ export default function FigmaChatShell({
                 </span>
               </div>
             )}
+            </div>
 
             {/* Connection Status */}
             <div className="flex items-center gap-1.5">

@@ -8,6 +8,7 @@
  */
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Copy, Check, ChevronDown, FileText, Code2, BookOpen, AlertCircle } from 'lucide-react';
+import { normalizeResponseText } from '../engines/responseNormalizer';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -72,7 +73,8 @@ export default function AdvancedCopyMenu({ message, className = '' }) {
 
       switch (type) {
         case 'text':
-          text = safeContent;
+          // Strip internal LLM tags for clean clipboard output
+          text = normalizeResponseText(safeContent);
           break;
 
         case 'markdown':

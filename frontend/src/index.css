@@ -399,3 +399,49 @@
   color: var(--text-primary) !important;
 }
 
+/* Dark mode blockquote */
+[data-theme="dark"] .figma-chat-shell blockquote {
+  border-left-color: #475569;
+  color: #94a3b8;
+}
+
+/* Dark mode table borders */
+[data-theme="dark"] .figma-chat-shell th {
+  border-bottom-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .figma-chat-shell td {
+  border-bottom-color: #1e293b;
+}
+
+/* Dark mode horizontal rules */
+[data-theme="dark"] .figma-chat-shell hr {
+  border-top-color: #334155;
+}
+
+/* Prevent flash of unstyled content on theme switch */
+html.transitioning * {
+  transition: none !important;
+}
+
+/* Ensure chat area messages have proper dark mode contrast */
+[data-theme="dark"] .figma-chat-shell .bg-white {
+  background-color: #1c1c1e;
+}
+
+/* Fix boundary warning card contrast in dark mode */
+[data-theme="dark"] .figma-chat-shell [style*="backgroundColor: #fef2f2"] {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+[data-theme="dark"] .figma-chat-shell [style*="backgroundColor: #fffbeb"] {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+  border-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+/* Navbar on hero/landing — ensure text contrast on dark gradient */
+section.relative .fixed.top-0 {
+  --text-primary: #f1f5f9;
+}
