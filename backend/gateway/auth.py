@@ -419,8 +419,111 @@
 
 #     return decorator
 
+# """
+# Unified Auth Layer — Clerk + Optional Anonymous Support
+# """
+
+# import jwt
+# from typing import Optional, Dict, Any
+# from fastapi import Depends, HTTPException, Request
+# from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+# from jose import jwt as jose_jwt
+# from jose import jwk
+# from jose.utils import base64url_decode
+# import requests
+
+# from gateway.config import get_settings
+
+# security = HTTPBearer(auto_error=False)
+
+
+# def verify_clerk_token(token: str) -> Dict[str, Any]:
+#     settings = get_settings()
+
+#     jwks_url = settings.clerk_jwks_url
+#     if not jwks_url:
+#         raise HTTPException(status_code=500, detail="Clerk not configured")
+
+#     jwks = requests.get(jwks_url).json()
+
+#     headers = jwt.get_unverified_header(token)
+#     kid = headers.get("kid")
+
+#     key = next((k for k in jwks["keys"] if k["kid"] == kid), None)
+#     if not key:
+#         raise HTTPException(status_code=401, detail="Invalid token")
+
+#     public_key = jwk.construct(key)
+
+#     message, encoded_signature = token.rsplit(".", 1)
+#     decoded_signature = base64url_decode(encoded_signature.encode())
+
+#     if not public_key.verify(message.encode(), decoded_signature):
+#         raise HTTPException(status_code=401, detail="Invalid signature")
+
+#     payload = jose_jwt.get_unverified_claims(token)
+
+#     return payload
+
+
+# async def get_current_user(
+#     request: Request,
+#     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+# ) -> Dict[str, Any]:
+
+#     if not credentials or not credentials.credentials:
+#         raise HTTPException(status_code=401, detail="Authentication required")
+
+#     payload = verify_clerk_token(credentials.credentials)
+
+#     return {
+#         "user_id": payload.get("sub"),
+#         "email": payload.get("email"),
+#         "role": payload.get("role", "user"),
+#         "authenticated": True,
+#     }
+
+
+# async def get_optional_user(
+#     request: Request,
+#     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+# ) -> Optional[Dict[str, Any]]:
+
+#     try:
+#         if not credentials:
+#             return None
+#         payload = verify_clerk_token(credentials.credentials)
+#         return {
+#             "user_id": payload.get("sub"),
+#             "email": payload.get("email"),
+#             "role": payload.get("role", "user"),
+#             "authenticated": True,
+#         }
+#     except Exception:
+#         return None
+
+# # ── Admin Guard (REQUIRED) ─────────────────────────────
+
+# async def require_admin(
+#     user: Dict[str, Any] = Depends(get_current_user),
+# ) -> Dict[str, Any]:
+#     """
+#     Ensures user has admin role.
+#     Works with Clerk-based auth.
+#     """
+
+#     if not user:
+#         raise HTTPException(status_code=401, detail="Not authenticated")
+
+#     if user.get("role") != "admin":
+#         raise HTTPException(status_code=403, detail="Admin access required")
+
+#     return user
+
+
+
 """
-Unified Auth Layer — Clerk + Optional Anonymous Support
+Unified Auth Layer — Clerk + Optional Anonymous Support (Production Ready)
 """
 
 import jwt
@@ -429,13 +532,22 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt as jose_jwt
 from jose import jwk
-from jose.utils import base64url_decode
 import requests
+from functools import lru_cache
 
 from gateway.config import get_settings
 
 security = HTTPBearer(auto_error=False)
 
+
+# ── JWKS CACHE ─────────────────────────────────────────────
+
+@lru_cache(maxsize=1)
+def get_jwks(jwks_url: str):
+    return requests.get(jwks_url).json()
+
+
+# ── TOKEN VERIFICATION ─────────────────────────────────────
 
 def verify_clerk_token(token: str) -> Dict[str, Any]:
     settings = get_settings()
@@ -444,7 +556,7 @@ def verify_clerk_token(token: str) -> Dict[str, Any]:
     if not jwks_url:
         raise HTTPException(status_code=500, detail="Clerk not configured")
 
-    jwks = requests.get(jwks_url).json()
+    jwks = get_jwks(jwks_url)
 
     headers = jwt.get_unverified_header(token)
     kid = headers.get("kid")
@@ -455,16 +567,21 @@ def verify_clerk_token(token: str) -> Dict[str, Any]:
 
     public_key = jwk.construct(key)
 
-    message, encoded_signature = token.rsplit(".", 1)
-    decoded_signature = base64url_decode(encoded_signature.encode())
-
-    if not public_key.verify(message.encode(), decoded_signature):
-        raise HTTPException(status_code=401, detail="Invalid signature")
-
-    payload = jose_jwt.get_unverified_claims(token)
+    try:
+        payload = jose_jwt.decode(
+            token,
+            public_key.to_pem().decode("utf-8"),
+            algorithms=["RS256"],
+            audience=settings.CLERK_JWT_AUDIENCE,
+            issuer=settings.CLERK_JWT_ISSUER,
+        )
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     return payload
 
+
+# ── REQUIRED AUTH ─────────────────────────────────────────
 
 async def get_current_user(
     request: Request,
@@ -479,10 +596,12 @@ async def get_current_user(
     return {
         "user_id": payload.get("sub"),
         "email": payload.get("email"),
-        "role": payload.get("role", "user"),
+        "role": payload.get("public_metadata", {}).get("role", "user"),
         "authenticated": True,
     }
 
+
+# ── OPTIONAL AUTH ─────────────────────────────────────────
 
 async def get_optional_user(
     request: Request,
@@ -492,12 +611,30 @@ async def get_optional_user(
     try:
         if not credentials:
             return None
+
         payload = verify_clerk_token(credentials.credentials)
+
         return {
             "user_id": payload.get("sub"),
             "email": payload.get("email"),
-            "role": payload.get("role", "user"),
+            "role": payload.get("public_metadata", {}).get("role", "user"),
             "authenticated": True,
         }
+
     except Exception:
         return None
+
+
+# ── ADMIN GUARD ───────────────────────────────────────────
+
+async def require_admin(
+    user: Dict[str, Any] = Depends(get_current_user),
+) -> Dict[str, Any]:
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    return user
