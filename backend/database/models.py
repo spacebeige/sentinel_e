@@ -63,3 +63,112 @@ class UploadedAsset(Base):
     original_filename = Column(String, nullable=True)
     file_size_bytes = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ──────────────────────────────────────────────────────────────
+# USER MEMORY GRAPH — Persistent Knowledge & Preferences
+# ──────────────────────────────────────────────────────────────
+
+class UserMemory(Base):
+    """
+    User-specific learned facts and knowledge.
+    
+    Stores contextual information learned from conversations:
+      - Key facts about user preferences
+      - Domain knowledge specific to user's needs
+      - Learned behavioral patterns
+      - Session insights
+    
+    Used by context window builder to personalize responses.
+    """
+    __tablename__ = "user_memory"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(String, index=True, nullable=False)
+    
+    # Knowledge key (e.g., "preferred_response_length", "domain_interest", "technical_level")
+    key = Column(String, nullable=False)
+    
+    # Knowledge value (e.g., "concise", "machine_learning", "expert")
+    value = Column(Text, nullable=False)
+    
+    # Confidence score (0.0 to 1.0) — higher = more reliable
+    confidence = Column(Integer, default=50)  # 0-100 scale
+    
+    # Metadata (e.g., source_chat_id, source_query, reasoning)
+    metadata_json = Column(JSONB, nullable=True)
+    
+    # Lifecycle tracking
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    accessed_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class UserPreference(Base):
+    """
+    User configuration & interface preferences.
+    
+    Stores user-specific settings that persist across sessions:
+      - Response style (concise, detailed, narrative)
+      - Tone preference (formal, casual, technical)
+      - Default chat mode
+      - UI preferences
+    """
+    __tablename__ = "user_preference"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(String, unique=True, index=True, nullable=False)
+    
+    # Response preferences
+    response_style = Column(String, default="balanced", nullable=False)  # concise|balanced|detailed
+    tone = Column(String, default="professional", nullable=False)  # formal|casual|technical|friendly
+    
+    # Default chat mode
+    default_chat_mode = Column(String, default="standard", nullable=False)  # standard|experimental|debate
+    
+    # Model preferences
+    preferred_model = Column(String, nullable=True)
+    preferred_provider = Column(String, nullable=True)
+    
+    # UI & behavior
+    dark_mode = Column(Boolean, default=True)
+    show_reasoning = Column(Boolean, default=False)  # Show debug/reasoning data
+    auto_save_chats = Column(Boolean, default=True)
+    chat_retention_days = Column(Integer, default=90)  # Auto-delete old chats after N days
+    
+    # Metadata
+    metadata_json = Column(JSONB, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class UserSession(Base):
+    """
+    Session tracking for multi-tab/device support.
+    
+    Ensures chat continuity even when:
+      - User logs out and logs back in
+      - User uses multiple devices/tabs
+      - Network interruption occurs
+    """
+    __tablename__ = "user_session"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(String, index=True, nullable=False)
+    
+    # Session identifier (e.g., device ID, browser fingerprint)
+    session_token = Column(String, unique=True, index=True, nullable=False)
+    device_id = Column(String, nullable=True)
+    device_name = Column(String, nullable=True)
+    
+    # Browser/app info
+    user_agent = Column(Text, nullable=True)
+    ip_address = Column(String, nullable=True)
+    
+    # Session state
+    is_active = Column(Boolean, default=True)
+    last_activity_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)  # Session expiration time
