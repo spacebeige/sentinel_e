@@ -34,7 +34,7 @@ import {
   History, ChevronRight,
   Activity, Brain, Shield, BarChart3, Zap,
   Skull, Loader2,
-  MessageSquare, PanelRightOpen,
+  MessageSquare, PanelRightOpen, Bug
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -44,7 +44,6 @@ import AdvancedCopyMenu from '../components/AdvancedCopyMenu';
 import { normalizeResponseText } from '../engines/responseNormalizer';
 import memoryManager from '../engines/memoryManager';
 import { getVisibility, hasAnyVisibleAnalytics } from '../engines/analyticsVisibilityController';
-import NerdMode from '../components/NerdMode';
 
 // ============================================================
 // Visual Constants (from Figma design system)
@@ -1311,6 +1310,22 @@ export default function FigmaChatShell({
                         {/* Omega Insights */}
                         {renderOmegaInsights(message)}
 
+                        {/* Developer Debug Info (Development Only) */}
+                        {process.env.NODE_ENV === 'development' && message.role === 'assistant' && (
+                          <div className="mt-2 px-3 py-2 rounded-lg bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 overflow-hidden">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Bug className="w-3 h-3 text-[#f59e0b]" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[#6e6e73]">Developer Diagnostics</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] font-mono text-[#8e8e93]">
+                              <div className="truncate">Model: <span className="text-[#3b82f6]">{message.omegaMetadata?.model_name || selectedModel.name}</span></div>
+                              <div>Latency: <span className="text-[#10b981]">{message.omegaMetadata?.latency_ms ? `${Math.round(message.omegaMetadata.latency_ms)}ms` : 'N/A'}</span></div>
+                              <div>Provider: <span className="text-[#8b5cf6]">{message.omegaMetadata?.provider || 'standard'}</span></div>
+                              <div>Tokens: <span className="text-[#f59e0b]">{message.omegaMetadata?.total_tokens || 'N/A'}</span></div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Timestamp + Feedback */}
                         <div className="flex items-center justify-between mt-1">
                           <div className={message.role === 'user' ? 'text-white/50' : 'text-[#6e6e73]'}
@@ -1606,12 +1621,6 @@ export default function FigmaChatShell({
                     style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}>
                     Session Analytics
                   </span>
-                  <button 
-                    onClick={() => setShowNerdMode(!showNerdMode)}
-                    className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${showNerdMode ? 'bg-cyan-500 text-white' : 'bg-black/10 dark:bg-white/10 text-[#6e6e73]'}`}
-                  >
-                    Nerd Mode
-                  </button>
                 </div>
                 <button onClick={() => setShowSessionPanel(false)}
                   className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
@@ -1625,13 +1634,6 @@ export default function FigmaChatShell({
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Nerd Mode Modal */}
-      {showNerdMode && (
-        <NerdMode 
-          sessionId={activeChatId} 
-          onClose={() => setShowNerdMode(false)} 
-        />
-      )}
     </div>
   );
 }
