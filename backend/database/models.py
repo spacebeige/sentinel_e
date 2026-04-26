@@ -38,17 +38,20 @@ class Chat(Base):
     
     rounds = Column(Integer, default=1)
     models_used = Column(ARRAY(String), nullable=True)
+    session_id = Column(UUID(as_uuid=True), index=True, nullable=True)
 
 class Message(Base):
     __tablename__ = "messages"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     chat_id = Column(UUID(as_uuid=True), index=True, nullable=False)
+    user_id = Column(String, index=True, nullable=True)
     role = Column(String, nullable=False) # user | assistant | model_groq | model_qwen | model_llama70b
     content = Column(Text, nullable=False)
     image_b64 = Column(Text, nullable=True)  # Base64 image data
     image_mime = Column(String, nullable=True)  # MIME type (e.g. image/png)
     reasoning_json = Column(JSONB, nullable=True)  # Structured reasoning artifacts per assistant turn
+    metadata_json = Column(JSONB, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class UploadedAsset(Base):
@@ -140,6 +143,16 @@ class UserPreference(Base):
     metadata_json = Column(JSONB, nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class ContextWindow(Base):
+    __tablename__ = "context_windows"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(String, index=True, nullable=False)
+    chat_id = Column(UUID(as_uuid=True), index=True, nullable=False)
+    context_json = Column(JSONB, nullable=False)
+    token_count = Column(Integer, default=0)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

@@ -35,6 +35,21 @@ import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './hooks/useAuthContext';
+import useStore from './stores/useStore';
+import { useAuth } from '@clerk/clerk-react';
+
+function SessionInitializer({ children }) {
+  const { isLoaded, isSignedIn } = useAuth();
+  const initializeSession = useStore(state => state.initializeSession);
+
+  React.useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      initializeSession();
+    }
+  }, [isLoaded, isSignedIn, initializeSession]);
+
+  return children;
+}
 
 function App() {
   return (
@@ -42,36 +57,38 @@ function App() {
       <ErrorBoundary>
         <BrowserRouter>
           <AuthProvider>
-            <Routes>
-              <Route element={<Layout />}>
-                <Route path="/" element={<LandingPage />} />
-                <Route
-                  path="/chat"
-                  element={
-                    <ProtectedRoute>
-                      <ChatPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="/pricing" element={<PricingPageWrapper />} />
-                <Route
-                  path="/models"
-                  element={
-                    <ProtectedRoute>
-                      <ModelsPageWrapper />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin"
-                  element={
-                    <ProtectedRoute requireAdmin>
-                      <AdminDashboard />
-                    </ProtectedRoute>
-                  }
-                />
-              </Route>
-            </Routes>
+            <SessionInitializer>
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route
+                    path="/chat"
+                    element={
+                      <ProtectedRoute>
+                        <ChatPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/pricing" element={<PricingPageWrapper />} />
+                  <Route
+                    path="/models"
+                    element={
+                      <ProtectedRoute>
+                        <ModelsPageWrapper />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute requireAdmin>
+                        <AdminDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                </Route>
+              </Routes>
+            </SessionInitializer>
           </AuthProvider>
         </BrowserRouter>
       </ErrorBoundary>

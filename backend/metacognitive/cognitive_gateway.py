@@ -108,7 +108,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         max_output_tokens=2000,
         default_temperature=0.4,
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
-        api_key_env="LLAMA31_8B_GROQ_API_KEY",
+        api_key_env="GROQ_LLAMA_70B_KEY",
     ),
 
     # ── Critique A (diverse argument generator) ───────────────
@@ -177,7 +177,7 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         max_output_tokens=1500,
         default_temperature=0.3,
         api_base_url="https://api.groq.com/openai/v1/chat/completions",
-        api_key_env="LLAMA31_INSTANT_GROQ_API_KEY",
+        api_key_env="GROQ_LLAMA_INSTANT_KEY",
     ),
 
     # ── Mistral Large 675B (NVIDIA) ───────────────────────────

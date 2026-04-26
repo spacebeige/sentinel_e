@@ -821,6 +821,34 @@ async def run_sentinel(
     if built_ctx and built_ctx.get("context"):
         history.insert(0, {"role": "system", "content": built_ctx["context"]})
 
+    # ── Agentic Layer ────────────────────────────────────────
+    if getattr(request, "agentic", False):
+        from core.agentic_orchestrator import AgenticOrchestrator
+        orchestrator = AgenticOrchestrator(mco_bridge)
+        agent_res = await orchestrator.run(user_id, str(chat.id), effective_text, built_ctx.get("context", ""))
+        
+        # Log calls to DAG
+        from utils.dag_logger import get_dag_logger, CallNode
+        dag = get_dag_logger()
+        for log in agent_res.get("step_logs", []):
+            await dag.log_call(CallNode(
+                call_id=str(uuid.uuid4()),
+                user_id=user_id,
+                session_id=str(chat.id),
+                endpoint=log["tool_name"],
+                model="agent_tool",
+                latency_ms=log["latency_ms"],
+                status="resolved"
+            ))
+            
+        formatted_output = sanitize_output(agent_res["formatted_output"])
+        await add_message(db, chat.id, "assistant", formatted_output)
+        return {
+            "chat_id": str(chat.id),
+            "formatted_output": formatted_output,
+            "agent_logs": agent_res["step_logs"]
+        }
+
     # ── Cognitive RAG ────────────────────────────────────────
     rag_result = None
     if cognitive_rag:
@@ -2131,38 +2159,48 @@ async def history_alias(
     logger.info("/api/history user authenticated=%s", bool(user))
 
     try:
+        from database.schemas import HistoryResponseSchema, ChatSchema, MessageSchema, SessionMetaSchema
+        from database.models import Message, UserSession
+
         if not user:
             logger.info("/api/history unauthenticated request — returning empty history")
-            return []
+            return {"chats": [], "messages": [], "metadata": []}
 
         user_id = user.get("user_id")
         if not user_id:
             logger.warning("/api/history missing user_id in optional user payload")
-            return []
+            return {"chats": [], "messages": [], "metadata": []}
 
         chats = await list_chats(db, user_id, limit, offset)
         if chats is None:
-            logger.warning("/api/history list_chats returned None for user_id=%s", user_id)
-            return []
+            chats = []
 
-        # Serialize ORM objects into JSON-safe dicts for frontend
-        serialized = []
-        for chat in chats:
-            serialized.append({
-                "id": str(chat.id),
-                "chat_name": chat.chat_name or "Untitled Chat",
-                "mode": chat.mode or "standard",
-                "created_at": chat.created_at.isoformat() if chat.created_at else None,
-                "updated_at": chat.updated_at.isoformat() if chat.updated_at else None,
-                "rounds": chat.rounds or 0,
-                "models_used": chat.models_used or [],
-                "preview": (chat.priority_answer or "")[:80] if chat.priority_answer else None,
-            })
+        chat_ids = [c.id for c in chats]
+        
+        # Fetch all messages for these chats
+        messages = []
+        if chat_ids:
+            result = await db.execute(
+                select(Message).where(Message.chat_id.in_(chat_ids)).order_by(Message.created_at.asc())
+            )
+            messages = result.scalars().all()
 
-        return serialized
+        # Fetch active user sessions
+        session_result = await db.execute(
+            select(UserSession).where(UserSession.user_id == user_id)
+        )
+        sessions = session_result.scalars().all()
+
+        # Serialize
+        resp = HistoryResponseSchema(
+            chats=[ChatSchema.model_validate(c) for c in chats],
+            messages=[MessageSchema.model_validate(m) for m in messages],
+            metadata=[SessionMetaSchema.model_validate(s) for s in sessions]
+        )
+        return resp.model_dump(mode="json")
     except Exception as exc:
         logger.error("Unhandled /api/history error: %s", exc, exc_info=True)
-        return []
+        return {"chats": [], "messages": [], "metadata": []}
 
 
 @app.get("/api/chat/{chat_id}")
@@ -2415,17 +2453,11 @@ async def get_memory(
     user: Dict = Depends(get_current_user),
 ):
     """Get all user memory facts above confidence threshold."""
+    from database.schemas import UserMemorySchema
     user_id = user["user_id"]
     memories = await get_user_memory(db, user_id, min_confidence=min_confidence)
     return [
-        {
-            "id": str(m.id),
-            "key": m.key,
-            "value": m.value,
-            "confidence": m.confidence,
-            "created_at": m.created_at.isoformat() if m.created_at else None,
-            "updated_at": m.updated_at.isoformat() if m.updated_at else None,
-        }
+        UserMemorySchema.model_validate(m).model_dump(mode="json")
         for m in (memories or [])
     ]
 
@@ -2460,20 +2492,12 @@ async def get_preferences(
     user: Dict = Depends(get_current_user),
 ):
     """Get user preferences."""
+    from database.schemas import UserPreferenceSchema
     user_id = user["user_id"]
     prefs = await get_user_preference(db, user_id)
     if not prefs:
         return {"exists": False}
-    return {
-        "exists": True,
-        "response_style": prefs.response_style,
-        "tone": prefs.tone,
-        "default_chat_mode": prefs.default_chat_mode,
-        "preferred_model": prefs.preferred_model,
-        "dark_mode": prefs.dark_mode,
-        "show_reasoning": prefs.show_reasoning,
-        "auto_save_chats": prefs.auto_save_chats,
-    }
+    return UserPreferenceSchema.model_validate(prefs).model_dump(mode="json")
 
 
 @app.put("/api/user/preferences")
@@ -2549,6 +2573,43 @@ async def optimization_session_stats(
     governor = get_cost_governor()
     return governor.get_session_budget(chat_id)
 
+
+@app.get("/api/session/{session_id}/call-graph")
+async def get_call_graph(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user)
+):
+    """GET /api/session/{session_id}/call-graph → returns DAG as JSON"""
+    from utils.dag_logger import get_dag_logger
+    logger = get_dag_logger()
+    graph = await logger.get_session_graph(session_id)
+    critical_path = await logger.get_critical_path(session_id)
+    return {
+        "nodes": graph,
+        "critical_path": critical_path
+    }
+
+@app.get("/api/session/{session_id}/debug")
+async def get_session_debug(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user)
+):
+    """GET /api/session/{session_id}/debug → full diagnostic payload"""
+    from utils.dag_logger import get_dag_logger
+    from database.crud import get_user_memory
+    
+    logger = get_dag_logger()
+    graph = await logger.get_session_graph(session_id)
+    memories = await get_user_memory(db, user["user_id"])
+    
+    return {
+        "call_graph": graph,
+        "memory": memories,
+        "token_usage": sum(n.get("input_tokens", 0) + n.get("output_tokens", 0) for n in graph),
+        "total_latency": sum(n.get("latency_ms", 0) for n in graph)
+    }
 
 # ============================================================
 # STARTUP
