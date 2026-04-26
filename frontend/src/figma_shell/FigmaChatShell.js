@@ -827,7 +827,7 @@ export default function FigmaChatShell({
   // MAIN RENDER
   // ============================================================
   return (
-    <div className="flex bg-[#f5f5f7] dark:bg-[#0f0f10]" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="figma-chat-shell flex bg-[#f5f5f7] dark:bg-[#0f0f10] text-[#1d1d1f] dark:text-[#f1f5f9]" style={{ height: 'calc(100vh - 56px)' }}>
 
       {/* ==================== HISTORY SIDEBAR ==================== */}
       <AnimatePresence>
@@ -920,14 +920,16 @@ export default function FigmaChatShell({
             {/* Model picker trigger */}
             <button
               onClick={() => setShowModelPicker(!showModelPicker)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              className="flex items-center justify-between gap-2 w-[280px] min-w-[280px] max-w-[280px] px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
             >
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: selectedModel.color }} />
-              <span className="text-[#1d1d1f] dark:text-[#f1f5f9]"
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: selectedModel.color }} />
+                <span className="text-[#1d1d1f] dark:text-[#f1f5f9] truncate"
                 style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 600 }}>
-                {selectedModel.name}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#6e6e73] dark:text-[#94a3b8]" />
+                  {selectedModel.name}
+                </span>
+              </div>
+              <ChevronDown className="w-3.5 h-3.5 text-[#6e6e73] dark:text-[#94a3b8] flex-shrink-0" />
             </button>
 
             {/* Mode badge — shows active mode/model */}
@@ -1022,7 +1024,7 @@ export default function FigmaChatShell({
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="absolute top-16 left-16 z-50 w-72 p-2 rounded-2xl bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-xl shadow-2xl shadow-black/10 border border-black/5 dark:border-white/10"
+                className="absolute top-16 left-16 z-50 w-[280px] p-2 rounded-2xl bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-xl shadow-2xl shadow-black/10 border border-black/5 dark:border-white/10"
               >
                 {/* ── Sentinel Modes ── */}
                 <div className="px-3 pt-2 pb-1 text-[#6e6e73] dark:text-[#94a3b8]"

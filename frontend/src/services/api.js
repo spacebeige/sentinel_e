@@ -285,6 +285,8 @@ export async function sendDirectModelQuery(modelId, query, chatId = null, option
     chat_id: chatId || undefined,
     max_tokens: options.maxTokens || undefined,
     system_role: options.systemRole || undefined,
+    image_b64: options.image_b64 || undefined,
+    image_mime: options.image_mime || undefined,
   };
 
   const res = await api.post(`/chat/${modelId}`, body);

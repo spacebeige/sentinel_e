@@ -189,7 +189,10 @@ export default function ChatEngineV5() {
 
       if (isSingleModel) {
         // Single Model Focus: route directly to /chat/{model_id}
-        result = await sendDirectModelQuery(selectedModel.id, text, chatId);
+        result = await sendDirectModelQuery(selectedModel.id, text, chatId, {
+          image_b64: userMsg.image_b64 || null,
+          image_mime: userMsg.image_mime || null,
+        });
       } else if (mode === 'experimental') {
         // ALL experimental sub-modes (debate, evidence, glass, kill) → MCO
         result = await sendMCOQuery(text, {

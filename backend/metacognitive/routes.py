@@ -29,10 +29,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from gateway.auth import get_current_user, get_optional_user
 from database.connection import get_db
 from database.crud import (
-    create_chat, get_chat, add_message, update_chat_metadata,
+    create_chat, get_chat, add_message, update_chat_metadata, get_chat_messages,
 )
 from utils.chat_naming import generate_chat_name
 from utils.output_sanitizer import sanitize_output, sanitize_json_response
+from core.context_builder import get_context_builder
 
 from metacognitive.schemas import (
     OperatingMode,
@@ -331,6 +332,40 @@ async def _mco_run_impl(
 
     await add_message(db, chat.id, "user", query, image_b64=image_b64, image_mime=image_mime)
 
+    # Build user-aware context before any model execution
+    contextual_query = query
+    context_meta: Dict[str, Any] = {}
+    try:
+        recent_messages = await get_chat_messages(db, chat.id, user_id=user.get("user_id"))
+        recent_payload = [
+            {"role": m.role, "content": m.content}
+            for m in (recent_messages[-12:] if recent_messages else [])
+            if m and m.content
+        ]
+
+        builder = get_context_builder(max_tokens=2048, model=(selected_model or "llama33-70b"))
+        built = await builder.build_context(
+            db=db,
+            user_id=user.get("user_id", "anonymous"),
+            query=query,
+            recent_messages=recent_payload,
+            semantic_search_results=None,
+        )
+        built_context = (built or {}).get("context", "")
+        if built_context and isinstance(built_context, str) and built_context.strip():
+            contextual_query = f"{built_context}\n\n[CURRENT USER QUERY]\n{query}"
+            context_meta = {
+                "context_applied": True,
+                "token_usage": built.get("token_usage", {}),
+                "model": built.get("model"),
+                "available_tokens": built.get("available_tokens"),
+            }
+        else:
+            context_meta = {"context_applied": False}
+    except Exception as ctx_err:
+        logger.warning(f"Context build skipped: {ctx_err}")
+        context_meta = {"context_applied": False, "error": str(ctx_err)[:200]}
+
     # ══════════════════════════════════════════════════════════
     # QUERY COMPLEXITY CHECK — Skip debate for trivial queries
     # ══════════════════════════════════════════════════════════
@@ -359,7 +394,7 @@ async def _mco_run_impl(
         try:
             from core.ensemble_schemas import EnsembleFailure
             ensemble_response = await _cognitive_engine.process(
-                query=query,
+                query=contextual_query,
                 chat_id=str(chat.id),
                 rounds=3,
                 image_b64=image_b64,
@@ -408,6 +443,7 @@ async def _mco_run_impl(
                     "models_failed": ensemble_response.models_failed,
                     "debate_rounds": ensemble_response.debate_result.total_rounds,
                 },
+                "context_builder": context_meta,
             })
 
             # Persist
@@ -524,7 +560,7 @@ async def _mco_run_impl(
         if fast_model:
             from metacognitive.schemas import CognitiveGatewayInput, QueryMode
             gateway_input = CognitiveGatewayInput(
-                user_query=query,
+                user_query=contextual_query,
                 mode=QueryMode.RAW,
             )
             try:
@@ -537,6 +573,7 @@ async def _mco_run_impl(
                         "winning_score": 0.95,
                         "latency_ms": round(_elapsed, 1),
                         "fast_path": True,
+                        "context_builder": context_meta,
                     }
                     await add_message(db, chat.id, "assistant", answer, reasoning_json=omega_metadata)
                     logger.info(f"Fast-path complete in {_elapsed:.0f}ms via {fast_model}")
@@ -573,7 +610,7 @@ async def _mco_run_impl(
     # Build request
     request = OrchestratorRequest(
         session_id=session_id or str(chat.id),
-        query=query,
+        query=contextual_query,
         mode=op_mode,
         sub_mode=sub_mode,
         chat_id=str(chat.id),
@@ -657,6 +694,7 @@ async def _mco_run_impl(
         "all_outputs": all_outputs_serialized,
         "scoring_breakdown": scoring_serialized,
         "divergence_metrics": divergence,
+        "context_builder": context_meta,
     }
 
     # Build API response
@@ -734,6 +772,7 @@ async def _mco_run_impl(
         "all_outputs": all_outputs_serialized,
         "scoring_breakdown": scoring_serialized,
         "divergence_metrics": divergence,
+        "context_builder": context_meta,
     }
 
     # Build sub-mode-specific structured results for frontend components
