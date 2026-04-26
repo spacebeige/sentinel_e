@@ -18,10 +18,12 @@ Routes:
 """
 
 import logging
-from typing import Dict, Optional
+import traceback
+from typing import Dict, Optional, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gateway.auth import get_current_user, get_optional_user
@@ -82,6 +84,92 @@ def _get_orchestrator() -> MetaCognitiveOrchestrator:
 
 @router.post("/run")
 async def mco_run(
+    payload: Optional[Dict[str, Any]] = Body(None),
+    db: AsyncSession = Depends(get_db),
+    user: Optional[Dict] = Depends(get_optional_user),
+):
+    """
+    Safe wrapper for Meta-Cognitive Orchestrator execution.
+    Ensures malformed payloads / auth gaps never crash the endpoint.
+    """
+    logger.info("Entering /api/mco/run")
+    logger.info("/api/mco/run user authenticated=%s", bool(user))
+
+    try:
+        if not isinstance(payload, dict):
+            logger.warning("/api/mco/run invalid payload type: %s", type(payload).__name__)
+            return JSONResponse(status_code=400, content={"detail": "Invalid payload. Expected JSON object."})
+
+        logger.info("/api/mco/run payload keys=%s", list(payload.keys()))
+
+        registry = COGNITIVE_MODEL_REGISTRY
+        if not registry or not hasattr(registry, "keys"):
+            logger.warning("/api/mco/run registry unavailable or invalid: %s", type(registry).__name__)
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "Model registry unavailable.", "models": []},
+            )
+        logger.info("/api/mco/run registry keys=%s", list(registry.keys()))
+
+        query = payload.get("query")
+        if not isinstance(query, str) or not query.strip():
+            return JSONResponse(status_code=400, content={"detail": "Field 'query' is required and must be a non-empty string."})
+
+        mode = payload.get("mode", "standard")
+        sub_mode = payload.get("sub_mode")
+        chat_id = payload.get("chat_id")
+        session_id = payload.get("session_id")
+        force_retrieval = bool(payload.get("force_retrieval", False))
+        selected_model = payload.get("selected_model")
+        image_b64 = payload.get("image_b64")
+        image_mime = payload.get("image_mime")
+
+        safe_user = user or {
+            "user_id": "anonymous",
+            "email": None,
+            "role": "guest",
+            "authenticated": False,
+        }
+
+        return await _mco_run_impl(
+            query=query,
+            mode=mode,
+            sub_mode=sub_mode,
+            chat_id=chat_id,
+            session_id=session_id,
+            force_retrieval=force_retrieval,
+            selected_model=selected_model,
+            image_b64=image_b64,
+            image_mime=image_mime,
+            db=db,
+            user=safe_user,
+        )
+    except HTTPException as http_exc:
+        logger.error("/api/mco/run HTTPException: %s", http_exc.detail)
+        return JSONResponse(status_code=http_exc.status_code, content={"detail": str(http_exc.detail)})
+    except Exception as exc:
+        logger.error("Unhandled error in /api/mco/run: %s", exc)
+        logger.error(traceback.format_exc())
+        fallback_text = (
+            "MCO execution degraded due to backend persistence/runtime issue. "
+            "Please retry in a moment."
+        )
+        safe_payload = {
+            "mode": payload.get("mode", "standard") if isinstance(payload, dict) else "standard",
+            "sub_mode": payload.get("sub_mode") if isinstance(payload, dict) else None,
+            "formatted_output": fallback_text,
+            "aggregated_answer": fallback_text,
+            "confidence": 0.0,
+            "data": {"priority_answer": fallback_text},
+            "omega_metadata": {
+                "fallback": True,
+                "error": "runtime_error",
+            },
+        }
+        return JSONResponse(status_code=200, content=safe_payload)
+
+
+async def _mco_run_impl(
     query: str = Body(...),
     mode: str = Body("standard"),
     sub_mode: Optional[str] = Body(None),
@@ -92,7 +180,7 @@ async def mco_run(
     image_b64: Optional[str] = Body(None),
     image_mime: Optional[str] = Body(None),
     db: AsyncSession = Depends(get_db),
-    user: Dict = Depends(get_current_user),
+    user: Optional[Dict] = None,
 ):
     """
     Main Meta-Cognitive Orchestrator execution endpoint.
