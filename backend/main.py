@@ -444,18 +444,19 @@ app.add_middleware(InputValidationMiddleware)
 
 # Strict CORS
 # ── CORS (FIXED FOR VERCEL + RENDER) ─────────────────────────
+from fastapi.middleware.cors import CORSMiddleware
+
+origins = [
+    "https://sentinel-e.vercel.app",  # ✅ your frontend
+    "http://localhost:3000",          # optional (dev)
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://.*\.vercel\.app",  # ✅ allows all Vercel preview + prod
-    allow_origins=[
-        "http://localhost:3000",                    # local dev
-        "https://sentinel-e.vercel.app",            # optional custom domain
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Request-ID", "X-Response-Time"],
 )
 # ── Meta-Cognitive Orchestrator Router ──────────────────────
 app.include_router(mco_router)
