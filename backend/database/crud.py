@@ -344,3 +344,152 @@ async def delete_messages_after(db, chat_id, message_id):
     result = await db.execute(stmt)
     await db.commit()
     return result.rowcount
+
+
+# ──────────────────────────────────────────────────────────────
+# USER MEMORY CRUD
+# ──────────────────────────────────────────────────────────────
+
+async def add_user_memory(
+    db: AsyncSession,
+    user_id: str,
+    key: str,
+    value: str,
+    confidence: int = 75,
+    metadata_json: Optional[Dict[str, Any]] = None,
+) -> Any:
+    """
+    Add or update a user memory fact.
+    
+    Args:
+        user_id: User identifier
+        key: Memory key (e.g., "preferred_response_length")
+        value: Memory value (e.g., "concise")
+        confidence: Confidence score (0-100)
+        metadata_json: Additional metadata (source, reasoning, etc.)
+    """
+    from .models import UserMemory
+    
+    # Check if memory already exists
+    result = await db.execute(
+        select(UserMemory).where(
+            UserMemory.user_id == user_id,
+            UserMemory.key == key
+        )
+    )
+    existing = result.scalars().first()
+    
+    if existing:
+        # Update existing
+        existing.value = value
+        existing.confidence = max(0, min(100, confidence))  # Clamp to 0-100
+        existing.metadata_json = metadata_json
+        existing.updated_at = datetime.utcnow()
+    else:
+        # Create new
+        memory = UserMemory(
+            user_id=user_id,
+            key=key,
+            value=value,
+            confidence=max(0, min(100, confidence)),
+            metadata_json=metadata_json,
+        )
+        db.add(memory)
+    
+    await db.commit()
+    return existing or memory
+
+
+async def get_user_memory(
+    db: AsyncSession,
+    user_id: str,
+    key: Optional[str] = None,
+    min_confidence: int = 50,
+) -> List[Any]:
+    """
+    Get user memory facts.
+    
+    Args:
+        user_id: User identifier
+        key: Optional - specific memory key to retrieve
+        min_confidence: Minimum confidence threshold
+    """
+    from .models import UserMemory
+    
+    query = select(UserMemory).where(
+        UserMemory.user_id == user_id,
+        UserMemory.confidence >= min_confidence,
+    )
+    
+    if key:
+        query = query.where(UserMemory.key == key)
+    
+    result = await db.execute(query.order_by(UserMemory.updated_at.desc()))
+    return result.scalars().all()
+
+
+async def get_user_preference(db: AsyncSession, user_id: str) -> Optional[Any]:
+    """Get user preferences."""
+    from .models import UserPreference
+    
+    result = await db.execute(
+        select(UserPreference).where(UserPreference.user_id == user_id)
+    )
+    return result.scalars().first()
+
+
+async def upsert_user_preference(
+    db: AsyncSession,
+    user_id: str,
+    **kwargs: Any
+) -> Any:
+    """
+    Create or update user preferences.
+    
+    Args:
+        user_id: User identifier
+        **kwargs: Preference fields to set (response_style, tone, etc.)
+    """
+    from .models import UserPreference
+    
+    pref = await get_user_preference(db, user_id)
+    
+    if pref:
+        # Update existing
+        for key, value in kwargs.items():
+            if hasattr(pref, key):
+                setattr(pref, key, value)
+    else:
+        # Create new with defaults
+        pref = UserPreference(user_id=user_id, **kwargs)
+        db.add(pref)
+    
+    await db.commit()
+    return pref
+
+
+async def create_user_session(
+    db: AsyncSession,
+    user_id: str,
+    session_token: str,
+    device_id: Optional[str] = None,
+    device_name: Optional[str] = None,
+    user_agent: Optional[str] = None,
+    ip_address: Optional[str] = None,
+) -> Any:
+    """Create a user session for multi-device support."""
+    from .models import UserSession
+    from datetime import timedelta
+    
+    session = UserSession(
+        user_id=user_id,
+        session_token=session_token,
+        device_id=device_id,
+        device_name=device_name,
+        user_agent=user_agent,
+        ip_address=ip_address,
+        expires_at=datetime.utcnow() + timedelta(days=30),  # 30-day expiration
+    )
+    db.add(session)
+    await db.commit()
+    return session
