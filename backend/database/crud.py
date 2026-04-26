@@ -113,6 +113,18 @@ async def list_chats(db: AsyncSession, user_id: str, limit: int = 50, offset: in
     return result.scalars().all()
 
 
+async def update_chat_metadata(
+    db: AsyncSession,
+    chat_id: UUID,
+    **kwargs
+) -> Optional[Chat]:
+    """Generic chat metadata updater."""
+    query = update(Chat).where(Chat.id == chat_id).values(**kwargs, updated_at=datetime.utcnow())
+    await db.execute(query)
+    await db.commit()
+    return await get_chat(db, chat_id)
+
+
 # ── Message CRUD ─────────────────────────────────────────────
 
 async def add_message(
@@ -153,6 +165,31 @@ async def get_chat_messages(db: AsyncSession, chat_id: UUID, user_id: Optional[s
     
     result = await db.execute(query.order_by(Message.created_at.asc()))
     return result.scalars().all()
+
+
+async def update_message(db: AsyncSession, message_id: UUID, new_content: str) -> Optional[Message]:
+    await db.execute(
+        update(Message).where(Message.id == message_id).values(content=new_content)
+    )
+    await db.commit()
+    result = await db.execute(select(Message).where(Message.id == message_id))
+    return result.scalars().first()
+
+
+async def delete_messages_after(db: AsyncSession, chat_id: UUID, message_id: UUID) -> int:
+    # Find the message first to get its created_at
+    result = await db.execute(select(Message).where(Message.id == message_id))
+    target = result.scalars().first()
+    if not target:
+        return 0
+        
+    delete_query = delete(Message).where(
+        Message.chat_id == chat_id,
+        Message.created_at > target.created_at
+    )
+    res = await db.execute(delete_query)
+    await db.commit()
+    return res.rowcount
 
 
 # ── User Memory CRUD ─────────────────────────────────────────
@@ -233,6 +270,11 @@ async def get_user_preferences(db: AsyncSession, user_id: str) -> Dict[str, str]
     )
     prefs = result.scalars().all()
     return {p.key: p.value for p in prefs}
+
+
+async def get_user_preference(db: AsyncSession, user_id: str) -> Dict[str, str]:
+    """Alias for get_user_preferences to match main.py import."""
+    return await get_user_preferences(db, user_id)
 
 
 # ── Context Window CRUD ──────────────────────────────────────

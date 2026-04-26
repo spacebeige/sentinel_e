@@ -4,7 +4,13 @@ import json
 import asyncio
 import logging
 from typing import List, Dict, Any, Optional
-from pinecone import Pinecone
+try:
+    from pinecone import Pinecone
+    PINECONE_AVAILABLE = True
+except ImportError:
+    PINECONE_AVAILABLE = False
+    logger.warning("Pinecone library not found. Vector storage will be disabled.")
+
 from google import genai
 import redis.asyncio as redis
 
@@ -32,8 +38,11 @@ class VectorService:
             logger.warning("PINECONE_API_KEY or GEMINI_API_KEY not set. Vector features will be limited.")
         
         try:
-            self.pc = Pinecone(api_key=self.pc_api_key) if self.pc_api_key else None
-            self.index = self.pc.Index(self.pc_index_name) if self.pc and self.pc_index_name else None
+            if PINECONE_AVAILABLE and self.pc_api_key:
+                self.pc = Pinecone(api_key=self.pc_api_key)
+                self.index = self.pc.Index(self.pc_index_name) if self.pc_index_name else None
+            else:
+                self.pc = self.index = None
             
             # Using new google-genai SDK
             self.client = genai.Client(api_key=self.google_api_key) if self.google_api_key else None
