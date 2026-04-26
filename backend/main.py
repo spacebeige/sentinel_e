@@ -725,23 +725,18 @@ async def _extract_memory_bg(user_id: str, user_text: str):
         logger.debug(f"Background memory extraction skipped/failed: {e}")
 
 
-# ============================================================
-# MAIN EXECUTION ENDPOINT
-# ============================================================
-
-@app.post("/api/run")
-async def run_sentinel(
-    request: SentinelRequest,
-    raw_request: Request,
-    db: AsyncSession = Depends(get_db),
+# ── Shared core — called by /api/run route and all form shims ────────────────
+async def _run_sentinel_core(
+    request: "SentinelRequest",
+    db: AsyncSession,
+    user_id: str,
     frontend_context: Optional[str] = None,
 ):
     """
-    Main entry point for Sentinel execution.
-    Standardized for stability and safety.
+    Core execution logic for all Sentinel run endpoints.
+    Extracted so both the JSON route and form-data shims can call it.
     """
     try:
-        user_id = await get_user_id(raw_request)
         if not user_id:
             return api_error("Authentication required", status_code=401)
         if not orchestrator:
@@ -754,7 +749,9 @@ async def run_sentinel(
         request.rounds = min(request.rounds, settings.MAX_ROUNDS)
 
         # ── Prompt Firewall ──────────────────────────────────────
+        firewall = get_firewall()
         verdict = firewall.analyze(request.text)
+
         if verdict.blocked:
             logger.warning(f"Firewall blocked input from {user_id}: {verdict.violations}")
             return api_error("Your input could not be processed. Please rephrase.", status_code=400)
@@ -1637,8 +1634,25 @@ async def run_sentinel(
         return api_success(response_payload)
 
     except Exception as e:
-        logger.error(f"CRITICAL ERROR in run_sentinel: {e}", exc_info=True)
+        logger.error(f"CRITICAL ERROR in _run_sentinel_core: {e}", exc_info=True)
         return api_error(str(e), status_code=500)
+
+
+# ============================================================
+# MAIN EXECUTION ENDPOINT (JSON body)
+# ============================================================
+
+@app.post("/api/run")
+async def run_sentinel(
+    request: SentinelRequest,
+    raw_request: Request,
+    db: AsyncSession = Depends(get_db),
+    frontend_context: Optional[str] = None,
+):
+    """Main entry point for Sentinel execution (JSON body)."""
+    user_id = await get_user_id(raw_request)
+    return await _run_sentinel_core(request, db, user_id, frontend_context)
+
 
 
 # ============================================================
@@ -1948,7 +1962,8 @@ async def run_standard_form(
         img_b64, img_mime = await _read_upload_as_b64(file)
         request.image_b64 = img_b64
         request.image_mime = img_mime
-    return await run_sentinel(request, db, user, frontend_context=context)
+    return await _run_sentinel_core(request, db, user["user_id"], frontend_context=context)
+
 
 
 @app.post("/run/experimental")
@@ -1967,7 +1982,7 @@ async def run_experimental_form(
     """Experimental mode via FormData."""
     if kill_switch:
         request = SentinelRequest(text=text or "kill", mode="kill", rounds=min(rounds, settings.MAX_ROUNDS), chat_id=chat_id, sub_mode="glass")
-        return await run_sentinel(request, db, user)
+        return await _run_sentinel_core(request, db, user["user_id"])
 
     valid_sub_modes = {"debate", "glass", "evidence", "synthesis"}
     sub_mode = sub_mode if sub_mode in valid_sub_modes else "debate"
@@ -1982,7 +1997,8 @@ async def run_experimental_form(
         img_b64, img_mime = await _read_upload_as_b64(file)
         request.image_b64 = img_b64
         request.image_mime = img_mime
-    return await run_sentinel(request, db, user, frontend_context=context)
+    return await _run_sentinel_core(request, db, user["user_id"], frontend_context=context)
+
 
 
 @app.post("/run/omega/standard")
@@ -1998,7 +2014,8 @@ async def omega_standard_form(
         img_b64, img_mime = await _read_upload_as_b64(file)
         request.image_b64 = img_b64
         request.image_mime = img_mime
-    return await run_sentinel(request, db, user)
+    return await _run_sentinel_core(request, db, user["user_id"])
+
 
 
 @app.post("/run/omega/experimental")
@@ -2018,7 +2035,8 @@ async def omega_experimental_form(
         img_b64, img_mime = await _read_upload_as_b64(file)
         request.image_b64 = img_b64
         request.image_mime = img_mime
-    return await run_sentinel(request, db, user)
+    return await _run_sentinel_core(request, db, user["user_id"])
+
 
 
 @app.post("/run/omega/kill")
@@ -2029,7 +2047,8 @@ async def omega_kill_form(
     user: Dict = Depends(get_current_user),
 ):
     request = SentinelRequest(text=text or "kill", mode="kill", sub_mode="glass", chat_id=chat_id)
-    return await run_sentinel(request, db, user)
+    return await _run_sentinel_core(request, db, user["user_id"])
+
 
 
 @app.post("/run/ensemble")
@@ -2058,7 +2077,8 @@ async def run_ensemble_form(
         img_b64, img_mime = await _read_upload_as_b64(file)
         request.image_b64 = img_b64
         request.image_mime = img_mime
-    return await run_sentinel(request, db, user, frontend_context=context)
+    return await _run_sentinel_core(request, db, user["user_id"], frontend_context=context)
+
 
 
 # ============================================================
@@ -2164,7 +2184,7 @@ async def history_alias(
     logger.info("/api/history user authenticated=%s", bool(user))
 
     try:
-        from database.schemas import HistoryResponseSchema, ChatSchema, MessageSchema, SessionMetaSchema
+        from database.schemas import ChatSchema, MessageSchema
         from database.models import Message, UserSession
 
         if not user:
@@ -2174,36 +2194,77 @@ async def history_alias(
         user_id = user.get("user_id")
         if not user_id:
             logger.warning("/api/history missing user_id in optional user payload")
-            return {"chats": [], "messages": [], "metadata": []}
+            return api_success({"chats": [], "messages": [], "metadata": []})
 
         chats = await list_chats(db, user_id, limit, offset)
         if chats is None:
             chats = []
 
         chat_ids = [c.id for c in chats]
-        
+
         # Fetch all messages for these chats
         messages = []
         if chat_ids:
-            result = await db.execute(
-                select(Message).where(Message.chat_id.in_(chat_ids)).order_by(Message.created_at.asc())
-            )
-            messages = result.scalars().all()
+            try:
+                msg_result = await db.execute(
+                    select(Message)
+                    .where(Message.chat_id.in_(chat_ids))
+                    .order_by(Message.created_at.asc())
+                )
+                messages = msg_result.scalars().all()
+            except Exception as e:
+                logger.warning(f"/api/history message fetch failed: {e}")
+                messages = []
 
-        # Fetch active user sessions
-        session_result = await db.execute(
-            select(UserSession).where(UserSession.user_id == user_id)
-        )
-        sessions = session_result.scalars().all()
+        # Serialize chats safely
+        serialized_chats = []
+        for c in chats:
+            try:
+                serialized_chats.append(ChatSchema.model_validate(c).model_dump(mode="json"))
+            except Exception as e:
+                logger.warning(f"/api/history: failed to serialize chat {getattr(c, 'id', '?')}: {e}")
+                # Minimal safe fallback
+                try:
+                    serialized_chats.append({
+                        "id": str(c.id),
+                        "chat_name": c.chat_name or "Untitled",
+                        "mode": c.mode or "standard",
+                        "user_id": c.user_id,
+                        "created_at": c.created_at.isoformat() if c.created_at else None,
+                        "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+                        "rounds": c.rounds or 0,
+                    })
+                except Exception:
+                    pass
+
+        # Serialize messages safely
+        serialized_messages = []
+        for m in messages:
+            try:
+                serialized_messages.append(MessageSchema.model_validate(m).model_dump(mode="json"))
+            except Exception as e:
+                logger.warning(f"/api/history: failed to serialize message {getattr(m, 'id', '?')}: {e}")
+                try:
+                    serialized_messages.append({
+                        "id": str(m.id),
+                        "chat_id": str(m.chat_id),
+                        "user_id": m.user_id,
+                        "role": m.role,
+                        "content": m.content or "",
+                        "created_at": m.created_at.isoformat() if m.created_at else None,
+                    })
+                except Exception:
+                    pass
 
         return api_success({
-            "chats": [ChatSchema.model_validate(c).model_dump(mode="json") for c in chats],
-            "messages": [MessageSchema.model_validate(m).model_dump(mode="json") for m in messages],
-            "metadata": [SessionMetaSchema.model_validate(s).model_dump(mode="json") for s in sessions]
+            "chats": serialized_chats,
+            "messages": serialized_messages,
+            "metadata": [],  # UserSession schema mismatch — omit to avoid crash
         })
     except Exception as exc:
-        logger.error(f"Unhandled /api/history error for user {user_id}: {exc}", exc_info=True)
+        logger.error(f"Unhandled /api/history error: {exc}", exc_info=True)
         return api_success({"chats": [], "messages": [], "metadata": []})
+
 
 
 @app.get("/api/chat/{chat_id}")

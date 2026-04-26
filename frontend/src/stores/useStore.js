@@ -20,9 +20,15 @@ const useStore = create(
       setPreferences: (preferences) => set({ preferences }),
       setContextWindow: (contextWindow) => set({ contextWindow }),
 
+      // Called once on app init when user is already signed in
       initializeSession: async () => {
         if (get().isInitialized || get().isLoading) return;
-        
+        await get().reloadHistory();
+      },
+
+      // Force reload from server (used on login / refresh)
+      reloadHistory: async () => {
+        if (get().isLoading) return;
         set({ isLoading: true, error: null });
         try {
           const results = await Promise.allSettled([
@@ -31,26 +37,33 @@ const useStore = create(
             api.get('/api/user/preferences')
           ]);
 
-          const historyData = results[0].status === 'fulfilled' ? results[0].value.data.data : { chats: [], messages: [] };
-          const memoryData = results[1].status === 'fulfilled' ? results[1].value.data.data : [];
-          const prefsData = results[2].status === 'fulfilled' ? results[2].value.data.data : {};
+          const historyData = results[0].status === 'fulfilled'
+            ? (results[0].value?.data ?? results[0].value ?? { chats: [], messages: [] })
+            : { chats: [], messages: [] };
+          const memoryData = results[1].status === 'fulfilled'
+            ? (results[1].value?.data ?? results[1].value ?? [])
+            : [];
+          const prefsData = results[2].status === 'fulfilled'
+            ? (results[2].value?.data ?? results[2].value ?? {})
+            : {};
 
           set({
-            chats: historyData?.chats || [],
-            messages: historyData?.messages || [],
+            chats: Array.isArray(historyData?.chats) ? historyData.chats : [],
+            messages: Array.isArray(historyData?.messages) ? historyData.messages : [],
             memory: Array.isArray(memoryData) ? memoryData : [],
             preferences: prefsData || {},
             isInitialized: true,
-            isLoading: false
+            isLoading: false,
+            error: null,
           });
         } catch (err) {
-          console.error('Failed to initialize session:', err);
+          console.error('Failed to load session:', err);
           set({ error: err.message, isLoading: false, isInitialized: true });
         }
       },
 
-      addMessage: (message) => set((state) => ({ 
-        messages: [...state.messages, message] 
+      addMessage: (message) => set((state) => ({
+        messages: [...state.messages, message]
       })),
 
       addChat: (chat) => set((state) => ({
@@ -58,7 +71,19 @@ const useStore = create(
       })),
 
       updateMemory: (memory) => set({ memory }),
-      
+
+      // Hard reset for user switch or logout
+      resetForNewUser: () => set({
+        chats: [],
+        messages: [],
+        memory: [],
+        preferences: null,
+        contextWindow: null,
+        isInitialized: false,
+        isLoading: false,
+        error: null,
+      }),
+
       reset: () => set({
         chats: [],
         messages: [],
@@ -72,11 +97,11 @@ const useStore = create(
     {
       name: 'sentinel-session-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ 
-        chats: state.chats, 
-        messages: state.messages, 
-        memory: state.memory, 
-        preferences: state.preferences 
+      partialize: (state) => ({
+        chats: state.chats,
+        messages: state.messages,
+        memory: state.memory,
+        preferences: state.preferences
       }),
     }
   )

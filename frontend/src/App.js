@@ -40,13 +40,20 @@ import { useAuth } from '@clerk/clerk-react';
 
 function SessionInitializer({ children }) {
   const { isLoaded, isSignedIn } = useAuth();
-  const initializeSession = useStore(state => state.initializeSession);
+  const reloadHistory = useStore(state => state.reloadHistory);
+  const resetForNewUser = useStore(state => state.resetForNewUser);
+  const isInitialized = useStore(state => state.isInitialized);
 
   React.useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      initializeSession();
+    if (!isLoaded) return;
+    if (isSignedIn) {
+      // Always reload from server on sign-in (not from stale localStorage)
+      reloadHistory();
+    } else {
+      // Clear state on sign-out so next user starts fresh
+      resetForNewUser();
     }
-  }, [isLoaded, isSignedIn, initializeSession]);
+  }, [isLoaded, isSignedIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return children;
 }

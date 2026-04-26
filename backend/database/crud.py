@@ -134,28 +134,59 @@ async def add_message(
     role: str,
     content: str,
     image_b64: Optional[str] = None,
+    image_mime: Optional[str] = None,
     reasoning_json: Optional[dict] = None,
     metadata_json: Optional[dict] = None
 ) -> Message:
-    new_message = Message(
-        chat_id=chat_id,
-        user_id=user_id,
-        role=role,
-        content=content,
-        image_b64=image_b64,
-        reasoning_json=reasoning_json,
-        metadata_json=metadata_json
-    )
-    db.add(new_message)
-    
-    # Update chat timestamp
-    await db.execute(
-        update(Chat).where(Chat.id == chat_id).values(updated_at=datetime.utcnow())
-    )
-    
-    await db.commit()
-    await db.refresh(new_message)
-    return new_message
+    """Insert message with safe fallback: retry minimal write on JSON-field failure."""
+    # Ensure content is always a clean string
+    if not isinstance(content, str):
+        content = str(content) if content is not None else ""
+
+    try:
+        new_message = Message(
+            chat_id=chat_id,
+            user_id=user_id,
+            role=role,
+            content=content,
+            image_b64=image_b64,
+            reasoning_json=reasoning_json,
+            metadata_json=metadata_json,
+        )
+        db.add(new_message)
+        await db.execute(
+            update(Chat).where(Chat.id == chat_id).values(updated_at=datetime.utcnow())
+        )
+        await db.commit()
+        await db.refresh(new_message)
+        return new_message
+    except Exception as full_err:
+        logger.warning(f"add_message full write failed ({full_err}), retrying minimal write")
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        # Minimal fallback: no JSON fields that could be malformed
+        minimal_message = Message(
+            chat_id=chat_id,
+            user_id=user_id,
+            role=role,
+            content=content[:4000],  # safety truncation
+            image_b64=None,
+            reasoning_json=None,
+            metadata_json=None,
+        )
+        db.add(minimal_message)
+        try:
+            await db.execute(
+                update(Chat).where(Chat.id == chat_id).values(updated_at=datetime.utcnow())
+            )
+        except Exception:
+            pass
+        await db.commit()
+        await db.refresh(minimal_message)
+        logger.info(f"add_message minimal fallback succeeded for chat {chat_id}")
+        return minimal_message
 
 
 async def get_chat_messages(db: AsyncSession, chat_id: UUID, user_id: Optional[str] = None) -> List[Message]:

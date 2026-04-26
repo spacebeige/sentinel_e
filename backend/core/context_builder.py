@@ -7,18 +7,28 @@ from sqlalchemy.future import select
 from sqlalchemy import update, text
 from datetime import datetime, timedelta
 from database.models import ContextWindow, Message, UserMemory, UserPreference
-from utils.vector_service import get_vector_service
 
 logger = logging.getLogger("ContextBuilder")
 
 # Token estimation
 TOKENS_PER_CHAR = 0.25
 DEFAULT_TOKEN_LIMIT = 4096
+MESSAGE_CONTEXT_LIMIT = 10  # last N messages for context
 
 class ContextWindowBuilder:
     def __init__(self, token_limit: int = DEFAULT_TOKEN_LIMIT):
         self.token_limit = token_limit
-        self.vector_service = get_vector_service()
+        self._vector_service = None  # lazy init
+
+    def _get_vector_service(self):
+        """Lazy-load vector service so missing deps don't crash at startup."""
+        if self._vector_service is None:
+            try:
+                from utils.vector_service import get_vector_service
+                self._vector_service = get_vector_service()
+            except Exception:
+                self._vector_service = None  # stays None — semantic retrieval skipped
+        return self._vector_service
 
     async def build_context(
         self, 
@@ -30,17 +40,49 @@ class ContextWindowBuilder:
     ) -> Dict[str, Any]:
         """
         build_context(user_id, chat_id, query) → ContextBundle
-        Pipeline:
-        1. Reuse check (< 5 min)
-        2. Load last N messages
-        3. Inject user_preferences
-        4. Inject high-confidence user_memory (> 70)
-        5. Semantic retrieval (Pinecone)
-        6. Deduplicate & Enforce Token Limit
+        Safe: falls back to recent messages only if anything fails.
         """
         try:
-            # 1. Reuse Check
-            if not force_rebuild:
+            return await self._build_context_inner(db, user_id, chat_id, query, force_rebuild)
+        except Exception as e:
+            logger.warning(f"Context builder failed, using recent messages only: {e}")
+            return await self._fallback_recent_messages(db, chat_id)
+
+    async def _fallback_recent_messages(self, db: AsyncSession, chat_id: Any) -> Dict[str, Any]:
+        """Minimal safe fallback: return last N messages, no external deps."""
+        try:
+            msg_result = await db.execute(
+                select(Message)
+                .where(Message.chat_id == chat_id)
+                .order_by(Message.created_at.desc())
+                .limit(MESSAGE_CONTEXT_LIMIT)
+            )
+            messages = sorted(msg_result.scalars().all(), key=lambda x: x.created_at)
+            history = [{"role": m.role, "content": m.content} for m in messages]
+            return {"recent_history": history, "system_instructions": "", "timestamp": datetime.utcnow().isoformat()}
+        except Exception:
+            return {"recent_history": [], "system_instructions": "", "timestamp": datetime.utcnow().isoformat()}
+
+    async def _build_context_inner(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        chat_id: Any,
+        query: str,
+        force_rebuild: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Full context pipeline:
+        1. Reuse check (< 5 min)
+        2. Load last N messages
+        3. Inject user_preferences (optional)
+        4. Inject high-confidence user_memory > 70 (optional)
+        5. Semantic retrieval (optional, skip silently if unavailable)
+        6. Assemble & enforce token limit
+        """
+        # 1. Reuse Check
+        if not force_rebuild:
+            try:
                 existing = await db.execute(
                     select(ContextWindow).where(
                         ContextWindow.user_id == user_id,
@@ -51,21 +93,31 @@ class ContextWindowBuilder:
                 context_win = existing.scalars().first()
                 if context_win:
                     return context_win.context_json
+            except Exception:
+                pass  # reuse check failed — rebuild
 
-            # 2. Load last N messages
-            msg_result = await db.execute(
-                select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at.desc()).limit(20)
-            )
-            messages = msg_result.scalars().all()
-            messages = sorted(messages, key=lambda x: x.created_at)
+        # 2. Load last N messages
+        msg_result = await db.execute(
+            select(Message)
+            .where(Message.chat_id == chat_id)
+            .order_by(Message.created_at.desc())
+            .limit(MESSAGE_CONTEXT_LIMIT)
+        )
+        messages = sorted(msg_result.scalars().all(), key=lambda x: x.created_at)
 
-            # 3. Inject user_preferences (KV)
+        # 3. Inject user_preferences (optional)
+        prefs = {}
+        try:
             pref_result = await db.execute(
                 select(UserPreference).where(UserPreference.user_id == user_id)
             )
             prefs = {p.key: p.value for p in pref_result.scalars().all()}
-            
-            # 4. Inject high-confidence user_memory (confidence > 70)
+        except Exception:
+            pass
+
+        # 4. Inject high-confidence user_memory (optional)
+        memories = []
+        try:
             mem_result = await db.execute(
                 select(UserMemory).where(
                     UserMemory.user_id == user_id,
@@ -73,46 +125,58 @@ class ContextWindowBuilder:
                 )
             )
             memories = mem_result.scalars().all()
+        except Exception:
+            pass
 
-            # 5. Semantic retrieval (optional)
-            semantic_context = ""
-            try:
-                query_vector = await self.vector_service.get_embedding(query)
+        # 5. Semantic retrieval (optional — skip silently)
+        semantic_context = ""
+        try:
+            vs = self._get_vector_service()
+            if vs:
+                query_vector = await vs.get_embedding(query)
                 if query_vector:
-                    search_results = await self.vector_service.query(
+                    search_results = await vs.query(
                         namespace="chat_messages",
                         vector=query_vector,
                         top_k=3,
                         filter={"user_id": {"$eq": user_id}}
                     )
-                    semantic_parts = [f"[Past Interaction]: {res['metadata'].get('content', '')}" for res in search_results]
+                    semantic_parts = [
+                        f"[Past Interaction]: {res['metadata'].get('content', '')}"
+                        for res in search_results
+                    ]
                     semantic_context = "\n".join(semantic_parts)
-            except Exception:
-                logger.warning("Semantic context retrieval failed - skipping")
+        except Exception:
+            pass  # semantic retrieval is always optional
 
-            # 6. Assembly
-            context_bundle = self._assemble_and_trim(messages, prefs, memories, semantic_context)
-            
-            # Store for reuse
+        # 6. Assembly
+        context_bundle = self._assemble_and_trim(messages, prefs, memories, semantic_context)
+
+        # Store for reuse (best-effort, non-blocking)
+        try:
             from database.crud import upsert_context_window
             await upsert_context_window(db, user_id, chat_id, context_bundle)
-            
-            return context_bundle
-            
-        except Exception as e:
-            logger.error(f"Context building failed: {e}")
-            # Fallback to empty context if everything fails
-            return {"recent_history": [], "system_instructions": "Context reconstruction failed. Proceed with caution."}
+        except Exception:
+            pass
+
+        return context_bundle
 
     def _assemble_and_trim(self, messages, prefs, memories, semantic):
         """Assemble pieces while keeping within token limit."""
         history = [{"role": m.role, "content": m.content} for m in messages]
-        
-        pref_str = "\n".join([f"{k}: {v}" for k, v in prefs.items()])
-        mem_str = "\n".join([f"Fact: {m.value}" for m in memories])
-        
-        system_instructions = f"User Preferences:\n{pref_str}\n\nRelevant User Facts:\n{mem_str}\n\nPast Context:\n{semantic}"
-        
+
+        parts = []
+        if prefs:
+            pref_str = "\n".join([f"{k}: {v}" for k, v in prefs.items()])
+            parts.append(f"User Preferences:\n{pref_str}")
+        if memories:
+            mem_str = "\n".join([f"Fact: {m.value}" for m in memories])
+            parts.append(f"Relevant User Facts:\n{mem_str}")
+        if semantic:
+            parts.append(f"Past Context:\n{semantic}")
+
+        system_instructions = "\n\n".join(parts)
+
         return {
             "recent_history": history,
             "system_instructions": system_instructions,
@@ -122,3 +186,4 @@ class ContextWindowBuilder:
 _builder = ContextWindowBuilder()
 def get_context_builder():
     return _builder
+
