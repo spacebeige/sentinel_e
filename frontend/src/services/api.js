@@ -59,7 +59,20 @@ api.interceptors.request.use(
 
 // ── Response Interceptor: Handle 401 ────────────────────────
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // If the response follows our standardized {success, data, error} pattern, unwrap it.
+    if (response.data && typeof response.data === 'object' && 'success' in response.data) {
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        const error = new Error(response.data.error || 'Request failed');
+        error.status = response.status;
+        error.data = response.data;
+        throw error;
+      }
+    }
+    return response.data;
+  },
   async (error) => {
     // Sanitize error for display
     const sanitizedError = sanitizeError(error);
@@ -82,7 +95,7 @@ export async function sendStandard(text, chatId, file, context) {
   const res = await api.post('/run/standard', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  return res.data;
+  return res;
 }
 
 /**
@@ -107,7 +120,7 @@ export async function sendExperimental(text, options = {}) {
   const res = await api.post('/run/experimental', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  return res.data;
+  return res;
 }
 
 /**
@@ -121,7 +134,7 @@ export async function sendKill(text, chatId) {
   const res = await api.post('/run/omega/kill', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  return res.data;
+  return res;
 }
 
 /**
@@ -139,7 +152,7 @@ export async function sendFeedback(runId, feedback, extra = {}) {
   const res = await api.post('/feedback', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  return res.data;
+  return res;
 }
 
 /**
@@ -147,7 +160,7 @@ export async function sendFeedback(runId, feedback, extra = {}) {
  */
 export async function getHistory(limit = 50, offset = 0) {
   const res = await api.get('/api/history', { params: { limit, offset } });
-  return res.data;
+  return res;
 }
 
 /**
@@ -155,7 +168,7 @@ export async function getHistory(limit = 50, offset = 0) {
  */
 export async function getChatMessages(chatId) {
   const res = await api.get(`/api/chat/${chatId}/messages`);
-  return res.data;
+  return res;
 }
 
 /**
@@ -163,7 +176,7 @@ export async function getChatMessages(chatId) {
  */
 export async function getSessionDescriptive(chatId) {
   const res = await api.get(`/api/session/${chatId}/descriptive`);
-  return res.data;
+  return res;
 }
 
 /**
@@ -171,7 +184,7 @@ export async function getSessionDescriptive(chatId) {
  */
 export async function getOmegaSession(chatId) {
   const res = await api.get(`/api/omega/session/${chatId}`);
-  return res.data;
+  return res;
 }
 
 /**
@@ -195,7 +208,7 @@ export async function runCrossAnalysis(chatId, query, llmResponse) {
     query: query || '',
     llm_response: llmResponse || '',
   });
-  return res.data;
+  return res;
 }
 
 // ── MCO (Meta-Cognitive Orchestrator) ───────────────────────
@@ -230,7 +243,7 @@ export async function sendMCOQuery(query, options = {}) {
   if (image_mime) body.image_mime = image_mime;
 
   const res = await api.post('/api/mco/run', body);
-  return res.data;
+  return res;
 }
 
 /**
@@ -239,7 +252,7 @@ export async function sendMCOQuery(query, options = {}) {
  */
 export async function fetchMCOModels() {
   const res = await api.get('/api/mco/models');
-  return res.data;
+  return res;
 }
 
 /**
@@ -250,7 +263,7 @@ export async function fetchMCOModels() {
  */
 export async function fetchChatModels() {
   const res = await api.get('/chat/models/available');
-  return res.data;
+  return res;
 }
 
 /**
@@ -259,12 +272,12 @@ export async function fetchChatModels() {
  */
 export async function toggleClaude() {
   const res = await api.post('/api/models/claude/toggle');
-  return res.data;
+  return res;
 }
 
 export async function getClaudeUsage() {
   const res = await api.get('/api/models/claude/usage');
-  return res.data;
+  return res;
 }
 
 /**
@@ -290,7 +303,7 @@ export async function sendDirectModelQuery(modelId, query, chatId = null, option
   };
 
   const res = await api.post(`/chat/${modelId}`, body);
-  return res.data;
+  return res;
 }
 
 /**
@@ -315,7 +328,7 @@ export async function sendDebateQuery(query, chatId = null, promptType = 'genera
   };
 
   const res = await api.post('/battle/debate', body);
-  return res.data;
+  return res;
 }
 
 /**
@@ -323,7 +336,7 @@ export async function sendDebateQuery(query, chatId = null, promptType = 'genera
  */
 export async function fetchMCOAnalytics(sessionId) {
   const res = await api.get(`/api/mco/analytics/${sessionId}`);
-  return res.data;
+  return res;
 }
 
 // ── Message Edit / Regenerate ────────────────────────────────
@@ -333,7 +346,7 @@ export async function fetchMCOAnalytics(sessionId) {
  */
 export async function editMessage(messageId, content) {
   const res = await api.put(`/api/messages/${messageId}`, { content });
-  return res.data;
+  return res;
 }//const detail = error.response.data?.detail;
 
 /**
@@ -341,7 +354,7 @@ export async function editMessage(messageId, content) {
  */
 export async function regenerateMessage(messageId) {
   const res = await api.post(`/api/messages/${messageId}/regenerate`);
-  return res.data;
+  return res;
 }
 
 // ── Utilities ───────────────────────────────────────────────
