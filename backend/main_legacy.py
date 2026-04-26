@@ -918,15 +918,3 @@ async def session_descriptive(chat_id: str):
         return {"error": str(e)}
 
 
-if __name__ == "__main__":
-    print("\nChoose backend mode:")
-    print("1. Offline (mock responses)")
-    print("2. Normal (live AI)")
-    choice = input("Enter 1 for offline, 2 for normal: ").strip()
-    if choice == "1":
-        os.environ["SENTINEL_MOCK_MODE"] = "true"
-        print("Backend will run in OFFLINE MOCK mode.")
-    else:
-        os.environ["SENTINEL_MOCK_MODE"] = "false"
-        print("Backend will run in NORMAL (live AI) mode.")
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

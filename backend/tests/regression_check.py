@@ -51,7 +51,7 @@ lle = LocalLLMEngine()
 check("LocalLLMEngine cloud mode", lle.model_path is None)
 
 # 7. Port binding
-check("Uvicorn port uses $PORT", True, "CMD uses ${PORT:-8000}")
+check("Uvicorn port uses $PORT", True, "CMD uses $PORT")
 
 # Summary
 print()
