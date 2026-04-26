@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Depends, Form, UploadFile, File, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from uuid import UUID
@@ -442,10 +442,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(InputValidationMiddleware)
 
-# Strict CORS
 # ── CORS (FIXED FOR VERCEL + RENDER) ─────────────────────────
-from fastapi.middleware.cors import CORSMiddleware
-
 origins = [
     "https://sentinel-e.vercel.app",  # ✅ your frontend
     "http://localhost:3000",          # optional (dev)
@@ -631,6 +628,12 @@ async def health_check():
     except Exception:
         health["redis"] = "disconnected"
     return health
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Prevent noisy 404s for automatic browser favicon requests."""
+    return Response(status_code=204)
 
 
 # ============================================================

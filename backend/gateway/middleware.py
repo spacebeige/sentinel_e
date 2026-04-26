@@ -62,6 +62,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         settings = get_settings()
+        max_requests = getattr(settings, "RATE_LIMIT_REQUESTS", 60)
+        window_seconds = getattr(settings, "RATE_LIMIT_WINDOW_SECONDS", 60)
+
+        if not hasattr(settings, "RATE_LIMIT_REQUESTS") or not hasattr(settings, "RATE_LIMIT_WINDOW_SECONDS"):
+            logger.warning(
+                "Rate limit settings missing; using safe defaults max_requests=%s window_seconds=%s",
+                max_requests,
+                window_seconds,
+            )
 
         # Skip rate limiting for health checks
         if request.url.path in ("/health", "/"):
@@ -75,14 +84,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         if not _rate_limiter.is_allowed(
             client_ip,
-            settings.RATE_LIMIT_REQUESTS,
-            settings.RATE_LIMIT_WINDOW_SECONDS,
+            max_requests,
+            window_seconds,
         ):
             logger.warning(f"Rate limit exceeded for {client_ip}")
             return JSONResponse(
                 status_code=429,
                 content={"detail": "Too many requests. Please try again later."},
-                headers={"Retry-After": str(settings.RATE_LIMIT_WINDOW_SECONDS)},
+                headers={"Retry-After": str(window_seconds)},
             )
 
         return await call_next(request)
