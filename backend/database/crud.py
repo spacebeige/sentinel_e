@@ -186,6 +186,27 @@ async def add_message(
         db.add(new_message)
         await db.commit()
         await db.refresh(new_message)
+        
+        # Sync to Pinecone (Background)
+        from utils.vector_service import get_vector_service
+        vs = get_vector_service()
+        embedding = await vs.get_embedding(content)
+        if embedding:
+            asyncio.create_task(vs.upsert(
+                namespace="chat_messages",
+                items=[{
+                    "id": str(message_id),
+                    "values": embedding,
+                    "metadata": {
+                        "user_id": str(new_message.user_id) if new_message.user_id else "",
+                        "chat_id": str(chat_id),
+                        "content": content,
+                        "role": role,
+                        "timestamp": created_at.isoformat()
+                    }
+                }]
+            ))
+        
         return new_message
     except Exception as exc:
         await db.rollback()
@@ -397,7 +418,30 @@ async def add_user_memory(
         db.add(memory)
     
     await db.commit()
-    return existing or memory
+    target = existing or memory
+    await db.refresh(target)
+
+    # Sync to Pinecone (Background)
+    from utils.vector_service import get_vector_service
+    vs = get_vector_service()
+    embedding = await vs.get_embedding(value)
+    if embedding:
+        asyncio.create_task(vs.upsert(
+            namespace="user_memory",
+            items=[{
+                "id": str(target.id),
+                "values": embedding,
+                "metadata": {
+                    "user_id": user_id,
+                    "key": key,
+                    "value": value,
+                    "confidence": confidence,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            }]
+        ))
+
+    return target
 
 
 async def get_user_memory(

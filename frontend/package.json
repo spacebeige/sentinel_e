@@ -5,6 +5,7 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.61.6",
     "axios": "^1.7.7",
+    "d3": "^7.9.0",
     "framer-motion": "^12.34.3",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.400.0",
@@ -15,7 +16,8 @@
     "react-scripts": "5.0.1",
     "recharts": "^3.7.0",
     "remark-gfm": "^4.0.1",
-    "supertokens-auth-react": "^0.51.2"
+    "supertokens-auth-react": "^0.51.2",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@jridgewell/sourcemap-codec": "^1.5.0",

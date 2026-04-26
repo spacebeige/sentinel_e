@@ -44,6 +44,7 @@ import AdvancedCopyMenu from '../components/AdvancedCopyMenu';
 import { normalizeResponseText } from '../engines/responseNormalizer';
 import memoryManager from '../engines/memoryManager';
 import { getVisibility, hasAnyVisibleAnalytics } from '../engines/analyticsVisibilityController';
+import NerdMode from '../components/NerdMode';
 
 // ============================================================
 // Visual Constants (from Figma design system)
@@ -1601,10 +1602,16 @@ export default function FigmaChatShell({
               <div className="flex items-center justify-between px-4 py-3 border-b border-black/5 dark:border-white/5">
                 <div className="flex items-center gap-2">
                   <Activity className="w-4 h-4 text-[#8b5cf6]" />
-                  <span className="text-[#1d1d1f] dark:text-[#f1f5f9]"
+                   <span className="text-[#1d1d1f] dark:text-[#f1f5f9]"
                     style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}>
                     Session Analytics
                   </span>
+                  <button 
+                    onClick={() => setShowNerdMode(!showNerdMode)}
+                    className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${showNerdMode ? 'bg-cyan-500 text-white' : 'bg-black/10 dark:bg-white/10 text-[#6e6e73]'}`}
+                  >
+                    Nerd Mode
+                  </button>
                 </div>
                 <button onClick={() => setShowSessionPanel(false)}
                   className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
@@ -1618,6 +1625,13 @@ export default function FigmaChatShell({
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Nerd Mode Modal */}
+      {showNerdMode && (
+        <NerdMode 
+          sessionId={activeChatId} 
+          onClose={() => setShowNerdMode(false)} 
+        />
+      )}
     </div>
   );
 }
