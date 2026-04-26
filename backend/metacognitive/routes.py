@@ -24,7 +24,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from gateway.auth import get_current_user
+from gateway.auth import get_current_user, get_optional_user
 from database.connection import get_db
 from database.crud import (
     create_chat, get_chat, add_message, update_chat_metadata,
@@ -901,33 +901,66 @@ async def mco_knowledge_graph(
 # ============================================================
 
 @router.get("/models")
-async def mco_models(user: Dict = Depends(get_current_user)):
-    """List available cognitive models safely (no crash)."""
+async def mco_models(user: Optional[Dict] = Depends(get_optional_user)):
+    """List available cognitive models safely (never crash)."""
+    logger.info("Entered /api/mco/models (authenticated=%s)", bool(user))
 
-    if not COGNITIVE_MODEL_REGISTRY:
+    try:
+        registry = COGNITIVE_MODEL_REGISTRY
+        if not registry or not hasattr(registry, "items"):
+            logger.warning(
+                "COGNITIVE_MODEL_REGISTRY unavailable or invalid type: %s",
+                type(registry).__name__,
+            )
+            return {"models": []}
+
+        keys = list(registry.keys())
+        logger.info("Model registry keys (%d): %s", len(keys), keys)
+
+        models = []
+        for key, spec in registry.items():
+            logger.debug("Processing model key=%s", key)
+
+            if spec is None:
+                logger.warning("Skipping model key=%s because spec is None", key)
+                continue
+
+            try:
+                role_obj = getattr(spec, "role", None)
+                role_value = getattr(role_obj, "value", str(role_obj) if role_obj is not None else "unknown")
+
+                context_window = getattr(spec, "context_window", None)
+                if context_window is not None and not isinstance(context_window, (str, int, float, bool)):
+                    context_window = str(context_window)
+
+                max_output_tokens = getattr(spec, "max_output_tokens", None)
+                if max_output_tokens is not None and not isinstance(max_output_tokens, (str, int, float, bool)):
+                    max_output_tokens = str(max_output_tokens)
+
+                disable_reason = getattr(spec, "disable_reason", None)
+                if disable_reason is not None and not isinstance(disable_reason, (str, int, float, bool)):
+                    disable_reason = str(disable_reason)
+
+                models.append({
+                    "key": str(key),
+                    "name": str(getattr(spec, "name", key)),
+                    "model_id": str(getattr(spec, "model_id", key)),
+                    "provider": str(getattr(spec, "provider", "unknown")),
+                    "role": str(role_value),
+                    "context_window": context_window,
+                    "max_output_tokens": max_output_tokens,
+                    "active": bool(getattr(spec, "active", False)),
+                    "enabled": bool(getattr(spec, "enabled", False)),
+                    "disable_reason": disable_reason,
+                })
+            except Exception:
+                logger.exception("Failed processing model key=%s", key)
+                continue
+
+        return {"models": models}
+    except Exception:
+        logger.exception("Unhandled failure in /api/mco/models")
         return {"models": []}
-
-    models = []
-
-    for key, spec in COGNITIVE_MODEL_REGISTRY.items():
-        try:
-            models.append({
-                "key": key,
-                "name": getattr(spec, "name", key),
-                "model_id": getattr(spec, "model_id", key),
-                "provider": getattr(spec, "provider", "unknown"),
-                "role": getattr(spec.role, "value", str(spec.role)) if hasattr(spec, "role") else "unknown",
-                "context_window": getattr(spec, "context_window", None),
-                "max_output_tokens": getattr(spec, "max_output_tokens", None),
-                "active": getattr(spec, "active", False),
-                "enabled": getattr(spec, "enabled", False),
-                "disable_reason": getattr(spec, "disable_reason", None),
-            })
-        except Exception as e:
-            logger.error(f"Model serialization failed for {key}: {e}")
-            continue  # skip broken model, don't crash API
-
-    return {"models": models}
 
 # ============================================================
 # BACKGROUND DAEMON

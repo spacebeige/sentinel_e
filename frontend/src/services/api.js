@@ -31,6 +31,7 @@ import { getClerkToken } from '../hooks/useAuthContext';
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 120000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -40,6 +41,7 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     config.headers['X-Request-ID'] = generateRequestId();
+    config.withCredentials = true;
     
     try {
       const token = await getClerkToken();
