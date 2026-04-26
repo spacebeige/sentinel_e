@@ -183,11 +183,11 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
 
     ALLOWED_ORIGINS: str = "http://localhost:3000"
-
+    TAVILY_API_KEY: str = ""
     CLERK_JWT_ISSUER: str = ""
     CLERK_JWKS_URL: str = ""
     CLERK_JWT_AUDIENCE: Optional[str] = None
-    
+
     @property
     def cors_origins(self) -> List[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
