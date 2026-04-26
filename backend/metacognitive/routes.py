@@ -902,25 +902,32 @@ async def mco_knowledge_graph(
 
 @router.get("/models")
 async def mco_models(user: Dict = Depends(get_current_user)):
-    """List available cognitive models with enabled/disabled status."""
-    return {
-        "models": [
-            {
-                "key": key,
-                "name": spec.name,
-                "model_id": spec.model_id,
-                "provider": spec.provider,
-                "role": spec.role.value,
-                "context_window": spec.context_window,
-                "max_output_tokens": spec.max_output_tokens,
-                "active": spec.active,
-                "enabled": spec.enabled,
-                "disable_reason": getattr(spec, "disable_reason", None),
-            }
-            for key, spec in COGNITIVE_MODEL_REGISTRY.items()
-        ]
-    }
+    """List available cognitive models safely (no crash)."""
 
+    if not COGNITIVE_MODEL_REGISTRY:
+        return {"models": []}
+
+    models = []
+
+    for key, spec in COGNITIVE_MODEL_REGISTRY.items():
+        try:
+            models.append({
+                "key": key,
+                "name": getattr(spec, "name", key),
+                "model_id": getattr(spec, "model_id", key),
+                "provider": getattr(spec, "provider", "unknown"),
+                "role": getattr(spec.role, "value", str(spec.role)) if hasattr(spec, "role") else "unknown",
+                "context_window": getattr(spec, "context_window", None),
+                "max_output_tokens": getattr(spec, "max_output_tokens", None),
+                "active": getattr(spec, "active", False),
+                "enabled": getattr(spec, "enabled", False),
+                "disable_reason": getattr(spec, "disable_reason", None),
+            })
+        except Exception as e:
+            logger.error(f"Model serialization failed for {key}: {e}")
+            continue  # skip broken model, don't crash API
+
+    return {"models": models}
 
 # ============================================================
 # BACKGROUND DAEMON
