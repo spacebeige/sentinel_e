@@ -66,6 +66,7 @@ from database.connection import get_db, init_db, check_redis, redis_client
 from database.crud import (
     create_chat, get_chat, list_chats, update_chat_metadata,
     add_message, get_chat_messages, update_message, delete_messages_after,
+    add_user_memory, get_user_memory, get_user_preference, upsert_user_preference,
 )
 
 # ── Core Engine Imports ──────────────────────────────────────
@@ -75,6 +76,8 @@ from core.omega_kernel import OmegaCognitiveKernel
 from core.mode_config import ModeConfig
 from core.knowledge_learner import KnowledgeLearner
 from utils.chat_naming import generate_chat_name
+from utils.output_sanitizer import sanitize_output
+from core.context_builder import get_context_builder
 
 # ── New Architecture Layers ──────────────────────────────────
 from memory.memory_engine import MemoryEngine
@@ -654,6 +657,51 @@ async def _read_upload_as_b64(file) -> tuple:
 
 
 # ============================================================
+# MEMORY EXTRACTION
+# ============================================================
+
+async def _extract_memory_bg(user_id: str, user_text: str):
+    """Asynchronously extract user preferences/facts and save to DB."""
+    try:
+        from database.connection import get_db
+        from database.crud import add_user_memory
+        import json
+        import re
+        
+        prompt = (
+            "Analyze the following user input and extract any explicit personal facts or preferences. "
+            "Return only valid JSON in the format: {\"key\": \"value\", \"confidence\": 90}. "
+            "If no clear fact or preference exists, return an empty JSON object {}. "
+            f"Input: {user_text}"
+        )
+        
+        # Use a fast model for extraction
+        fast_model = "llama31-8b"
+        res = await mco_bridge.call_model(
+            fast_model, 
+            prompt, 
+            "You are a memory extractor. Output only raw JSON. No markdown, no tags."
+        )
+        
+        # Clean potential markdown
+        res = re.sub(r'```json\n|\n```|```', '', res).strip()
+        data = json.loads(res)
+        
+        if data and "key" in data and "value" in data:
+            async for db in get_db():
+                await add_user_memory(
+                    db, 
+                    user_id, 
+                    str(data["key"]).lower().replace(' ', '_'), 
+                    str(data["value"]), 
+                    int(data.get("confidence", 75))
+                )
+                break
+    except Exception as e:
+        logger.debug(f"Background memory extraction skipped/failed: {e}")
+
+
+# ============================================================
 # MAIN EXECUTION ENDPOINT
 # ============================================================
 
@@ -719,6 +767,9 @@ async def run_sentinel(
         raise HTTPException(status_code=403, detail="Session validation failed")
     
     memory.add_message("user", effective_text)
+    
+    # Trigger background memory extraction
+    asyncio.create_task(_extract_memory_bg(user_id, effective_text))
 
     # ── Conversation History ─────────────────────────────────
     history = []
@@ -757,6 +808,18 @@ async def run_sentinel(
     memory_ctx = memory.build_prompt_context()
     if memory_ctx:
         history.insert(0, {"role": "system", "content": memory_ctx})
+
+    # ── DB-Backed Context Builder Injection ──────────────────
+    builder = get_context_builder(max_tokens=2048, model=(getattr(request, "selected_model", None) or "llama33-70b"))
+    built_ctx = await builder.build_context(
+        db=db,
+        user_id=user_id,
+        query=effective_text,
+        recent_messages=history,
+        semantic_search_results=None,
+    )
+    if built_ctx and built_ctx.get("context"):
+        history.insert(0, {"role": "system", "content": built_ctx["context"]})
 
     # ── Cognitive RAG ────────────────────────────────────────
     rag_result = None
@@ -910,7 +973,7 @@ async def run_sentinel(
                     detail="Provider unavailable. Please try again or select a different model.",
                 )
 
-            formatted_output = raw_output
+            formatted_output = sanitize_output(raw_output)
             confidence = 0.8  # Single model — no ensemble calibration
 
             await add_message(db, chat.id, "assistant", formatted_output)
@@ -1019,7 +1082,7 @@ async def run_sentinel(
                         detail="Provider unavailable. Please try again.",
                     )
 
-            formatted_output = raw_output
+            formatted_output = sanitize_output(raw_output)
             confidence = 0.7
 
             await add_message(db, chat.id, "assistant", formatted_output)
@@ -1131,7 +1194,7 @@ async def run_sentinel(
             kernel_latency = tracer.end_span("kernel")
             payload = ensemble_response.to_frontend_payload()
 
-            formatted_output = ensemble_response.formatted_output
+            formatted_output = sanitize_output(ensemble_response.formatted_output)
             if rag_result and rag_result.retrieval_executed:
                 if rag_result.no_sources_found:
                     formatted_output += "\n\n*No verified external sources found for this query.*"
@@ -1351,7 +1414,7 @@ async def run_sentinel(
     kernel_latency = tracer.end_span("kernel")
 
     # ── Extract & Build Response (Legacy) ────────────────────
-    formatted_output = result.get("formatted_output", "")
+    formatted_output = sanitize_output(result.get("formatted_output", ""))
     confidence = result.get("confidence", 0.5)
     session_state = result.get("session_state", {})
     reasoning_trace = result.get("reasoning_trace", {})
@@ -2082,7 +2145,21 @@ async def history_alias(
             logger.warning("/api/history list_chats returned None for user_id=%s", user_id)
             return []
 
-        return chats
+        # Serialize ORM objects into JSON-safe dicts for frontend
+        serialized = []
+        for chat in chats:
+            serialized.append({
+                "id": str(chat.id),
+                "chat_name": chat.chat_name or "Untitled Chat",
+                "mode": chat.mode or "standard",
+                "created_at": chat.created_at.isoformat() if chat.created_at else None,
+                "updated_at": chat.updated_at.isoformat() if chat.updated_at else None,
+                "rounds": chat.rounds or 0,
+                "models_used": chat.models_used or [],
+                "preview": (chat.priority_answer or "")[:80] if chat.priority_answer else None,
+            })
+
+        return serialized
     except Exception as exc:
         logger.error("Unhandled /api/history error: %s", exc, exc_info=True)
         return []
@@ -2325,6 +2402,99 @@ async def learning_summary(user: Dict = Depends(get_current_user)):
         }
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+
+# ============================================================
+# USER MEMORY & PREFERENCES
+# ============================================================
+
+@app.get("/api/user/memory")
+async def get_memory(
+    min_confidence: int = 50,
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    """Get all user memory facts above confidence threshold."""
+    user_id = user["user_id"]
+    memories = await get_user_memory(db, user_id, min_confidence=min_confidence)
+    return [
+        {
+            "id": str(m.id),
+            "key": m.key,
+            "value": m.value,
+            "confidence": m.confidence,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+            "updated_at": m.updated_at.isoformat() if m.updated_at else None,
+        }
+        for m in (memories or [])
+    ]
+
+
+@app.post("/api/user/memory")
+async def add_memory(
+    request: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    """Add or update a user memory fact."""
+    user_id = user["user_id"]
+    key = request.get("key")
+    value = request.get("value")
+    confidence = request.get("confidence", 75)
+
+    if not key or not value:
+        raise HTTPException(status_code=400, detail="key and value are required")
+
+    mem = await add_user_memory(db, user_id, key, value, confidence)
+    return {
+        "status": "saved",
+        "key": key,
+        "value": value,
+        "confidence": confidence,
+    }
+
+
+@app.get("/api/user/preferences")
+async def get_preferences(
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    """Get user preferences."""
+    user_id = user["user_id"]
+    prefs = await get_user_preference(db, user_id)
+    if not prefs:
+        return {"exists": False}
+    return {
+        "exists": True,
+        "response_style": prefs.response_style,
+        "tone": prefs.tone,
+        "default_chat_mode": prefs.default_chat_mode,
+        "preferred_model": prefs.preferred_model,
+        "dark_mode": prefs.dark_mode,
+        "show_reasoning": prefs.show_reasoning,
+        "auto_save_chats": prefs.auto_save_chats,
+    }
+
+
+@app.put("/api/user/preferences")
+async def update_preferences(
+    request: dict = Body(...),
+    db: AsyncSession = Depends(get_db),
+    user: Dict = Depends(get_current_user),
+):
+    """Update user preferences."""
+    user_id = user["user_id"]
+    allowed_keys = {
+        "response_style", "tone", "default_chat_mode",
+        "preferred_model", "preferred_provider",
+        "dark_mode", "show_reasoning", "auto_save_chats",
+    }
+    updates = {k: v for k, v in request.items() if k in allowed_keys}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid preference fields provided")
+
+    pref = await upsert_user_preference(db, user_id, **updates)
+    return {"status": "updated", "fields": list(updates.keys())}
 
 
 # ============================================================

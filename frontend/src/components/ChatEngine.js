@@ -21,7 +21,6 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import axios from 'axios';
 import { API_BASE } from '../config';
 import FigmaChatShell, { MODELS } from '../figma_shell/FigmaChatShell';
 import { getDefaultPipelineSteps } from '../engines/modeController';
@@ -29,11 +28,24 @@ import memoryManager from '../engines/memoryManager';
 import { injectContext } from '../engines/contextInjector';
 import { evaluateResponse } from '../engines/cognitiveGovernor';
 import { useCognitiveStore } from '../stores/cognitiveStore';
+import { useAuthContext } from '../hooks/useAuthContext';
+import {
+  getHistory,
+  getChatMessages,
+  getSessionDescriptive,
+  getOmegaSession,
+  checkHealth as apiCheckHealth,
+  sendStandard,
+  sendExperimental,
+  sendKill,
+} from '../services/api';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function ChatEngine() {
   const { addDebateResult } = useCognitiveStore();
+  const { isAuthenticated, syncedUser } = useAuthContext();
+
   const [mode, setMode] = useState('standard');
   const [subMode, setSubMode] = useState(null);
   const [killActive, setKillActive] = useState(false);
@@ -50,11 +62,13 @@ export default function ChatEngine() {
   const [lastQueryText, setLastQueryText] = useState('');
   const [governanceVerdict, setGovernanceVerdict] = useState(null);
 
+  // === Dynamic model registry ===
+  const [chatModels, setChatModels] = useState([]);
+  const [mcoModels, setMcoModels] = useState([]);
+
   // === FIGMA SHELL BINDINGS ===
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState(MODELS[0]);
-
-  // Use API_BASE directly from config
 
   // Sync selectedModel.category ↔ mode (bidirectional adapter)
   useEffect(() => {
@@ -85,30 +99,81 @@ export default function ChatEngine() {
   // Pipeline steps for ThinkingAnimation (tied to current mode)
   const pipelineSteps = useMemo(() => getDefaultPipelineSteps(mode, subMode), [mode, subMode]);
 
-  const checkHealth = useCallback(async () => {
-    try {
-      await axios.get(`${API_BASE}/`, { timeout: 3000 });
-      setServerStatus('online');
-    } catch {
-      setServerStatus('offline');
-    }
-  }, [API_BASE_URL]);
+  // === Health Check (uses auth-aware api service) ===
+  const checkHealthCb = useCallback(async () => {
+    const status = await apiCheckHealth();
+    setServerStatus(status);
+  }, []);
 
   useEffect(() => {
-    checkHealth();
-    const interval = setInterval(checkHealth, 30000);
+    checkHealthCb();
+    const interval = setInterval(checkHealthCb, 30000);
     return () => clearInterval(interval);
-  }, [checkHealth]);
+  }, [checkHealthCb]);
 
+  // === Fetch model registry ===
   useEffect(() => {
-    const fetchHistory = async () => {
+    if (serverStatus !== 'online' || !isAuthenticated) return;
+    const fetchModels = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/api/history`);
-        const formatted = res.data.map(item => ({
+        const { default: api } = await import('../services/api');
+        // Use the default api instance which has auth interceptors
+        const res = await api.get('/api/models');
+        const models = (res.data?.models || []).map(m => ({
+          id: m.id,
+          name: m.name,
+          provider: m.provider,
+          role: m.role,
+          tier: m.tier,
+          enabled: m.enabled,
+          color: m.role === 'anchor' ? '#3b82f6' : m.role === 'debate' ? '#ef4444' : '#10b981',
+          category: 'individual',
+          synthesis_only: m.synthesis_only,
+          active: m.enabled,
+          context_window: m.context_window,
+          max_output_tokens: m.max_output_tokens,
+        }));
+        setChatModels(models);
+      } catch { /* ignore — models are optional */ }
+    };
+    fetchModels();
+  }, [serverStatus, isAuthenticated]);
+
+  // === Claude toggle handler ===
+  const handleToggleClaude = useCallback(async () => {
+    try {
+      const { default: api } = await import('../services/api');
+      const res = await api.post('/api/models/claude/toggle');
+      if (res.data) {
+        setChatModels(prev => prev.map(m =>
+          m.id === 'claude-sonnet-4.6' ? { ...m, active: res.data.active } : m
+        ));
+      }
+    } catch (err) {
+      console.error('Claude toggle failed:', err);
+    }
+  }, []);
+
+  // ============================================================
+  // CHAT HISTORY — Auth-aware, reloads on login & page refresh
+  // Uses the api service which attaches Clerk JWT tokens.
+  // ============================================================
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setHistory([]);
+      return;
+    }
+
+    const fetchHistoryData = async () => {
+      try {
+        const data = await getHistory(50, 0);
+        const formatted = (data || []).map(item => ({
           id: item.id,
           timestamp: item.updated_at || item.created_at || new Date().toISOString(),
           mode: item.mode,
+          sub_mode: item.sub_mode || null,
           summary: item.chat_name || item.preview || 'Chat',
+          name: item.chat_name,
           filename: item.id,
           data: null,
         }));
@@ -117,26 +182,26 @@ export default function ChatEngine() {
         console.error('Failed to load history:', err);
       }
     };
-    fetchHistory();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchHistoryData();
+  }, [isAuthenticated, syncedUser?.id]); // Re-fetch when auth state changes
 
   // Fetch descriptive session state for right panel
   useEffect(() => {
-    if (!activeChatId) { setSessionState(null); return; }
+    if (!activeChatId || !isAuthenticated) { setSessionState(null); return; }
     const fetchSession = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/api/session/${activeChatId}/descriptive`);
-        if (res.data && !res.data.error) setSessionState(res.data);
+        const data = await getSessionDescriptive(activeChatId);
+        if (data && !data.error) setSessionState(data);
       } catch {
         // Fall back to legacy endpoint
         try {
-          const res = await axios.get(`${API_BASE}/api/omega/session/${activeChatId}`);
-          if (res.data?.session_state) setSessionState(res.data.session_state);
+          const data = await getOmegaSession(activeChatId);
+          if (data?.session_state) setSessionState(data.session_state);
         } catch { /* ignore */ }
       }
     };
     fetchSession();
-  }, [activeChatId, API_BASE_URL]);
+  }, [activeChatId, isAuthenticated]);
 
   const handleSend = async ({ text, file }) => {
     if (!text && !file) return;
@@ -163,38 +228,37 @@ export default function ChatEngine() {
     // Record user message in memory layer
     memoryManager.recordMessage(userMsg, mode, subMode);
 
-    const formData = new FormData();
-    if (text) formData.append('text', text);
-    if (file) formData.append('file', file);
-    if (chatId && UUID_REGEX.test(chatId)) formData.append('chat_id', chatId);
-
-    // Inject stateful context (memory + preferences + adaptive params)
-    injectContext(formData, text || '', mode, subMode);
-
-    let endpoint;
-    // ── Mode-based routing ──
-    if (killActive && chatId) {
-      endpoint = `${API_BASE}/run/omega/kill`;
-      formData.append('mode', 'kill');
-    } else if (mode === 'experimental') {
-      endpoint = `${API_BASE}/run/omega/experimental`;
-      formData.append('mode', 'experimental');
-      if (subMode) formData.append('sub_mode', subMode);
-      formData.append('rounds', Math.max(rounds, 3));
-    } else if (mode === 'ensemble') {
-      endpoint = `${API_BASE}/run/ensemble`;
-      formData.append('rounds', Math.max(rounds, 3));
-    } else {
-      endpoint = `${API_BASE}/run/omega/standard`;
-      formData.append('mode', 'standard');
-    }
-
     try {
-      const response = await axios.post(endpoint, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      let result;
 
-      const result = response.data;
+      if (killActive && chatId) {
+        result = await sendKill(text, chatId);
+      } else if (mode === 'experimental') {
+        result = await sendExperimental(text, {
+          chatId, file, 
+          context: null,
+          mode: 'experimental',
+          subMode: subMode || 'debate',
+          rounds: Math.max(rounds, 3),
+          killSwitch: false,
+        });
+      } else if (mode === 'ensemble') {
+        // Use the api service for ensemble
+        const { default: api } = await import('../services/api');
+        const formData = new FormData();
+        formData.append('text', text);
+        formData.append('rounds', Math.max(rounds, 3));
+        if (chatId) formData.append('chat_id', chatId);
+        if (file) formData.append('file', file);
+        injectContext(formData, text || '', mode, subMode);
+        const res = await api.post('/run/ensemble', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        result = res.data;
+      } else {
+        result = await sendStandard(text, chatId, file, null);
+      }
+
       const returnedChatId = result.chat_id ? String(result.chat_id) : null;
 
       const answerText = result.formatted_output
@@ -202,7 +266,12 @@ export default function ChatEngine() {
         || result.priority_answer
         || 'No response.';
 
-      const assistantMsg = { role: 'assistant', content: answerText, timestamp: new Date().toISOString() };
+      const assistantMsg = {
+        role: 'assistant',
+        content: answerText,
+        timestamp: new Date().toISOString(),
+        reasoning_json: result.omega_metadata || null,
+      };
       setMessages(prev => [...prev, assistantMsg]);
       setCurrentResult(result);
       setLastResponseText(answerText);
@@ -269,10 +338,17 @@ export default function ChatEngine() {
     setCurrentResult(null);
     setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE}/api/chat/${run.id}/messages`);
-      const loaded = (res.data || [])
+      const data = await getChatMessages(run.id);
+      const loaded = (data || [])
         .filter(m => m.role === 'user' || m.role === 'assistant')
-        .map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp || run.timestamp, image_b64: m.image_b64 || null, image_mime: m.image_mime || null }));
+        .map(m => ({
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp || run.timestamp,
+          image_b64: m.image_b64 || null,
+          image_mime: m.image_mime || null,
+          reasoning_json: m.reasoning_json || null,
+        }));
       setMessages(loaded);
     } catch (err) {
       console.error('Failed to load messages:', err);
@@ -320,6 +396,9 @@ export default function ChatEngine() {
       lastQueryText={lastQueryText}
       lastResponseText={lastResponseText}
       governanceVerdict={governanceVerdict}
+      chatModels={chatModels}
+      mcoModels={mcoModels}
+      onToggleClaude={handleToggleClaude}
     />
   );
 }

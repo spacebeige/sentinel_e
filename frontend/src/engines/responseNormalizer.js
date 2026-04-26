@@ -16,6 +16,25 @@ export function normalizeResponseText(text) {
 
   let cleaned = text;
 
+  // ── Strip internal LLM reasoning/debug tags ──
+  // These leak from model outputs and must NEVER be displayed to users.
+  const tagPatterns = [
+    /<think>[\s\S]*?<\/think>/gi,
+    /<thinking>[\s\S]*?<\/thinking>/gi,
+    /<analysis>[\s\S]*?<\/analysis>/gi,
+    /<reflection>[\s\S]*?<\/reflection>/gi,
+    /<internal>[\s\S]*?<\/internal>/gi,
+    /<reasoning>[\s\S]*?<\/reasoning>/gi,
+    /<system_note>[\s\S]*?<\/system_note>/gi,
+    /<meta>[\s\S]*?<\/meta>/gi,
+    /\[INTERNAL\][\s\S]*?\[\/INTERNAL\]/gi,
+    /\[DEBUG\][\s\S]*?\[\/DEBUG\]/gi,
+    /\[SYSTEM\][\s\S]*?\[\/SYSTEM\]/gi,
+  ];
+  for (const pattern of tagPatterns) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+
   // Remove meta commentary / filler phrases
   const fillerPatterns = [
     /^(certainly!?\s*)/i,
@@ -33,25 +52,11 @@ export function normalizeResponseText(text) {
     cleaned = cleaned.replace(pattern, '');
   }
 
-  // Remove excessive markdown heading syntax (keep text)
-  cleaned = cleaned.replace(/^#{1,6}\s+/gm, '');
+  // NOTE: Markdown syntax (headings, bold, italic, lists, code blocks) is
+  // deliberately preserved because the frontend renders via ReactMarkdown.
+  // Only strip structural artifacts that break rendering:
 
-  // Remove bold markdown (**text** → text, __text__ → text)
-  cleaned = cleaned.replace(/\*\*([^*]+)\*\*/g, '$1');
-  cleaned = cleaned.replace(/__([^_]+)__/g, '$1');
-
-  // Remove italic markdown (*text* → text, _text_ → text)
-  // Be careful not to remove bullet points
-  cleaned = cleaned.replace(/(?<!\w)\*([^*\n]+)\*(?!\w)/g, '$1');
-  cleaned = cleaned.replace(/(?<!\w)_([^_\n]+)_(?!\w)/g, '$1');
-
-  // Convert markdown bullet lists to clean bullets
-  cleaned = cleaned.replace(/^\s*[-*+]\s+/gm, '• ');
-
-  // Convert numbered lists to clean format
-  cleaned = cleaned.replace(/^\s*\d+\.\s+/gm, (match) => match.trim() + ' ');
-
-  // Remove horizontal rules
+  // Remove horizontal rules (triple dashes/asterisks)
   cleaned = cleaned.replace(/^[-*_]{3,}\s*$/gm, '');
 
   // Remove duplicate blank lines
