@@ -32,6 +32,7 @@ from database.crud import (
     create_chat, get_chat, add_message, update_chat_metadata,
 )
 from utils.chat_naming import generate_chat_name
+from utils.output_sanitizer import sanitize_output, sanitize_json_response
 
 from metacognitive.schemas import (
     OperatingMode,
@@ -76,6 +77,107 @@ def _get_orchestrator() -> MetaCognitiveOrchestrator:
             detail="Meta-Cognitive Orchestrator not initialized",
         )
     return _orchestrator
+
+
+def _sanitize_mco_response(response: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Sanitize MCO response to remove internal reasoning tags.
+    
+    Cleans:
+      - formatted_output
+      - aggregated_answer
+      - raw_output (in nested structures)
+      - Various sub-results (forensic, audit, synthesis, etc.)
+    """
+    if not isinstance(response, dict):
+        return response
+    
+    # Clone to avoid mutating original
+    response = dict(response)
+    
+    # Sanitize top-level string fields
+    if "formatted_output" in response and isinstance(response["formatted_output"], str):
+        response["formatted_output"] = sanitize_output(response["formatted_output"])
+        logger.debug(f"Sanitized formatted_output, length: {len(response['formatted_output'])}")
+    
+    if "aggregated_answer" in response and isinstance(response["aggregated_answer"], str):
+        response["aggregated_answer"] = sanitize_output(response["aggregated_answer"])
+    
+    if "answer" in response and isinstance(response["answer"], str):
+        response["answer"] = sanitize_output(response["answer"])
+    
+    # Sanitize nested omega_metadata
+    if "omega_metadata" in response and isinstance(response["omega_metadata"], dict):
+        omega = dict(response["omega_metadata"])
+        
+        # Sanitize various sub-results
+        if "forensic_result" in omega and isinstance(omega["forensic_result"], dict):
+            if "answer" in omega["forensic_result"]:
+                omega["forensic_result"]["answer"] = sanitize_output(omega["forensic_result"]["answer"])
+        
+        if "audit_result" in omega and isinstance(omega["audit_result"], dict):
+            # Sanitize all outputs
+            if "all_outputs" in omega["audit_result"] and isinstance(omega["audit_result"]["all_outputs"], list):
+                sanitized_outputs = []
+                for out in omega["audit_result"]["all_outputs"]:
+                    if isinstance(out, dict):
+                        out_copy = dict(out)
+                        if "raw_output" in out_copy:
+                            out_copy["raw_output"] = sanitize_output(out_copy["raw_output"])
+                        sanitized_outputs.append(out_copy)
+                    else:
+                        sanitized_outputs.append(out)
+                omega["audit_result"]["all_outputs"] = sanitized_outputs
+        
+        if "synthesis_result" in omega and isinstance(omega["synthesis_result"], dict):
+            syn = omega["synthesis_result"]
+            if "claude_synthesis" in syn:
+                omega["synthesis_result"]["claude_synthesis"] = sanitize_output(syn["claude_synthesis"])
+            if "refined_output" in syn:
+                omega["synthesis_result"]["refined_output"] = sanitize_output(syn["refined_output"])
+        
+        # Sanitize all_outputs at top level of omega_metadata
+        if "all_outputs" in omega and isinstance(omega["all_outputs"], list):
+            sanitized_outputs = []
+            for out in omega["all_outputs"]:
+                if isinstance(out, dict):
+                    out_copy = dict(out)
+                    if "raw_output" in out_copy:
+                        out_copy["raw_output"] = sanitize_output(out_copy["raw_output"])
+                    sanitized_outputs.append(out_copy)
+                else:
+                    sanitized_outputs.append(out)
+            omega["all_outputs"] = sanitized_outputs
+        
+        # Sanitize debate results if present
+        if "debate_result" in omega and isinstance(omega["debate_result"], dict):
+            # Keep debate_result as-is (structured data)
+            pass
+        
+        response["omega_metadata"] = omega
+    
+    # Sanitize data payload
+    if "data" in response and isinstance(response["data"], dict):
+        data = dict(response["data"])
+        if "priority_answer" in data:
+            data["priority_answer"] = sanitize_output(data["priority_answer"])
+        response["data"] = data
+    
+    # Sanitize all_outputs at top level (experimental mode)
+    if "all_outputs" in response and isinstance(response["all_outputs"], list):
+        sanitized_outputs = []
+        for out in response["all_outputs"]:
+            if isinstance(out, dict):
+                out_copy = dict(out)
+                if "raw_output" in out_copy:
+                    out_copy["raw_output"] = sanitize_output(out_copy["raw_output"])
+                sanitized_outputs.append(out_copy)
+            else:
+                sanitized_outputs.append(out)
+        response["all_outputs"] = sanitized_outputs
+    
+    return response
+
 
 
 # ============================================================
@@ -366,7 +468,7 @@ async def _mco_run_impl(
                 except Exception:
                     pass
 
-            return {
+            debate_result = {
                 "chat_id": str(chat.id),
                 "session_id": str(chat.id),
                 "mode": "debate",
@@ -396,6 +498,10 @@ async def _mco_run_impl(
                 "models_succeeded": ensemble_response.models_succeeded,
                 "models_failed": ensemble_response.models_failed,
             }
+            
+            # Sanitize before returning
+            debate_result = _sanitize_mco_response(debate_result)
+            return debate_result
 
     # ══════════════════════════════════════════════════════════
     # FAST-PATH: Trivial queries bypass the full 10-step protocol
@@ -434,7 +540,7 @@ async def _mco_run_impl(
                     }
                     await add_message(db, chat.id, "assistant", answer, reasoning_json=omega_metadata)
                     logger.info(f"Fast-path complete in {_elapsed:.0f}ms via {fast_model}")
-                    return {
+                    fast_result = {
                         "chat_id": str(chat.id),
                         "session_id": str(chat.id),
                         "mode": mode,
@@ -445,6 +551,9 @@ async def _mco_run_impl(
                         "data": {"priority_answer": answer},
                         "omega_metadata": omega_metadata,
                     }
+                    # Sanitize before returning
+                    fast_result = _sanitize_mco_response(fast_result)
+                    return fast_result
             except Exception as fast_err:
                 logger.warning(f"Fast-path failed ({fast_err}), falling through to MCO")
 
@@ -875,6 +984,9 @@ async def _mco_run_impl(
     except Exception:
         pass
 
+    # Sanitize response before returning
+    result = _sanitize_mco_response(result)
+    
     return result
 
 

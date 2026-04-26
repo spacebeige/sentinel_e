@@ -40,6 +40,7 @@ from metacognitive.cognitive_gateway import (
     MODEL_FALLBACK_MAP,
 )
 from metacognitive.schemas import CognitiveGatewayInput, QueryMode
+from utils.output_sanitizer import sanitize_output
 
 logger = logging.getLogger("ChatRoutes")
 
@@ -259,13 +260,16 @@ async def chat_with_model(
         else spec
     )
 
+    # Sanitize output to remove internal reasoning tags
+    sanitized_output = sanitize_output(output.raw_output)
+    
     return ChatResponse(
         model_id=fallback_model_id if fallback_used else model_id,
         model_name=output.model_name,
         provider=resolved_spec.provider,
-        response=output.raw_output,
-        formatted_output=output.raw_output,
-        priority_answer=output.raw_output,
+        response=sanitized_output,
+        formatted_output=sanitized_output,
+        priority_answer=sanitized_output,
         latency_ms=round(elapsed_ms, 2),
         tokens_used=output.tokens_used,
         retried=retried,
