@@ -2062,11 +2062,30 @@ async def get_chats_list(
 async def history_alias(
     limit: int = 50, offset: int = 0,
     db: AsyncSession = Depends(get_db),
-    user: Dict = Depends(get_current_user),
+    user: Optional[Dict] = Depends(get_optional_user),
 ):
-    # ✅ Pass user_id to filter chats by owner
-    user_id = user["user_id"]
-    return await list_chats(db, user_id, limit, offset)
+    logger.info("Entering /api/history")
+    logger.info("/api/history user authenticated=%s", bool(user))
+
+    try:
+        if not user:
+            logger.info("/api/history unauthenticated request — returning empty history")
+            return []
+
+        user_id = user.get("user_id")
+        if not user_id:
+            logger.warning("/api/history missing user_id in optional user payload")
+            return []
+
+        chats = await list_chats(db, user_id, limit, offset)
+        if chats is None:
+            logger.warning("/api/history list_chats returned None for user_id=%s", user_id)
+            return []
+
+        return chats
+    except Exception as exc:
+        logger.error("Unhandled /api/history error: %s", exc, exc_info=True)
+        return []
 
 
 @app.get("/api/chat/{chat_id}")
