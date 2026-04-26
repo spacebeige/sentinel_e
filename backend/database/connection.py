@@ -153,43 +153,29 @@ async def get_db():
             await session.close()
 
 async def init_db():
-    # Only needed if using SQLAlchemy to create tables
-    # For production, use Alembic migrations
+    """Idempotent database initialization."""
     try:
         from .models import Base
         async with engine.begin() as conn:
+            # 1. Create all tables defined in models.py
             await conn.run_sync(Base.metadata.create_all)
-            await conn.execute(
-                text("ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR")
-            )
-            await conn.execute(
-                text("ALTER TABLE users ADD COLUMN IF NOT EXISTS provider VARCHAR")
-            )
-            # Add image columns to existing messages table if missing
-            await conn.execute(
-                text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_b64 TEXT")
-            )
-            await conn.execute(
-                text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_mime VARCHAR")
-            )
-            # Create uploaded_assets table if not exists
-            await conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS uploaded_assets (
-                    id VARCHAR PRIMARY KEY,
-                    session_id VARCHAR NOT NULL,
-                    file_type VARCHAR NOT NULL,
-                    file_path VARCHAR,
-                    base64_data TEXT,
-                    summary TEXT,
-                    original_filename VARCHAR,
-                    file_size_bytes INTEGER,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """))
-            await conn.execute(text("""
-                CREATE INDEX IF NOT EXISTS idx_uploaded_assets_session
-                ON uploaded_assets (session_id)
-            """))
+            
+            # 2. Individual column safety (for migrations that metadata.create_all skips)
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS clerk_user_id VARCHAR"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS provider VARCHAR"))
+            await conn.execute(text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_b64 TEXT"))
+            await conn.execute(text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS reasoning_json JSONB"))
+            await conn.execute(text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS metadata_json JSONB"))
+            
+            # 3. Create indices for performance and isolation
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_chats_user_id ON chats(user_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_memory_user_id ON user_memory(user_id)"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_preferences_user_id ON user_preferences(user_id)"))
+            
+            _db_logger.info("✅ Database schema synchronized successfully")
+    except Exception as e:
+        _db_logger.warning(f"Database sync warning: {e}")
     except Exception as e:
         _db_logger.warning(f"Database init failed (non-fatal, will retry on first request): {e}")
 

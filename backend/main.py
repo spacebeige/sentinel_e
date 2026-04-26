@@ -78,6 +78,8 @@ from core.knowledge_learner import KnowledgeLearner
 from utils.chat_naming import generate_chat_name
 from utils.output_sanitizer import sanitize_output
 from core.context_builder import get_context_builder
+from utils.api_response import api_response, api_error, api_success
+from gateway.auth import get_user_id
 
 # ── New Architecture Layers ──────────────────────────────────
 from memory.memory_engine import MemoryEngine
@@ -708,938 +710,904 @@ async def _extract_memory_bg(user_id: str, user_text: str):
 @app.post("/api/run")
 async def run_sentinel(
     request: SentinelRequest,
+    raw_request: Request,
     db: AsyncSession = Depends(get_db),
-    user: Dict = Depends(get_current_user),
     frontend_context: Optional[str] = None,
 ):
     """
     Main entry point for Sentinel execution.
-    Routes through Omega Cognitive Kernel.
-    Protected by JWT auth, rate limiting, and prompt firewall.
+    Standardized for stability and safety.
     """
-    if not orchestrator:
-        raise HTTPException(status_code=503, detail="System initializing. Please retry.")
-
-    user_id = user["user_id"]
-    firewall = get_firewall()
-
-    # ── Input Validation ─────────────────────────────────────
-    if len(request.text) > settings.MAX_INPUT_LENGTH:
-        raise HTTPException(status_code=400, detail="Input too long.")
-
-    request.rounds = min(request.rounds, settings.MAX_ROUNDS)
-
-    # ── Prompt Firewall ──────────────────────────────────────
-    verdict = firewall.analyze(request.text)
-    if verdict.blocked:
-        logger.warning(f"Firewall blocked input from {user_id}: {verdict.violations}")
-        raise HTTPException(
-            status_code=400,
-            detail="Your input could not be processed. Please rephrase your question.",
-        )
-    effective_text = verdict.sanitized_text or request.text
-
-    # ── Chat Resolution ──────────────────────────────────────
-    chat = None
-    if request.chat_id:
-        # ✅ Verify user owns this chat
-        chat = await get_chat(db, request.chat_id, user_id=user_id)
-        if request.chat_id and not chat:
-            # Chat ID provided but doesn't exist or doesn't belong to user
-            logger.warning(f"Unauthorized chat access attempt: {request.chat_id} by {user_id}")
-            raise HTTPException(status_code=403, detail="Chat not found or unauthorized access")
-    
-    if not chat:
-        chat_name = generate_chat_name(effective_text, request.mode)
-        chat = await create_chat(db, chat_name, request.mode, user_id=user_id)
-
-    await add_message(db, chat.id, "user", effective_text,
-                      image_b64=request.image_b64, image_mime=request.image_mime)
-
-    # ── Session & Memory ─────────────────────────────────────
-    kernel, memory = await _get_session(str(chat.id), user_id)
-    
-    # ✅ FIX #5: Validate kernel ownership before using it (prevents session hijacking)
     try:
-        await validate_kernel_before_use(kernel, user_id, str(chat.id))
-    except ValueError as e:
-        logger.error(f"Kernel validation failed: {e}")
-        raise HTTPException(status_code=403, detail="Session validation failed")
-    
-    memory.add_message("user", effective_text)
-    
-    # Trigger background memory extraction
-    asyncio.create_task(_extract_memory_bg(user_id, effective_text))
+        user_id = await get_user_id(raw_request)
+        if not user_id:
+            return api_error("Authentication required", status_code=401)
+        if not orchestrator:
+            return api_error("System initializing. Please retry.", status_code=503)
 
-    # ── Conversation History ─────────────────────────────────
-    history = []
-    try:
-        # ✅ Pass user_id to verify ownership
-        stored = await get_chat_messages(db, chat.id, user_id=user_id)
-        if len(stored) > 1:
-            for msg in stored[-settings.SHORT_TERM_MEMORY_SIZE:]:
-                history.append({"role": msg.role, "content": msg.content})
-    except Exception as e:
-        logger.warning(f"History retrieval failed: {e}")
+        # ── Input Validation ─────────────────────────────────────
+        if len(request.text) > settings.MAX_INPUT_LENGTH:
+            return api_error("Input too long.", status_code=400)
 
-    # ── Frontend Context (Sanitized) ─────────────────────────
-    if frontend_context:
-        try:
-            ctx = json.loads(frontend_context)
-            safe_ctx = firewall.validate_context_injection(ctx)
-            st = safe_ctx.get("shortTerm", {})
+        request.rounds = min(request.rounds, settings.MAX_ROUNDS)
 
-            if st.get("isFollowUp") and st.get("resolvedQuery"):
-                effective_text = st["resolvedQuery"]
-
-            active_entity = st.get("activeEntity")
-            active_topic = st.get("activeTopic")
-            if active_entity or active_topic:
-                ctx_hint = "Context: "
-                if active_topic:
-                    ctx_hint += f"topic is '{active_topic}'"
-                if active_entity:
-                    ctx_hint += f"{', ' if active_topic else ''}subject is '{active_entity}'"
-                history.insert(0, {"role": "system", "content": ctx_hint})
-        except Exception as e:
-            logger.debug(f"Context injection skipped: {e}")
-
-    # ── Memory Context Injection ─────────────────────────────
-    memory_ctx = memory.build_prompt_context()
-    if memory_ctx:
-        history.insert(0, {"role": "system", "content": memory_ctx})
-
-    # ── DB-Backed Context Builder Injection ──────────────────
-    builder = get_context_builder(max_tokens=2048, model=(getattr(request, "selected_model", None) or "llama33-70b"))
-    built_ctx = await builder.build_context(
-        db=db,
-        user_id=user_id,
-        query=effective_text,
-        recent_messages=history,
-        semantic_search_results=None,
-    )
-    if built_ctx and built_ctx.get("context"):
-        history.insert(0, {"role": "system", "content": built_ctx["context"]})
-
-    # ── Agentic Layer ────────────────────────────────────────
-    if getattr(request, "agentic", False):
-        from core.agentic_orchestrator import AgenticOrchestrator
-        orchestrator = AgenticOrchestrator(mco_bridge)
-        agent_res = await orchestrator.run(user_id, str(chat.id), effective_text, built_ctx.get("context", ""))
+        # ── Prompt Firewall ──────────────────────────────────────
+        verdict = firewall.analyze(request.text)
+        if verdict.blocked:
+            logger.warning(f"Firewall blocked input from {user_id}: {verdict.violations}")
+            return api_error("Your input could not be processed. Please rephrase.", status_code=400)
         
-        # Log calls to DAG
-        from utils.dag_logger import get_dag_logger, CallNode
-        dag = get_dag_logger()
-        for log in agent_res.get("step_logs", []):
-            await dag.log_call(CallNode(
-                call_id=str(uuid.uuid4()),
-                user_id=user_id,
-                session_id=str(chat.id),
-                endpoint=log["tool_name"],
-                model="agent_tool",
-                latency_ms=log["latency_ms"],
-                status="resolved"
-            ))
-            
-        formatted_output = sanitize_output(agent_res["formatted_output"])
-        await add_message(db, chat.id, "assistant", formatted_output)
-        return {
-            "chat_id": str(chat.id),
-            "formatted_output": formatted_output,
-            "agent_logs": agent_res["step_logs"]
-        }
+        effective_text = verdict.sanitized_text or request.text
 
-    # ── Cognitive RAG ────────────────────────────────────────
-    rag_result = None
-    if cognitive_rag:
+        # ── Chat Resolution ──────────────────────────────────────
+        chat = None
+        if request.chat_id:
+            chat = await get_chat(db, request.chat_id, user_id=user_id)
+            if not chat:
+                return api_error("Chat not found or unauthorized access", status_code=403)
+        
+        if not chat:
+            chat_name = generate_chat_name(effective_text, request.mode)
+            chat = await create_chat(db, chat_name, request.mode, user_id=user_id)
+
+        await add_message(db, chat.id, user_id, "user", effective_text,
+                          image_b64=request.image_b64, image_mime=request.image_mime)
+
+        # ── Session & Memory ─────────────────────────────────────
+        kernel, memory = await _get_session(str(chat.id), user_id)
+        
         try:
-            rag_result = await cognitive_rag.process(effective_text)
-            if rag_result and rag_result.retrieval_executed and rag_result.sources:
-                rag_context = "External evidence:\n" + "\n".join(
-                    [f"- [{s.title}]({s.url}): {s.content[:200]}" for s in rag_result.sources[:3]]
-                )
-                history.append({"role": "system", "content": rag_context})
-        except Exception as e:
-            logger.warning(f"RAG failed: {e}")
-
-    # ── Mode Resolution ──────────────────────────────────────
-    omega_mode = request.mode
-    mode_map = {"conversational": "standard", "forensic": "standard", "experimental": "research"}
-    omega_mode = mode_map.get(omega_mode, omega_mode)
-
-    sub_mode = getattr(request, "sub_mode", None) or omega_mode
-    kill = getattr(request, "kill", False)
-    role_map = getattr(request, "role_map", None) or {}
-    cache_mode_key = f"{omega_mode}:{sub_mode or 'standard'}"
-
-    # ── Optimization: Observability Tracing ───────────────────
-    obs_hub = get_observability_hub()
-    request_id = str(uuid_lib.uuid4().hex[:12])
-    tracer = obs_hub.start_request(session_id=str(chat.id), request_id=request_id)
-    tracer.start_span("total")
-
-    # ── Optimization: Response Cache Check ────────────────────
-    cache = get_response_cache()
-    cache_result = cache.lookup(effective_text, cache_mode_key)
-    if cache_result.hit:
-        cached_response = cache_result.response or {}
-        cache_latency = tracer.end_span("total")
-        tier_name = {1: "exact", 2: "lexical", 3: "semantic"}.get(cache_result.tier, "unknown")
-        tracer.record_cache_hit(tier=tier_name, latency_ms=cache_latency)
-        summary = tracer.finalize()
-        obs_hub.record(summary)
-
-        # Return cached response (preserving full response contract)
-        return {
-            "chat_id": str(chat.id),
-            "chat_name": cached_response.get("chat_name", ""),
-            "mode": cached_response.get("mode", omega_mode),
-            "sub_mode": cached_response.get("sub_mode", sub_mode),
-            "formatted_output": cached_response.get("formatted_output", ""),
-            "data": {"priority_answer": cached_response.get("formatted_output", "")},
-            "confidence": cached_response.get("confidence", 0.5),
-            "session_state": cached_response.get("session_state", {}),
-            "boundary_result": cached_response.get("boundary_result", {}),
-            "omega_metadata": {**cached_response.get("omega_metadata", {}), "cache_hit": True, "cache_tier": tier_name},
-        }
-    tracer.record_cache_miss()
-
-    # ── Optimization: Cost Governance ─────────────────────────
-    governor = get_cost_governor()
-    tier = "premium" if omega_mode in ("research", "experimental") else "standard"
-    gov_decision = governor.check_budget(str(chat.id), requested_tier=tier)
-    if not gov_decision.allowed:
-        from optimization.observability import ObservabilityEvent, EventType
-        tracer.record_event(ObservabilityEvent(event_type=EventType.BUDGET_EXCEEDED))
-        logger.warning(f"Budget exceeded for chat {chat.id}: {gov_decision.reason}")
-        raise HTTPException(status_code=429, detail=f"Session budget exceeded. {gov_decision.reason}")
-
-    # Apply cost governor model recommendation
-    if gov_decision.downgraded and gov_decision.recommended_model:
-        logger.info(f"Cost governor downgraded model for chat {chat.id}: {gov_decision.recommended_model}")
-        # Override selected_model on the request so downstream routing uses the cheaper model
-        if hasattr(request, 'selected_model'):
-            request.selected_model = gov_decision.recommended_model
-
-    # ── Optimization: Token Optimization ──────────────────────
-    token_optimizer = get_token_optimizer()
-
-    # Separate system messages and user/assistant history
-    system_msgs = [m for m in history if m.get("role") == "system"]
-    conv_history = [m for m in history if m.get("role") != "system"]
-    system_prompt = "\n".join(m.get("content", "") for m in system_msgs)
-
-    opt_result = token_optimizer.optimize(
-        query=effective_text,
-        system_prompt=system_prompt,
-        history=conv_history,
-        context_window=settings.TOKEN_BUDGET_PER_REQUEST,
-    )
-    depth_assessment = opt_result.get("depth_assessment")
-    if opt_result.get("compression_applied") or opt_result.get("deduped_history_count", 0) < len(conv_history):
-        original_tokens = sum(len(m.get("content", "")) // 4 for m in history)
-        opt_system = opt_result.get("system_prompt", system_prompt)
-        opt_history_list = opt_result.get("history", conv_history)
-        optimized_tokens = len(opt_system) // 4 + sum(len(m.get("content", "")) // 4 for m in opt_history_list)
-        if original_tokens > optimized_tokens:
-            tracer.record_token_optimization(
-                original_tokens=original_tokens,
-                optimized_tokens=optimized_tokens,
-            )
-        # Rebuild history with optimized system prompt + conversation
+            await validate_kernel_before_use(kernel, user_id, str(chat.id))
+        except ValueError as e:
+            return api_error(f"Session validation failed: {e}", status_code=403)
+    
+        memory.add_message("user", effective_text)
+        
+        # Trigger background memory extraction
+        asyncio.create_task(_extract_memory_bg(user_id, effective_text))
+    
+        # ── Conversation History ─────────────────────────────────
         history = []
-        if opt_system:
-            history.append({"role": "system", "content": opt_system})
-        history.extend(opt_history_list)
-
-    # ══════════════════════════════════════════════════════════
-    # QUERY ROUTING — Decide execution path before running
-    # ══════════════════════════════════════════════════════════
-    from core.query_router import route_query, ExecutionPath
-    from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
-
-    routing_decision = route_query(
-        query=effective_text,
-        mode=omega_mode,
-        sub_mode=sub_mode,
-        selected_model=getattr(request, "selected_model", None),
-        model_registry=COGNITIVE_MODEL_REGISTRY,
-        image_b64=request.image_b64,
-    )
-    logger.info(
-        f"Routing decision: path={routing_decision.path.value}, "
-        f"reason={routing_decision.reason}, "
-        f"complexity={routing_decision.query_complexity}"
-    )
-
-    # ══════════════════════════════════════════════════════════
-    # PATH: SINGLE MODEL CHAT — bypass ensemble entirely
-    # ══════════════════════════════════════════════════════════
-    if routing_decision.path == ExecutionPath.SINGLE_MODEL and routing_decision.selected_model:
-        tracer.start_span("kernel")
-        single_model_id = routing_decision.selected_model
         try:
-            spec = COGNITIVE_MODEL_REGISTRY.get(single_model_id)
-            if not spec or not spec.enabled:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Model '{single_model_id}' is not available.",
+            # ✅ Pass user_id to verify ownership
+            stored = await get_chat_messages(db, chat.id, user_id=user_id)
+            if len(stored) > 1:
+                for msg in stored[-settings.SHORT_TERM_MEMORY_SIZE:]:
+                    history.append({"role": msg.role, "content": msg.content})
+        except Exception as e:
+            logger.warning(f"History retrieval failed: {e}")
+    
+        # ── Frontend Context (Sanitized) ─────────────────────────
+        if frontend_context:
+            try:
+                ctx = json.loads(frontend_context)
+                safe_ctx = firewall.validate_context_injection(ctx)
+                st = safe_ctx.get("shortTerm", {})
+    
+                if st.get("isFollowUp") and st.get("resolvedQuery"):
+                    effective_text = st["resolvedQuery"]
+    
+                active_entity = st.get("activeEntity")
+                active_topic = st.get("activeTopic")
+                if active_entity or active_topic:
+                    ctx_hint = "Context: "
+                    if active_topic:
+                        ctx_hint += f"topic is '{active_topic}'"
+                    if active_entity:
+                        ctx_hint += f"{', ' if active_topic else ''}subject is '{active_entity}'"
+                    history.insert(0, {"role": "system", "content": ctx_hint})
+            except Exception as e:
+                logger.debug(f"Context injection skipped: {e}")
+    
+        # ── Memory Context Injection ─────────────────────────────
+        memory_ctx = memory.build_prompt_context()
+        if memory_ctx:
+            history.insert(0, {"role": "system", "content": memory_ctx})
+    
+            # ── Context Builder Injection ─────────────────────────────
+            builder = get_context_builder()
+            context_bundle = await builder.build_context(db, user_id, chat.id, effective_text)
+            
+            history = context_bundle.get("recent_history", [])
+            system_instructions = context_bundle.get("system_instructions", "")
+            
+            if system_instructions:
+                history.insert(0, {"role": "system", "content": system_instructions})
+    
+            # ── Agentic Layer ────────────────────────────────────────
+            if getattr(request, "agentic", False):
+                from core.agentic_orchestrator import AgenticOrchestrator
+                orchestrator_agent = AgenticOrchestrator(mco_bridge)
+                agent_res = await orchestrator_agent.run(user_id, str(chat.id), effective_text, context_bundle.get("context_str", ""))
+                
+                formatted_output = sanitize_output(agent_res["formatted_output"])
+                await add_message(db, chat.id, user_id, "assistant", formatted_output)
+                return api_success({
+                    "chat_id": str(chat.id),
+                    "formatted_output": formatted_output,
+                    "agent_logs": agent_res.get("step_logs", [])
+                })
+    
+        # ── Cognitive RAG ────────────────────────────────────────
+        rag_result = None
+        if cognitive_rag:
+            try:
+                rag_result = await cognitive_rag.process(effective_text)
+                if rag_result and rag_result.retrieval_executed and rag_result.sources:
+                    rag_context = "External evidence:\n" + "\n".join(
+                        [f"- [{s.title}]({s.url}): {s.content[:200]}" for s in rag_result.sources[:3]]
+                    )
+                    history.append({"role": "system", "content": rag_context})
+            except Exception as e:
+                logger.warning(f"RAG failed: {e}")
+    
+        # ── Mode Resolution ──────────────────────────────────────
+        omega_mode = request.mode
+        mode_map = {"conversational": "standard", "forensic": "standard", "experimental": "research"}
+        omega_mode = mode_map.get(omega_mode, omega_mode)
+    
+        sub_mode = getattr(request, "sub_mode", None) or omega_mode
+        kill = getattr(request, "kill", False)
+        role_map = getattr(request, "role_map", None) or {}
+        cache_mode_key = f"{omega_mode}:{sub_mode or 'standard'}"
+    
+        # ── Optimization: Observability Tracing ───────────────────
+        obs_hub = get_observability_hub()
+        request_id = str(uuid_lib.uuid4().hex[:12])
+        tracer = obs_hub.start_request(session_id=str(chat.id), request_id=request_id)
+        tracer.start_span("total")
+    
+        # ── Optimization: Response Cache Check ────────────────────
+        cache = get_response_cache()
+        cache_result = cache.lookup(effective_text, cache_mode_key)
+        if cache_result.hit:
+            cached_response = cache_result.response or {}
+            cache_latency = tracer.end_span("total")
+            tier_name = {1: "exact", 2: "lexical", 3: "semantic"}.get(cache_result.tier, "unknown")
+            tracer.record_cache_hit(tier=tier_name, latency_ms=cache_latency)
+            summary = tracer.finalize()
+            obs_hub.record(summary)
+    
+            # Return cached response (preserving full response contract)
+            return {
+                "chat_id": str(chat.id),
+                "chat_name": cached_response.get("chat_name", ""),
+                "mode": cached_response.get("mode", omega_mode),
+                "sub_mode": cached_response.get("sub_mode", sub_mode),
+                "formatted_output": cached_response.get("formatted_output", ""),
+                "data": {"priority_answer": cached_response.get("formatted_output", "")},
+                "confidence": cached_response.get("confidence", 0.5),
+                "session_state": cached_response.get("session_state", {}),
+                "boundary_result": cached_response.get("boundary_result", {}),
+                "omega_metadata": {**cached_response.get("omega_metadata", {}), "cache_hit": True, "cache_tier": tier_name},
+            }
+        tracer.record_cache_miss()
+    
+        # ── Optimization: Cost Governance ─────────────────────────
+        governor = get_cost_governor()
+        tier = "premium" if omega_mode in ("research", "experimental") else "standard"
+        gov_decision = governor.check_budget(str(chat.id), requested_tier=tier)
+        if not gov_decision.allowed:
+            from optimization.observability import ObservabilityEvent, EventType
+            tracer.record_event(ObservabilityEvent(event_type=EventType.BUDGET_EXCEEDED))
+            logger.warning(f"Budget exceeded for chat {chat.id}: {gov_decision.reason}")
+            raise HTTPException(status_code=429, detail=f"Session budget exceeded. {gov_decision.reason}")
+    
+        # Apply cost governor model recommendation
+        if gov_decision.downgraded and gov_decision.recommended_model:
+            logger.info(f"Cost governor downgraded model for chat {chat.id}: {gov_decision.recommended_model}")
+            # Override selected_model on the request so downstream routing uses the cheaper model
+            if hasattr(request, 'selected_model'):
+                request.selected_model = gov_decision.recommended_model
+    
+        # ── Optimization: Token Optimization ──────────────────────
+        token_optimizer = get_token_optimizer()
+    
+        # Separate system messages and user/assistant history
+        system_msgs = [m for m in history if m.get("role") == "system"]
+        conv_history = [m for m in history if m.get("role") != "system"]
+        system_prompt = "\n".join(m.get("content", "") for m in system_msgs)
+    
+        opt_result = token_optimizer.optimize(
+            query=effective_text,
+            system_prompt=system_prompt,
+            history=conv_history,
+            context_window=settings.TOKEN_BUDGET_PER_REQUEST,
+        )
+        depth_assessment = opt_result.get("depth_assessment")
+        if opt_result.get("compression_applied") or opt_result.get("deduped_history_count", 0) < len(conv_history):
+            original_tokens = sum(len(m.get("content", "")) // 4 for m in history)
+            opt_system = opt_result.get("system_prompt", system_prompt)
+            opt_history_list = opt_result.get("history", conv_history)
+            optimized_tokens = len(opt_system) // 4 + sum(len(m.get("content", "")) // 4 for m in opt_history_list)
+            if original_tokens > optimized_tokens:
+                tracer.record_token_optimization(
+                    original_tokens=original_tokens,
+                    optimized_tokens=optimized_tokens,
                 )
-
-            raw_output = await mco_bridge.call_model(
-                single_model_id, effective_text, "",
-                image_b64=request.image_b64,
-                image_mime=request.image_mime,
-            )
-            kernel_latency = tracer.end_span("kernel")
-
-            # Check for error responses from the model
-            if raw_output.startswith("Error:"):
-                logger.error(f"Model '{single_model_id}' returned error: {raw_output}")
+            # Rebuild history with optimized system prompt + conversation
+            history = []
+            if opt_system:
+                history.append({"role": "system", "content": opt_system})
+            history.extend(opt_history_list)
+    
+        # ══════════════════════════════════════════════════════════
+        # QUERY ROUTING — Decide execution path before running
+        # ══════════════════════════════════════════════════════════
+        from core.query_router import route_query, ExecutionPath
+        from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+    
+        routing_decision = route_query(
+            query=effective_text,
+            mode=omega_mode,
+            sub_mode=sub_mode,
+            selected_model=getattr(request, "selected_model", None),
+            model_registry=COGNITIVE_MODEL_REGISTRY,
+            image_b64=request.image_b64,
+        )
+        logger.info(
+            f"Routing decision: path={routing_decision.path.value}, "
+            f"reason={routing_decision.reason}, "
+            f"complexity={routing_decision.query_complexity}"
+        )
+    
+        # ══════════════════════════════════════════════════════════
+        # PATH: SINGLE MODEL CHAT — bypass ensemble entirely
+        # ══════════════════════════════════════════════════════════
+        if routing_decision.path == ExecutionPath.SINGLE_MODEL and routing_decision.selected_model:
+            tracer.start_span("kernel")
+            single_model_id = routing_decision.selected_model
+            try:
+                spec = COGNITIVE_MODEL_REGISTRY.get(single_model_id)
+                if not spec or not spec.enabled:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Model '{single_model_id}' is not available.",
+                    )
+    
+                raw_output = await mco_bridge.call_model(
+                    single_model_id, effective_text, "",
+                    image_b64=request.image_b64,
+                    image_mime=request.image_mime,
+                )
+                kernel_latency = tracer.end_span("kernel")
+    
+                # Check for error responses from the model
+                if raw_output.startswith("Error:"):
+                    logger.error(f"Model '{single_model_id}' returned error: {raw_output}")
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Provider unavailable. Please try again or select a different model.",
+                    )
+    
+                formatted_output = sanitize_output(raw_output)
+                confidence = 0.8  # Single model — no ensemble calibration
+    
+                await add_message(db, chat.id, user_id, "assistant", formatted_output)
+                memory.add_message("assistant", formatted_output)
+                await _persist_session(str(chat.id), kernel, memory)
+    
+                omega_metadata = {
+                    "version": "6.1.0",
+                    "mode": "single_model",
+                    "sub_mode": None,
+                    "selected_model": single_model_id,
+                    "model_name": spec.name,
+                    "provider": spec.provider,
+                    "model_type": getattr(spec, "model_type", "external"),
+                    "confidence": confidence,
+                    "routing": {
+                        "path": routing_decision.path.value,
+                        "reason": routing_decision.reason,
+                        "query_complexity": routing_decision.query_complexity,
+                    },
+                }
+    
+                await update_chat_metadata(
+                    db, chat.id,
+                    priority_answer=formatted_output,
+                    machine_metadata=omega_metadata,
+                    rounds=0,
+                )
+    
+                try:
+                    total_latency = tracer.end_span("total")
+                except Exception:
+                    total_latency = kernel_latency
+    
+                return {
+                    "chat_id": str(chat.id),
+                    "mode": "single_model",
+                    "sub_mode": None,
+                    "formatted_output": formatted_output,
+                    "data": {"priority_answer": formatted_output},
+                    "confidence": confidence,
+                    "session_state": {},
+                    "boundary_result": {"risk_level": "LOW", "severity_score": 20},
+                    "omega_metadata": omega_metadata,
+                }
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Single model chat failed for '{single_model_id}': {e}")
                 raise HTTPException(
                     status_code=502,
                     detail="Provider unavailable. Please try again or select a different model.",
                 )
-
-            formatted_output = sanitize_output(raw_output)
-            confidence = 0.8  # Single model — no ensemble calibration
-
-            await add_message(db, chat.id, "assistant", formatted_output)
-            memory.add_message("assistant", formatted_output)
-            await _persist_session(str(chat.id), kernel, memory)
-
-            omega_metadata = {
-                "version": "6.1.0",
-                "mode": "single_model",
-                "sub_mode": None,
-                "selected_model": single_model_id,
-                "model_name": spec.name,
-                "provider": spec.provider,
-                "model_type": getattr(spec, "model_type", "external"),
-                "confidence": confidence,
-                "routing": {
-                    "path": routing_decision.path.value,
-                    "reason": routing_decision.reason,
-                    "query_complexity": routing_decision.query_complexity,
-                },
-            }
-
-            await update_chat_metadata(
-                db, chat.id,
-                priority_answer=formatted_output,
-                machine_metadata=omega_metadata,
-                rounds=0,
-            )
-
+    
+        # ══════════════════════════════════════════════════════════
+        # PATH: TRIVIAL QUERY — use fastest available model, skip debate
+        # ══════════════════════════════════════════════════════════
+        if routing_decision.skip_debate and routing_decision.path == ExecutionPath.STANDARD:
+            tracer.start_span("kernel")
             try:
-                total_latency = tracer.end_span("total")
-            except Exception:
-                total_latency = kernel_latency
-
-            return {
-                "chat_id": str(chat.id),
-                "mode": "single_model",
-                "sub_mode": None,
-                "formatted_output": formatted_output,
-                "data": {"priority_answer": formatted_output},
-                "confidence": confidence,
-                "session_state": {},
-                "boundary_result": {"risk_level": "LOW", "severity_score": 20},
-                "omega_metadata": omega_metadata,
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Single model chat failed for '{single_model_id}': {e}")
-            raise HTTPException(
-                status_code=502,
-                detail="Provider unavailable. Please try again or select a different model.",
-            )
-
-    # ══════════════════════════════════════════════════════════
-    # PATH: TRIVIAL QUERY — use fastest available model, skip debate
-    # ══════════════════════════════════════════════════════════
-    if routing_decision.skip_debate and routing_decision.path == ExecutionPath.STANDARD:
-        tracer.start_span("kernel")
-        try:
-            # Use the fastest model for trivial queries
-            fast_model = "llama31-8b"
-            spec = COGNITIVE_MODEL_REGISTRY.get(fast_model)
-            if not spec or not spec.enabled:
-                # Fallback to any enabled model
-                fast_model = next(
-                    (k for k, s in COGNITIVE_MODEL_REGISTRY.items() if s.enabled),
-                    None,
-                )
-                if not fast_model:
-                    raise HTTPException(status_code=503, detail="No models available.")
-                spec = COGNITIVE_MODEL_REGISTRY[fast_model]
-
-            raw_output = await mco_bridge.call_model(
-                fast_model, effective_text, "",
-                image_b64=request.image_b64,
-                image_mime=request.image_mime,
-            )
-            kernel_latency = tracer.end_span("kernel")
-
-            if raw_output.startswith("Error:"):
-                # For trivial queries, try one fallback before failing
-                fallback_model = next(
-                    (k for k, s in COGNITIVE_MODEL_REGISTRY.items()
-                     if s.enabled and k != fast_model),
-                    None,
-                )
-                if fallback_model:
-                    raw_output = await mco_bridge.call_model(
-                        fallback_model, effective_text, "",
-                        image_b64=request.image_b64,
-                        image_mime=request.image_mime,
+                # Use the fastest model for trivial queries
+                fast_model = "llama31-8b"
+                spec = COGNITIVE_MODEL_REGISTRY.get(fast_model)
+                if not spec or not spec.enabled:
+                    # Fallback to any enabled model
+                    fast_model = next(
+                        (k for k, s in COGNITIVE_MODEL_REGISTRY.items() if s.enabled),
+                        None,
                     )
-                    if raw_output.startswith("Error:"):
-                        logger.error(f"Fallback model '{fallback_model}' also failed: {raw_output}")
+                    if not fast_model:
+                        raise HTTPException(status_code=503, detail="No models available.")
+                    spec = COGNITIVE_MODEL_REGISTRY[fast_model]
+    
+                raw_output = await mco_bridge.call_model(
+                    fast_model, effective_text, "",
+                    image_b64=request.image_b64,
+                    image_mime=request.image_mime,
+                )
+                kernel_latency = tracer.end_span("kernel")
+    
+                if raw_output.startswith("Error:"):
+                    # For trivial queries, try one fallback before failing
+                    fallback_model = next(
+                        (k for k, s in COGNITIVE_MODEL_REGISTRY.items()
+                         if s.enabled and k != fast_model),
+                        None,
+                    )
+                    if fallback_model:
+                        raw_output = await mco_bridge.call_model(
+                            fallback_model, effective_text, "",
+                            image_b64=request.image_b64,
+                            image_mime=request.image_mime,
+                        )
+                        if raw_output.startswith("Error:"):
+                            logger.error(f"Fallback model '{fallback_model}' also failed: {raw_output}")
+                            raise HTTPException(
+                                status_code=502,
+                                detail="Provider unavailable. Please try again.",
+                            )
+                        spec = COGNITIVE_MODEL_REGISTRY[fallback_model]
+                        fast_model = fallback_model
+                    else:
+                        logger.error(f"No fallback available. Original error: {raw_output}")
                         raise HTTPException(
                             status_code=502,
                             detail="Provider unavailable. Please try again.",
                         )
-                    spec = COGNITIVE_MODEL_REGISTRY[fallback_model]
-                    fast_model = fallback_model
-                else:
-                    logger.error(f"No fallback available. Original error: {raw_output}")
-                    raise HTTPException(
-                        status_code=502,
-                        detail="Provider unavailable. Please try again.",
-                    )
-
-            formatted_output = sanitize_output(raw_output)
-            confidence = 0.7
-
-            await add_message(db, chat.id, "assistant", formatted_output)
-            memory.add_message("assistant", formatted_output)
-            await _persist_session(str(chat.id), kernel, memory)
-
-            omega_metadata = {
-                "version": "6.1.0",
-                "mode": omega_mode,
-                "sub_mode": sub_mode,
-                "model_used": fast_model,
-                "model_name": spec.name,
-                "confidence": confidence,
-                "routing": {
-                    "path": routing_decision.path.value,
-                    "reason": routing_decision.reason,
-                    "query_complexity": routing_decision.query_complexity,
-                    "debate_skipped": True,
-                },
-            }
-
-            await update_chat_metadata(
-                db, chat.id,
-                priority_answer=formatted_output,
-                machine_metadata=omega_metadata,
-                rounds=0,
-            )
-
-            try:
-                total_latency = tracer.end_span("total")
-            except Exception:
-                total_latency = kernel_latency
-
-            return {
-                "chat_id": str(chat.id),
-                "mode": omega_mode,
-                "sub_mode": sub_mode,
-                "formatted_output": formatted_output,
-                "data": {"priority_answer": formatted_output},
-                "confidence": confidence,
-                "session_state": {},
-                "boundary_result": {"risk_level": "LOW", "severity_score": 15},
-                "omega_metadata": omega_metadata,
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.warning(f"Fast path failed, falling through to ensemble: {e}")
-            # Fall through to ensemble if fast path fails
-
-    # ══════════════════════════════════════════════════════════
-    # COGNITIVE ENSEMBLE — For analytical queries and debate mode
-    # ══════════════════════════════════════════════════════════
-    use_ensemble = cognitive_orchestrator_engine is not None
-
-    # ── Multimodal Capability Audit (pre-execution) ──────────
-    audit_report = None
-    if use_ensemble and multimodal_auditor:
-        try:
-            from core.multimodal_auditor import phase1_inspect_input, phase2_capability_check, phase3_model_availability_audit
-            inspection = phase1_inspect_input(
-                query=effective_text,
-                image_b64=request.image_b64,
-                image_mime=request.image_mime,
-            )
-            capability = phase2_capability_check(inspection)
-            _, disabled_reports = phase3_model_availability_audit()
-
-            audit_report = {
-                "input_type": inspection.input_type.value,
-                "multimodal_required": inspection.multimodal_required,
-                "required_capabilities": capability.required_capabilities,
-                "preferred_models": capability.preferred_models,
-                "disabled_models": [
-                    {"reason": d.reason, "provider": d.provider, "env_var": d.required_env_var}
-                    for d in disabled_reports
-                ],
-            }
-            logger.info(
-                f"Pre-execution audit: type={inspection.input_type.value}, "
-                f"multimodal={inspection.multimodal_required}"
-            )
-        except Exception as audit_err:
-            logger.warning(f"Pre-execution audit failed (non-fatal): {audit_err}")
-
-    if use_ensemble:
-        tracer.start_span("kernel")
-        try:
-            from core.ensemble_schemas import EnsembleFailure
-            ensemble_response = await cognitive_orchestrator_engine.process(
-                query=effective_text,
-                chat_id=str(chat.id),
-                rounds=max(request.rounds, 3),
-                history=history,
-                image_b64=request.image_b64,
-                image_mime=request.image_mime,
-            )
-        except EnsembleFailure as ef:
-            logger.error(f"Ensemble hard failure: {ef}")
-            ensemble_response = ef.to_response()
-            cognitive_orchestrator_engine_failed = False  # still return structured error
-        except Exception as ens_err:
-            logger.error(f"Ensemble engine crashed: {ens_err} — falling back to legacy kernel")
-            cognitive_orchestrator_engine_failed = True
-        else:
-            cognitive_orchestrator_engine_failed = False
-
-        if not cognitive_orchestrator_engine_failed:
-            kernel_latency = tracer.end_span("kernel")
-            payload = ensemble_response.to_frontend_payload()
-
-            formatted_output = sanitize_output(ensemble_response.formatted_output)
-            if rag_result and rag_result.retrieval_executed:
-                if rag_result.no_sources_found:
-                    formatted_output += "\n\n*No verified external sources found for this query.*"
-                elif rag_result.citations_text:
-                    formatted_output += "\n\n" + rag_result.citations_text
-                payload["formatted_output"] = formatted_output
-                payload["final_answer"] = formatted_output
-
-            confidence = ensemble_response.confidence.final_confidence
-            ens_entropy = ensemble_response.ensemble_metrics.disagreement_entropy
-            ens_fragility = ensemble_response.ensemble_metrics.fragility_score
-            ens_debate_rounds = ensemble_response.debate_result.total_rounds
-
-            omega_metadata = payload.get("omega_metadata", {})
-            omega_metadata.update({
-                "version": "7.1.0-cognitive",
-                "mode": omega_mode,
-                "sub_mode": sub_mode,
-                "confidence": confidence,
-                "entropy": ens_entropy,
-                "fragility": ens_fragility,
-                "fragility_index": ens_fragility,
-                "ensemble_metrics": payload.get("ensemble_metrics", {}),
-                "debate_result": payload.get("debate_result", {}),
-                "debate_rounds": payload.get("debate_rounds", []),
-                "model_outputs": payload.get("model_outputs", []),
-                "agreement_matrix": payload.get("agreement_matrix", {}),
-                "drift_metrics": payload.get("drift_metrics", {}),
-                "tactical_map": payload.get("tactical_map", []),
-                "confidence_graph": payload.get("confidence_graph", payload.get("calibrated_confidence", {})),
-                "session_intelligence": payload.get("session_intelligence", {}),
-                "session_analytics": payload.get("session_analytics", {}),
-                "model_status": payload.get("model_status", []),
-                "reasoning_trace": {
-                    "engine": "CognitiveCoreEngine",
-                    "pipeline": "cognitive_v7",
-                    "models_executed": ensemble_response.models_executed,
-                    "models_succeeded": ensemble_response.models_succeeded,
-                    "models_failed": ensemble_response.models_failed,
-                    "debate_rounds": ens_debate_rounds,
-                },
-                "boundary_result": {
-                    "risk_level": (
-                        "LOW" if confidence > 0.7
-                        else "MEDIUM" if confidence > 0.4
-                        else "HIGH"
-                    ),
-                    "severity_score": int((1 - confidence) * 100),
-                    "explanation": (
-                        f"Ensemble confidence from {ensemble_response.models_executed} models, "
-                        f"{ens_debate_rounds} debate rounds"
-                    ),
-                },
-            })
-
-            # Inject multimodal audit report into metadata
-            if audit_report:
-                omega_metadata["multimodal_audit"] = audit_report
-
-            if rag_result and rag_result.retrieval_executed:
-                omega_metadata["rag_result"] = {
-                    "executed": True,
-                    "source_count": rag_result.source_count,
-                    "average_reliability": rag_result.average_reliability,
-                    "contradictions": len(rag_result.contradictions),
-                    "no_sources": rag_result.no_sources_found,
+    
+                formatted_output = sanitize_output(raw_output)
+                confidence = 0.7
+    
+                await add_message(db, chat.id, user_id, "assistant", formatted_output)
+                memory.add_message("assistant", formatted_output)
+                await _persist_session(str(chat.id), kernel, memory)
+    
+                omega_metadata = {
+                    "version": "6.1.0",
+                    "mode": omega_mode,
+                    "sub_mode": sub_mode,
+                    "model_used": fast_model,
+                    "model_name": spec.name,
+                    "confidence": confidence,
+                    "routing": {
+                        "path": routing_decision.path.value,
+                        "reason": routing_decision.reason,
+                        "query_complexity": routing_decision.query_complexity,
+                        "debate_skipped": True,
+                    },
                 }
-
-            # ── Sub-Mode Pipeline Execution ──────────────────────
-            # Wire Glass / Evidence / Synthesis pipelines so the
-            # frontend views receive real analytical data.
-            if sub_mode in ("glass", "evidence", "synthesis"):
+    
+                await update_chat_metadata(
+                    db, chat.id,
+                    priority_answer=formatted_output,
+                    machine_metadata=omega_metadata,
+                    rounds=0,
+                )
+    
                 try:
-                    adapted_results, scoring_bd, div_metrics = _adapt_ensemble_for_pipelines(ensemble_response)
-                    if scoring_bd:
-                        winning = max(scoring_bd, key=lambda s: getattr(s, "final_score", 0.0)).model_name
-                    elif ensemble_response.model_outputs:
-                        winning = ensemble_response.model_outputs[0].model_name
-                    else:
-                        winning = "unknown"
-
-                    if sub_mode == "glass":
-                        omega_metadata["audit_result"] = build_glass_result(
-                            all_results=adapted_results,
-                            scoring_breakdown=scoring_bd,
-                            divergence_metrics=div_metrics,
-                            aggregated_answer=formatted_output,
-                            winning_model=winning,
-                            drift_score=ensemble_response.debate_result.drift_index,
-                            volatility_score=ensemble_response.ensemble_metrics.fragility_score,
+                    total_latency = tracer.end_span("total")
+                except Exception:
+                    total_latency = kernel_latency
+    
+                return {
+                    "chat_id": str(chat.id),
+                    "mode": omega_mode,
+                    "sub_mode": sub_mode,
+                    "formatted_output": formatted_output,
+                    "data": {"priority_answer": formatted_output},
+                    "confidence": confidence,
+                    "session_state": {},
+                    "boundary_result": {"risk_level": "LOW", "severity_score": 15},
+                    "omega_metadata": omega_metadata,
+                }
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.warning(f"Fast path failed, falling through to ensemble: {e}")
+                # Fall through to ensemble if fast path fails
+    
+        # ══════════════════════════════════════════════════════════
+        # COGNITIVE ENSEMBLE — For analytical queries and debate mode
+        # ══════════════════════════════════════════════════════════
+        use_ensemble = cognitive_orchestrator_engine is not None
+    
+        # ── Multimodal Capability Audit (pre-execution) ──────────
+        audit_report = None
+        if use_ensemble and multimodal_auditor:
+            try:
+                from core.multimodal_auditor import phase1_inspect_input, phase2_capability_check, phase3_model_availability_audit
+                inspection = phase1_inspect_input(
+                    query=effective_text,
+                    image_b64=request.image_b64,
+                    image_mime=request.image_mime,
+                )
+                capability = phase2_capability_check(inspection)
+                _, disabled_reports = phase3_model_availability_audit()
+    
+                audit_report = {
+                    "input_type": inspection.input_type.value,
+                    "multimodal_required": inspection.multimodal_required,
+                    "required_capabilities": capability.required_capabilities,
+                    "preferred_models": capability.preferred_models,
+                    "disabled_models": [
+                        {"reason": d.reason, "provider": d.provider, "env_var": d.required_env_var}
+                        for d in disabled_reports
+                    ],
+                }
+                logger.info(
+                    f"Pre-execution audit: type={inspection.input_type.value}, "
+                    f"multimodal={inspection.multimodal_required}"
+                )
+            except Exception as audit_err:
+                logger.warning(f"Pre-execution audit failed (non-fatal): {audit_err}")
+    
+        if use_ensemble:
+            tracer.start_span("kernel")
+            try:
+                from core.ensemble_schemas import EnsembleFailure
+                ensemble_response = await cognitive_orchestrator_engine.process(
+                    query=effective_text,
+                    chat_id=str(chat.id),
+                    rounds=max(request.rounds, 3),
+                    history=history,
+                    image_b64=request.image_b64,
+                    image_mime=request.image_mime,
+                )
+            except EnsembleFailure as ef:
+                logger.error(f"Ensemble hard failure: {ef}")
+                ensemble_response = ef.to_response()
+                cognitive_orchestrator_engine_failed = False  # still return structured error
+            except Exception as ens_err:
+                logger.error(f"Ensemble engine crashed: {ens_err} — falling back to legacy kernel")
+                cognitive_orchestrator_engine_failed = True
+            else:
+                cognitive_orchestrator_engine_failed = False
+    
+            if not cognitive_orchestrator_engine_failed:
+                kernel_latency = tracer.end_span("kernel")
+                payload = ensemble_response.to_frontend_payload()
+    
+                formatted_output = sanitize_output(ensemble_response.formatted_output)
+                if rag_result and rag_result.retrieval_executed:
+                    if rag_result.no_sources_found:
+                        formatted_output += "\n\n*No verified external sources found for this query.*"
+                    elif rag_result.citations_text:
+                        formatted_output += "\n\n" + rag_result.citations_text
+                    payload["formatted_output"] = formatted_output
+                    payload["final_answer"] = formatted_output
+    
+                confidence = ensemble_response.confidence.final_confidence
+                ens_entropy = ensemble_response.ensemble_metrics.disagreement_entropy
+                ens_fragility = ensemble_response.ensemble_metrics.fragility_score
+                ens_debate_rounds = ensemble_response.debate_result.total_rounds
+    
+                omega_metadata = payload.get("omega_metadata", {})
+                omega_metadata.update({
+                    "version": "7.1.0-cognitive",
+                    "mode": omega_mode,
+                    "sub_mode": sub_mode,
+                    "confidence": confidence,
+                    "entropy": ens_entropy,
+                    "fragility": ens_fragility,
+                    "fragility_index": ens_fragility,
+                    "ensemble_metrics": payload.get("ensemble_metrics", {}),
+                    "debate_result": payload.get("debate_result", {}),
+                    "debate_rounds": payload.get("debate_rounds", []),
+                    "model_outputs": payload.get("model_outputs", []),
+                    "agreement_matrix": payload.get("agreement_matrix", {}),
+                    "drift_metrics": payload.get("drift_metrics", {}),
+                    "tactical_map": payload.get("tactical_map", []),
+                    "confidence_graph": payload.get("confidence_graph", payload.get("calibrated_confidence", {})),
+                    "session_intelligence": payload.get("session_intelligence", {}),
+                    "session_analytics": payload.get("session_analytics", {}),
+                    "model_status": payload.get("model_status", []),
+                    "reasoning_trace": {
+                        "engine": "CognitiveCoreEngine",
+                        "pipeline": "cognitive_v7",
+                        "models_executed": ensemble_response.models_executed,
+                        "models_succeeded": ensemble_response.models_succeeded,
+                        "models_failed": ensemble_response.models_failed,
+                        "debate_rounds": ens_debate_rounds,
+                    },
+                    "boundary_result": {
+                        "risk_level": (
+                            "LOW" if confidence > 0.7
+                            else "MEDIUM" if confidence > 0.4
+                            else "HIGH"
+                        ),
+                        "severity_score": int((1 - confidence) * 100),
+                        "explanation": (
+                            f"Ensemble confidence from {ensemble_response.models_executed} models, "
+                            f"{ens_debate_rounds} debate rounds"
+                        ),
+                    },
+                })
+    
+                # Inject multimodal audit report into metadata
+                if audit_report:
+                    omega_metadata["multimodal_audit"] = audit_report
+    
+                if rag_result and rag_result.retrieval_executed:
+                    omega_metadata["rag_result"] = {
+                        "executed": True,
+                        "source_count": rag_result.source_count,
+                        "average_reliability": rag_result.average_reliability,
+                        "contradictions": len(rag_result.contradictions),
+                        "no_sources": rag_result.no_sources_found,
+                    }
+    
+                # ── Sub-Mode Pipeline Execution ──────────────────────
+                # Wire Glass / Evidence / Synthesis pipelines so the
+                # frontend views receive real analytical data.
+                if sub_mode in ("glass", "evidence", "synthesis"):
+                    try:
+                        adapted_results, scoring_bd, div_metrics = _adapt_ensemble_for_pipelines(ensemble_response)
+                        if scoring_bd:
+                            winning = max(scoring_bd, key=lambda s: getattr(s, "final_score", 0.0)).model_name
+                        elif ensemble_response.model_outputs:
+                            winning = ensemble_response.model_outputs[0].model_name
+                        else:
+                            winning = "unknown"
+    
+                        if sub_mode == "glass":
+                            omega_metadata["audit_result"] = build_glass_result(
+                                all_results=adapted_results,
+                                scoring_breakdown=scoring_bd,
+                                divergence_metrics=div_metrics,
+                                aggregated_answer=formatted_output,
+                                winning_model=winning,
+                                drift_score=ensemble_response.debate_result.drift_index,
+                                volatility_score=ensemble_response.ensemble_metrics.fragility_score,
+                            )
+                        elif sub_mode == "evidence":
+                            omega_metadata["forensic_result"] = await build_evidence_result(
+                                query=effective_text,
+                                all_results=adapted_results,
+                                scoring_breakdown=scoring_bd,
+                                aggregated_answer=formatted_output,
+                                winning_model=winning,
+                            )
+                        elif sub_mode == "synthesis":
+                            omega_metadata["synthesis_result"] = build_synthesis_result(
+                                all_results=adapted_results,
+                                scoring_breakdown=scoring_bd,
+                                divergence_metrics=div_metrics,
+                                aggregated_answer=formatted_output,
+                                winning_model=winning,
+                            )
+                    except Exception as pipe_err:
+                        logger.error(f"Sub-mode pipeline '{sub_mode}' failed: {pipe_err}", exc_info=True)
+    
+                await update_chat_metadata(
+                    db, chat.id,
+                    priority_answer=formatted_output,
+                    machine_metadata=omega_metadata,
+                    rounds=request.rounds,
+                )
+                memory.add_message("assistant", formatted_output)
+                await _persist_session(str(chat.id), kernel, memory)
+    
+                # Update MCO session analytics with drift/rift metrics
+                if mco_orchestrator and hasattr(mco_orchestrator, 'session_engine'):
+                    try:
+                        mco_orchestrator.session_engine.update_analytics(
+                            session_id=str(chat.id),
+                            mode=omega_mode,
+                            drift_value=ensemble_response.debate_result.drift_index,
+                            rift_value=ensemble_response.debate_result.rift_index,
+                            disagreement_value=ensemble_response.ensemble_metrics.disagreement_entropy,
                         )
-                    elif sub_mode == "evidence":
-                        omega_metadata["forensic_result"] = await build_evidence_result(
-                            query=effective_text,
-                            all_results=adapted_results,
-                            scoring_breakdown=scoring_bd,
-                            aggregated_answer=formatted_output,
-                            winning_model=winning,
+                        mco_orchestrator.session_engine.add_conversation_message(
+                            session_id=str(chat.id),
+                            role="assistant",
+                            content=formatted_output[:500],
+                            confidence=confidence,
+                            latency_ms=kernel_latency,
                         )
-                    elif sub_mode == "synthesis":
-                        omega_metadata["synthesis_result"] = build_synthesis_result(
-                            all_results=adapted_results,
-                            scoring_breakdown=scoring_bd,
-                            divergence_metrics=div_metrics,
-                            aggregated_answer=formatted_output,
-                            winning_model=winning,
-                        )
-                except Exception as pipe_err:
-                    logger.error(f"Sub-mode pipeline '{sub_mode}' failed: {pipe_err}", exc_info=True)
-
-            await update_chat_metadata(
-                db, chat.id,
-                priority_answer=formatted_output,
-                machine_metadata=omega_metadata,
-                rounds=request.rounds,
-            )
-            memory.add_message("assistant", formatted_output)
-            await _persist_session(str(chat.id), kernel, memory)
-
-            # Update MCO session analytics with drift/rift metrics
-            if mco_orchestrator and hasattr(mco_orchestrator, 'session_engine'):
+                    except Exception:
+                        pass
+    
                 try:
-                    mco_orchestrator.session_engine.update_analytics(
-                        session_id=str(chat.id),
-                        mode=omega_mode,
-                        drift_value=ensemble_response.debate_result.drift_index,
-                        rift_value=ensemble_response.debate_result.rift_index,
-                        disagreement_value=ensemble_response.ensemble_metrics.disagreement_entropy,
+                    await redis_client.setex(
+                        f"chat:{chat.id}:metadata",
+                        settings.REDIS_SESSION_TTL,
+                        json.dumps(omega_metadata, default=str),
                     )
-                    mco_orchestrator.session_engine.add_conversation_message(
+                except Exception:
+                    pass
+    
+                await add_message(db, chat.id, user_id, "assistant", formatted_output)
+    
+                response_payload = {
+                    **payload,
+                    "chat_id": str(chat.id),
+                    "mode": omega_mode,
+                    "sub_mode": sub_mode,
+                    "formatted_output": formatted_output,
+                    "confidence": confidence,
+                    "entropy": ens_entropy,
+                    "fragility": ens_fragility,
+                    "fragility_index": ens_fragility,
+                    "boundary_result": omega_metadata["boundary_result"],
+                    "omega_metadata": omega_metadata,
+                }
+    
+                try:
+                    cache.store(effective_text, cache_mode_key, response_payload)
+                except Exception:
+                    pass
+    
+                try:
+                    est_input_tokens = sum(len(m.get("content", "")) // 4 for m in history)
+                    est_output_tokens = len(formatted_output) // 4
+                    governor.record_usage(
                         session_id=str(chat.id),
-                        role="assistant",
-                        content=formatted_output[:500],
-                        confidence=confidence,
+                        model_id="ensemble",
+                        input_tokens=est_input_tokens,
+                        output_tokens=est_output_tokens,
                         latency_ms=kernel_latency,
                     )
                 except Exception:
                     pass
-
-            try:
-                await redis_client.setex(
-                    f"chat:{chat.id}:metadata",
-                    settings.REDIS_SESSION_TTL,
-                    json.dumps(omega_metadata, default=str),
+    
+                try:
+                    total_latency = tracer.end_span("total")
+                    tracer.record_model_call(
+                        model_id="ensemble",
+                        input_tokens=sum(len(m.get("content", "")) // 4 for m in history),
+                        output_tokens=len(formatted_output) // 4,
+                        latency_ms=kernel_latency,
+                        cost_estimate=0.0,
+                    )
+                    summary = tracer.finalize()
+                    obs_hub.record(summary)
+                except Exception:
+                    pass
+    
+                return response_payload
+    
+        # ══════════════════════════════════════════════════════════
+        # LEGACY KERNEL PATH (fallback if ensemble unavailable)
+        # ══════════════════════════════════════════════════════════
+        config = ModeConfig.from_legacy(
+            text=effective_text,
+            mode=omega_mode,
+            sub_mode=sub_mode,
+            kill_switch=kill,
+            enable_shadow=request.enable_shadow,
+            rounds=request.rounds,
+            chat_id=str(chat.id),
+            history=history,
+            role_map=role_map,
+        )
+    
+        # ── Execute (Legacy) ─────────────────────────────────────
+        tracer.start_span("kernel")
+        result = await kernel.process(config)
+        kernel_latency = tracer.end_span("kernel")
+    
+        # ── Extract & Build Response (Legacy) ────────────────────
+        formatted_output = sanitize_output(result.get("formatted_output", ""))
+        confidence = result.get("confidence", 0.5)
+        session_state = result.get("session_state", {})
+        reasoning_trace = result.get("reasoning_trace", {})
+        boundary_result = result.get("boundary_result", {})
+    
+        # ── Inject RAG Citations ─────────────────────────────────
+        if rag_result and rag_result.retrieval_executed:
+            if rag_result.no_sources_found:
+                formatted_output += "\n\n*No verified external sources found for this query.*"
+            elif rag_result.citations_text:
+                formatted_output += "\n\n" + rag_result.citations_text
+    
+        # ── Dynamic Analytics ────────────────────────────────────
+        analytics = None
+        if analytics_engine:
+            model_outputs = []
+            failed_model_ids = []
+            if result.get("omega_metadata", {}).get("aggregation_result"):
+                agg = result["omega_metadata"]["aggregation_result"]
+                if isinstance(agg, dict):
+                    for m in agg.get("model_outputs", []):
+                        if isinstance(m, dict):
+                            output_text = m.get("output", "")
+                            if m.get("error") or m.get("status") == "failed":
+                                failed_model_ids.append(m.get("model_id", "unknown"))
+                                continue  # don't score failed models, but track them
+                            if output_text:
+                                model_outputs.append(output_text)
+                        else:
+                            text = str(m)
+                            if text:
+                                model_outputs.append(text)
+    
+            if model_outputs:
+                analytics = analytics_engine.compute(
+                    model_outputs=model_outputs,
+                    evidence_sources=rag_result.source_count if rag_result else 0,
+                    contradiction_count=rag_result.contradiction_count if rag_result else 0,
+                    evidence_reliability=rag_result.average_reliability if rag_result else 0,
                 )
-            except Exception:
-                pass
-
-            await add_message(db, chat.id, "assistant", formatted_output)
-
-            response_payload = {
-                **payload,
-                "chat_id": str(chat.id),
-                "mode": omega_mode,
-                "sub_mode": sub_mode,
-                "formatted_output": formatted_output,
-                "confidence": confidence,
-                "entropy": ens_entropy,
-                "fragility": ens_fragility,
-                "fragility_index": ens_fragility,
-                "boundary_result": omega_metadata["boundary_result"],
-                "omega_metadata": omega_metadata,
+                confidence = analytics.confidence  # Use dynamic confidence
+    
+        # ── Build Metadata ───────────────────────────────────────
+        omega_metadata = {
+            "version": "5.0.0",
+            "mode": result.get("mode", omega_mode),
+            "sub_mode": result.get("sub_mode", sub_mode),
+            "confidence": confidence,
+            "session_state": session_state,
+            "reasoning_trace": reasoning_trace,
+            "boundary_result": boundary_result,
+        }
+    
+        # Mode-specific data
+        for key in ["confidence_evolution", "fragility_index", "behavioral_risk",
+                     "evidence_result", "stress_result", "confidence_components",
+                     "debate_result"]:
+            if result.get(key) is not None:
+                omega_metadata[key] = result[key]
+    
+        # Dynamic analytics override
+        if analytics:
+            omega_metadata["confidence_components"] = analytics.confidence_components
+            omega_metadata["boundary_result"] = {
+                "risk_level": analytics.risk_level,
+                "severity_score": int(analytics.boundary_risk * 100),
+                "explanation": analytics.explanation,
+                "risk_dimensions": analytics.boundary_components,
             }
-
-            try:
-                cache.store(effective_text, cache_mode_key, response_payload)
-            except Exception:
-                pass
-
-            try:
-                est_input_tokens = sum(len(m.get("content", "")) // 4 for m in history)
-                est_output_tokens = len(formatted_output) // 4
-                governor.record_usage(
-                    session_id=str(chat.id),
-                    model_id="ensemble",
-                    input_tokens=est_input_tokens,
-                    output_tokens=est_output_tokens,
-                    latency_ms=kernel_latency,
-                )
-            except Exception:
-                pass
-
-            try:
-                total_latency = tracer.end_span("total")
-                tracer.record_model_call(
-                    model_id="ensemble",
-                    input_tokens=sum(len(m.get("content", "")) // 4 for m in history),
-                    output_tokens=len(formatted_output) // 4,
-                    latency_ms=kernel_latency,
-                    cost_estimate=0.0,
-                )
-                summary = tracer.finalize()
-                obs_hub.record(summary)
-            except Exception:
-                pass
-
-            return response_payload
-
-    # ══════════════════════════════════════════════════════════
-    # LEGACY KERNEL PATH (fallback if ensemble unavailable)
-    # ══════════════════════════════════════════════════════════
-    config = ModeConfig.from_legacy(
-        text=effective_text,
-        mode=omega_mode,
-        sub_mode=sub_mode,
-        kill_switch=kill,
-        enable_shadow=request.enable_shadow,
-        rounds=request.rounds,
-        chat_id=str(chat.id),
-        history=history,
-        role_map=role_map,
-    )
-
-    # ── Execute (Legacy) ─────────────────────────────────────
-    tracer.start_span("kernel")
-    result = await kernel.process(config)
-    kernel_latency = tracer.end_span("kernel")
-
-    # ── Extract & Build Response (Legacy) ────────────────────
-    formatted_output = sanitize_output(result.get("formatted_output", ""))
-    confidence = result.get("confidence", 0.5)
-    session_state = result.get("session_state", {})
-    reasoning_trace = result.get("reasoning_trace", {})
-    boundary_result = result.get("boundary_result", {})
-
-    # ── Inject RAG Citations ─────────────────────────────────
-    if rag_result and rag_result.retrieval_executed:
-        if rag_result.no_sources_found:
-            formatted_output += "\n\n*No verified external sources found for this query.*"
-        elif rag_result.citations_text:
-            formatted_output += "\n\n" + rag_result.citations_text
-
-    # ── Dynamic Analytics ────────────────────────────────────
-    analytics = None
-    if analytics_engine:
-        model_outputs = []
-        failed_model_ids = []
-        if result.get("omega_metadata", {}).get("aggregation_result"):
-            agg = result["omega_metadata"]["aggregation_result"]
-            if isinstance(agg, dict):
-                for m in agg.get("model_outputs", []):
-                    if isinstance(m, dict):
-                        output_text = m.get("output", "")
-                        if m.get("error") or m.get("status") == "failed":
-                            failed_model_ids.append(m.get("model_id", "unknown"))
-                            continue  # don't score failed models, but track them
-                        if output_text:
-                            model_outputs.append(output_text)
-                    else:
-                        text = str(m)
-                        if text:
-                            model_outputs.append(text)
-
-        if model_outputs:
-            analytics = analytics_engine.compute(
-                model_outputs=model_outputs,
-                evidence_sources=rag_result.source_count if rag_result else 0,
-                contradiction_count=rag_result.contradiction_count if rag_result else 0,
-                evidence_reliability=rag_result.average_reliability if rag_result else 0,
-            )
-            confidence = analytics.confidence  # Use dynamic confidence
-
-    # ── Build Metadata ───────────────────────────────────────
-    omega_metadata = {
-        "version": "5.0.0",
-        "mode": result.get("mode", omega_mode),
-        "sub_mode": result.get("sub_mode", sub_mode),
-        "confidence": confidence,
-        "session_state": session_state,
-        "reasoning_trace": reasoning_trace,
-        "boundary_result": boundary_result,
-    }
-
-    # Mode-specific data
-    for key in ["confidence_evolution", "fragility_index", "behavioral_risk",
-                 "evidence_result", "stress_result", "confidence_components",
-                 "debate_result"]:
-        if result.get(key) is not None:
-            omega_metadata[key] = result[key]
-
-    # Dynamic analytics override
-    if analytics:
-        omega_metadata["confidence_components"] = analytics.confidence_components
-        omega_metadata["boundary_result"] = {
-            "risk_level": analytics.risk_level,
-            "severity_score": int(analytics.boundary_risk * 100),
-            "explanation": analytics.explanation,
-            "risk_dimensions": analytics.boundary_components,
-        }
-
-    # Engine metadata passthrough
-    if result.get("omega_metadata"):
-        engine_meta = result["omega_metadata"]
-        for key in ["aggregation_result", "forensic_result", "audit_result", "pipeline_steps"]:
-            if engine_meta.get(key):
-                omega_metadata[key] = engine_meta[key]
-
-    # RAG metadata
-    if rag_result and rag_result.retrieval_executed:
-        omega_metadata["rag_result"] = {
-            "executed": True,
-            "source_count": rag_result.source_count,
-            "average_reliability": rag_result.average_reliability,
-            "contradictions": len(rag_result.contradictions),
-            "no_sources": rag_result.no_sources_found,
-        }
-
-    # ── Knowledge Learning ───────────────────────────────────
-    if knowledge_learner and boundary_result:
-        severity = boundary_result.get("severity_score", 0)
-        if severity > 40:
-            try:
-                knowledge_learner.record_boundary_violation(
-                    model_name=omega_metadata.get("mode", "unknown"),
-                    severity_score=severity,
-                    severity_level=boundary_result.get("risk_level", "LOW"),
-                    claim_type=boundary_result.get("claim_type", "unknown"),
-                    run_id=str(chat.id),
-                )
-            except Exception as e:
-                logger.warning(f"Knowledge learning failed: {e}")
-
-    # ── Persist ──────────────────────────────────────────────
-    await update_chat_metadata(
-        db, chat.id,
-        priority_answer=formatted_output,
-        machine_metadata=omega_metadata,
-        rounds=request.rounds,
-    )
-    memory.add_message("assistant", formatted_output)
-    await _persist_session(str(chat.id), kernel, memory)
-
-    try:
-        await redis_client.setex(
-            f"chat:{chat.id}:metadata",
-            settings.REDIS_SESSION_TTL,
-            json.dumps(omega_metadata, default=str),
+    
+        # Engine metadata passthrough
+        if result.get("omega_metadata"):
+            engine_meta = result["omega_metadata"]
+            for key in ["aggregation_result", "forensic_result", "audit_result", "pipeline_steps"]:
+                if engine_meta.get(key):
+                    omega_metadata[key] = engine_meta[key]
+    
+        # RAG metadata
+        if rag_result and rag_result.retrieval_executed:
+            omega_metadata["rag_result"] = {
+                "executed": True,
+                "source_count": rag_result.source_count,
+                "average_reliability": rag_result.average_reliability,
+                "contradictions": len(rag_result.contradictions),
+                "no_sources": rag_result.no_sources_found,
+            }
+    
+        # ── Knowledge Learning ───────────────────────────────────
+        if knowledge_learner and boundary_result:
+            severity = boundary_result.get("severity_score", 0)
+            if severity > 40:
+                try:
+                    knowledge_learner.record_boundary_violation(
+                        model_name=omega_metadata.get("mode", "unknown"),
+                        severity_score=severity,
+                        severity_level=boundary_result.get("risk_level", "LOW"),
+                        claim_type=boundary_result.get("claim_type", "unknown"),
+                        run_id=str(chat.id),
+                    )
+                except Exception as e:
+                    logger.warning(f"Knowledge learning failed: {e}")
+    
+        # ── Persist ──────────────────────────────────────────────
+        await update_chat_metadata(
+            db, chat.id,
+            priority_answer=formatted_output,
+            machine_metadata=omega_metadata,
+            rounds=request.rounds,
         )
-    except Exception:
-        pass
-
-    await add_message(db, chat.id, "assistant", formatted_output)
-
-    # ── Rolling Summary Check ────────────────────────────────
-    if memory.needs_summarization():
+        memory.add_message("assistant", formatted_output)
+        await _persist_session(str(chat.id), kernel, memory)
+    
         try:
-            summary_prompt = memory.generate_summary_prompt()
-            if summary_prompt and mco_orchestrator and mco_orchestrator.cognitive_gateway:
-                from metacognitive.schemas import CognitiveGatewayInput
-                gw_input = CognitiveGatewayInput(
-                    user_query=summary_prompt,
-                    stabilized_context={},
-                    knowledge_bundle=[],
-                    session_summary={},
-                )
-                gw_output = await mco_orchestrator.cognitive_gateway.invoke_model(
-                    "llama33-70b", gw_input
-                )
-                summary = gw_output.raw_output if gw_output.success else None
-                if summary and not summary.startswith("Error"):
-                    memory.rolling_summary.add_summary(summary, settings.ROLLING_SUMMARY_INTERVAL)
-                    logger.info(f"Rolling summary generated for chat {chat.id}")
-        except Exception as e:
-            logger.debug(f"Summary generation skipped: {e}")
+            await redis_client.setex(
+                f"chat:{chat.id}:metadata",
+                settings.REDIS_SESSION_TTL,
+                json.dumps(omega_metadata, default=str),
+            )
+        except Exception:
+            pass
+    
+        await add_message(db, chat.id, user_id, "assistant", formatted_output)
+    
+        # ── Rolling Summary Check ────────────────────────────────
+        if memory.needs_summarization():
+            try:
+                summary_prompt = memory.generate_summary_prompt()
+                if summary_prompt and mco_orchestrator and mco_orchestrator.cognitive_gateway:
+                    from metacognitive.schemas import CognitiveGatewayInput
+                    gw_input = CognitiveGatewayInput(
+                        user_query=summary_prompt,
+                        stabilized_context={},
+                        knowledge_bundle=[],
+                        session_summary={},
+                    )
+                    gw_output = await mco_orchestrator.cognitive_gateway.invoke_model(
+                        "llama33-70b", gw_input
+                    )
+                    summary = gw_output.raw_output if gw_output.success else None
+                    if summary and not summary.startswith("Error"):
+                        memory.rolling_summary.add_summary(summary, settings.ROLLING_SUMMARY_INTERVAL)
+                        logger.info(f"Rolling summary generated for chat {chat.id}")
+            except Exception as e:
+                logger.debug(f"Summary generation skipped: {e}")
+    
+        # ── Optimization: Cache Store & Observability ─────────────
+        response_payload = {
+            "chat_id": str(chat.id),
+            "chat_name": result.get("chat_name", ""),
+            "mode": result.get("mode", omega_mode),
+            "sub_mode": result.get("sub_mode", sub_mode),
+            "formatted_output": formatted_output,
+            "data": {"priority_answer": formatted_output},
+            "confidence": confidence,
+            "session_state": session_state,
+            "boundary_result": omega_metadata.get("boundary_result", boundary_result),
+            "omega_metadata": omega_metadata,
+        }
+    
+        # Store in response cache (non-blocking, best-effort)
+        try:
+            cache.store(effective_text, cache_mode_key, response_payload)
+        except Exception:
+            pass
+    
+        # Record usage in cost governor
+        try:
+            # Estimate tokens from history length + output length
+            est_input_tokens = sum(len(m.get("content", "")) // 4 for m in history)
+            est_output_tokens = len(formatted_output) // 4
+            governor.record_usage(
+                session_id=str(chat.id),
+                model_id=result.get("omega_metadata", {}).get("primary_model", "groq-small"),
+                input_tokens=est_input_tokens,
+                output_tokens=est_output_tokens,
+                latency_ms=kernel_latency,
+            )
+        except Exception:
+            pass
+    
+        # Finalize observability
+        return api_success(response_payload)
 
-    # ── Optimization: Cache Store & Observability ─────────────
-    response_payload = {
-        "chat_id": str(chat.id),
-        "chat_name": result.get("chat_name", ""),
-        "mode": result.get("mode", omega_mode),
-        "sub_mode": result.get("sub_mode", sub_mode),
-        "formatted_output": formatted_output,
-        "data": {"priority_answer": formatted_output},
-        "confidence": confidence,
-        "session_state": session_state,
-        "boundary_result": omega_metadata.get("boundary_result", boundary_result),
-        "omega_metadata": omega_metadata,
-    }
-
-    # Store in response cache (non-blocking, best-effort)
-    try:
-        cache.store(effective_text, cache_mode_key, response_payload)
-    except Exception:
-        pass
-
-    # Record usage in cost governor
-    try:
-        # Estimate tokens from history length + output length
-        est_input_tokens = sum(len(m.get("content", "")) // 4 for m in history)
-        est_output_tokens = len(formatted_output) // 4
-        governor.record_usage(
-            session_id=str(chat.id),
-            model_id=result.get("omega_metadata", {}).get("primary_model", "groq-small"),
-            input_tokens=est_input_tokens,
-            output_tokens=est_output_tokens,
-            latency_ms=kernel_latency,
-        )
-    except Exception:
-        pass
-
-    # Finalize observability
-    try:
-        total_latency = tracer.end_span("total")
-        tracer.record_model_call(
-            model_id=result.get("omega_metadata", {}).get("primary_model", "groq-small"),
-            input_tokens=est_input_tokens,
-            output_tokens=est_output_tokens,
-            latency_ms=kernel_latency,
-            cost_estimate=0.0,
-        )
-        summary = tracer.finalize()
-        obs_hub.record(summary)
-    except Exception:
-        pass
-
-    # ── Response ─────────────────────────────────────────────
-    return response_payload
+    except Exception as e:
+        logger.error(f"CRITICAL ERROR in run_sentinel: {e}", exc_info=True)
+        return api_error(str(e), status_code=500)
 
 
 # ============================================================
@@ -1647,71 +1615,48 @@ async def run_sentinel(
 # ============================================================
 
 @app.post("/api/compressed")
-async def run_compressed(
-    request: SentinelRequest,
+async def run_compressed_api(
+    request: Request,
+    body: SentinelRequest,
     db: AsyncSession = Depends(get_db),
-    user: Dict = Depends(get_current_user),
 ):
-    """
-    Compressed reasoning pipeline — LangGraph role-based.
-    Uses Gemini Flash 2.0 + Groq + Qwen models with role-based assignments.
-    ~6 API calls: Analysis → Critique(×2) → Synthesis → Verification(×2).
-    """
-    user_id = user["user_id"]
-    firewall = get_firewall()
-
-    if len(request.text) > settings.MAX_INPUT_LENGTH:
-        raise HTTPException(status_code=400, detail="Input too long.")
-
-    verdict = firewall.analyze(request.text)
-    if verdict.blocked:
-        raise HTTPException(status_code=400, detail="Input blocked by safety filter.")
-    effective_text = verdict.sanitized_text or request.text
-
-    # Resolve chat for session continuity
-    chat = None
-    if request.chat_id:
-        # ✅ Verify user owns this chat
-        chat = await get_chat(db, request.chat_id, user_id=user_id)
-        if request.chat_id and not chat:
-            logger.warning(f"Unauthorized chat access attempt: {request.chat_id} by {user_id}")
-            raise HTTPException(status_code=403, detail="Chat not found or unauthorized access")
-    
-    if not chat:
-        chat_name = generate_chat_name(effective_text, "compressed")
-        chat = await create_chat(db, chat_name, "compressed", user_id=user_id)
-
-    await add_message(db, chat.id, "user", effective_text)
-
+    """Compressed reasoning pipeline."""
     try:
+        user_id = await get_user_id(request)
+        if not user_id: return api_error("Auth required", status_code=401)
+
+        firewall = get_firewall()
+        verdict = firewall.analyze(body.text)
+        if verdict.blocked: return api_error("Input blocked", status_code=400)
+        
+        effective_text = verdict.sanitized_text or body.text
+
+        # Resolve chat
+        chat = None
+        if body.chat_id:
+            chat = await get_chat(db, body.chat_id, user_id=user_id)
+        
+        if not chat:
+            chat_name = generate_chat_name(effective_text, "compressed")
+            chat = await create_chat(db, chat_name, "compressed", user_id=user_id)
+
+        await add_message(db, chat.id, user_id, "user", effective_text)
+
         from compressed.pipeline import run_compressed_pipeline
+        result = await run_compressed_pipeline(query=effective_text, session_id=str(chat.id))
+        
+        formatted = sanitize_output(result.get("formatted_output", ""))
+        await add_message(db, chat.id, user_id, "assistant", formatted)
 
-        result = await run_compressed_pipeline(
-            query=effective_text,
-            session_id=str(chat.id),
-        )
-
-        formatted = result.get("formatted_output", "")
-        metadata = result.get("metadata", {})
-
-        if formatted:
-            await add_message(db, chat.id, "assistant", formatted[:10000])
-
-        return {
+        return api_success({
             "chat_id": str(chat.id),
-            "chat_name": chat.chat_name if hasattr(chat, "chat_name") else "",
-            "mode": "compressed",
-            "sub_mode": "sigma",
             "formatted_output": formatted,
-            "data": {"priority_answer": formatted},
-            "confidence": metadata.get("confidence", 0.7),
-            "session_state": {},
-            "boundary_result": {},
-            "omega_metadata": metadata,
-        }
+            "mode": "compressed",
+            "confidence": result.get("metadata", {}).get("confidence", 0.8)
+        })
     except Exception as e:
-        logger.error(f"Compressed pipeline failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Compressed pipeline error: {str(e)}")
+        logger.error(f"Error in /api/compressed: {e}")
+        return api_error(str(e))
 
 
 # ============================================================
@@ -2447,78 +2392,59 @@ async def learning_summary(user: Dict = Depends(get_current_user)):
 # ============================================================
 
 @app.get("/api/user/memory")
-async def get_memory(
-    min_confidence: int = 50,
-    db: AsyncSession = Depends(get_db),
-    user: Dict = Depends(get_current_user),
-):
-    """Get all user memory facts above confidence threshold."""
-    from database.schemas import UserMemorySchema
-    user_id = user["user_id"]
-    memories = await get_user_memory(db, user_id, min_confidence=min_confidence)
-    return [
-        UserMemorySchema.model_validate(m).model_dump(mode="json")
-        for m in (memories or [])
-    ]
+async def get_memory_api(request: Request, db: AsyncSession = Depends(get_db)):
+    """Get all user memory facts."""
+    try:
+        user_id = await get_user_id(request)
+        if not user_id: return api_success([])
+        from database.schemas import UserMemorySchema
+        memories = await get_user_memory(db, user_id)
+        return api_success([UserMemorySchema.model_validate(m).model_dump(mode="json") for m in (memories or [])])
+    except Exception as e:
+        logger.error(f"Error in /api/user/memory: {e}")
+        return api_success([])
 
 
 @app.post("/api/user/memory")
-async def add_memory(
-    request: dict = Body(...),
-    db: AsyncSession = Depends(get_db),
-    user: Dict = Depends(get_current_user),
-):
+async def add_memory_api(request: Request, body: dict = Body(...), db: AsyncSession = Depends(get_db)):
     """Add or update a user memory fact."""
-    user_id = user["user_id"]
-    key = request.get("key")
-    value = request.get("value")
-    confidence = request.get("confidence", 75)
-
-    if not key or not value:
-        raise HTTPException(status_code=400, detail="key and value are required")
-
-    mem = await add_user_memory(db, user_id, key, value, confidence)
-    return {
-        "status": "saved",
-        "key": key,
-        "value": value,
-        "confidence": confidence,
-    }
+    try:
+        user_id = await get_user_id(request)
+        if not user_id: return api_error("Auth required", status_code=401)
+        key, value = body.get("key"), body.get("value")
+        if not key or not value: return api_error("key and value required")
+        await add_user_memory(db, user_id, key, value, body.get("confidence", 75))
+        return api_success({"status": "saved"})
+    except Exception as e:
+        logger.error(f"Error in POST /api/user/memory: {e}")
+        return api_error(str(e))
 
 
 @app.get("/api/user/preferences")
-async def get_preferences(
-    db: AsyncSession = Depends(get_db),
-    user: Dict = Depends(get_current_user),
-):
+async def get_preferences_api(request: Request, db: AsyncSession = Depends(get_db)):
     """Get user preferences."""
-    from database.schemas import UserPreferenceSchema
-    user_id = user["user_id"]
-    prefs = await get_user_preference(db, user_id)
-    if not prefs:
-        return {"exists": False}
-    return UserPreferenceSchema.model_validate(prefs).model_dump(mode="json")
+    try:
+        user_id = await get_user_id(request)
+        if not user_id: return api_success({})
+        prefs = await get_user_preferences(db, user_id)
+        return api_success(prefs)
+    except Exception as e:
+        logger.error(f"Error in /api/user/preferences: {e}")
+        return api_success({})
 
 
 @app.put("/api/user/preferences")
-async def update_preferences(
-    request: dict = Body(...),
-    db: AsyncSession = Depends(get_db),
-    user: Dict = Depends(get_current_user),
-):
+async def update_preferences_api(request: Request, body: dict = Body(...), db: AsyncSession = Depends(get_db)):
     """Update user preferences."""
-    user_id = user["user_id"]
-    allowed_keys = {
-        "response_style", "tone", "default_chat_mode",
-        "preferred_model", "preferred_provider",
-        "dark_mode", "show_reasoning", "auto_save_chats",
-    }
-    updates = {k: v for k, v in request.items() if k in allowed_keys}
-    if not updates:
-        raise HTTPException(status_code=400, detail="No valid preference fields provided")
-
-    pref = await upsert_user_preference(db, user_id, **updates)
-    return {"status": "updated", "fields": list(updates.keys())}
+    try:
+        user_id = await get_user_id(request)
+        if not user_id: return api_error("Auth required", status_code=401)
+        for k, v in body.items():
+            await upsert_user_preference(db, user_id, k, str(v))
+        return api_success({"status": "updated"})
+    except Exception as e:
+        logger.error(f"Error in PUT /api/user/preferences: {e}")
+        return api_error(str(e))
 
 
 # ============================================================

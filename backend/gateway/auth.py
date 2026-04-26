@@ -637,4 +637,21 @@ async def require_admin(
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
 
-    return user
+# ── USER ID HELPER ────────────────────────────────────────
+
+async def get_user_id(request: Request) -> Optional[str]:
+    """
+    Returns the user_id (sub) from the Clerk JWT if present,
+    otherwise returns None. Safe to call on any request.
+    """
+    try:
+        # Check Authorization header
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return None
+        
+        token = auth_header.split(" ")[1]
+        payload = verify_clerk_token(token)
+        return payload.get("sub")
+    except Exception:
+        return None
