@@ -3,10 +3,11 @@ from typing import Optional, List, Dict, Any
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import update
+from sqlalchemy import update, text
 from .models import Chat, Message, User
 import json
 import logging
+import uuid
 
 logger = logging.getLogger("CRUD")
 
@@ -168,18 +169,75 @@ async def add_message(
     image_mime: str = None,
     reasoning_json: dict = None
 ) -> Message:
-    new_message = Message(
-        chat_id=chat_id,
-        role=role,
-        content=content,
-        image_b64=image_b64,
-        image_mime=image_mime,
-        reasoning_json=reasoning_json
-    )
-    db.add(new_message)
-    await db.commit()
-    await db.refresh(new_message)
-    return new_message
+    message_id = uuid.uuid4()
+    created_at = datetime.utcnow()
+
+    try:
+        new_message = Message(
+            id=message_id,
+            chat_id=chat_id,
+            role=role,
+            content=content,
+            image_b64=image_b64,
+            image_mime=image_mime,
+            reasoning_json=reasoning_json,
+            created_at=created_at,
+        )
+        db.add(new_message)
+        await db.commit()
+        await db.refresh(new_message)
+        return new_message
+    except Exception as exc:
+        await db.rollback()
+        err = str(exc).lower()
+        missing_reasoning_col = (
+            "reasoning_json" in err and (
+                "does not exist" in err or "undefinedcolumn" in err
+            )
+        )
+
+        if not missing_reasoning_col:
+            logger.error("add_message failed: %s", exc, exc_info=True)
+            raise
+
+        logger.warning(
+            "messages.reasoning_json missing in DB; retrying insert without reasoning_json column"
+        )
+
+        await db.execute(
+            text(
+                """
+                INSERT INTO messages (id, chat_id, role, content, image_b64, image_mime, created_at)
+                VALUES (:id, :chat_id, :role, :content, :image_b64, :image_mime, :created_at)
+                """
+            ),
+            {
+                "id": message_id,
+                "chat_id": chat_id,
+                "role": role,
+                "content": content,
+                "image_b64": image_b64,
+                "image_mime": image_mime,
+                "created_at": created_at,
+            },
+        )
+        await db.commit()
+
+        result = await db.execute(select(Message).where(Message.id == message_id))
+        retried_message = result.scalars().first()
+        if retried_message:
+            return retried_message
+
+        # Ultra-safe fallback if ORM model refresh fails for any reason
+        return Message(
+            id=message_id,
+            chat_id=chat_id,
+            role=role,
+            content=content,
+            image_b64=image_b64,
+            image_mime=image_mime,
+            created_at=created_at,
+        )
 
 async def get_chat_messages(db: AsyncSession, chat_id: UUID, user_id: Optional[str] = None) -> List[Message]:
     """Get messages for a chat. If user_id provided, verify ownership."""
