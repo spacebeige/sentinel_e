@@ -57,3 +57,4 @@ opencv-python-headless
 # matplotlib
 # seaborn
 python-jose[cryptography]
+pinecone-client
