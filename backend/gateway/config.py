@@ -174,22 +174,20 @@ from pydantic import Field
 
 
 class Settings(BaseSettings):
-    # ── Core ─────────────────────────────
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
 
-    # ── JWT (legacy fallback) ────────────
-    JWT_SECRET_KEY: str = "sk_test_5ljBfPazgOVSbrxeL9kz1Ypa2co5yoryh9F3oahClZ"
+    LOG_LEVEL: str = "INFO"   # ✅ ADD THIS
+
+    JWT_SECRET_KEY: str = "CHANGE-ME"
     JWT_ALGORITHM: str = "HS256"
 
-    # ── CORS ────────────────────────────
     ALLOWED_ORIGINS: str = "http://localhost:3000"
 
-    # ── Clerk Auth (CRITICAL) ───────────
-    CLERK_JWT_ISSUER: str = "https://rational-tiger-62.clerk.accounts.dev"
-    CLERK_JWKS_URL: str = "https://rational-tiger-62.clerk.accounts.dev/.well-known/jwks.json"
+    CLERK_JWT_ISSUER: str = ""
+    CLERK_JWKS_URL: str = ""
     CLERK_JWT_AUDIENCE: Optional[str] = None
-
+    
     @property
     def cors_origins(self) -> List[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
