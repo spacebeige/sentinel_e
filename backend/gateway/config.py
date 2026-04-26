@@ -178,7 +178,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     LOG_LEVEL: str = "INFO"   # ✅ ADD THIS
-
+    RAG_MAX_SOURCES: int = 5
     JWT_SECRET_KEY: str = "CHANGE-ME"
     JWT_ALGORITHM: str = "HS256"
 
