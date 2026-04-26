@@ -25,24 +25,27 @@ const useStore = create(
         
         set({ isLoading: true, error: null });
         try {
-          // Single fetch on login. NEVER per-page.
-          const [historyRes, memoryRes, prefsRes] = await Promise.all([
+          const results = await Promise.allSettled([
             api.get('/api/history'),
             api.get('/api/user/memory'),
             api.get('/api/user/preferences')
           ]);
 
+          const historyData = results[0].status === 'fulfilled' ? results[0].value.data.data : { chats: [], messages: [] };
+          const memoryData = results[1].status === 'fulfilled' ? results[1].value.data.data : [];
+          const prefsData = results[2].status === 'fulfilled' ? results[2].value.data.data : {};
+
           set({
-            chats: historyRes.data.chats || [],
-            messages: historyRes.data.messages || [],
-            memory: memoryRes.data || [],
-            preferences: prefsRes.data || null,
+            chats: historyData?.chats || [],
+            messages: historyData?.messages || [],
+            memory: Array.isArray(memoryData) ? memoryData : [],
+            preferences: prefsData || {},
             isInitialized: true,
             isLoading: false
           });
         } catch (err) {
           console.error('Failed to initialize session:', err);
-          set({ error: err.message, isLoading: false });
+          set({ error: err.message, isLoading: false, isInitialized: true });
         }
       },
 
