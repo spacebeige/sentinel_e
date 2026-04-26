@@ -30,9 +30,11 @@ import asyncio
 import logging
 import time
 from typing import Any, Dict, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from metacognitive.cognitive_gateway import (
     COGNITIVE_MODEL_REGISTRY,
@@ -41,6 +43,10 @@ from metacognitive.cognitive_gateway import (
 )
 from metacognitive.schemas import CognitiveGatewayInput, QueryMode
 from utils.output_sanitizer import sanitize_output
+from gateway.auth import get_optional_user
+from database.connection import get_db
+from database.crud import create_chat, get_chat, add_message, get_chat_messages
+from core.context_builder import get_context_builder
 
 logger = logging.getLogger("ChatRoutes")
 
@@ -81,10 +87,19 @@ class ChatRequest(BaseModel):
         None,
         description="Optional token cap override (default: registry max)"
     )
+    image_b64: Optional[str] = Field(
+        None,
+        description="Optional base64 encoded image payload"
+    )
+    image_mime: Optional[str] = Field(
+        None,
+        description="Optional image mime type"
+    )
 
 
 class ChatResponse(BaseModel):
     """Response from direct model invocation."""
+    chat_id: Optional[str] = None
     model_id: str
     model_name: str
     provider: str
@@ -152,6 +167,8 @@ async def _invoke_with_retry(
 async def chat_with_model(
     model_id: str,
     req: ChatRequest,
+    db: AsyncSession = Depends(get_db),
+    user: Optional[Dict[str, Any]] = Depends(get_optional_user),
 ) -> ChatResponse:
     """
     Route a query to a specific model by its registry key.
@@ -193,9 +210,64 @@ async def chat_with_model(
             ),
         )
 
+    user_id = (user or {}).get("user_id") or "anonymous"
+
+    # Resolve or create chat for persistence continuity
+    chat = None
+    if req.chat_id:
+        try:
+            chat = await get_chat(db, UUID(req.chat_id), user_id=user_id)
+        except Exception:
+            chat = None
+
+    if chat is None:
+        chat_name = (req.query.strip()[:60] or "Direct model chat")
+        chat = await create_chat(db, chat_name, "standard", user_id=user_id)
+
+    # Persist user turn (including images, if present)
+    await add_message(
+        db,
+        chat.id,
+        "user",
+        req.query,
+        image_b64=req.image_b64,
+        image_mime=req.image_mime,
+    )
+
+    # Build prioritized, token-trimmed context before model execution
+    contextual_query = req.query
+    context_meta: Dict[str, Any] = {"context_applied": False}
+    try:
+        recent = await get_chat_messages(db, chat.id, user_id=user_id)
+        recent_payload = [
+            {"role": m.role, "content": m.content}
+            for m in (recent[-12:] if recent else [])
+            if m and m.content
+        ]
+        builder = get_context_builder(max_tokens=req.max_tokens or 2048, model=model_id)
+        built = await builder.build_context(
+            db=db,
+            user_id=user_id,
+            query=req.query,
+            recent_messages=recent_payload,
+            semantic_search_results=None,
+        )
+        built_context = (built or {}).get("context", "")
+        if built_context and isinstance(built_context, str) and built_context.strip():
+            contextual_query = f"{built_context}\n\n[CURRENT USER QUERY]\n{req.query}"
+            context_meta = {
+                "context_applied": True,
+                "token_usage": built.get("token_usage", {}),
+                "model": built.get("model"),
+                "available_tokens": built.get("available_tokens"),
+            }
+    except Exception as ctx_err:
+        logger.warning("[ChatRoutes] Context build skipped: %s", ctx_err)
+        context_meta = {"context_applied": False, "error": str(ctx_err)[:200]}
+
     # ── 2. Build gateway input ────────────────────────────────
     gateway_input = CognitiveGatewayInput(
-        user_query=req.query,
+        user_query=contextual_query,
         mode=QueryMode.RAW,
         max_tokens_override=req.max_tokens,
     )
@@ -262,8 +334,28 @@ async def chat_with_model(
 
     # Sanitize output to remove internal reasoning tags
     sanitized_output = sanitize_output(output.raw_output)
+
+    # Persist assistant turn with reasoning metadata
+    assistant_reasoning = {
+        "mode": "standard",
+        "model_id": fallback_model_id if fallback_used else model_id,
+        "model_name": output.model_name,
+        "provider": resolved_spec.provider,
+        "retried": retried,
+        "fallback_used": fallback_used,
+        "fallback_model": fallback_model_id,
+        "context_builder": context_meta,
+    }
+    await add_message(
+        db,
+        chat.id,
+        "assistant",
+        sanitized_output,
+        reasoning_json=assistant_reasoning,
+    )
     
     return ChatResponse(
+        chat_id=str(chat.id),
         model_id=fallback_model_id if fallback_used else model_id,
         model_name=output.model_name,
         provider=resolved_spec.provider,

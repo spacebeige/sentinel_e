@@ -67,7 +67,7 @@ class ContextWindowBuilder:
         Returns:
             Contextualized prompt with usage metrics
         """
-        from backend.database.crud import get_user_memory, get_user_preference
+        from database.crud import get_user_memory, get_user_preference
         
         context_parts = []
         token_usage = {

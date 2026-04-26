@@ -379,3 +379,23 @@
   }
 }
 
+/* ============================================================
+   Figma Chat Shell Contrast Fixes
+   ============================================================ */
+
+.figma-chat-shell {
+  color: var(--text-primary);
+}
+
+.figma-chat-shell [style*="color: #6e6e73"] {
+  color: var(--text-secondary) !important;
+}
+
+.figma-chat-shell [style*="color: #aeaeb2"] {
+  color: var(--text-tertiary) !important;
+}
+
+.figma-chat-shell [style*="color: #1d1d1f"] {
+  color: var(--text-primary) !important;
+}
+
