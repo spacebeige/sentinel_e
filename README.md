@@ -569,6 +569,180 @@ sentinel_e/
 
 ---
 
+## 🧠 Memory System (v5.0)
+
+Sentinel-E now includes a comprehensive memory graph for persistent, cross-login user intelligence.
+
+### Architecture
+
+#### Three-Tier Memory Model
+
+```
+User (user_id)
+  ├── Session Memory
+  │     ├── Current conversation context
+  │     ├── Recent messages (last N turns)
+  │     └── Active preferences
+  │
+  ├── Persistent Memory (user_memory table)
+  │     ├── Learned facts (key-value pairs)
+  │     ├── Confidence scores (0-100%)
+  │     ├── Domain knowledge
+  │     └── User behavior patterns
+  │
+  └── Preferences (user_preference table)
+        ├── Response style (concise|balanced|detailed)
+        ├── Tone (formal|casual|technical|friendly)
+        ├── Default mode
+        ├── UI settings (dark mode, etc.)
+        └── Data retention policies
+```
+
+### Database Schema
+
+#### `user_memory` Table
+```sql
+CREATE TABLE user_memory (
+  id UUID PRIMARY KEY,
+  user_id STRING INDEXED,  -- Link to user
+  key STRING,               -- Memory key (e.g., "preferred_response_length")
+  value TEXT,               -- Memory value (e.g., "concise")
+  confidence INT (0-100),   -- How reliable is this fact?
+  metadata_json JSONB,      -- Source, reasoning, etc.
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  accessed_at TIMESTAMP     -- Track usage
+);
+```
+
+#### `user_preference` Table
+```sql
+CREATE TABLE user_preference (
+  id UUID PRIMARY KEY,
+  user_id STRING UNIQUE,
+  response_style STRING,      -- "concise" | "balanced" | "detailed"
+  tone STRING,                -- "formal" | "casual" | "technical" | "friendly"
+  default_chat_mode STRING,   -- "standard" | "experimental" | "debate"
+  preferred_model STRING,     -- User's favorite model
+  dark_mode BOOLEAN,
+  show_reasoning BOOLEAN,     -- Debug output
+  auto_save_chats BOOLEAN,
+  chat_retention_days INT,    -- Auto-delete old chats
+  metadata_json JSONB,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+```
+
+#### `user_session` Table
+```sql
+CREATE TABLE user_session (
+  id UUID PRIMARY KEY,
+  user_id STRING INDEXED,
+  session_token STRING UNIQUE,  -- Device/tab identifier
+  device_id STRING,             -- Physical device ID
+  device_name STRING,
+  user_agent TEXT,
+  ip_address STRING,
+  is_active BOOLEAN,
+  last_activity_at TIMESTAMP,
+  created_at TIMESTAMP,
+  expires_at TIMESTAMP          -- 30-day expiration
+);
+```
+
+### Context Window Builder
+
+Constructs query context using priority-weighted sources:
+
+```python
+# Algorithm (priority order)
+context = []
+context += recent_messages(limit=10)           # 40% of tokens
+context += user_preferences()                   # Top-level always
+context += high_confidence_memory(min=75%)      # 20% of tokens
+context += semantic_search_results()            # 30% of tokens
+# Trim to token limit (token-aware)
+return trim_to_tokens(context, max=2048)
+```
+
+**Features:**
+- Token-aware trimming for each model
+- Recency bias (recent messages weighted higher)
+- Confidence filtering (skip low-confidence facts)
+- Semantic relevance scoring
+- Automatic model-specific token calculation
+
+### Cross-Login Persistence
+
+When users logout and login again:
+
+1. JWT decoding recovers `user_id` claim
+2. System queries `user_memory` table using `user_id`
+3. User preferences auto-loaded from `user_preference` table
+4. Chat history retrieved via `chats.user_id` filter
+5. Session continues seamlessly
+
+**Data Isolation:**
+- All queries filter by `user_id`
+- No cross-user data leakage
+- Verified in test suite (`test_cross_login_v2.py`)
+
+### Output Sanitization
+
+All LLM outputs are cleaned before returning to frontend:
+
+```python
+def sanitize_output(text):
+    # Remove internal reasoning
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    text = re.sub(r"<analysis>.*?</analysis>", "", text, flags=re.DOTALL)
+    # Remove debug tags
+    text = re.sub(r"<debug|<hidden|<scratch>.*?</.*?>", "", text)
+    # Clean whitespace
+    return text.strip()
+```
+
+**Applied to:**
+- `/api/mco/run` responses
+- `/chat/{model_id}` responses
+- All user-facing outputs
+
+### Learning & Adaptation
+
+Memory facts are created/updated via:
+
+```python
+# Add or update memory
+await add_user_memory(
+    db, user_id="user_123",
+    key="preferred_response_length",
+    value="concise",
+    confidence=90,  # 0-100
+    metadata_json={"source": "chat_interaction", "date": "2026-04-26"}
+)
+
+# Retrieve high-confidence facts
+facts = await get_user_memory(db, user_id, min_confidence=75)
+# Returns: [UserMemory(key="...", value="...", confidence=90, ...)]
+```
+
+### Testing
+
+Run comprehensive persistence tests:
+
+```bash
+# Test cross-login persistence, data isolation, memory persistence
+python test_cross_login_v2.py
+
+# Expected output:
+# ✅ ALL TESTS PASSED
+# ✓ User chats restored after re-login
+# ✓ User memory facts persist
+# ✓ User preferences persist
+# ✓ Data properly isolated between users
+# ✓ Messages retrieved correctly
+```
 
 ---
 
