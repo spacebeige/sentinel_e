@@ -1,21 +1,19 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { API_BASE } from '../config';
+import React, { useState, useEffect, useMemo } from 'react';
+
 import FigmaChatShell, { MODELS } from '../figma_shell/FigmaChatShell';
-import { getDefaultPipelineSteps } from '../engines/modeController';
-import memoryManager from '../engines/memoryManager';
+
 import { useAuthContext } from '../hooks/useAuthContext';
 import useStore from '../stores/useStore';
 import {
-  checkHealth as apiCheckHealth,
   sendStandard,
   sendExperimental,
   sendKill,
 } from '../services/api';
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 
 export default function ChatEngine() {
-  const { isAuthenticated, syncedUser } = useAuthContext();
+  useAuthContext();
   const { 
     chats, 
     messages, 
@@ -27,12 +25,12 @@ export default function ChatEngine() {
   const [mode, setMode] = useState('standard');
   const [subMode, setSubMode] = useState(null);
   const [killActive, setKillActive] = useState(false);
-  const [rounds, setRounds] = useState(3);
+  const [rounds] = useState(3);
   const [activeChatId, setActiveChatId] = useState(null);
   const [currentResult, setCurrentResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [serverStatus, setServerStatus] = useState('unknown');
-  const [sessionState, setSessionState] = useState(null);
+  const [serverStatus] = useState('unknown');
+  const [sessionState] = useState(null);
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState(MODELS[0]);
 
