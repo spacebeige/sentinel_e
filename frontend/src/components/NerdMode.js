@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import * as d3 from 'd3';
-import { Activity, BarChart3, Zap, Brain, Shield, X } from 'lucide-react';
+import { Activity, BarChart3, Zap, Brain, X } from 'lucide-react';
 import api from '../services/api';
 
 const NerdMode = ({ sessionId, onClose }) => {
