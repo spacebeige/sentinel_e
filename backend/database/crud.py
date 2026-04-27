@@ -316,21 +316,29 @@ async def add_user_memory(
         existing.value = value
         # Reinforce repeated patterns while avoiding runaway growth.
         existing.confidence = min(max(int(existing.confidence or 0) + 1, confidence), 100)
+        existing.weight = min(float(existing.weight or 1.0) + 1.0, 20.0)
+        existing.last_used = datetime.utcnow()
+        existing.recency_score = 1.0
         merged_meta = dict(existing.metadata_json or {})
         merged_meta.update(metadata_json or {})
-        merged_meta["weight"] = existing.confidence
-        merged_meta["last_used"] = datetime.utcnow().isoformat()
+        merged_meta["weight"] = existing.weight
+        merged_meta["last_used"] = existing.last_used.isoformat()
+        merged_meta["recency_score"] = existing.recency_score
         existing.metadata_json = merged_meta
         existing.updated_at = datetime.utcnow()
     else:
         meta = dict(metadata_json or {})
-        meta["weight"] = confidence
+        meta["weight"] = 1.0
         meta["last_used"] = datetime.utcnow().isoformat()
+        meta["recency_score"] = 1.0
         existing = UserMemory(
             user_id=user_id,
             key=key,
             value=value,
             confidence=confidence,
+            weight=1.0,
+            last_used=datetime.utcnow(),
+            recency_score=1.0,
             metadata_json=meta
         )
         db.add(existing)

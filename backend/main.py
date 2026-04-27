@@ -30,15 +30,18 @@ import base64
 import asyncio
 import sqlite3
 import uuid as uuid_lib
+import re
+from collections import Counter
 from contextlib import asynccontextmanager
 from typing import Optional, Dict, Any
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
-from fastapi import FastAPI, HTTPException, Depends, Form, UploadFile, File, Body, Request
+from fastapi import FastAPI, HTTPException, Depends, Form, UploadFile, File, Body, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import text
 from uuid import UUID
 
 # Add project root to path
@@ -68,6 +71,7 @@ from database.crud import (
     add_message, get_chat_messages, update_message, delete_messages_after,
     add_user_memory, get_user_memory, get_user_preferences, upsert_user_preference,
 )
+from database.models import UserMemory
 
 # ── Core Engine Imports ──────────────────────────────────────
 from sentinel.sentinel_sigma_v4 import SentinelSigmaOrchestratorV4
@@ -266,6 +270,161 @@ def _adapt_ensemble_for_pipelines(ensemble_response):
     return adapted_results, scoring_breakdown, divergence_metrics
 
 
+STOPWORDS = {
+    "the", "a", "an", "is", "it", "in", "on", "at", "to", "for",
+    "of", "and", "or", "but", "i", "you", "we", "they", "this", "that"
+}
+
+
+def extract_topics(text: str, top_n: int = 5) -> list[str]:
+    words = re.findall(r"\b[a-zA-Z]{4,}\b", str(text or "").lower())
+    filtered = [w for w in words if w not in STOPWORDS]
+    counts = Counter(filtered)
+    return [word for word, _ in counts.most_common(top_n)]
+
+
+async def update_memory_bg(user_id: str, content: str, db: Optional[AsyncSession] = None):
+    """Adaptive memory graph updater (non-fatal)."""
+    from database.connection import get_db
+
+    async def _update_with_session(session: AsyncSession):
+        topics = extract_topics(content)
+        now = datetime.utcnow()
+
+        for topic in topics:
+            result = await session.execute(
+                select(UserMemory).where(
+                    UserMemory.user_id == user_id,
+                    UserMemory.key == topic,
+                )
+            )
+            existing = result.scalars().first()
+
+            if existing:
+                existing.weight = min(float(existing.weight or 1.0) + 1.0, 20.0)
+                existing.last_used = now
+                existing.recency_score = 1.0
+                existing.value = (existing.value or content)[:300]
+            else:
+                session.add(UserMemory(
+                    user_id=user_id,
+                    key=topic,
+                    value=str(content or "")[:300],
+                    weight=1.0,
+                    last_used=now,
+                    recency_score=1.0,
+                    confidence=1,
+                ))
+
+        cutoff = now - timedelta(days=7)
+        stale_result = await session.execute(
+            select(UserMemory).where(
+                UserMemory.user_id == user_id,
+                UserMemory.last_used < cutoff,
+            )
+        )
+        stale_entries = stale_result.scalars().all()
+        for entry in stale_entries:
+            entry.recency_score = max(float(entry.recency_score or 1.0) * 0.85, 0.05)
+            if float(entry.recency_score or 0.0) < 0.1 and float(entry.weight or 1.0) < 2.0:
+                await session.delete(entry)
+
+        await session.commit()
+
+    try:
+        if db is not None:
+            try:
+                await _update_with_session(db)
+                return
+            except Exception:
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+
+        async for fresh_db in get_db():
+            try:
+                await _update_with_session(fresh_db)
+            except Exception:
+                await fresh_db.rollback()
+                raise
+            break
+    except Exception as e:
+        logger.warning(f"[memory_bg] non-fatal error: {e}")
+
+
+async def safe_pinecone_query(index, **kwargs) -> list:
+    try:
+        result = await asyncio.to_thread(index.query, **kwargs)
+        return list(getattr(result, "matches", []) or [])
+    except Exception as e:
+        logger.warning(f"[pinecone] non-fatal: {e}")
+        return []
+
+
+async def safe_pinecone_upsert(index, vectors: list) -> None:
+    try:
+        await asyncio.to_thread(index.upsert, vectors=vectors)
+    except Exception as e:
+        logger.warning(f"[pinecone] upsert non-fatal: {e}")
+
+
+async def safe_build_context(db: AsyncSession, user_id: str, chat_id: Any, query: str) -> Dict[str, Any]:
+    try:
+        builder = get_context_builder()
+        return await builder.build_context(db, user_id, chat_id, query)
+    except Exception as e:
+        logger.warning(f"[context] non-fatal: {e}")
+        return {
+            "context_str": "",
+            "system_instructions": "",
+            "recent_history": [],
+            "context": "",
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+
+async def safe_memory_update(user_id: str, content: str, db: Optional[AsyncSession] = None) -> None:
+    try:
+        await update_memory_bg(user_id, content, db)
+    except Exception as e:
+        logger.warning(f"[memory] non-fatal: {e}")
+
+
+async def _startup_optional_systems_check() -> Dict[str, bool]:
+    systems = {"db": False, "pinecone": False, "memory": False}
+
+    # DB is critical.
+    try:
+        async for db in get_db():
+            await db.execute(text("SELECT 1"))
+            systems["db"] = True
+            break
+    except Exception as e:
+        logger.error(f"[startup] DB FAILED — this is critical: {e}")
+        raise
+
+    # Pinecone/vector service is optional.
+    try:
+        from utils.vector_service import get_vector_service
+        _ = get_vector_service()
+        systems["pinecone"] = True
+    except Exception as e:
+        logger.warning(f"[startup] Pinecone unavailable (non-fatal): {e}")
+
+    # Memory table availability is optional.
+    try:
+        async for db in get_db():
+            await db.execute(select(UserMemory).limit(1))
+            systems["memory"] = True
+            break
+    except Exception as e:
+        logger.warning(f"[startup] Memory table unavailable (non-fatal): {e}")
+
+    logger.info(f"[startup] System status: {systems}")
+    return systems
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global orchestrator, omega_kernel, knowledge_learner, cognitive_rag, analytics_engine
@@ -296,6 +455,9 @@ async def lifespan(app: FastAPI):
     except (asyncio.TimeoutError, Exception) as e:
         logger.warning(f"Redis check timed out or failed (non-fatal): {e}")
     await asyncio.to_thread(_ensure_session_sqlite_table)
+
+    # Optional-system availability check (DB fatal, others non-fatal)
+    await _startup_optional_systems_check()
 
     # Initialize Firebase Admin SDK
     firebase_service = await asyncio.to_thread(get_firebase_service)
@@ -775,7 +937,6 @@ async def _evolve_memory_graph_bg(user_id: str, user_text: str, assistant_text: 
     except Exception as e:
         logger.debug(f"Adaptive memory evolution skipped/failed: {e}")
 
-+
 SAFE_FALLBACK_ANSWER = (
     "I’m here and ready to help. I hit a temporary processing issue, "
     "so I’m returning a safe response while preserving your session history. "
@@ -842,6 +1003,7 @@ async def _run_sentinel_core(
     db: AsyncSession,
     user_id: str,
     frontend_context: Optional[str] = None,
+    background_tasks: Optional[BackgroundTasks] = None,
 ):
     """
     Core execution logic for all Sentinel run endpoints.
@@ -900,9 +1062,12 @@ async def _run_sentinel_core(
             return api_error(f"Session validation failed: {e}", status_code=403)
     
         memory.add_message("user", effective_text)
-        
-        # Trigger background memory extraction
-        asyncio.create_task(_extract_memory_bg(user_id, effective_text))
+
+        # Trigger optional memory updates without blocking the response.
+        if background_tasks is not None:
+            background_tasks.add_task(safe_memory_update, user_id, effective_text, db)
+        else:
+            asyncio.create_task(safe_memory_update(user_id, effective_text, None))
     
         # ── Conversation History ─────────────────────────────────
         history = []
@@ -944,9 +1109,8 @@ async def _run_sentinel_core(
     
         # ── Context Builder Injection ─────────────────────────────
         try:
-            builder = get_context_builder()
-            context_bundle = await builder.build_context(db, user_id, chat.id, effective_text)
-            
+            context_bundle = await safe_build_context(db, user_id, chat.id, effective_text)
+
             history = context_bundle.get("recent_history", [])
             system_instructions = context_bundle.get("system_instructions", "")
             
@@ -1793,12 +1957,13 @@ async def _run_sentinel_core(
 async def run_sentinel(
     request: SentinelRequest,
     raw_request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     frontend_context: Optional[str] = None,
 ):
     """Main entry point for Sentinel execution (JSON body)."""
     user_id = await get_user_id(raw_request)
-    return await _run_sentinel_core(request, db, user_id, frontend_context)
+    return await _run_sentinel_core(request, db, user_id, frontend_context, background_tasks)
 
 
 
@@ -1836,8 +2001,7 @@ async def run_compressed_api(
 
         # ── Context Injection ─────────────────────────────────────
         try:
-            builder = get_context_builder()
-            context_bundle = await builder.build_context(db, user_id, chat.id, effective_text)
+            context_bundle = await safe_build_context(db, user_id, chat.id, effective_text)
             instructions = context_bundle.get("system_instructions", "")
             if instructions:
                 effective_text = f"{instructions}\n\nUser: {effective_text}"
@@ -2337,12 +2501,28 @@ async def history_alias(
 
         if not user:
             logger.info("/api/history unauthenticated request — returning empty history")
-            return api_success({"chats": [], "messages": []})
+            return api_success({
+                "chats": [],
+                "messages": [],
+                "metadata": {
+                    "total_chats": 0,
+                    "total_messages": 0,
+                    "fetched_at": datetime.utcnow().isoformat(),
+                },
+            })
 
         user_id = user.get("user_id")
         if not user_id:
             logger.warning("/api/history missing user_id in optional user payload")
-            return api_success({"chats": [], "messages": []})
+            return api_success({
+                "chats": [],
+                "messages": [],
+                "metadata": {
+                    "total_chats": 0,
+                    "total_messages": 0,
+                    "fetched_at": datetime.utcnow().isoformat(),
+                },
+            })
         logger.info("auth user_id=%s", user_id)
 
         chats = await list_chats(db, user_id, limit, offset)
@@ -2394,6 +2574,9 @@ async def history_alias(
         for m in messages:
             try:
                 msg_payload = MessageSchema.model_validate(m).model_dump(mode="json")
+                # Never return base64 blobs in history list payloads.
+                msg_payload.pop("image_b64", None)
+                msg_payload.pop("image_mime", None)
                 msg_payload["image_url"] = ((m.metadata_json or {}).get("image_url") if isinstance(m.metadata_json, dict) else None)
                 serialized_messages.append(msg_payload)
             except Exception as e:
@@ -2405,7 +2588,6 @@ async def history_alias(
                         "user_id": m.user_id,
                         "role": m.role,
                         "content": m.content or "",
-                        "image_b64": m.image_b64,
                         "image_url": (m.metadata_json or {}).get("image_url") if isinstance(m.metadata_json, dict) else None,
                         "reasoning_json": m.reasoning_json,
                         "metadata_json": m.metadata_json,
@@ -2417,11 +2599,24 @@ async def history_alias(
         return api_success({
             "chats": serialized_chats,
             "messages": serialized_messages,
+            "metadata": {
+                "total_chats": len(serialized_chats),
+                "total_messages": len(serialized_messages),
+                "fetched_at": datetime.utcnow().isoformat(),
+            },
         })
     except Exception as exc:
         logger.error(f"Unhandled /api/history error: {exc}", exc_info=True)
         logger.warning("history status db=fail op=history_alias")
-        return api_success({"chats": [], "messages": []})
+        return api_success({
+            "chats": [],
+            "messages": [],
+            "metadata": {
+                "total_chats": 0,
+                "total_messages": 0,
+                "fetched_at": datetime.utcnow().isoformat(),
+            },
+        })
 
 
 

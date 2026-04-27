@@ -166,6 +166,24 @@ async def init_db():
             await conn.execute(text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_b64 TEXT"))
             await conn.execute(text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS reasoning_json JSONB"))
             await conn.execute(text("ALTER TABLE messages ADD COLUMN IF NOT EXISTS metadata_json JSONB"))
+            await conn.execute(text("ALTER TABLE user_memory ADD COLUMN IF NOT EXISTS weight FLOAT DEFAULT 1.0"))
+            await conn.execute(text("ALTER TABLE user_memory ADD COLUMN IF NOT EXISTS last_used TIMESTAMP DEFAULT NOW()"))
+            await conn.execute(text("ALTER TABLE user_memory ADD COLUMN IF NOT EXISTS recency_score FLOAT DEFAULT 1.0"))
+
+            # SQLite fallback path (IF NOT EXISTS unsupported on older sqlite builds)
+            if conn.dialect.name == "sqlite":
+                try:
+                    await conn.execute(text("ALTER TABLE user_memory ADD COLUMN weight REAL DEFAULT 1.0"))
+                except Exception:
+                    pass
+                try:
+                    await conn.execute(text("ALTER TABLE user_memory ADD COLUMN last_used TEXT DEFAULT (datetime('now'))"))
+                except Exception:
+                    pass
+                try:
+                    await conn.execute(text("ALTER TABLE user_memory ADD COLUMN recency_score REAL DEFAULT 1.0"))
+                except Exception:
+                    pass
             
             # 3. Create indices for performance and isolation
             await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_chats_user_id ON chats(user_id)"))

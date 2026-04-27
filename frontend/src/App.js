@@ -37,22 +37,43 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './hooks/useAuthContext';
 import useStore from './stores/useStore';
 import { useAuth } from '@clerk/clerk-react';
+import { API_BASE } from './config';
 
 function SessionInitializer({ children }) {
   const { isLoaded, isSignedIn, userId } = useAuth();
   const reloadHistory = useStore(state => state.reloadHistory);
-  const resetForNewUser = useStore(state => state.resetForNewUser);
+  const setUserId = useStore(state => state.setUserId);
+  const clearSession = useStore(state => state.clearSession);
+  const storeUserId = useStore(state => state.userId);
+  const storeIsLoaded = useStore(state => state.isLoaded);
+
+  React.useEffect(() => {
+    // Fire-and-forget wakeup ping for Render free-tier cold starts.
+    fetch(`${API_BASE}/health`).catch(() => {});
+  }, []);
+
   React.useEffect(() => {
     if (!isLoaded) return;
     if (!userId && isSignedIn) return;
+
     if (isSignedIn) {
-      // Always reload from server on sign-in (not from stale localStorage)
-      reloadHistory();
+      const switchedUsers = !!storeUserId && storeUserId !== userId;
+      if (switchedUsers) {
+        clearSession();
+      }
+
+      setUserId(userId);
+
+      // Bootstrap from API if we don't already have hydrated state for this user.
+      if (switchedUsers || !storeIsLoaded) {
+        reloadHistory();
+      }
     } else {
-      // Clear state on sign-out so next user starts fresh
-      resetForNewUser();
+      // Preserve cached history across logout/login to avoid UI wipeouts.
+      // If a different user signs in, switchedUsers branch above clears it safely.
+      setUserId(null);
     }
-  }, [isLoaded, isSignedIn, userId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isLoaded, isSignedIn, userId, reloadHistory, setUserId, clearSession, storeUserId, storeIsLoaded]);
 
   return children;
 }
