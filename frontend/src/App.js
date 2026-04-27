@@ -42,8 +42,6 @@ function SessionInitializer({ children }) {
   const { isLoaded, isSignedIn } = useAuth();
   const reloadHistory = useStore(state => state.reloadHistory);
   const resetForNewUser = useStore(state => state.resetForNewUser);
-  const isInitialized = useStore(state => state.isInitialized);
-
   React.useEffect(() => {
     if (!isLoaded) return;
     if (isSignedIn) {

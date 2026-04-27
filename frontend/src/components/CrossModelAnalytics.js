@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { API_BASE } from '../config';
 import {
-  Shield, Activity, Brain, AlertTriangle, Eye, Skull,
+  Shield, Brain, AlertTriangle, Eye,
   ChevronDown, ChevronUp, Loader2, RefreshCw, Users,
   ArrowRight, CheckCircle2, XCircle, Clock
 } from 'lucide-react';
 
-/* ─── Helpers ───────────────────────────────────────────────────── */
-const pct = v => v != null ? `${(v * 100).toFixed(0)}%` : '—';
 const fixed2 = v => v != null ? Number(v).toFixed(2) : '—';
-import { API_BASE } from '../config';
 
 const riskColor = (level) => {
   const l = (level || '').toUpperCase();
@@ -33,12 +31,6 @@ const MODEL_COLORS = {
   qwenvl: '#06b6d4',
 };
 
-const MODEL_LABELS = {
-  groq: 'Groq (LLaMA 3.1)',
-  llama70b: 'Llama 3.3 70B',
-  qwen: 'Qwen 2.5',
-  qwenvl: 'QwenVL',
-};
 
 /* ─── Score Bar ─────────────────────────────────────────────────── */
 const ScoreBar = ({ label, score, compact = false }) => {
