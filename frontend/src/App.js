@@ -46,6 +46,7 @@ function SessionInitializer({ children }) {
   const clearSession = useStore(state => state.clearSession);
   const storeUserId = useStore(state => state.userId);
   const storeIsLoaded = useStore(state => state.isLoaded);
+  const hasHydrated = useStore(state => state.hasHydrated);
 
   React.useEffect(() => {
     // Fire-and-forget wakeup ping for Render free-tier cold starts.
@@ -53,6 +54,7 @@ function SessionInitializer({ children }) {
   }, []);
 
   React.useEffect(() => {
+    if (!hasHydrated) return;
     if (!isLoaded) return;
     if (!userId && isSignedIn) return;
 
@@ -64,7 +66,8 @@ function SessionInitializer({ children }) {
 
       setUserId(userId);
 
-      // Bootstrap from API if we don't already have hydrated state for this user.
+      // Render cached chats immediately (from persist); then reconcile with API.
+      // Only fetch after hydration + userId availability.
       if (switchedUsers || !storeIsLoaded) {
         reloadHistory();
       }
@@ -73,7 +76,11 @@ function SessionInitializer({ children }) {
       // If a different user signs in, switchedUsers branch above clears it safely.
       setUserId(null);
     }
-  }, [isLoaded, isSignedIn, userId, reloadHistory, setUserId, clearSession, storeUserId, storeIsLoaded]);
+  }, [hasHydrated, isLoaded, isSignedIn, userId, reloadHistory, setUserId, clearSession, storeUserId, storeIsLoaded]);
+
+  if (!hasHydrated) {
+    return null;
+  }
 
   return children;
 }
