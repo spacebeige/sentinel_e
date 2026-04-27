@@ -254,8 +254,9 @@ async def mco_run(
         logger.error("Unhandled error in /api/mco/run: %s", exc)
         logger.error(traceback.format_exc())
         fallback_text = (
-            "MCO execution degraded due to backend persistence/runtime issue. "
-            "Please retry in a moment."
+            "I’m still available and your session is intact. "
+            "A temporary backend issue occurred, so this is a safe fallback response. "
+            "Please retry your request."
         )
         safe_payload = {
             "mode": payload.get("mode", "standard") if isinstance(payload, dict) else "standard",
@@ -319,7 +320,7 @@ async def _mco_run_impl(
     chat = None
     if chat_id:
         try:
-            chat = await get_chat(db, UUID(chat_id))
+            chat = await get_chat(db, UUID(chat_id), user_id=user.get("user_id"))
         except (ValueError, Exception):
             pass
 
@@ -330,7 +331,15 @@ async def _mco_run_impl(
             user_id=user["user_id"],
         )
 
-    await add_message(db, chat.id, "user", query, image_b64=image_b64, image_mime=image_mime)
+    await add_message(
+        db,
+        chat.id,
+        user.get("user_id", "anonymous"),
+        "user",
+        query,
+        image_b64=image_b64,
+        image_mime=image_mime,
+    )
 
     # Build user-aware context before any model execution
     contextual_query = query
@@ -447,7 +456,14 @@ async def _mco_run_impl(
             })
 
             # Persist
-            await add_message(db, chat.id, "assistant", formatted_output, reasoning_json=omega_metadata)
+            await add_message(
+                db,
+                chat.id,
+                user.get("user_id", "anonymous"),
+                "assistant",
+                formatted_output,
+                reasoning_json=omega_metadata,
+            )
             await update_chat_metadata(
                 db, chat.id,
                 priority_answer=formatted_output,
@@ -575,7 +591,14 @@ async def _mco_run_impl(
                         "fast_path": True,
                         "context_builder": context_meta,
                     }
-                    await add_message(db, chat.id, "assistant", answer, reasoning_json=omega_metadata)
+                    await add_message(
+                        db,
+                        chat.id,
+                        user.get("user_id", "anonymous"),
+                        "assistant",
+                        answer,
+                        reasoning_json=omega_metadata,
+                    )
                     logger.info(f"Fast-path complete in {_elapsed:.0f}ms via {fast_model}")
                     fast_result = {
                         "chat_id": str(chat.id),
@@ -981,7 +1004,14 @@ async def _mco_run_impl(
         }
 
     # Persist assistant response
-    await add_message(db, chat.id, "assistant", response.aggregated_answer, reasoning_json=omega_metadata)
+    await add_message(
+        db,
+        chat.id,
+        user.get("user_id", "anonymous"),
+        "assistant",
+        response.aggregated_answer,
+        reasoning_json=omega_metadata,
+    )
     await update_chat_metadata(
         db, chat.id,
         priority_answer=response.aggregated_answer,

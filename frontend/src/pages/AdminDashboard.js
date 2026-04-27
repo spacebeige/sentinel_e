@@ -36,17 +36,17 @@ const AdminDashboard = () => {
     try {
       setError(null);
 
-      const [statsRes, archRes, analyticsRes, feedbackRes] = await Promise.all([
-        axios.get(`${API_BASE}/api/admin/system/stats`, { withCredentials: true }).catch(() => ({ status: 500 })),
-        axios.get(`${API_BASE}/api/admin/system/architecture`, { withCredentials: true }).catch(() => ({ status: 500 })),
-        axios.get(`${API_BASE}/api/admin/web-analytics?days=7`, { withCredentials: true }).catch(() => ({ status: 500 })),
-        axios.get(`${API_BASE}/api/admin/feedback-summary`, { withCredentials: true }).catch(() => ({ status: 500 })),
+      const [statsRes, archRes, analyticsRes, feedbackRes] = await Promise.allSettled([
+        axios.get(`${API_BASE}/api/admin/system/stats`, { withCredentials: true }),
+        axios.get(`${API_BASE}/api/admin/system/architecture`, { withCredentials: true }),
+        axios.get(`${API_BASE}/api/admin/web-analytics?days=7`, { withCredentials: true }),
+        axios.get(`${API_BASE}/api/admin/feedback-summary`, { withCredentials: true }),
       ]);
 
-      if (statsRes.data) setSystemStats(statsRes.data);
-      if (archRes.data) setArchitecture(archRes.data);
-      if (analyticsRes.data) setAnalytics(analyticsRes.data);
-      if (feedbackRes.data) setFeedback(feedbackRes.data);
+      if (statsRes.status === 'fulfilled' && statsRes.value?.data) setSystemStats(statsRes.value.data);
+      if (archRes.status === 'fulfilled' && archRes.value?.data) setArchitecture(archRes.value.data);
+      if (analyticsRes.status === 'fulfilled' && analyticsRes.value?.data) setAnalytics(analyticsRes.value.data);
+      if (feedbackRes.status === 'fulfilled' && feedbackRes.value?.data) setFeedback(feedbackRes.value.data);
     } catch (err) {
       setError('Failed to load admin data');
     } finally {

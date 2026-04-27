@@ -725,6 +725,66 @@ async def _extract_memory_bg(user_id: str, user_text: str):
         logger.debug(f"Background memory extraction skipped/failed: {e}")
 
 
+SAFE_FALLBACK_ANSWER = (
+    "I’m here and ready to help. I hit a temporary processing issue, "
+    "so I’m returning a safe response while preserving your session history. "
+    "Please retry your request."
+)
+
+
+def _dedupe_and_cap_history(history: list, limit: int) -> list:
+    """Deterministic history cleanup: drop empties/dupes and cap size."""
+    seen = set()
+    cleaned = []
+    for item in history or []:
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or "user")
+        content = str(item.get("content") or "").strip()
+        if not content:
+            continue
+        key = (role, content)
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append({"role": role, "content": content})
+    return cleaned[-max(limit, 1):]
+
+
+async def _safe_add_message(
+    db: AsyncSession,
+    chat_id,
+    user_id: str,
+    role: str,
+    content: str,
+    **kwargs,
+):
+    """Best-effort persistence wrapper: never raises outward."""
+    try:
+        return await add_message(db, chat_id, user_id, role, content, **kwargs)
+    except Exception as e:
+        logger.warning(f"Safe add_message fallback triggered for chat {chat_id}: {e}")
+        return None
+
+
+def _build_safe_api_payload(chat_id: str, mode: str, sub_mode: Optional[str], message: str, error_code: str):
+    safe_text = sanitize_output(message)
+    return {
+        "chat_id": chat_id,
+        "mode": mode,
+        "sub_mode": sub_mode,
+        "formatted_output": safe_text,
+        "data": {"priority_answer": safe_text},
+        "confidence": 0.2,
+        "session_state": {},
+        "boundary_result": {"risk_level": "LOW", "severity_score": 5},
+        "omega_metadata": {
+            "fallback": True,
+            "error": error_code,
+        },
+    }
+
+
 # ── Shared core — called by /api/run route and all form shims ────────────────
 async def _run_sentinel_core(
     request: "SentinelRequest",
@@ -769,8 +829,15 @@ async def _run_sentinel_core(
             chat_name = generate_chat_name(effective_text, request.mode)
             chat = await create_chat(db, chat_name, request.mode, user_id=user_id)
 
-        await add_message(db, chat.id, user_id, "user", effective_text,
-                          image_b64=request.image_b64, image_mime=request.image_mime)
+        await _safe_add_message(
+            db,
+            chat.id,
+            user_id,
+            "user",
+            effective_text,
+            image_b64=request.image_b64,
+            image_mime=request.image_mime,
+        )
 
         # ── Session & Memory ─────────────────────────────────────
         kernel, memory = await _get_session(str(chat.id), user_id)
@@ -836,7 +903,9 @@ async def _run_sentinel_core(
         except Exception as e:
             logger.warning(f"Context builder failed: {e} - falling back to recent history")
             # history already contains recent messages from line 791
-            context_bundle = {"context_str": ""}
+            context_bundle = {"context_str": "", "system_instructions": "", "recent_history": history}
+
+        history = _dedupe_and_cap_history(history, settings.SHORT_TERM_MEMORY_SIZE)
 
         # ── Agentic Layer ────────────────────────────────────────
         if getattr(request, "agentic", False):
@@ -846,7 +915,7 @@ async def _run_sentinel_core(
                 agent_res = await orchestrator_agent.run(user_id, str(chat.id), effective_text, context_bundle.get("context_str", ""))
                 
                 formatted_output = sanitize_output(agent_res["formatted_output"])
-                await add_message(db, chat.id, user_id, "assistant", formatted_output)
+                await _safe_add_message(db, chat.id, user_id, "assistant", formatted_output)
                 return api_success({
                     "chat_id": str(chat.id),
                     "formatted_output": formatted_output,
@@ -1011,7 +1080,7 @@ async def _run_sentinel_core(
                 formatted_output = sanitize_output(raw_output)
                 confidence = 0.8  # Single model — no ensemble calibration
     
-                await add_message(db, chat.id, user_id, "assistant", formatted_output)
+                await _safe_add_message(db, chat.id, user_id, "assistant", formatted_output)
                 memory.add_message("assistant", formatted_output)
                 await _persist_session(str(chat.id), kernel, memory)
     
@@ -1120,7 +1189,7 @@ async def _run_sentinel_core(
                 formatted_output = sanitize_output(raw_output)
                 confidence = 0.7
     
-                await add_message(db, chat.id, user_id, "assistant", formatted_output)
+                await _safe_add_message(db, chat.id, user_id, "assistant", formatted_output)
                 memory.add_message("assistant", formatted_output)
                 await _persist_session(str(chat.id), kernel, memory)
     
@@ -1378,7 +1447,7 @@ async def _run_sentinel_core(
                 except Exception:
                     pass
     
-                await add_message(db, chat.id, user_id, "assistant", formatted_output)
+                await _safe_add_message(db, chat.id, user_id, "assistant", formatted_output)
     
                 response_payload = {
                     **payload,
@@ -1445,8 +1514,20 @@ async def _run_sentinel_core(
     
         # ── Execute (Legacy) ─────────────────────────────────────
         tracer.start_span("kernel")
-        result = await kernel.process(config)
-        kernel_latency = tracer.end_span("kernel")
+        try:
+            result = await kernel.process(config)
+            kernel_latency = tracer.end_span("kernel")
+        except Exception as kernel_err:
+            logger.error(f"Legacy kernel execution failed: {kernel_err}", exc_info=True)
+            fallback_payload = _build_safe_api_payload(
+                chat_id=str(chat.id),
+                mode=omega_mode,
+                sub_mode=sub_mode,
+                message=SAFE_FALLBACK_ANSWER,
+                error_code="kernel_execution_failed",
+            )
+            await _safe_add_message(db, chat.id, user_id, "assistant", fallback_payload["formatted_output"])
+            return api_success(fallback_payload)
     
         # ── Extract & Build Response (Legacy) ────────────────────
         formatted_output = sanitize_output(result.get("formatted_output", ""))
@@ -1571,7 +1652,7 @@ async def _run_sentinel_core(
         except Exception:
             pass
     
-        await add_message(db, chat.id, user_id, "assistant", formatted_output)
+        await _safe_add_message(db, chat.id, user_id, "assistant", formatted_output)
     
         # ── Rolling Summary Check ────────────────────────────────
         if memory.needs_summarization():
@@ -1635,7 +1716,21 @@ async def _run_sentinel_core(
 
     except Exception as e:
         logger.error(f"CRITICAL ERROR in _run_sentinel_core: {e}", exc_info=True)
-        return api_error(str(e), status_code=500)
+        fallback_chat = locals().get("chat")
+        fallback_chat_id = str(fallback_chat.id) if fallback_chat else str(getattr(request, "chat_id", "") or "")
+        fallback_mode = str(getattr(request, "mode", "standard") or "standard")
+        fallback_sub_mode = getattr(request, "sub_mode", None)
+
+        payload = _build_safe_api_payload(
+            chat_id=fallback_chat_id,
+            mode=fallback_mode,
+            sub_mode=fallback_sub_mode,
+            message=SAFE_FALLBACK_ANSWER,
+            error_code="core_runtime_error",
+        )
+        if fallback_chat and user_id:
+            await _safe_add_message(db, fallback_chat.id, user_id, "assistant", payload["formatted_output"])
+        return api_success(payload)
 
 
 # ============================================================
@@ -1685,7 +1780,7 @@ async def run_compressed_api(
             chat_name = generate_chat_name(effective_text, "compressed")
             chat = await create_chat(db, chat_name, "compressed", user_id=user_id)
 
-        await add_message(db, chat.id, user_id, "user", effective_text)
+        await _safe_add_message(db, chat.id, user_id, "user", effective_text)
 
         # ── Context Injection ─────────────────────────────────────
         try:
@@ -1701,7 +1796,7 @@ async def run_compressed_api(
         result = await run_compressed_pipeline(query=effective_text, session_id=str(chat.id))
         
         formatted = sanitize_output(result.get("formatted_output", ""))
-        await add_message(db, chat.id, user_id, "assistant", formatted)
+        await _safe_add_message(db, chat.id, user_id, "assistant", formatted)
 
         return api_success({
             "chat_id": str(chat.id),
