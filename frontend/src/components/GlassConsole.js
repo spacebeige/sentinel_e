@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Skull, Shield, Brain, AlertTriangle } from 'lucide-react';
+import { Eye, Skull, Shield } from 'lucide-react';
 import FeedbackButton from './FeedbackButton';
 
 const pct = v => v != null ? `${(v * 100).toFixed(0)}%` : '—';
