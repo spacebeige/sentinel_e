@@ -11,6 +11,7 @@ import uuid
 import asyncio
 
 logger = logging.getLogger("CRUD")
+MAX_MESSAGE_CONTENT_LENGTH = 16000
 
 
 # ── User CRUD ────────────────────────────────────────────────
@@ -137,11 +138,12 @@ async def add_message(
     image_mime: Optional[str] = None,
     reasoning_json: Optional[dict] = None,
     metadata_json: Optional[dict] = None
-) -> Message:
+) -> Optional[Message]:
     """Insert message with safe fallback: retry minimal write on JSON-field failure."""
     # Ensure content is always a clean string
     if not isinstance(content, str):
         content = str(content) if content is not None else ""
+    content = content[:MAX_MESSAGE_CONTENT_LENGTH]
 
     try:
         new_message = Message(
@@ -171,7 +173,7 @@ async def add_message(
             chat_id=chat_id,
             user_id=user_id,
             role=role,
-            content=content[:4000],  # safety truncation
+            content=content[:4000],  # stricter fallback truncation
             image_b64=None,
             reasoning_json=None,
             metadata_json=None,
@@ -183,10 +185,18 @@ async def add_message(
             )
         except Exception:
             pass
-        await db.commit()
-        await db.refresh(minimal_message)
-        logger.info(f"add_message minimal fallback succeeded for chat {chat_id}")
-        return minimal_message
+        try:
+            await db.commit()
+            await db.refresh(minimal_message)
+            logger.info(f"add_message minimal fallback succeeded for chat {chat_id}")
+            return minimal_message
+        except Exception as minimal_err:
+            logger.error(f"add_message minimal fallback failed for chat {chat_id}: {minimal_err}")
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+            return None
 
 
 async def get_chat_messages(db: AsyncSession, chat_id: UUID, user_id: Optional[str] = None) -> List[Message]:

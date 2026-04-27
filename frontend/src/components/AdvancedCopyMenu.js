@@ -67,6 +67,33 @@ export default function AdvancedCopyMenu({ message, className = '' }) {
   }, []);
 
   // ── Copy handler (stable ref via useCallback) ─────────────────
+  const safeClipboardCopy = useCallback(async (text) => {
+    const normalizedText = normalizeResponseText(String(text ?? ''));
+    const copyText = normalizedText || '';
+
+    try {
+      await navigator.clipboard.writeText(copyText);
+      return true;
+    } catch {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = copyText;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return ok;
+      } catch {
+        return false;
+      }
+    }
+  }, []);
+
   const handleCopy = useCallback(
     async (type) => {
       let text = '';
@@ -108,13 +135,13 @@ export default function AdvancedCopyMenu({ message, className = '' }) {
           text = safeContent;
       }
 
-      try {
-        await navigator.clipboard.writeText(text);
+      const copied = await safeClipboardCopy(text);
+      if (copied) {
         setCopiedType(type);
         setError(null);
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => setCopiedType(null), CONFIRMATION_MS);
-      } catch {
+      } else {
         setError('Clipboard access denied');
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => setError(null), CONFIRMATION_MS);
@@ -122,7 +149,7 @@ export default function AdvancedCopyMenu({ message, className = '' }) {
 
       setOpen(false);
     },
-    [safeContent, codeBlocks, safeCitations, message?.raw_output],
+    [safeContent, codeBlocks, safeCitations, message?.raw_output, safeClipboardCopy],
   );
 
   // ── Menu items ────────────────────────────────────────────────
