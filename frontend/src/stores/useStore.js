@@ -31,6 +31,7 @@ const useStore = create(
         if (get().isLoading) return;
         set({ isLoading: true, error: null });
         try {
+          const prev = get();
           const results = await Promise.allSettled([
             api.get('/api/history'),
             api.get('/api/user/memory'),
@@ -47,9 +48,12 @@ const useStore = create(
             ? (results[2].value?.data ?? results[2].value ?? {})
             : {};
 
+          const hasValidChats = Array.isArray(historyData?.chats) && historyData.chats.length > 0;
+          const hasValidMessages = Array.isArray(historyData?.messages) && historyData.messages.length > 0;
+
           set({
-            chats: Array.isArray(historyData?.chats) ? historyData.chats : [],
-            messages: Array.isArray(historyData?.messages) ? historyData.messages : [],
+            chats: hasValidChats ? historyData.chats : prev.chats,
+            messages: hasValidMessages ? historyData.messages : prev.messages,
             memory: Array.isArray(memoryData) ? memoryData : [],
             preferences: prefsData || {},
             isInitialized: true,

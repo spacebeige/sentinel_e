@@ -4,6 +4,9 @@ import json
 import asyncio
 import logging
 from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger("VectorService")
+
 try:
     from pinecone import Pinecone
     PINECONE_AVAILABLE = True
@@ -13,8 +16,6 @@ except ImportError:
 
 from google import genai
 import redis.asyncio as redis
-
-logger = logging.getLogger("VectorService")
 
 class VectorService:
     _instance = None
@@ -99,6 +100,7 @@ class VectorService:
     async def upsert(self, namespace: str, items: List[Dict[str, Any]]):
         """Upsert items to Pinecone namespace."""
         if not self.index:
+            logger.info("vector status pinecone=skip op=upsert reason=index_unavailable")
             return
         
         try:
@@ -107,12 +109,15 @@ class VectorService:
                 vectors=items,
                 namespace=namespace
             )
+            logger.info("vector status pinecone=success op=upsert namespace=%s count=%s", namespace, len(items or []))
         except Exception as e:
             logger.error(f"Pinecone upsert failed in {namespace}: {e}")
+            logger.warning("vector status pinecone=fail op=upsert namespace=%s", namespace)
 
     async def query(self, namespace: str, vector: List[float], top_k: int = 5, filter: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """Query Pinecone namespace."""
         if not self.index or not vector:
+            logger.info("vector status pinecone=skip op=query reason=index_or_vector_unavailable namespace=%s", namespace)
             return []
         
         try:
@@ -124,6 +129,7 @@ class VectorService:
                 filter=filter,
                 include_metadata=True
             )
+            logger.info("vector status pinecone=success op=query namespace=%s top_k=%s", namespace, top_k)
             return [
                 {
                     "id": m["id"],
@@ -134,6 +140,7 @@ class VectorService:
             ]
         except Exception as e:
             logger.error(f"Pinecone query failed in {namespace}: {e}")
+            logger.warning("vector status pinecone=fail op=query namespace=%s", namespace)
             return []
 
 def get_vector_service() -> VectorService:

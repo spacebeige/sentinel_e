@@ -725,6 +725,57 @@ async def _extract_memory_bg(user_id: str, user_text: str):
         logger.debug(f"Background memory extraction skipped/failed: {e}")
 
 
+async def _evolve_memory_graph_bg(user_id: str, user_text: str, assistant_text: str = ""):
+    """Lightweight adaptive memory evolution: topics, preferences, corrections."""
+    try:
+        from database.connection import get_db
+        from database.crud import add_user_memory
+
+        def _topics(text: str):
+            stop = {
+                "the", "a", "an", "and", "or", "to", "of", "in", "on", "for", "with", "is", "are",
+                "this", "that", "it", "as", "at", "by", "from", "i", "you", "we", "they",
+            }
+            parts = [w.strip(".,:;!?()[]{}\"'").lower() for w in str(text or "").split()]
+            return [w for w in parts if len(w) > 2 and w not in stop][:10]
+
+        merged_text = f"{user_text}\n{assistant_text}".strip()
+        topics = _topics(merged_text)
+
+        preference_pairs = []
+        lowered = str(user_text or "").lower()
+        if "please" in lowered and ("concise" in lowered or "brief" in lowered):
+            preference_pairs.append(("response_style", "concise"))
+        if "step by step" in lowered:
+            preference_pairs.append(("response_format", "step_by_step"))
+        if "instead" in lowered or "correct" in lowered:
+            preference_pairs.append(("correction_pattern", str(user_text)[:200]))
+
+        async for db in get_db():
+            for topic in topics:
+                await add_user_memory(
+                    db,
+                    user_id,
+                    key=f"topic:{topic}",
+                    value=topic,
+                    confidence=70,
+                    metadata_json={"type": "topic", "source": "adaptive_learning"},
+                )
+
+            for k, v in preference_pairs:
+                await add_user_memory(
+                    db,
+                    user_id,
+                    key=f"pref:{k}",
+                    value=v,
+                    confidence=80,
+                    metadata_json={"type": "preference", "source": "adaptive_learning"},
+                )
+            break
+    except Exception as e:
+        logger.debug(f"Adaptive memory evolution skipped/failed: {e}")
+
++
 SAFE_FALLBACK_ANSWER = (
     "I’m here and ready to help. I hit a temporary processing issue, "
     "so I’m returning a safe response while preserving your session history. "
@@ -799,6 +850,7 @@ async def _run_sentinel_core(
     try:
         if not user_id:
             return api_error("Authentication required", status_code=401)
+        logger.info("auth user_id=%s", user_id)
         if not orchestrator:
             return api_error("System initializing. Please retry.", status_code=503)
 
@@ -2197,15 +2249,16 @@ async def feedback_endpoint(
 ):
     """Enhanced feedback with memory learning."""
     user_id = user["user_id"]
+    logger.info("auth user_id=%s", user_id)
 
     try:
         chat_uuid = UUID(run_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid run ID format")
 
-    chat = await get_chat(db, chat_uuid)
+    chat = await get_chat(db, chat_uuid, user_id=user_id)
     if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+        raise HTTPException(status_code=404, detail="Chat not found or unauthorized")
 
     # Update chat metadata
     metadata = chat.machine_metadata or {}
@@ -2280,18 +2333,20 @@ async def history_alias(
 
     try:
         from database.schemas import ChatSchema, MessageSchema
-        from database.models import Message, UserSession
+        from database.models import Message
 
         if not user:
             logger.info("/api/history unauthenticated request — returning empty history")
-            return api_success({"chats": [], "messages": [], "metadata": []})
+            return api_success({"chats": [], "messages": []})
 
         user_id = user.get("user_id")
         if not user_id:
             logger.warning("/api/history missing user_id in optional user payload")
-            return api_success({"chats": [], "messages": [], "metadata": []})
+            return api_success({"chats": [], "messages": []})
+        logger.info("auth user_id=%s", user_id)
 
         chats = await list_chats(db, user_id, limit, offset)
+        logger.info("history status db=success op=list_chats user_id=%s", user_id)
         if chats is None:
             chats = []
 
@@ -2307,8 +2362,10 @@ async def history_alias(
                     .order_by(Message.created_at.asc())
                 )
                 messages = msg_result.scalars().all()
+                logger.info("history status db=success op=list_messages user_id=%s", user_id)
             except Exception as e:
                 logger.warning(f"/api/history message fetch failed: {e}")
+                logger.warning("history status db=fail op=list_messages user_id=%s", user_id)
                 messages = []
 
         # Serialize chats safely
@@ -2336,7 +2393,9 @@ async def history_alias(
         serialized_messages = []
         for m in messages:
             try:
-                serialized_messages.append(MessageSchema.model_validate(m).model_dump(mode="json"))
+                msg_payload = MessageSchema.model_validate(m).model_dump(mode="json")
+                msg_payload["image_url"] = ((m.metadata_json or {}).get("image_url") if isinstance(m.metadata_json, dict) else None)
+                serialized_messages.append(msg_payload)
             except Exception as e:
                 logger.warning(f"/api/history: failed to serialize message {getattr(m, 'id', '?')}: {e}")
                 try:
@@ -2346,6 +2405,10 @@ async def history_alias(
                         "user_id": m.user_id,
                         "role": m.role,
                         "content": m.content or "",
+                        "image_b64": m.image_b64,
+                        "image_url": (m.metadata_json or {}).get("image_url") if isinstance(m.metadata_json, dict) else None,
+                        "reasoning_json": m.reasoning_json,
+                        "metadata_json": m.metadata_json,
                         "created_at": m.created_at.isoformat() if m.created_at else None,
                     })
                 except Exception:
@@ -2354,11 +2417,11 @@ async def history_alias(
         return api_success({
             "chats": serialized_chats,
             "messages": serialized_messages,
-            "metadata": [],  # UserSession schema mismatch — omit to avoid crash
         })
     except Exception as exc:
         logger.error(f"Unhandled /api/history error: {exc}", exc_info=True)
-        return api_success({"chats": [], "messages": [], "metadata": []})
+        logger.warning("history status db=fail op=history_alias")
+        return api_success({"chats": [], "messages": []})
 
 
 

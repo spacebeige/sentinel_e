@@ -14,6 +14,12 @@ logger = logging.getLogger("ContextBuilder")
 TOKENS_PER_CHAR = 0.25
 DEFAULT_TOKEN_LIMIT = 4096
 MESSAGE_CONTEXT_LIMIT = 10  # last N messages for context
+RECENT_WEIGHT = 1.0
+CROSS_SESSION_WEIGHT = 0.8
+SEMANTIC_WEIGHT = 0.7
+MEMORY_WEIGHT = 0.6
+MAX_CONTEXT_ITEMS = 12
+SEMANTIC_SIMILARITY_THRESHOLD = 0.2
 
 class ContextWindowBuilder:
     def __init__(self, token_limit: int = DEFAULT_TOKEN_LIMIT):
@@ -99,20 +105,21 @@ class ContextWindowBuilder:
         except Exception:
             pass
 
-        semantic_context = ""
+        semantic_results = []
         try:
             if semantic_search_results:
-                semantic_parts = []
                 for item in semantic_search_results[:3]:
                     if isinstance(item, dict):
                         content = item.get("content") or item.get("text") or ""
                         if content:
-                            semantic_parts.append(f"[Past Interaction]: {content}")
-                semantic_context = "\n".join(semantic_parts)
+                            semantic_results.append({
+                                "content": str(content),
+                                "score": float(item.get("score", 1.0)),
+                            })
         except Exception:
-            semantic_context = ""
+            semantic_results = []
 
-        return self._assemble_and_trim(recent_messages, prefs, memories, semantic_context)
+        return self._assemble_and_trim(recent_messages, prefs, memories, semantic_results, query=query)
 
     async def _fallback_recent_messages(self, db: AsyncSession, chat_id: Any) -> Dict[str, Any]:
         """Minimal safe fallback: return last N messages, no external deps."""
@@ -183,6 +190,7 @@ class ContextWindowBuilder:
             .limit(MESSAGE_CONTEXT_LIMIT)
         )
         messages = sorted(msg_result.scalars().all(), key=lambda x: x.created_at)
+        logger.info("context status db=success op=load_recent_messages user_id=%s", user_id)
 
         # 3. Inject user_preferences (optional)
         prefs = {}
@@ -208,7 +216,7 @@ class ContextWindowBuilder:
             pass
 
         # 5. Semantic retrieval (optional — skip silently)
-        semantic_context = ""
+        semantic_results = []
         try:
             vs = self._get_vector_service()
             if vs:
@@ -220,16 +228,89 @@ class ContextWindowBuilder:
                         top_k=3,
                         filter={"user_id": {"$eq": user_id}}
                     )
-                    semantic_parts = [
-                        f"[Past Interaction]: {res['metadata'].get('content', '')}"
-                        for res in search_results
+                    semantic_results = [
+                        {
+                            "content": str((res.get("metadata") or {}).get("content", "") or "").strip(),
+                            "score": float(res.get("score", 0.0) or 0.0),
+                        }
+                        for res in (search_results or [])
+                        if str((res.get("metadata") or {}).get("content", "") or "").strip()
                     ]
-                    semantic_context = "\n".join(semantic_parts)
+                    logger.info("context status pinecone=success op=semantic_query user_id=%s", user_id)
+                else:
+                    logger.info("context status pinecone=skip op=semantic_query reason=no_embedding user_id=%s", user_id)
+            else:
+                logger.info("context status pinecone=skip op=semantic_query reason=service_unavailable user_id=%s", user_id)
         except Exception:
-            pass  # semantic retrieval is always optional
+            logger.warning("context status pinecone=fail op=semantic_query user_id=%s", user_id)
+            semantic_results = []  # semantic retrieval is always optional
+
+        # 5.5 Cross-session retrieval (same user, different chats)
+        cross_session_results = []
+        try:
+            past_result = await db.execute(
+                select(Message)
+                .where(
+                    Message.user_id == user_id,
+                    Message.chat_id != chat_id,
+                )
+                .order_by(Message.created_at.desc())
+                .limit(200)
+            )
+            past_messages = past_result.scalars().all()
+
+            topic_counts: Dict[str, int] = {}
+            topic_sessions: Dict[str, set] = {}
+            query_topics = self._extract_topics(query)
+
+            for pm in past_messages:
+                content = str(getattr(pm, "content", "") or "").strip()
+                if not content:
+                    continue
+                for topic in self._extract_topics(content):
+                    topic_counts[topic] = topic_counts.get(topic, 0) + 1
+                    topic_sessions.setdefault(topic, set()).add(str(getattr(pm, "chat_id", "")))
+
+            for pm in past_messages:
+                content = str(getattr(pm, "content", "") or "").strip()
+                if not content:
+                    continue
+
+                sim = self._similarity_hint(query, content)
+                content_topics = self._extract_topics(content)
+                repeated_topic_hit = any(topic_counts.get(t, 0) >= 2 for t in content_topics.intersection(query_topics))
+                if sim < SEMANTIC_SIMILARITY_THRESHOLD and not repeated_topic_hit:
+                    continue
+
+                multi_session_bonus = 0.0
+                for t in content_topics.intersection(query_topics):
+                    if len(topic_sessions.get(t, set())) > 1:
+                        multi_session_bonus += 0.1
+                multi_session_bonus = min(multi_session_bonus, 0.3)
+
+                meta = getattr(pm, "metadata_json", None) or {}
+                visual_context = self._visual_metadata_context(meta)
+                stitched = content
+                if visual_context:
+                    stitched = f"{stitched}\n{visual_context}"
+
+                cross_session_results.append({
+                    "content": stitched,
+                    "score": min(sim + multi_session_bonus, 1.0),
+                })
+        except Exception as cross_err:
+            logger.warning("context status db=fail op=cross_session user_id=%s error=%s", user_id, cross_err)
+            cross_session_results = []
 
         # 6. Assembly
-        context_bundle = self._assemble_and_trim(messages, prefs, memories, semantic_context)
+        context_bundle = self._assemble_and_trim(
+            messages,
+            prefs,
+            memories,
+            semantic_results,
+            query=query,
+            cross_session=cross_session_results,
+        )
 
         # Store for reuse (best-effort, non-blocking)
         try:
@@ -264,19 +345,107 @@ class ContextWindowBuilder:
 
         return normalized[-MESSAGE_CONTEXT_LIMIT:]
 
-    def _assemble_and_trim(self, messages, prefs, memories, semantic):
-        """Assemble pieces while keeping within token limit."""
+    def _similarity_hint(self, query: str, text: str) -> float:
+        """Cheap lexical similarity hint in [0, 1]."""
+        q = set(str(query or "").lower().split())
+        t = set(str(text or "").lower().split())
+        if not q or not t:
+            return 0.0
+        return len(q.intersection(t)) / max(len(q), 1)
+
+    def _extract_topics(self, text: str) -> set:
+        words = [w.strip(".,:;!?()[]{}\"'").lower() for w in str(text or "").split()]
+        stop = {
+            "the", "a", "an", "and", "or", "to", "of", "in", "on", "for", "with", "is",
+            "are", "was", "were", "be", "this", "that", "it", "as", "at", "by", "from",
+            "i", "you", "we", "they", "he", "she", "them", "our", "your",
+        }
+        return {w for w in words if len(w) > 2 and w not in stop}
+
+    def _visual_metadata_context(self, metadata: Dict[str, Any]) -> str:
+        if not isinstance(metadata, dict):
+            return ""
+        if metadata.get("type") != "image":
+            return ""
+        desc = str(metadata.get("description") or "").strip()
+        tags = metadata.get("tags") or []
+        tags_str = ", ".join([str(t).strip() for t in tags if str(t).strip()])
+        if not desc and not tags_str:
+            return ""
+        return f"[User shared: {desc or 'image'} | tags: {tags_str or 'none'}]"
+
+    def _assemble_and_trim(self, messages, prefs, memories, semantic, query: str = "", cross_session: Optional[List[Dict[str, Any]]] = None):
+        """Assemble context with weighted ranking while keeping within token limit."""
         history = self._normalize_history(messages)
 
+        # Recency is REQUIRED and always represented by recent_history (weight 1.0)
+        _recent_score = RECENT_WEIGHT  # explicit constant for clarity/logical contract
+
+        ranked_items: List[Dict[str, Any]] = []
+
+        semantic_items = semantic if isinstance(semantic, list) else []
+        for item in semantic_items:
+            content = str(item.get("content") or "").strip()
+            if not content:
+                continue
+            similarity = float(item.get("score", 0.0) or 0.0)
+            if similarity <= 0:
+                similarity = self._similarity_hint(query, content)
+            ranked_items.append({
+                "section": "Semantic",
+                "content": content,
+                "score": similarity * SEMANTIC_WEIGHT,
+            })
+
+        cross_items = cross_session if isinstance(cross_session, list) else []
+        for item in cross_items:
+            content = str(item.get("content") or "").strip()
+            if not content:
+                continue
+            similarity = float(item.get("score", 0.0) or 0.0)
+            if similarity <= 0:
+                similarity = self._similarity_hint(query, content)
+            ranked_items.append({
+                "section": "CrossSession",
+                "content": content,
+                "score": similarity * CROSS_SESSION_WEIGHT,
+            })
+
+        for mem in memories or []:
+            value = str(getattr(mem, "value", "") or "").strip()
+            if not value:
+                continue
+            confidence = float(getattr(mem, "confidence", 70) or 70) / 100.0
+            similarity = max(self._similarity_hint(query, value), 0.25)
+            ranked_items.append({
+                "section": "Memory",
+                "content": f"Fact: {value}",
+                "score": min(confidence, 1.0) * similarity * MEMORY_WEIGHT,
+            })
+
+        for k, v in (prefs or {}).items():
+            pref_line = f"{k}: {v}"
+            similarity = max(self._similarity_hint(query, pref_line), 0.2)
+            ranked_items.append({
+                "section": "Memory",
+                "content": f"Preference: {pref_line}",
+                "score": similarity * MEMORY_WEIGHT,
+            })
+
+        ranked_items.sort(key=lambda x: x.get("score", 0.0), reverse=True)
+        ranked_items = ranked_items[:MAX_CONTEXT_ITEMS]
+
+        semantic_lines = [it["content"] for it in ranked_items if it["section"] == "Semantic"]
+        cross_session_lines = [it["content"] for it in ranked_items if it["section"] == "CrossSession"]
+        memory_lines = [it["content"] for it in ranked_items if it["section"] == "Memory"]
+
         parts = []
-        if prefs:
-            pref_str = "\n".join([f"{k}: {v}" for k, v in prefs.items()])
-            parts.append(f"User Preferences:\n{pref_str}")
-        if memories:
-            mem_str = "\n".join([f"Fact: {m.value}" for m in memories])
-            parts.append(f"Relevant User Facts:\n{mem_str}")
-        if semantic:
-            parts.append(f"Past Context:\n{semantic}")
+        if cross_session_lines:
+            parts.append("Cross-Session Context:\n" + "\n".join(cross_session_lines))
+        if semantic_lines:
+            parts.append("Semantic Context:\n" + "\n".join(semantic_lines))
+        if memory_lines:
+            parts.append("User Memory:\n" + "\n".join(memory_lines))
 
         system_instructions = "\n\n".join(parts)
 
