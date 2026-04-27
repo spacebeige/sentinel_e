@@ -14,6 +14,45 @@ logger = logging.getLogger("CRUD")
 MAX_MESSAGE_CONTENT_LENGTH = 16000
 
 
+async def _best_effort_index_message(message: Message):
+    """Best-effort semantic indexing to Pinecone. Never raises."""
+    try:
+        from utils.vector_service import get_vector_service
+
+        content = str(getattr(message, "content", "") or "").strip()
+        if not content:
+            logger.info("vector status pinecone=skip op=upsert reason=empty_content")
+            return
+
+        vector_service = get_vector_service()
+        embedding = await vector_service.get_embedding(content)
+        if not embedding:
+            logger.info("vector status pinecone=skip op=upsert reason=no_embedding")
+            return
+
+        metadata = {
+            "chat_id": str(getattr(message, "chat_id", "")),
+            "user_id": str(getattr(message, "user_id", "") or ""),
+            "role": str(getattr(message, "role", "") or ""),
+            "content": content[:2000],
+            "created_at": getattr(message, "created_at", None).isoformat() if getattr(message, "created_at", None) else None,
+        }
+
+        await vector_service.upsert(
+            namespace="chat_messages",
+            items=[
+                {
+                    "id": str(getattr(message, "id", uuid.uuid4())),
+                    "values": embedding,
+                    "metadata": metadata,
+                }
+            ],
+        )
+        logger.info("vector status pinecone=success op=upsert chat_id=%s", metadata["chat_id"])
+    except Exception as e:
+        logger.warning("vector status pinecone=fail op=upsert error=%s", e)
+
+
 # ── User CRUD ────────────────────────────────────────────────
 
 async def get_user_by_user_id(db: AsyncSession, user_id: str) -> Optional[User]:
@@ -161,6 +200,12 @@ async def add_message(
         )
         await db.commit()
         await db.refresh(new_message)
+
+        try:
+            asyncio.create_task(_best_effort_index_message(new_message))
+        except Exception as vector_err:
+            logger.warning(f"vector status pinecone=fail op=schedule_upsert error={vector_err}")
+
         return new_message
     except Exception as full_err:
         logger.warning(f"add_message full write failed ({full_err}), retrying minimal write")
@@ -189,6 +234,12 @@ async def add_message(
             await db.commit()
             await db.refresh(minimal_message)
             logger.info(f"add_message minimal fallback succeeded for chat {chat_id}")
+
+            try:
+                asyncio.create_task(_best_effort_index_message(minimal_message))
+            except Exception as vector_err:
+                logger.warning(f"vector status pinecone=fail op=schedule_upsert error={vector_err}")
+
             return minimal_message
         except Exception as minimal_err:
             logger.error(f"add_message minimal fallback failed for chat {chat_id}: {minimal_err}")
@@ -243,6 +294,18 @@ async def add_user_memory(
     confidence: int = 75,
     metadata_json: Optional[Dict[str, Any]] = None,
 ) -> UserMemory:
+    # Lightweight decay to keep memory adaptive over time.
+    try:
+        stale_result = await db.execute(
+            select(UserMemory).where(UserMemory.user_id == user_id)
+        )
+        stale_rows = stale_result.scalars().all()
+        for row in stale_rows:
+            if row.key != key and row.confidence and row.confidence > 5:
+                row.confidence = max(int(row.confidence) - 1, 1)
+    except Exception:
+        pass
+
     # Upsert logic
     result = await db.execute(
         select(UserMemory).where(UserMemory.user_id == user_id, UserMemory.key == key)
@@ -251,16 +314,24 @@ async def add_user_memory(
     
     if existing:
         existing.value = value
-        existing.confidence = confidence
-        existing.metadata_json = metadata_json
+        # Reinforce repeated patterns while avoiding runaway growth.
+        existing.confidence = min(max(int(existing.confidence or 0) + 1, confidence), 100)
+        merged_meta = dict(existing.metadata_json or {})
+        merged_meta.update(metadata_json or {})
+        merged_meta["weight"] = existing.confidence
+        merged_meta["last_used"] = datetime.utcnow().isoformat()
+        existing.metadata_json = merged_meta
         existing.updated_at = datetime.utcnow()
     else:
+        meta = dict(metadata_json or {})
+        meta["weight"] = confidence
+        meta["last_used"] = datetime.utcnow().isoformat()
         existing = UserMemory(
             user_id=user_id,
             key=key,
             value=value,
             confidence=confidence,
-            metadata_json=metadata_json
+            metadata_json=meta
         )
         db.add(existing)
     
