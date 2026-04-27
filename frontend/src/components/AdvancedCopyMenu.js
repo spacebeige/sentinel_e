@@ -9,6 +9,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Copy, Check, ChevronDown, FileText, Code2, BookOpen, AlertCircle } from 'lucide-react';
 import { normalizeResponseText } from '../engines/responseNormalizer';
+import { copyToClipboard } from '../utils/copyText';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -66,34 +67,6 @@ export default function AdvancedCopyMenu({ message, className = '' }) {
     };
   }, []);
 
-  // ── Copy handler (stable ref via useCallback) ─────────────────
-  const safeClipboardCopy = useCallback(async (text) => {
-    const normalizedText = normalizeResponseText(String(text ?? ''));
-    const copyText = normalizedText || '';
-
-    try {
-      await navigator.clipboard.writeText(copyText);
-      return true;
-    } catch {
-      try {
-        const textarea = document.createElement('textarea');
-        textarea.value = copyText;
-        textarea.setAttribute('readonly', '');
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        textarea.style.pointerEvents = 'none';
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        const ok = document.execCommand('copy');
-        document.body.removeChild(textarea);
-        return ok;
-      } catch {
-        return false;
-      }
-    }
-  }, []);
-
   const handleCopy = useCallback(
     async (type) => {
       let text = '';
@@ -135,7 +108,7 @@ export default function AdvancedCopyMenu({ message, className = '' }) {
           text = safeContent;
       }
 
-      const copied = await safeClipboardCopy(text);
+      const copied = await copyToClipboard(text);
       if (copied) {
         setCopiedType(type);
         setError(null);
@@ -149,7 +122,7 @@ export default function AdvancedCopyMenu({ message, className = '' }) {
 
       setOpen(false);
     },
-    [safeContent, codeBlocks, safeCitations, message?.raw_output, safeClipboardCopy],
+    [safeContent, codeBlocks, safeCitations, message?.raw_output],
   );
 
   // ── Menu items ────────────────────────────────────────────────

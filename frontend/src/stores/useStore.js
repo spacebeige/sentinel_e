@@ -2,17 +2,50 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import api from '../services/api';
 
+async function fetchWithRetry(fetcher, retries = 3, baseDelayMs = 1500) {
+  let lastError;
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await fetcher();
+    } catch (error) {
+      lastError = error;
+      if (attempt < retries - 1) {
+        const delay = baseDelayMs * (attempt + 1);
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
 const useStore = create(
   persist(
     (set, get) => ({
+      userId: null,
       chats: [],
       messages: [],
       memory: [],
       preferences: null,
       contextWindow: null,
-      isInitialized: false,
+      isLoaded: false,
       isLoading: false,
       error: null,
+
+      setUserId: (id) => set({ userId: id }),
+      setLoading: (isLoading) => set({ isLoading }),
+
+      setHistory: (chats, messages) => {
+        const prev = get();
+        const safeChats = Array.isArray(chats) ? chats : [];
+        const safeMessages = Array.isArray(messages) ? messages : [];
+
+        // Never blow away cached data with an empty response (cold start / transient failure)
+        const nextChats = (safeChats.length === 0 && prev.chats.length > 0) ? prev.chats : safeChats;
+        const nextMessages = (safeMessages.length === 0 && prev.messages.length > 0) ? prev.messages : safeMessages;
+
+        set({ chats: nextChats, messages: nextMessages, isLoaded: true });
+      },
 
       setChats: (chats) => set({ chats }),
       setMessages: (messages) => set({ messages }),
@@ -22,7 +55,7 @@ const useStore = create(
 
       // Called once on app init when user is already signed in
       initializeSession: async () => {
-        if (get().isInitialized || get().isLoading) return;
+        if (get().isLoaded || get().isLoading) return;
         await get().reloadHistory();
       },
 
@@ -33,36 +66,42 @@ const useStore = create(
         try {
           const prev = get();
           const results = await Promise.allSettled([
-            api.get('/api/history'),
+            fetchWithRetry(() => api.get('/api/history')),
             api.get('/api/user/memory'),
             api.get('/api/user/preferences')
           ]);
 
-          const historyData = results[0].status === 'fulfilled'
-            ? (results[0].value?.data ?? results[0].value ?? { chats: [], messages: [] })
+          const historyDataRaw = results[0].status === 'fulfilled'
+            ? (results[0].value ?? { chats: [], messages: [] })
             : { chats: [], messages: [] };
           const memoryData = results[1].status === 'fulfilled'
-            ? (results[1].value?.data ?? results[1].value ?? [])
+            ? (results[1].value ?? [])
             : [];
           const prefsData = results[2].status === 'fulfilled'
-            ? (results[2].value?.data ?? results[2].value ?? {})
+            ? (results[2].value ?? {})
             : {};
 
-          const hasValidChats = Array.isArray(historyData?.chats) && historyData.chats.length > 0;
-          const hasValidMessages = Array.isArray(historyData?.messages) && historyData.messages.length > 0;
+          const historyData = Array.isArray(historyDataRaw)
+            ? { chats: historyDataRaw, messages: [] }
+            : historyDataRaw;
+
+          const chats = Array.isArray(historyData?.chats) ? historyData.chats : [];
+          const messages = Array.isArray(historyData?.messages) ? historyData.messages : [];
+
+          get().setHistory(chats, messages);
 
           set({
-            chats: hasValidChats ? historyData.chats : prev.chats,
-            messages: hasValidMessages ? historyData.messages : prev.messages,
             memory: Array.isArray(memoryData) ? memoryData : [],
             preferences: prefsData || {},
-            isInitialized: true,
+            chats: get().chats.length > 0 ? get().chats : prev.chats,
+            messages: get().messages.length > 0 ? get().messages : prev.messages,
+            isLoaded: true,
             isLoading: false,
             error: null,
           });
         } catch (err) {
           console.error('Failed to load session:', err);
-          set({ error: err.message, isLoading: false, isInitialized: true });
+          set({ error: err.message, isLoading: false, isLoaded: true });
         }
       },
 
@@ -76,17 +115,19 @@ const useStore = create(
 
       updateMemory: (memory) => set({ memory }),
 
-      // Hard reset for user switch or logout
-      resetForNewUser: () => set({
+      clearSession: () => set({
         chats: [],
         messages: [],
         memory: [],
         preferences: null,
         contextWindow: null,
-        isInitialized: false,
+        isLoaded: false,
         isLoading: false,
         error: null,
       }),
+
+      // Hard reset for user switch or logout
+      resetForNewUser: () => get().clearSession(),
 
       reset: () => set({
         chats: [],
@@ -94,7 +135,7 @@ const useStore = create(
         memory: [],
         preferences: null,
         contextWindow: null,
-        isInitialized: false,
+        isLoaded: false,
         error: null
       })
     }),
@@ -102,10 +143,12 @@ const useStore = create(
       name: 'sentinel-session-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
+        userId: state.userId,
         chats: state.chats,
         messages: state.messages,
         memory: state.memory,
-        preferences: state.preferences
+        preferences: state.preferences,
+        isLoaded: state.isLoaded,
       }),
     }
   )

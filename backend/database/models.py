@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Integer, Text, ARRAY, JSON, Boolean, ForeignKey
+from sqlalchemy import Column, String, DateTime, Integer, Text, ARRAY, JSON, Boolean, ForeignKey, Float
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -70,6 +70,9 @@ class UserMemory(Base):
     key = Column(String, nullable=False)
     value = Column(Text, nullable=False)
     confidence = Column(Integer, default=50)  # 0-100 scale
+    weight = Column(Float, default=1.0)
+    last_used = Column(DateTime, default=datetime.utcnow)
+    recency_score = Column(Float, default=1.0)
     metadata_json = Column(JSONB, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)

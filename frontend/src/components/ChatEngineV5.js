@@ -28,8 +28,9 @@ import { evaluateResponse } from '../engines/cognitiveGovernor';
 import {
   checkHealth as apiCheckHealth,
   sendMCOQuery, sendDirectModelQuery,
-  getHistory, getChatMessages, getSessionDescriptive, getOmegaSession,
+  getChatMessages, getSessionDescriptive, getOmegaSession,
 } from '../services/api';
+import useStore from '../stores/useStore';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -38,7 +39,6 @@ export default function ChatEngineV5() {
   const [mode, setMode] = useState('standard');
   const [subMode, setSubMode] = useState(null);
   const [killActive, setKillActive] = useState(false);
-  const [history, setHistory] = useState([]);
   const [messages, setMessages] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [currentResult, setCurrentResult] = useState(null);
@@ -52,6 +52,23 @@ export default function ChatEngineV5() {
   const [error, setError] = useState(null);
 
   const [input, setInput] = useState('');
+  const persistedChats = useStore((state) => state.chats);
+  const persistedMessages = useStore((state) => state.messages);
+  const historyLoading = useStore((state) => state.isLoading);
+  const reloadHistory = useStore((state) => state.reloadHistory);
+
+  const history = useMemo(
+    () => (persistedChats || []).map((item) => ({
+      id: item.id,
+      timestamp: item.updated_at || item.created_at || new Date().toISOString(),
+      mode: item.mode,
+      summary: item.chat_name || item.preview || 'Chat',
+      filename: item.id,
+      data: null,
+      sub_mode: item.sub_mode || null,
+    })),
+    [persistedChats]
+  );
   // Default to Sentinel Standard aggregate mode (not an individual model)
   const SENTINEL_STD = { id: 'sentinel-std', name: 'Sentinel-E Standard', provider: 'Aggregated', color: '#3b82f6', category: 'standard', isMeta: true, enabled: true };
   const [selectedModel, setSelectedModel] = useState(SENTINEL_STD);
@@ -112,26 +129,39 @@ export default function ChatEngineV5() {
     return () => clearInterval(interval);
   }, [checkHealth]);
 
-  // ── History Loading ──────────────────────────────────────
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const data = await getHistory();
-        const formatted = data.map(item => ({
-          id: item.id,
-          timestamp: item.updated_at || item.created_at || new Date().toISOString(),
-          mode: item.mode,
-          summary: item.chat_name || item.preview || 'Chat',
-          filename: item.id,
-          data: null,
-        }));
-        setHistory(formatted);
-      } catch (err) {
-        // Silent fail on history load
-      }
-    };
-    fetchHistory();
+    const savedChatId = localStorage.getItem('sentinel-active-chat-id');
+    if (savedChatId && UUID_REGEX.test(savedChatId)) {
+      setActiveChatId(savedChatId);
+    }
   }, []);
+
+  useEffect(() => {
+    if (activeChatId) {
+      localStorage.setItem('sentinel-active-chat-id', activeChatId);
+    } else {
+      localStorage.removeItem('sentinel-active-chat-id');
+    }
+  }, [activeChatId]);
+
+  useEffect(() => {
+    if (!activeChatId || messages.length > 0) return;
+    const cached = (persistedMessages || [])
+      .filter((m) => String(m.chat_id) === String(activeChatId))
+      .map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: m.created_at || new Date().toISOString(),
+        image_b64: m.image_b64 || null,
+        image_mime: m.image_mime || null,
+        reasoning_json: m.reasoning_json || null,
+      }));
+
+    if (cached.length > 0) {
+      setMessages(cached);
+    }
+  }, [activeChatId, persistedMessages, messages.length]);
 
   // ── Session State ────────────────────────────────────────
   useEffect(() => {
@@ -243,28 +273,8 @@ export default function ChatEngineV5() {
         setActiveChatId(returnedChatId);
       }
 
-      // Update history
-      const effectiveChatId = chatId || returnedChatId;
-      if (effectiveChatId && UUID_REGEX.test(effectiveChatId)) {
-        setHistory(prev => {
-          const exists = prev.some(item => item.id === effectiveChatId);
-          if (exists) {
-            return prev.map(item =>
-              item.id === effectiveChatId
-                ? { ...item, timestamp: new Date().toISOString(), summary: text ? text.substring(0, 40) : item.summary }
-                : item
-            );
-          }
-          return [{
-            id: effectiveChatId,
-            timestamp: new Date().toISOString(),
-            mode,
-            summary: text ? text.substring(0, 40) : 'Chat',
-            filename: effectiveChatId,
-            data: null,
-          }, ...prev];
-        });
-      }
+      // Keep sidebar and cached state in sync with authoritative backend history.
+      reloadHistory();
 
       setServerStatus('online');
     } catch (err) {
@@ -289,7 +299,19 @@ export default function ChatEngineV5() {
     }
     if (run.sub_mode) setSubMode(run.sub_mode);
     setActiveChatId(run.id);
-    setMessages([]);
+    const cached = (persistedMessages || [])
+      .filter((m) => String(m.chat_id) === String(run.id))
+      .map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: m.created_at || run.timestamp,
+        image_b64: m.image_b64 || null,
+        image_mime: m.image_mime || null,
+        reasoning_json: m.reasoning_json || null,
+      }));
+
+    setMessages(cached);
     setCurrentResult(null);
     setLoading(true);
 
@@ -308,7 +330,9 @@ export default function ChatEngineV5() {
         }));
       setMessages(loaded);
     } catch (err) {
-      setError('Failed to load chat history.');
+      if (cached.length === 0) {
+        setError('Failed to load chat history.');
+      }
     } finally {
       setLoading(false);
     }
@@ -341,6 +365,7 @@ export default function ChatEngineV5() {
       serverStatus={serverStatus}
       activeChatId={activeChatId}
       history={history}
+      historyLoading={historyLoading}
       sessionState={sessionState}
       mode={mode}
       setMode={setMode}

@@ -94,6 +94,7 @@ export default function FigmaChatShell({
   serverStatus,
   activeChatId,
   history,
+  historyLoading,
   sessionState,
 
   // === Mode state ===
@@ -857,6 +858,13 @@ export default function FigmaChatShell({
                     <WifiOff className="w-8 h-8 text-[#aeaeb2] mx-auto mb-2" />
                     <p style={{ fontFamily: FONT, fontSize: '12px', color: '#aeaeb2' }}>
                       Connect to backend to see history
+                    </p>
+                  </div>
+                ) : historyLoading ? (
+                  <div className="px-4 py-8 text-center">
+                    <Loader2 className="w-8 h-8 text-[#aeaeb2] mx-auto mb-2 animate-spin" />
+                    <p style={{ fontFamily: FONT, fontSize: '12px', color: '#aeaeb2' }}>
+                      Loading previous chats...
                     </p>
                   </div>
                 ) : history.length === 0 ? (

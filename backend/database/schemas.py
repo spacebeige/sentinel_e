@@ -59,6 +59,9 @@ class UserMemorySchema(BaseModel):
     key: str
     value: str
     confidence: float
+    weight: Optional[float] = 1.0
+    last_used: Optional[datetime] = None
+    recency_score: Optional[float] = 1.0
     metadata_json: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime

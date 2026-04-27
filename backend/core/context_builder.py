@@ -1,6 +1,7 @@
 import logging
 import json
 import asyncio
+import re
 from typing import Dict, List, Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -20,6 +21,49 @@ SEMANTIC_WEIGHT = 0.7
 MEMORY_WEIGHT = 0.6
 MAX_CONTEXT_ITEMS = 12
 SEMANTIC_SIMILARITY_THRESHOLD = 0.2
+STOPWORDS = {
+    "the", "a", "an", "is", "it", "in", "on", "at", "to", "for",
+    "of", "and", "or", "but", "i", "you", "we", "they", "this", "that"
+}
+
+
+def format_message_for_context(msg) -> str:
+    metadata = getattr(msg, "metadata_json", None)
+    if metadata:
+        try:
+            meta = metadata if isinstance(metadata, dict) else json.loads(metadata)
+            if meta.get("type") == "image":
+                desc = meta.get("description", "image")
+                tags = ", ".join(meta.get("tags", []))
+                return f"[User shared image: {desc} | tags: {tags}]"
+        except Exception:
+            pass
+    return str(getattr(msg, "content", "") or "")
+
+
+def score_cross_session_messages(query: str, messages: list, weight: float = 0.8) -> list[dict]:
+    query_words = set(re.findall(r"\b[a-zA-Z]{3,}\b", str(query or "").lower()))
+    query_words -= STOPWORDS
+
+    scored = []
+    for msg in messages or []:
+        content = format_message_for_context(msg)
+        msg_words = set(re.findall(r"\b[a-zA-Z]{3,}\b", content.lower()))
+        msg_words -= STOPWORDS
+        if not query_words:
+            continue
+        overlap = len(query_words & msg_words) / max(len(query_words), 1)
+        if overlap >= 0.2:
+            scored.append({
+                "content": content,
+                "score": overlap * weight,
+                "source": "cross_session",
+                "chat_id": str(getattr(msg, "chat_id", "")),
+                "created_at": getattr(getattr(msg, "created_at", None), "isoformat", lambda: "")(),
+            })
+
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored[:5]
 
 class ContextWindowBuilder:
     def __init__(self, token_limit: int = DEFAULT_TOKEN_LIMIT):
@@ -98,7 +142,7 @@ class ContextWindowBuilder:
             mem_result = await db.execute(
                 select(UserMemory).where(
                     UserMemory.user_id == user_id,
-                    UserMemory.confidence > 70
+                    UserMemory.recency_score > 0.1,
                 )
             )
             memories = mem_result.scalars().all()
@@ -208,7 +252,7 @@ class ContextWindowBuilder:
             mem_result = await db.execute(
                 select(UserMemory).where(
                     UserMemory.user_id == user_id,
-                    UserMemory.confidence > 70
+                    UserMemory.recency_score > 0.1,
                 )
             )
             memories = mem_result.scalars().all()
@@ -255,49 +299,13 @@ class ContextWindowBuilder:
                     Message.chat_id != chat_id,
                 )
                 .order_by(Message.created_at.desc())
-                .limit(200)
+                .limit(30)
             )
             past_messages = past_result.scalars().all()
-
-            topic_counts: Dict[str, int] = {}
-            topic_sessions: Dict[str, set] = {}
-            query_topics = self._extract_topics(query)
-
-            for pm in past_messages:
-                content = str(getattr(pm, "content", "") or "").strip()
-                if not content:
-                    continue
-                for topic in self._extract_topics(content):
-                    topic_counts[topic] = topic_counts.get(topic, 0) + 1
-                    topic_sessions.setdefault(topic, set()).add(str(getattr(pm, "chat_id", "")))
-
-            for pm in past_messages:
-                content = str(getattr(pm, "content", "") or "").strip()
-                if not content:
-                    continue
-
-                sim = self._similarity_hint(query, content)
-                content_topics = self._extract_topics(content)
-                repeated_topic_hit = any(topic_counts.get(t, 0) >= 2 for t in content_topics.intersection(query_topics))
-                if sim < SEMANTIC_SIMILARITY_THRESHOLD and not repeated_topic_hit:
-                    continue
-
-                multi_session_bonus = 0.0
-                for t in content_topics.intersection(query_topics):
-                    if len(topic_sessions.get(t, set())) > 1:
-                        multi_session_bonus += 0.1
-                multi_session_bonus = min(multi_session_bonus, 0.3)
-
-                meta = getattr(pm, "metadata_json", None) or {}
-                visual_context = self._visual_metadata_context(meta)
-                stitched = content
-                if visual_context:
-                    stitched = f"{stitched}\n{visual_context}"
-
-                cross_session_results.append({
-                    "content": stitched,
-                    "score": min(sim + multi_session_bonus, 1.0),
-                })
+            scored = score_cross_session_messages(query, past_messages, weight=CROSS_SESSION_WEIGHT)
+            for item in scored:
+                item["content"] = f"[Prior session] User: {str(item.get('content', ''))[:300]}"
+            cross_session_results.extend(scored)
         except Exception as cross_err:
             logger.warning("context status db=fail op=cross_session user_id=%s error=%s", user_id, cross_err)
             cross_session_results = []
@@ -411,16 +419,22 @@ class ContextWindowBuilder:
                 "score": similarity * CROSS_SESSION_WEIGHT,
             })
 
+        query_words = set(re.findall(r"\b[a-zA-Z]{3,}\b", str(query or "").lower())) - STOPWORDS
         for mem in memories or []:
             value = str(getattr(mem, "value", "") or "").strip()
             if not value:
                 continue
+            key_words = set(re.findall(r"\b[a-zA-Z]{3,}\b", str(getattr(mem, "key", "") or "").lower()))
+            if query_words and not (query_words & key_words):
+                continue
             confidence = float(getattr(mem, "confidence", 70) or 70) / 100.0
             similarity = max(self._similarity_hint(query, value), 0.25)
+            recency = float(getattr(mem, "recency_score", 1.0) or 1.0)
+            weight = float(getattr(mem, "weight", 1.0) or 1.0)
             ranked_items.append({
                 "section": "Memory",
-                "content": f"Fact: {value}",
-                "score": min(confidence, 1.0) * similarity * MEMORY_WEIGHT,
+                "content": f"[Memory] {getattr(mem, 'key', 'topic')}: {value[:200]}",
+                "score": min(confidence, 1.0) * similarity * MEMORY_WEIGHT * min((weight * recency), 2.5),
             })
 
         for k, v in (prefs or {}).items():
