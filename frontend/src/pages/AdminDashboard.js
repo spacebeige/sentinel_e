@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import MakeAdminForm from '../components/MakeAdminForm';
+import DataFallback from '../components/common/DataFallback';
+import { validateResponseShape } from '../utils/validation';
 
 const FONT = "'Inter', -apple-system, sans-serif";
 
@@ -43,11 +45,32 @@ const AdminDashboard = () => {
         axios.get(`${API_BASE}/api/admin/feedback-summary`, { withCredentials: true }),
       ]);
 
-      if (statsRes.status === 'fulfilled' && statsRes.value?.data) setSystemStats(statsRes.value.data);
-      if (archRes.status === 'fulfilled' && archRes.value?.data) setArchitecture(archRes.value.data);
-      if (analyticsRes.status === 'fulfilled' && analyticsRes.value?.data) setAnalytics(analyticsRes.value.data);
-      if (feedbackRes.status === 'fulfilled' && feedbackRes.value?.data) setFeedback(feedbackRes.value.data);
+      if (statsRes.status === 'fulfilled' && statsRes.value?.data) {
+        setSystemStats(statsRes.value.data);
+      } else if (statsRes.status === 'rejected') {
+        console.error('Failed to fetch system stats:', statsRes.reason);
+      }
+
+      if (archRes.status === 'fulfilled' && archRes.value?.data) {
+        setArchitecture(archRes.value.data);
+      } else if (archRes.status === 'rejected') {
+        console.error('Failed to fetch architecture:', archRes.reason);
+      }
+
+      if (analyticsRes.status === 'fulfilled' && analyticsRes.value?.data) {
+        setAnalytics(analyticsRes.value.data);
+      } else if (analyticsRes.status === 'rejected') {
+        console.error('Failed to fetch analytics:', analyticsRes.reason);
+      }
+
+      if (feedbackRes.status === 'fulfilled' && feedbackRes.value?.data) {
+        setFeedback(feedbackRes.value.data);
+      } else if (feedbackRes.status === 'rejected') {
+        console.error('Failed to fetch feedback:', feedbackRes.reason);
+      }
+      
     } catch (err) {
+      console.error('Unexpected error in fetchAdminData:', err);
       setError('Failed to load admin data');
     } finally {
       setLoading(false);
@@ -61,6 +84,19 @@ const AdminDashboard = () => {
   }, [fetchAdminData]);
 
   if (loading) return <LoadingScreen />;
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f5f5f7]">
+        <DataFallback 
+          message={error} 
+          type="error" 
+          onRetry={fetchAdminData} 
+          className="bg-white shadow-xl max-w-md p-10"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f5f5f7' }}>

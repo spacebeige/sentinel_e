@@ -5,12 +5,16 @@ import remarkGfm from 'remark-gfm';
 import FeedbackButton from './FeedbackButton';
 import { normalizeResponse, isCodeResponse } from '../engines/responseNormalizer';
 import { editMessage, regenerateMessage } from '../services/api';
+import DataFallback from './common/DataFallback';
 
 /* ─── Helpers ───────────────────────────────────────────────────── */
 function formatTime(ts) {
   if (!ts) return '';
   try { return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
-  catch { return ''; }
+  catch (e) { 
+    console.error('formatTime error:', e);
+    return ''; 
+  }
 }
 
 function dayLabel(ts) {
@@ -44,43 +48,57 @@ const TypingIndicator = () => (
 /* ─── User message ──────────────────────────────────────────────── */
 const UserBubble = ({ message, onMessageEdited }) => {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(message.content);
+  const [draft, setDraft] = useState(message?.content || '');
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => {
+    if (!message) {
+      console.warn('[Prop Warning] UserBubble: message prop is undefined');
+    }
+  }, [message]);
+
+  if (!message) {
+    return <DataFallback message="User message corrupted or missing" type="invalid" className="mb-5" />;
+  }
+
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(message?.content || '');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch { console.warn('Clipboard access denied'); }
+    } catch (e) { 
+      console.warn('Clipboard access denied', e); 
+    }
   };
 
   const handleSave = async () => {
-    if (!draft.trim() || draft === message.content) { setEditing(false); return; }
+    if (!draft?.trim() || draft === message?.content) { setEditing(false); return; }
     setSaving(true);
     try {
-      await editMessage(message.id, draft);
-      if (onMessageEdited) onMessageEdited(message.id, draft);
+      await editMessage(message?.id, draft);
+      if (onMessageEdited) onMessageEdited(message?.id, draft);
       setEditing(false);
-    } catch { console.warn('Edit failed'); }
+    } catch (e) { 
+      console.error('Edit failed:', e); 
+    }
     setSaving(false);
   };
 
   return (
     <div className="flex justify-end mb-5 group">
       <div className="max-w-[72%] flex flex-col items-end">
-        {message.image_b64 && message.image_mime !== 'application/pdf' && (
+        {message?.image_b64 && message?.image_mime !== 'application/pdf' && (
           <img
-            src={`data:${message.image_mime || 'image/png'};base64,${message.image_b64}`}
+            src={`data:${message?.image_mime || 'image/png'};base64,${message?.image_b64}`}
             alt="Attached"
             className="max-w-full max-h-48 rounded-xl mb-2 object-contain"
           />
         )}
-        {message.image_b64 && message.image_mime === 'application/pdf' && (
+        {message?.image_b64 && message?.image_mime === 'application/pdf' && (
           <div className="flex items-center gap-2 px-3 py-2 bg-gray-700/50 rounded-xl mb-2 text-sm">
             <span className="text-red-400 text-lg">📄</span>
-            <span className="text-gray-200">{message.pdf_filename || 'Document.pdf'}</span>
+            <span className="text-gray-200">{message?.pdf_filename || 'Document.pdf'}</span>
             <span className="text-gray-400 text-xs">PDF attached</span>
           </div>
         )}
@@ -92,7 +110,7 @@ const UserBubble = ({ message, onMessageEdited }) => {
               value={draft} onChange={e => setDraft(e.target.value)} rows={3} autoFocus
             />
             <div className="flex gap-1.5 mt-1 justify-end">
-              <button onClick={() => { setDraft(message.content); setEditing(false); }}
+              <button onClick={() => { setDraft(message?.content || ''); setEditing(false); }}
                 className="text-[10px] px-2 py-0.5 rounded-md" style={{ color: 'var(--text-tertiary)' }}>Cancel</button>
               <button onClick={handleSave} disabled={saving}
                 className="text-[10px] px-2 py-0.5 rounded-md font-medium" style={{ color: 'var(--accent-blue)' }}>
@@ -103,12 +121,12 @@ const UserBubble = ({ message, onMessageEdited }) => {
         ) : (
           <div className="px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap"
             style={{ backgroundColor: 'var(--accent-blue)', color: '#fff' }}>
-            {message.content}
+            {message?.content || ''}
           </div>
         )}
         <div className="flex items-center gap-2 mt-1 pr-1">
           <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-            {formatTime(message.timestamp)}
+            {formatTime(message?.timestamp)}
           </span>
           {!editing && (
             <>
@@ -138,23 +156,35 @@ const AssistantBubble = ({ message, mode, subMode, onRegenerate }) => {
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
+  useEffect(() => {
+    if (!message) {
+      console.warn('[Prop Warning] AssistantBubble: message prop is undefined');
+    }
+  }, [message]);
+
+  if (!message) {
+    return <DataFallback message="Assistant response unavailable" type="error" className="mb-5" />;
+  }
+
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(message?.content || '');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      console.warn('Clipboard access denied');
+    } catch (e) {
+      console.warn('Clipboard access denied', e);
     }
   };
 
   const handleRegenerate = async () => {
-    if (!message.id || regenerating) return;
+    if (!message?.id || regenerating) return;
     setRegenerating(true);
     try {
-      await regenerateMessage(message.id);
-      if (onRegenerate) onRegenerate(message.id);
-    } catch { console.warn('Regenerate failed'); }
+      await regenerateMessage(message?.id);
+      if (onRegenerate) onRegenerate(message?.id);
+    } catch (e) { 
+      console.error('Regenerate failed:', e); 
+    }
     setRegenerating(false);
   };
 
@@ -176,18 +206,18 @@ const AssistantBubble = ({ message, mode, subMode, onRegenerate }) => {
         </span>
         <div className="card px-5 py-4 rounded-2xl rounded-tl-sm">
           <div className="text-sm leading-relaxed">
-            {isCodeResponse(message.content) ? (
+            {isCodeResponse(message?.content || '') ? (
               <pre className="bg-[#f5f5f7] rounded-lg p-3 overflow-x-auto text-xs font-mono text-[#1d1d1f] whitespace-pre-wrap">
-                <code>{message.content.replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '')}</code>
+                <code>{(message?.content || '').replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '')}</code>
               </pre>
             ) : (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeResponse(message.content)}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizeResponse(message?.content || '')}</ReactMarkdown>
             )}
           </div>
         </div>
         <div className="flex items-center justify-between mt-1.5 px-0.5">
           <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-            {formatTime(message.timestamp)}
+            {formatTime(message?.timestamp)}
           </span>
           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button onClick={handleCopy} title="Copy"
@@ -204,8 +234,8 @@ const AssistantBubble = ({ message, mode, subMode, onRegenerate }) => {
               <RefreshCw className={`w-3 h-3 ${regenerating ? 'animate-spin' : ''}`} />
               <span className="text-[10px]">{regenerating ? 'Regenerating…' : 'Regenerate'}</span>
             </button>
-            {message.runId && (
-              <FeedbackButton runId={message.runId} mode={mode} subMode={subMode} />
+            {message?.runId && (
+              <FeedbackButton runId={message?.runId} mode={mode} subMode={subMode} />
             )}
           </div>
         </div>

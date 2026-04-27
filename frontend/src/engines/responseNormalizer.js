@@ -8,6 +8,22 @@
  */
 
 /**
+ * Detect if a response is primarily code (wrapped in triple backticks)
+ */
+export function isCodeResponse(text) {
+  if (!text || typeof text !== 'string') return false;
+  const trimmed = text.trim();
+  return trimmed.startsWith('```') && trimmed.endsWith('```');
+}
+
+/**
+ * Standard normalization wrapper for chat bubbles
+ */
+export function normalizeResponse(text) {
+  return normalizeResponseText(text);
+}
+
+/**
  * Strip markdown syntax from text, preserving structure.
  * Converts markdown to clean plain text suitable for structured rendering.
  */
@@ -163,5 +179,11 @@ export function shouldShowAnalytics(query, response) {
   return true;
 }
 
-const responseNormalizer = { normalizeResponseText, detectTaskComplexity, shouldShowAnalytics };
+const responseNormalizer = { 
+  normalizeResponseText, 
+  normalizeResponse, 
+  isCodeResponse, 
+  detectTaskComplexity, 
+  shouldShowAnalytics 
+};
 export default responseNormalizer;

@@ -20,6 +20,7 @@
 import axios from 'axios';
 import { API_BASE } from '../config';
 import { getClerkToken } from '../hooks/useAuthContext';
+import { validateResponseShape } from '../utils/validation';
 
 // ── Token Storage ───────────────────────────────
 // MIGRATION NOTE: Tokens are now fetched dynamically via Clerk React context
@@ -57,25 +58,81 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ── Response Interceptor: Handle 401 ────────────────────────
+// ── Response Interceptor: Handle Data Normalization & Global Errors ──
 api.interceptors.response.use(
   (response) => {
-    // If the response follows our standardized {success, data, error} pattern, unwrap it.
-    if (response.data && typeof response.data === 'object' && 'success' in response.data) {
-      if (response.data.success) {
-        return response.data.data;
+    // 1. Network/Empty response check
+    if (!response || !response.data) {
+      const errorMetadata = {
+        type: 'EMPTY_RESPONSE',
+        url: response?.config?.url,
+        status: response?.status
+      };
+      console.warn('API Response is empty or malformed', errorMetadata);
+      return { success: false, data: null, error: 'Empty response from server', metadata: errorMetadata };
+    }
+
+    const data = response.data;
+
+    // 2. Standard Envelope Handling
+    if (data && typeof data === 'object' && 'success' in data) {
+      if (data.success) {
+        // Safe unwrap
+        const unwrapped = data.data !== undefined ? data.data : {};
+        
+        // Optional: Add validation logic per-endpoint here if needed
+        return unwrapped;
       } else {
-        const error = new Error(response.data.error || 'Request failed');
+        const errorMessage = data.error || 'Request failed';
+        const errorMetadata = {
+          type: 'SERVER_ERROR_ENVELOPE',
+          url: response.config.url,
+          status: response.status,
+          serverError: data.error,
+          serverDetails: data.details
+        };
+        console.error(`API Error [${response.config.url}]:`, errorMessage, errorMetadata);
+        
+        const error = new Error(errorMessage);
         error.status = response.status;
-        error.data = response.data;
+        error.data = data;
+        error.metadata = errorMetadata;
         throw error;
       }
     }
-    return response.data;
+    
+    // 3. Raw Data Handling (non-enveloped)
+    return data !== undefined ? data : {};
   },
   async (error) => {
+    let type = 'UNKNOWN_ERROR';
+    let message = error.message;
+
+    if (!error.response) {
+      type = 'NETWORK_ERROR';
+      message = 'Unable to reach the service. Please check your connection.';
+    } else if (error.response.status >= 500) {
+      type = 'SERVER_CRASH';
+      message = 'The server encountered an error. We are looking into it.';
+    } else if (error.response.status >= 400) {
+      type = 'CLIENT_ERROR';
+      message = error.response.data?.error || error.response.data?.detail || 'Invalid request.';
+    }
+
+    const errorMetadata = {
+      type,
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    };
+
+    console.error(`Global API Error [${type}]:`, errorMetadata);
+
     // Sanitize error for display
     const sanitizedError = sanitizeError(error);
+    sanitizedError.metadata = errorMetadata;
     return Promise.reject(sanitizedError);
   }
 );
