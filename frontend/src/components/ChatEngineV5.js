@@ -31,6 +31,7 @@ import {
   getChatMessages, getSessionDescriptive, getOmegaSession,
 } from '../services/api';
 import useStore from '../stores/useStore';
+import { validateResponseShape, Schemas } from '../utils/validation';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -243,10 +244,13 @@ export default function ChatEngineV5() {
       }
 
       const returnedChatId = result.chat_id ? String(result.chat_id) : null;
-      const answerText = result.formatted_output
-        || result.data?.priority_answer
-        || result.priority_answer
-        || 'No response.';
+      
+      // Validate result shape before rendering
+      const isValid = validateResponseShape(result, Schemas.CHAT_RUN, 'sendMCOQuery');
+      
+      const answerText = isValid 
+        ? (result.formatted_output || result.data?.priority_answer || result.priority_answer || 'No response.')
+        : 'Error: Received invalid response shape from server.';
 
       const assistantMsg = {
         role: 'assistant',

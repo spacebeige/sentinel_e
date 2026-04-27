@@ -123,6 +123,9 @@ export default function FigmaChatShell({
   chatModels: chatModelsProp,
   mcoModels,
 
+  // === Error state ===
+  error,
+
   // === Claude toggle ===
   onToggleClaude,
 }) {
@@ -180,14 +183,15 @@ export default function FigmaChatShell({
       timestamp: new Date(),
     };
 
-    if (!messages || messages.length === 0) return [welcome];
+    if (!messages || !Array.isArray(messages) || messages.length === 0) return [welcome];
 
     return messages.map((msg, i) => {
+      if (!msg) return null;
       const base = {
         id: `msg-${i}`,
-        role: msg.role,
-        content: msg.role === 'assistant' ? normalizeResponseText(msg.content) : msg.content,
-        timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+        role: msg?.role || 'assistant',
+        content: msg?.role === 'assistant' ? normalizeResponseText(msg?.content || '') : (msg?.content || ''),
+        timestamp: msg?.timestamp ? new Date(msg?.timestamp) : new Date(),
         feedbackGiven: localFeedback[`msg-${i}`] || null,
       };
 
@@ -1403,6 +1407,39 @@ export default function FigmaChatShell({
             )}
 
             <div ref={messagesEndRef} />
+
+            {/* ---------- ERROR BANNER ---------- */}
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="mt-4 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 flex items-start gap-3"
+                >
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+                      Execution Error
+                    </p>
+                    <p className="text-xs text-red-700 dark:text-red-400 mt-1 opacity-90">
+                      {typeof error === 'string' ? error : (error.message || 'An unexpected error occurred during processing.')}
+                    </p>
+                    {process.env.NODE_ENV === 'development' && error.metadata && (
+                      <div className="mt-2 p-2 bg-black/5 rounded-lg font-mono text-[10px] text-red-900/60 dark:text-red-300/60">
+                        Type: {error.metadata.type} | Status: {error.metadata.status}
+                      </div>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
+                  >
+                    Reload
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
