@@ -3,12 +3,19 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import api from '../services/api';
 
 async function fetchWithRetry(fetcher, retries = 3, baseDelayMs = 1500) {
+  const shouldRetry = (error) => {
+    const status = error?.status || error?.response?.status;
+    if (status === 401 || status === 403 || status === 404) return false;
+    return true;
+  };
+
   let lastError;
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       return await fetcher();
     } catch (error) {
       lastError = error;
+      if (!shouldRetry(error)) throw error;
       if (attempt < retries - 1) {
         const delay = baseDelayMs * (attempt + 1);
         // eslint-disable-next-line no-await-in-loop
@@ -29,6 +36,7 @@ const useStore = create(
       preferences: null,
       contextWindow: null,
       isLoaded: false,
+      hasHydrated: false,
       isLoading: false,
       error: null,
 
@@ -66,12 +74,12 @@ const useStore = create(
         try {
           const prev = get();
           const results = await Promise.allSettled([
-            fetchWithRetry(() => api.get('/api/history')),
+            fetchWithRetry(() => api.get('/api/history'), 4, 1500),
             api.get('/api/user/memory'),
             api.get('/api/user/preferences')
           ]);
 
-          const historyDataRaw = results[0].status === 'fulfilled'
+          const historyResponse = results[0].status === 'fulfilled'
             ? (results[0].value ?? { chats: [], messages: [] })
             : { chats: [], messages: [] };
           const memoryData = results[1].status === 'fulfilled'
@@ -81,12 +89,9 @@ const useStore = create(
             ? (results[2].value ?? {})
             : {};
 
-          const historyData = Array.isArray(historyDataRaw)
-            ? { chats: historyDataRaw, messages: [] }
-            : historyDataRaw;
-
-          const chats = Array.isArray(historyData?.chats) ? historyData.chats : [];
-          const messages = Array.isArray(historyData?.messages) ? historyData.messages : [];
+          // Always parse from response.chats / response.messages
+          const chats = Array.isArray(historyResponse?.chats) ? historyResponse.chats : [];
+          const messages = Array.isArray(historyResponse?.messages) ? historyResponse.messages : [];
 
           get().setHistory(chats, messages);
 
@@ -136,12 +141,17 @@ const useStore = create(
         preferences: null,
         contextWindow: null,
         isLoaded: false,
+        hasHydrated: false,
         error: null
       })
     }),
     {
       name: 'sentinel-session-storage',
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        state?.setLoading(false);
+        useStore.setState({ hasHydrated: true });
+      },
       partialize: (state) => ({
         userId: state.userId,
         chats: state.chats,
