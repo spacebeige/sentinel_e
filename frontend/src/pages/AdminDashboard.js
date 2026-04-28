@@ -20,7 +20,6 @@ import {
 import axios from 'axios';
 import MakeAdminForm from '../components/MakeAdminForm';
 import DataFallback from '../components/common/DataFallback';
-import { validateResponseShape } from '../utils/validation';
 
 const FONT = "'Inter', -apple-system, sans-serif";
 
