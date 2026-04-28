@@ -68,7 +68,7 @@ api.interceptors.response.use(
         status: response?.status
       };
       console.warn('API Response is empty or malformed', errorMetadata);
-      return { success: false, data: null, error: 'Empty response from server', metadata: errorMetadata };
+      return { success: false, data: { chats: [], messages: [] }, error: 'Empty response from server', metadata: errorMetadata };
     }
 
     const data = response.data;

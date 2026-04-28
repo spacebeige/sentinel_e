@@ -33,7 +33,6 @@ import PricingPageWrapper from './pages/PricingPageWrapper';
 import ModelsPageWrapper from './pages/ModelsPageWrapper';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
-import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './hooks/useAuthContext';
 import useStore from './stores/useStore';
 import { useAuth } from '@clerk/clerk-react';
@@ -88,7 +87,6 @@ function SessionInitializer({ children }) {
 function App() {
   return (
     <CognitiveStoreProvider>
-      <ErrorBoundary>
         <BrowserRouter>
           <AuthProvider>
             <SessionInitializer>
@@ -125,7 +123,6 @@ function App() {
             </SessionInitializer>
           </AuthProvider>
         </BrowserRouter>
-      </ErrorBoundary>
     </CognitiveStoreProvider>
   );
 }

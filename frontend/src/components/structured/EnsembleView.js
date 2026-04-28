@@ -531,7 +531,7 @@ export default function EnsembleView({ data, boundary, confidence }) {
     session: false,
   });
 
-  if (!data) return null;
+  if (!data) { console.warn('Missing data in component'); return <div className='p-4 text-[#aeaeb2] text-sm'>Waiting for results...</div>; }
 
   const metrics = data.ensemble_metrics || {};
   const debateRounds = data.debate_result || data.debate_rounds || [];

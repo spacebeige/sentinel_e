@@ -15,7 +15,7 @@ export default function AggregationView({ data, boundary, confidence }) {
   const [activeTab, setActiveTab] = useState('synthesis');
   const [expandedModel, setExpandedModel] = useState(null);
 
-  if (!data) return null;
+  if (!data) { console.warn('Missing data in component'); return <div className='p-4 text-[#aeaeb2] text-sm'>Waiting for results...</div>; }
 
   const models = data.model_outputs || [];
   const synthesis = data.synthesis || '';

@@ -619,8 +619,8 @@ class TimeoutMiddleware(BaseHTTPMiddleware):
             )
         except asyncio.TimeoutError:
             return JSONResponse(
-                status_code=504,
-                content={"detail": "Request timed out. The ensemble analysis took too long. Please try a simpler query or fewer models."},
+                status_code=200,
+                content={"success": False, "data": {}, "detail": "Request timed out. The ensemble analysis took too long. Please try a simpler query or fewer models."},
             )
 
 # ── Middleware Stack (order matters: outermost first) ────────

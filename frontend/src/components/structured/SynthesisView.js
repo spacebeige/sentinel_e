@@ -16,7 +16,7 @@ export default function SynthesisView({ data, boundary, confidence }) {
   const [showDraft, setShowDraft] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
-  if (!data) return null;
+  if (!data) { console.warn('Missing data in component'); return <div className='p-4 text-[#aeaeb2] text-sm'>Waiting for results...</div>; }
 
   const draft = data.draft || '';
   const draftModel = data.draft_model || 'Unknown';

@@ -15,7 +15,7 @@ export default function GlassView({ data, boundary, confidence }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [expandedAssessment, setExpandedAssessment] = useState(null);
 
-  if (!data) return null;
+  if (!data) { console.warn('Missing data in component'); return <div className='p-4 text-[#aeaeb2] text-sm'>Waiting for results...</div>; }
 
   const assessments = data.assessments || [];
   const tacticalMap = data.tactical_map || {};
