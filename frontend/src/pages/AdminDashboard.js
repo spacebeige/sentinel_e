@@ -450,7 +450,7 @@ function ArchitectureTab({ architecture }) {
             <div>
               <h4 className="font-bold mb-3 text-sm">Key Features</h4>
               <ul className="space-y-2">
-                {(Array.isArray(architecture.features?.capabilities) ? architecture.features.capabilities : []).slice(0, 4).map(cap, i) => (
+                {(Array.isArray(architecture.features?.capabilities) ? architecture.features.capabilities : []).slice(0, 4).map((cap, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm">
                     <CheckCircle className="w-4 h-4 text-[#34c759] flex-shrink-0 mt-0.5" />
                     <span className="text-[#1d1d1f]">{cap}</span>
