@@ -20,7 +20,6 @@
 import axios from 'axios';
 import { API_BASE } from '../config';
 import { getClerkToken } from '../hooks/useAuthContext';
-import { validateResponseShape } from '../utils/validation';
 
 // ── Token Storage ───────────────────────────────
 // MIGRATION NOTE: Tokens are now fetched dynamically via Clerk React context
@@ -106,17 +105,13 @@ api.interceptors.response.use(
   },
   async (error) => {
     let type = 'UNKNOWN_ERROR';
-    let message = error.message;
 
     if (!error.response) {
       type = 'NETWORK_ERROR';
-      message = 'Unable to reach the service. Please check your connection.';
     } else if (error.response.status >= 500) {
       type = 'SERVER_CRASH';
-      message = 'The server encountered an error. We are looking into it.';
     } else if (error.response.status >= 400) {
       type = 'CLIENT_ERROR';
-      message = error.response.data?.error || error.response.data?.detail || 'Invalid request.';
     }
 
     const errorMetadata = {

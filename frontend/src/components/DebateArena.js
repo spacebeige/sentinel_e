@@ -337,41 +337,10 @@ const MetricsPanel = ({ reasoningMetrics, consensusScores, charts }) => (
  *      → Simple metrics card (unchanged behaviour)
  */
 const DebateArena = ({ data }) => {
-  if (!data) return null;
+  const battleData = data || {};
 
   // ── Detect payload type ────────────────────────────────────
-  const isBattlePayload = !!(data.models_selected || data.models || data.round_outputs);
-
-  // ── Legacy fallback ────────────────────────────────────────
-  if (!isBattlePayload) {
-    const omega = data.omega_metadata || {};
-    const confidence = data.confidence ?? omega.confidence;
-    const boundary  = data.boundary_result || omega.boundary_result || {};
-    const session   = data.session_state   || omega.session_state   || {};
-    const reasoning = data.reasoning_trace || omega.reasoning_trace || {};
-    const fragility = omega.fragility_index ?? session.fragility_index;
-
-    return (
-      <div className="space-y-4 p-4">
-        <div className="flex items-center gap-2 pb-2"
-             style={{ borderBottom: '1px solid var(--border-secondary)' }}>
-          <Swords className="w-4 h-4" style={{ color: 'var(--accent-orange)' }} />
-          <h3 className="text-xs font-bold uppercase tracking-widest"
-              style={{ color: 'var(--accent-orange)' }}>Debate Arena</h3>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <MetricPill label="Confidence" value={pct(confidence)}
-            color={confidence >= 0.8 ? '#10b981' : confidence >= 0.5 ? '#f59e0b' : '#ef4444'} />
-          <MetricPill label="Risk"       value={boundary.risk_level || 'LOW'}
-            color={STATUS_COLORS[boundary.risk_level] || '#10b981'} />
-          <MetricPill label="Passes"     value={reasoning.total_passes || '—'}
-            color="var(--text-primary)" />
-          <MetricPill label="Fragility"  value={fixed2(fragility)}
-            color={fragility >= 0.5 ? '#ef4444' : '#10b981'} />
-        </div>
-      </div>
-    );
-  }
+  const isBattlePayload = !!(battleData.models_selected || battleData.models || battleData.round_outputs);
 
   // ── New BattleVisualizationPayload ─────────────────────────
   const {
@@ -387,7 +356,7 @@ const DebateArena = ({ data }) => {
     winner,
     winner_score,
     charts,                     // optional base64 chart images
-  } = data;
+  } = battleData;
 
   // Build models list: prefer enriched models array; fall back to selected keys
   const modelList = useMemo(() => {
@@ -412,6 +381,37 @@ const DebateArena = ({ data }) => {
     () => Object.fromEntries((consensus_scores || []).map((s) => [s.model, s.composite_score])),
     [consensus_scores]
   );
+
+  // ── Legacy fallback ────────────────────────────────────────
+  if (!isBattlePayload) {
+    const omega = battleData.omega_metadata || {};
+    const confidence = battleData.confidence ?? omega.confidence;
+    const boundary  = battleData.boundary_result || omega.boundary_result || {};
+    const session   = battleData.session_state   || omega.session_state   || {};
+    const reasoning = battleData.reasoning_trace || omega.reasoning_trace || {};
+    const fragility = omega.fragility_index ?? session.fragility_index;
+
+    return (
+      <div className="space-y-4 p-4">
+        <div className="flex items-center gap-2 pb-2"
+             style={{ borderBottom: '1px solid var(--border-secondary)' }}>
+          <Swords className="w-4 h-4" style={{ color: 'var(--accent-orange)' }} />
+          <h3 className="text-xs font-bold uppercase tracking-widest"
+              style={{ color: 'var(--accent-orange)' }}>Debate Arena</h3>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <MetricPill label="Confidence" value={pct(confidence)}
+            color={confidence >= 0.8 ? '#10b981' : confidence >= 0.5 ? '#f59e0b' : '#ef4444'} />
+          <MetricPill label="Risk"       value={boundary.risk_level || 'LOW'}
+            color={STATUS_COLORS[boundary.risk_level] || '#10b981'} />
+          <MetricPill label="Passes"     value={reasoning.total_passes || '—'}
+            color="var(--text-primary)" />
+          <MetricPill label="Fragility"  value={fixed2(fragility)}
+            color={fragility >= 0.5 ? '#ef4444' : '#10b981'} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3 p-3">
