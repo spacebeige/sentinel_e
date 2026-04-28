@@ -450,7 +450,7 @@ function ArchitectureTab({ architecture }) {
             <div>
               <h4 className="font-bold mb-3 text-sm">Key Features</h4>
               <ul className="space-y-2">
-                {architecture.features?.capabilities?.slice(0, 4).map((cap, i) => (
+                {(Array.isArray(architecture.features?.capabilities) ? architecture.features.capabilities : []).slice(0, 4).map(cap, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm">
                     <CheckCircle className="w-4 h-4 text-[#34c759] flex-shrink-0 mt-0.5" />
                     <span className="text-[#1d1d1f]">{cap}</span>
@@ -461,7 +461,7 @@ function ArchitectureTab({ architecture }) {
             <div>
               <h4 className="font-bold mb-3 text-sm">Modes</h4>
               <div className="flex flex-wrap gap-2">
-                {architecture.features?.modes?.map((mode, i) => (
+                {(Array.isArray(architecture.features?.modes) ? architecture.features.modes : []).map((mode, i) => (
                   <span
                     key={i}
                     className="px-3 py-1 rounded-full text-xs font-medium bg-[#f5f5f7] text-[#1d1d1f]"
@@ -481,7 +481,7 @@ function ArchitectureTab({ architecture }) {
           System Layers
         </h2>
         <div className="space-y-3">
-          {architecture.architecture?.layers?.map((layer, i) => (
+          {(Array.isArray(architecture.architecture?.layers) ? architecture.architecture.layers : []).map((layer, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, x: -20 }}
@@ -510,11 +510,11 @@ function ArchitectureTab({ architecture }) {
           Reasoning Pipeline
         </h2>
         <div className="space-y-4">
-          {architecture.models?.reasoning?.map((stage, i) => (
+          {(Array.isArray(architecture.models?.reasoning) ? architecture.models.reasoning : []).map((stage, i) => (
             <div key={i} className="bg-white rounded-xl p-6 border border-black/5">
               <h3 className="font-bold text-[#1d1d1f] capitalize mb-3">{stage.role}</h3>
               <div className="flex flex-wrap gap-2">
-                {stage.models?.map((model, j) => (
+                {(Array.isArray(stage.models) ? stage.models : []).map((model, j) => (
                   <span
                     key={j}
                     className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-[#3b82f6]/10 to-[#06b6d4]/10 text-[#1d1d1f] border border-[#3b82f6]/20"

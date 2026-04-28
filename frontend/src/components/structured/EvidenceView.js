@@ -24,7 +24,7 @@ export default function EvidenceView({ data, boundary, confidence }) {
   const [showSources, setShowSources] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
 
-  if (!data) return null;
+  if (!data) { console.warn('Missing data in component'); return <div className='p-4 text-[#aeaeb2] text-sm'>Waiting for results...</div>; }
 
   const allClaims = data.all_claims || [];
   const displayClaims = data.visible_claims || allClaims;

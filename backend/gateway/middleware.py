@@ -194,8 +194,10 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                 user_message = "The requested resource was not found."
 
             return JSONResponse(
-                status_code=status_code,
+                status_code=200,
                 content={
+                    "success": False,
+                    "data": {},
                     "detail": user_message,
                     "request_id": request_id,
                 },

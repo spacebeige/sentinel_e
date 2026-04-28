@@ -105,7 +105,7 @@ function RiskCard({ boundary }) {
 }
 
 export default function StandardView({ data, boundary, confidence, disagreementScore }) {
-  if (!data) return null;
+  if (!data) { console.warn('Missing data in component'); return <div className='p-4 text-[#aeaeb2] text-sm'>Waiting for results...</div>; }
 
   const models = data.model_outputs || [];
   const synthesis = data.synthesis || '';

@@ -62,7 +62,7 @@ const ContradictionCard = ({ contradiction }) => (
  * This shows supplementary source/contradiction metrics.
  */
 const EvidenceConsole = ({ data }) => {
-  if (!data) return null;
+  if (!data) { console.warn('Missing data in component'); return <div className='p-4 text-[#aeaeb2] text-sm'>Waiting for results...</div>; }
 
   const runId = data.chat_id || data.run_id;
   const omega = data.omega_metadata || {};
