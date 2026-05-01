@@ -39,6 +39,13 @@ class FirebaseService:
             self.enabled = False
             return
 
+        if getattr(firebase_admin, "_apps", None):
+            self.app = next(iter(firebase_admin._apps.values()))
+            self.db = firestore.client()
+            self.enabled = True
+            logger.info("Firebase Admin initialized ✅")
+            return
+
         try:
             # Try to build credentials from env variables
             project_id = os.getenv("FIREBASE_PROJECT_ID")
@@ -73,7 +80,7 @@ class FirebaseService:
             self.app = firebase_admin.initialize_app(cred)
             self.db = firestore.client()
 
-            logger.info(f"Firebase initialized for project: {project_id}")
+            logger.info("Firebase Admin initialized ✅")
             self.enabled = True
 
         except Exception as e:

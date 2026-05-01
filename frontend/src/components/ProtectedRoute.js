@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthContext } from '../hooks/useAuthContext';
+import LoadingScreen from './LoadingScreen';
 
 export function ProtectedRoute({ children, requireAdmin = false }) {
   const location = useLocation();
@@ -18,11 +19,11 @@ export function ProtectedRoute({ children, requireAdmin = false }) {
   }, [isAuthenticated, loading, location.pathname, openAuthModal]);
 
   if (loading) {
-    return <div className="min-h-[40vh]" />;
+    return <LoadingScreen message="Checking authentication..." />;
   }
 
   if (!isAuthenticated) {
-    return <div className="min-h-[40vh]" />;
+    return <LoadingScreen message="Please log in to continue..." />;
   }
 
   if (requireAdmin && !isAdmin) {

@@ -52,10 +52,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 # ── Gateway Layer Imports ────────────────────────────────────
 from gateway.config import get_settings
-from gateway.auth import (
-    get_current_user,
-    get_optional_user,
-)
+from gateway.auth_v2 import get_current_user
 from gateway.firebase_service import get_firebase_service, firebase_is_enabled
 from gateway.middleware import (
     RateLimitMiddleware, SecurityHeadersMiddleware,
@@ -83,8 +80,6 @@ from utils.chat_naming import generate_chat_name
 from utils.output_sanitizer import sanitize_output
 from core.context_builder import get_context_builder
 from utils.api_response import api_response, api_error, api_success
-from gateway.auth import get_user_id
-
 # ── New Architecture Layers ──────────────────────────────────
 from memory.memory_engine import MemoryEngine
 from retrieval.cognitive_rag import CognitiveRAG
@@ -120,6 +115,9 @@ from evaluation.routes import router as battle_router
 
 # ── Standard Mode (direct model routing) ─────────────────────
 from gateway.chat_routes import router as chat_router
+
+# ── Persistent API v2 (Neon-based) ─────────────────────────
+from api.endpoints_v2 import router as api_v2
 
 # ── Admin Routes ──────────────────────────────────────────────
 from gateway.admin_routes import router as admin_router
@@ -646,6 +644,9 @@ app.add_middleware(
 )
 # ── Meta-Cognitive Orchestrator Router ──────────────────────
 app.include_router(mco_router)
+
+# ── Persistent API v2 Router (Neon-based persistence) ───────
+app.include_router(api_v2, prefix="/api")
 
 # ── Battle Platform v2 Router ────────────────────────────────
 app.include_router(battle_router)
@@ -1956,13 +1957,13 @@ async def _run_sentinel_core(
 @app.post("/api/run")
 async def run_sentinel(
     request: SentinelRequest,
-    raw_request: Request,
     background_tasks: BackgroundTasks,
+    current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     frontend_context: Optional[str] = None,
 ):
     """Main entry point for Sentinel execution (JSON body)."""
-    user_id = await get_user_id(raw_request)
+    user_id = current_user.get("user_id")
     return await _run_sentinel_core(request, db, user_id, frontend_context, background_tasks)
 
 
@@ -1976,10 +1977,11 @@ async def run_compressed_api(
     request: Request,
     body: SentinelRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Dict = Depends(get_current_user),
 ):
     """Compressed reasoning pipeline."""
     try:
-        user_id = await get_user_id(request)
+        user_id = current_user.get("user_id")
         if not user_id: return api_error("Auth required", status_code=401)
 
         firewall = get_firewall()
@@ -2490,7 +2492,7 @@ async def get_chats_list(
 async def history_alias(
     limit: int = 50, offset: int = 0,
     db: AsyncSession = Depends(get_db),
-    user: Optional[Dict] = Depends(get_optional_user),
+    user: Dict = Depends(get_current_user),
 ):
     logger.info("Entering /api/history")
     logger.info("/api/history user authenticated=%s", bool(user))
@@ -2499,30 +2501,10 @@ async def history_alias(
         from database.schemas import ChatSchema, MessageSchema
         from database.models import Message
 
-        if not user:
-            logger.info("/api/history unauthenticated request — returning empty history")
-            return api_success({
-                "chats": [],
-                "messages": [],
-                "metadata": {
-                    "total_chats": 0,
-                    "total_messages": 0,
-                    "fetched_at": datetime.utcnow().isoformat(),
-                },
-            })
-
         user_id = user.get("user_id")
         if not user_id:
-            logger.warning("/api/history missing user_id in optional user payload")
-            return api_success({
-                "chats": [],
-                "messages": [],
-                "metadata": {
-                    "total_chats": 0,
-                    "total_messages": 0,
-                    "fetched_at": datetime.utcnow().isoformat(),
-                },
-            })
+            logger.warning("/api/history missing user_id in auth payload")
+            return api_error("Authentication required", status_code=401)
         logger.info("auth user_id=%s", user_id)
 
         chats = await list_chats(db, user_id, limit, offset)
@@ -2883,11 +2865,11 @@ async def learning_summary(user: Dict = Depends(get_current_user)):
 # ============================================================
 
 @app.get("/api/user/memory")
-async def get_memory_api(request: Request, db: AsyncSession = Depends(get_db)):
+async def get_memory_api(db: AsyncSession = Depends(get_db), current_user: Dict = Depends(get_current_user)):
     """Get all user memory facts."""
     try:
-        user_id = await get_user_id(request)
-        if not user_id: return api_success([])
+        user_id = current_user.get("user_id")
+        if not user_id: return api_error("Authentication required", status_code=401)
         from database.schemas import UserMemorySchema
         memories = await get_user_memory(db, user_id)
         return api_success([UserMemorySchema.model_validate(m).model_dump(mode="json") for m in (memories or [])])
@@ -2897,11 +2879,11 @@ async def get_memory_api(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.post("/api/user/memory")
-async def add_memory_api(request: Request, body: dict = Body(...), db: AsyncSession = Depends(get_db)):
+async def add_memory_api(body: dict = Body(...), db: AsyncSession = Depends(get_db), current_user: Dict = Depends(get_current_user)):
     """Add or update a user memory fact."""
     try:
-        user_id = await get_user_id(request)
-        if not user_id: return api_error("Auth required", status_code=401)
+        user_id = current_user.get("user_id")
+        if not user_id: return api_error("Authentication required", status_code=401)
         key, value = body.get("key"), body.get("value")
         if not key or not value: return api_error("key and value required")
         await add_user_memory(db, user_id, key, value, body.get("confidence", 75))
@@ -2912,11 +2894,11 @@ async def add_memory_api(request: Request, body: dict = Body(...), db: AsyncSess
 
 
 @app.get("/api/user/preferences")
-async def get_preferences_api(request: Request, db: AsyncSession = Depends(get_db)):
+async def get_preferences_api(db: AsyncSession = Depends(get_db), current_user: Dict = Depends(get_current_user)):
     """Get user preferences."""
     try:
-        user_id = await get_user_id(request)
-        if not user_id: return api_success({})
+        user_id = current_user.get("user_id")
+        if not user_id: return api_error("Authentication required", status_code=401)
         prefs = await get_user_preferences(db, user_id)
         return api_success(prefs)
     except Exception as e:
@@ -2925,11 +2907,11 @@ async def get_preferences_api(request: Request, db: AsyncSession = Depends(get_d
 
 
 @app.put("/api/user/preferences")
-async def update_preferences_api(request: Request, body: dict = Body(...), db: AsyncSession = Depends(get_db)):
+async def update_preferences_api(body: dict = Body(...), db: AsyncSession = Depends(get_db), current_user: Dict = Depends(get_current_user)):
     """Update user preferences."""
     try:
-        user_id = await get_user_id(request)
-        if not user_id: return api_error("Auth required", status_code=401)
+        user_id = current_user.get("user_id")
+        if not user_id: return api_error("Authentication required", status_code=401)
         for k, v in body.items():
             await upsert_user_preference(db, user_id, k, str(v))
         return api_success({"status": "updated"})

@@ -20,6 +20,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { auth } from '../firebase';
 import FigmaChatShell from '../figma_shell/FigmaChatShell';
 import useModels from '../hooks/useModels';
 import { getDefaultPipelineSteps } from '../engines/modeController';
@@ -183,6 +184,20 @@ export default function ChatEngineV5() {
 
   // ── Send Handler ─────────────────────────────────────────
   const handleSend = async ({ text, file }) => {
+    // PHASE 1: Log current user id for diagnostics
+    try {
+      console.log('FRONTEND: SEND - USER_ID', auth.currentUser?.uid || null);
+    } catch (e) {
+      /* ignore */
+    }
+
+    // PATCH 3: Block send if no userId
+    if (!auth.currentUser?.uid) {
+      console.error('NO USER_ID — blocking send');
+      setError('Not authenticated. Please sign in.');
+      return;
+    }
+
     if (!text && !file) return;
     const chatId = activeChatId;
     setLoading(true);
