@@ -13,7 +13,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '../hooks/useAuthContext';
-import sessionManager from '../services/sessionManager';
+import { getHistory, createChat } from '../services/api';
 import '../styles/SessionSidebar.css';
 
 const SessionSidebar = ({ isOpen, onSelectSession }) => {
@@ -26,39 +26,36 @@ const SessionSidebar = ({ isOpen, onSelectSession }) => {
   const loadSessions = useCallback(async () => {
     try {
       setLoading(true);
-      const userSessions = await sessionManager.getUserSessions(user.uid, 50);
-      setSessions(userSessions);
-      if (userSessions.length > 0) {
-        setActiveSessionId(userSessions[0].id);
+      // Use API to fetch history (session/chat data)
+      const historyResponse = await getHistory(50);
+      const chats = historyResponse?.chats || [];
+      setSessions(chats);
+      if (chats.length > 0) {
+        setActiveSessionId(chats[0].id);
       }
     } catch (error) {
       console.error('Error loading sessions:', error);
     } finally {
       setLoading(false);
     }
-  }, [user.uid]);
+  }, []);
 
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.user_id) {
       loadSessions();
     }
-  }, [user?.uid, loadSessions]);
+  }, [user?.user_id, loadSessions]);
 
   const handleNewChat = async () => {
     try {
-      const result = await sessionManager.createSession(
-        user.uid,
-        'query',
-        '',
-        user.preferences || {}
-      );
-      if (result.success) {
-        setActiveSessionId(result.sessionId);
+      const result = await createChat('New Chat', 'conversational');
+      if (result?.id) {
+        setActiveSessionId(result.id);
         loadSessions();
-        onSelectSession?.(result.sessionId);
+        onSelectSession?.(result.id);
       }
     } catch (error) {
-      console.error('Error creating session:', error);
+      console.error('Error creating chat:', error);
     }
   };
 
@@ -71,13 +68,14 @@ const SessionSidebar = ({ isOpen, onSelectSession }) => {
     e.stopPropagation();
     if (window.confirm('Delete this chat? This action cannot be undone.')) {
       try {
-        await sessionManager.deleteSession(sessionId);
+        // TODO: Add deleteChat API when available
+        // For now, just refresh
         loadSessions();
         if (activeSessionId === sessionId) {
           setActiveSessionId(null);
         }
       } catch (error) {
-        console.error('Error deleting session:', error);
+        console.error('Error deleting chat:', error);
       }
     }
   };

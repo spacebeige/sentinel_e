@@ -19,14 +19,13 @@
 
 import axios from 'axios';
 import { API_BASE } from '../config';
-import { getClerkToken } from '../hooks/useAuthContext';
 
 // ── Token Storage ───────────────────────────────
-// MIGRATION NOTE: Tokens are now fetched dynamically via Clerk React context
+// MIGRATION NOTE: Tokens are now fetched dynamically via Firebase Auth context
 
 /**
  * Create an axios instance with interceptors for auth.
- * primarily relies on Clerk Bearer tokens now.
+ * primarily relies on Firebase Bearer tokens now.
  */
 const api = axios.create({
   baseURL: API_BASE,
@@ -37,19 +36,28 @@ const api = axios.create({
   },
 });
 
-// ── Request Interceptor: Add request ID and Clerk Token ───
+// ── Request Interceptor: Add request ID and Firebase Token ───
 api.interceptors.request.use(
   async (config) => {
     config.headers['X-Request-ID'] = generateRequestId();
     config.withCredentials = true;
     
     try {
-      const token = await getClerkToken();
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      // Import Firebase auth dynamically to avoid circular dependencies
+      const { auth } = await import('../firebase');
+      const user = auth.currentUser;
+
+      if (user) {
+        const token = await user.getIdToken();
+        if (token) {
+          console.log('TOKEN:', token?.slice(0, 20));
+          config.headers.Authorization = `Bearer ${token}`;
+          // Add debug header for user tracing
+          config.headers['X-Debug-User'] = user.uid;
+        }
       }
     } catch (err) {
-      console.warn("Failed to retrieve Clerk token for request", err);
+      console.warn("Failed to retrieve Firebase token for request", err);
     }
     
     return config;
@@ -208,11 +216,38 @@ export async function sendFeedback(runId, feedback, extra = {}) {
 }
 
 /**
+ * Create or resume user session.
+ * Called on app load BEFORE fetching history.
+ */
+export async function createSession(client = 'web') {
+  try {
+    const res = await api.post('/api/session', { client });
+    return res;
+  } catch (err) {
+    console.error('Failed to create session:', err);
+    return { success: false, data: { session_id: null }, error: err.message };
+  }
+}
+
+/**
  * Get chat history list.
  */
 export async function getHistory(limit = 50, offset = 0) {
   const res = await api.get('/api/history', { params: { limit, offset } });
   return res;
+}
+
+/**
+ * Create a new chat.
+ */
+export async function createChat(title = 'New Chat', mode = 'conversational') {
+  try {
+    const res = await api.post('/api/chat', { title, mode });
+    return res?.data || res || null;
+  } catch (err) {
+    console.error('Failed to create chat:', err);
+    return null;
+  }
 }
 
 /**

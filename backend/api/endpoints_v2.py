@@ -1,0 +1,700 @@
+"""
+============================================================
+API Endpoints v2 — Deterministic, Persistent, Safe
+============================================================
+
+Implements PHASE 2-10 API contracts:
+
+Endpoints:
+  • POST /api/session — Create session
+  • GET /api/history — Load chat history (with all messages)
+  • POST /api/chat — Create new chat
+  • GET /api/chat/{id} — Get chat (for page refresh)
+  • POST /api/chat/{id}/message — Add message to chat
+  • GET /api/chat/{id}/messages — Get chat messages
+  • GET /api/memory — Get user memory
+  • POST /api/memory — Upsert memory
+  • GET /api/user/settings — Get user settings
+  • PUT /api/user/settings — Update settings
+  • GET /api/context — Get context window for LLM
+  • GET /api/user — Get current user
+
+Principles:
+  • Every endpoint requires auth
+  • All responses: {success, data, error}
+  • Never return null values
+  • Update session on every request
+  • Persist all writes to Neon
+
+Usage in main.py:
+    from api.endpoints_v2 import router as api_v2
+    app.include_router(api_v2, prefix="/api")
+"""
+
+import logging
+from typing import Optional, Dict, Any, List
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from database.connection_v2 import get_db
+from database.crud_v2 import (
+    upsert_user, get_user_by_id,
+    create_session, update_session_activity, get_session, list_user_sessions,
+    create_chat, get_chat, list_user_chats, update_chat_title, archive_chat,
+    add_message, get_chat_messages, get_message, soft_delete_message,
+    upsert_memory, get_user_memory, get_memory_by_key,
+    upsert_user_setting, get_user_settings, get_user_stats,
+)
+from gateway.auth_v2 import get_current_user, ensure_user_exists as ensure_user
+from utils.safe_responses import (
+    success, error, 
+    user_to_dict, session_to_dict, chat_to_dict, message_to_dict, memory_to_dict,
+    chat_history_response, context_window_response,
+    empty_history_structure, empty_memory_structure,
+)
+
+logger = logging.getLogger("API-v2")
+
+router = APIRouter()
+
+
+# ─────────────────────────────────────────────────────────────
+# DEPENDENCY: Get current user (with DB session)
+# ─────────────────────────────────────────────────────────────
+
+async def get_current_user_with_db(
+    user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> tuple[Dict[str, Any], str, AsyncSession]:
+    """
+    Dependency that provides: (user_dict, user_id, db_session)
+    
+    Also ensures user exists in database.
+    """
+    user_id = await ensure_user(user, db)
+    # Instrumentation: log user_id here for request-level visibility
+    try:
+        logger.info(f"USER_ID (dependency): {user_id}")
+        print("USER_ID:", user_id)
+    except Exception:
+        pass
+
+    return user, user_id, db
+
+
+# ─────────────────────────────────────────────────────────────
+# SESSION ENDPOINTS
+# ─────────────────────────────────────────────────────────────
+
+@router.post("/session")
+async def create_user_session(
+    request: Request,
+    client: str = "web",
+    payload: Dict[str, Any] = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Create new user session.
+    
+    Called on app load/login.
+    
+    Request:
+        POST /api/session
+        {client: "web" | "mobile" | "api"}
+    
+    Response:
+        {
+            success: true,
+            data: {
+                session_id: UUID,
+                user_id: string,
+                created_at: ISO8601,
+                last_active_at: ISO8601
+            },
+            error: null
+        }
+    """
+    try:
+        _, user_id, db = payload
+        
+        # PATCH 6: Log debug header if present
+        try:
+            debug_user = request.headers.get("x-debug-user") if hasattr(request, "headers") else None
+            if debug_user:
+                logger.info(f"HEADER_DEBUG_USER: {debug_user} vs EXTRACTED_USER_ID: {user_id}")
+        except Exception:
+            pass
+        
+        session = await create_session(
+            db,
+            user_id=user_id,
+            client=client or "web",
+        )
+        
+        return success({
+            "session_id": str(session.id),
+            "user_id": session.user_id,
+            "created_at": session.created_at.isoformat(),
+            "last_active_at": session.last_active_at.isoformat(),
+        })
+    
+    except Exception as e:
+        logger.error(f"Error creating session: {e}")
+        return error("Failed to create session", 500)
+
+
+# ─────────────────────────────────────────────────────────────
+# CHAT HISTORY ENDPOINT (CRITICAL FOR PERSISTENCE)
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/history")
+async def get_chat_history(
+    payload: tuple = Depends(get_current_user_with_db),
+    limit: int = 50,
+) -> Dict[str, Any]:
+    """
+    Get chat history for logged-in user.
+    
+    CRITICAL: Called on app load to restore state.
+    
+    Returns:
+        ALL chats with ALL messages for each chat.
+        Empty list if no chats.
+    
+    Response:
+        {
+            success: true,
+            data: {
+                chats: [
+                    {
+                        id: UUID,
+                        title: string,
+                        messages: [{...}, {...}],
+                        message_count: int,
+                        created_at: ISO8601,
+                        ...
+                    }
+                ],
+                chat_count: int,
+                total_messages: int
+            },
+            error: null
+        }
+    
+    GUARANTEE:
+        • Never returns null
+        • Empty chats list if no chats (not null)
+        • All messages included for each chat
+        • Last update shows most recent first
+    """
+    try:
+        _, user_id, db = payload
+        
+        # PATCH 5: History validation logging
+        logger.info(f"HISTORY REQUEST USER_ID: {user_id}")
+        print(f"BACKEND HISTORY USER_ID: {user_id}")
+        
+        # Get all chats (non-archived, filtered by user_id)
+        chats = await list_user_chats(db, user_id, limit=limit, archived=False)
+        
+        # Get messages for each chat
+        messages_by_chat = {}
+        for chat in chats:
+            messages = await get_chat_messages(db, chat.id)
+            messages_by_chat[str(chat.id)] = [message_to_dict(m) for m in messages]
+        
+        # Build response
+        data = chat_history_response(chats, messages_by_chat)
+        
+        logger.info(f"History loaded: user={user_id} chats={data['chat_count']}")
+        return success(data)
+    
+    except Exception as e:
+        logger.error(f"Error loading history: {e}")
+        # Return empty history, not error (so frontend doesn't crash)
+        return success(empty_history_structure())
+
+
+# ─────────────────────────────────────────────────────────────
+# CHAT ENDPOINTS
+# ─────────────────────────────────────────────────────────────
+
+@router.post("/chat")
+async def create_new_chat(
+    title: Optional[str] = None,
+    mode: Optional[str] = None,
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Create new chat for user.
+    
+    Request:
+        POST /api/chat
+        {
+            title?: string,
+            mode?: "conversational" | "forensic" | "experimental"
+        }
+    
+    Response:
+        {
+            success: true,
+            data: {
+                id: UUID,
+                user_id: string,
+                title: string,
+                mode: string,
+                messages: [],
+                created_at: ISO8601
+            },
+            error: null
+        }
+    """
+    try:
+        _, user_id, db = payload
+        
+        chat = await create_chat(
+            db,
+            user_id=user_id,
+            title=title or "New Chat",
+            mode=mode or "conversational",
+        )
+        
+        data = chat_to_dict(chat, messages=[])
+        logger.info(f"Chat created: {chat.id} for user {user_id}")
+        return success(data)
+    
+    except Exception as e:
+        logger.error(f"Error creating chat: {e}")
+        return error("Failed to create chat", 500)
+
+
+@router.get("/chat/{chat_id}")
+async def get_chat_detail(
+    chat_id: str,
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Get chat with all messages.
+    
+    CRITICAL: Called on page refresh to restore chat state.
+    
+    Response:
+        {
+            success: true,
+            data: {
+                id: UUID,
+                title: string,
+                messages: [
+                    {id, role, content, created_at, ...},
+                    ...
+                ],
+                created_at: ISO8601
+            },
+            error: null
+        }
+    
+    GUARANTEE:
+        • Returns chat even if no messages yet
+        • Messages array is always present (never null)
+        • User can only access their own chats
+    """
+    try:
+        _, user_id, db = payload
+        
+        # Convert string to UUID
+        try:
+            chat_uuid = UUID(chat_id)
+        except ValueError:
+            return error("Invalid chat ID format", 400)
+        
+        chat = await get_chat(db, chat_uuid)
+        if not chat:
+            return error("Chat not found", 404)
+        
+        # Verify ownership
+        if chat.user_id != user_id:
+            return error("Access denied", 403)
+        
+        # Get messages
+        messages = await get_chat_messages(db, chat_uuid)
+        message_dicts = [message_to_dict(m) for m in messages]
+        
+        data = chat_to_dict(chat, messages=message_dicts)
+        return success(data)
+    
+    except Exception as e:
+        logger.error(f"Error loading chat: {e}")
+        return error("Failed to load chat", 500)
+
+
+@router.put("/chat/{chat_id}")
+async def update_chat_detail(
+    chat_id: str,
+    title: Optional[str] = None,
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """Update chat title."""
+    try:
+        _, user_id, db = payload
+        
+        chat_uuid = UUID(chat_id)
+        chat = await get_chat(db, chat_uuid)
+        if not chat or chat.user_id != user_id:
+            return error("Chat not found or access denied", 404)
+        
+        if title:
+            await update_chat_title(db, chat_uuid, title)
+            chat.title = title
+        
+        messages = await get_chat_messages(db, chat_uuid)
+        data = chat_to_dict(chat, messages=[message_to_dict(m) for m in messages])
+        return success(data)
+    
+    except Exception as e:
+        logger.error(f"Error updating chat: {e}")
+        return error("Failed to update chat", 500)
+
+
+# ─────────────────────────────────────────────────────────────
+# MESSAGE ENDPOINTS
+# ─────────────────────────────────────────────────────────────
+
+@router.post("/chat/{chat_id}/message")
+async def add_chat_message(
+    chat_id: str,
+    role: str,
+    content: str,
+    reasoning_json: Optional[Dict[str, Any]] = None,
+    image_url: Optional[str] = None,
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Add message to chat.
+    
+    Request:
+        POST /api/chat/{id}/message
+        {
+            role: "user" | "assistant",
+            content: string,
+            reasoning_json?: object,
+            image_url?: string
+        }
+    
+    Response:
+        {
+            success: true,
+            data: {
+                id: UUID,
+                chat_id: UUID,
+                role: string,
+                content: string,
+                created_at: ISO8601
+            },
+            error: null
+        }
+    """
+    try:
+        _, user_id, db = payload
+        
+        # Verify chat exists and belongs to user
+        chat_uuid = UUID(chat_id)
+        chat = await get_chat(db, chat_uuid)
+        if not chat or chat.user_id != user_id:
+            return error("Chat not found or access denied", 404)
+        
+        # Add message (transactionally)
+        message = await add_message(
+            db,
+            chat_id=chat_uuid,
+            user_id=user_id,
+            role=role,
+            content=content,
+            reasoning_json=reasoning_json,
+            image_url=image_url,
+        )
+        
+        data = message_to_dict(message)
+        logger.info(f"Message added: {message.id} to chat {chat_id}")
+        return success(data)
+    
+    except ValueError as e:
+        return error(str(e), 400)
+    except Exception as e:
+        logger.error(f"Error adding message: {e}")
+        return error("Failed to add message", 500)
+
+
+@router.get("/chat/{chat_id}/messages")
+async def get_chat_messages_endpoint(
+    chat_id: str,
+    limit: int = 100,
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """Get messages for chat."""
+    try:
+        _, user_id, db = payload
+        
+        chat_uuid = UUID(chat_id)
+        chat = await get_chat(db, chat_uuid)
+        if not chat or chat.user_id != user_id:
+            return error("Chat not found or access denied", 404)
+        
+        messages = await get_chat_messages(db, chat_uuid, limit=limit)
+        message_dicts = [message_to_dict(m) for m in messages]
+        
+        return success({
+            "messages": message_dicts,
+            "count": len(message_dicts),
+        })
+    
+    except Exception as e:
+        logger.error(f"Error loading messages: {e}")
+        return error("Failed to load messages", 500)
+
+
+# ─────────────────────────────────────────────────────────────
+# MEMORY ENDPOINTS
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/memory")
+async def get_user_memory_endpoint(
+    limit: int = 100,
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Get all learned facts for user.
+    
+    Response:
+        {
+            success: true,
+            data: {
+                entries: [
+                    {key, value, weight, confidence, ...},
+                    ...
+                ],
+                entry_count: int
+            },
+            error: null
+        }
+    """
+    try:
+        _, user_id, db = payload
+        
+        memory_entries = await get_user_memory(db, user_id, limit=limit)
+        memory_dicts = [memory_to_dict(m) for m in memory_entries]
+        
+        return success({
+            "entries": memory_dicts,
+            "entry_count": len(memory_dicts),
+        })
+    
+    except Exception as e:
+        logger.error(f"Error loading memory: {e}")
+        return success(empty_memory_structure())  # Return empty, not error
+
+
+@router.post("/memory")
+async def upsert_user_memory(
+    key: str,
+    value: Dict[str, Any],
+    weight: Optional[float] = None,
+    tag: Optional[str] = None,
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Upsert learned fact.
+    
+    Idempotent: same (key, value) → updates weight and timestamp.
+    
+    Request:
+        POST /api/memory
+        {
+            key: "preferred_model" | "writing_style" | etc,
+            value: {...any JSON...},
+            weight?: float (optional, incremented on upsert),
+            tag?: string
+        }
+    """
+    try:
+        _, user_id, db = payload
+        
+        memory = await upsert_memory(
+            db,
+            user_id=user_id,
+            key=key,
+            value=value,
+            weight=weight or 1.0,
+            tag=tag,
+        )
+        
+        return success(memory_to_dict(memory))
+    
+    except Exception as e:
+        logger.error(f"Error upserting memory: {e}")
+        return error("Failed to save memory", 500)
+
+
+# ─────────────────────────────────────────────────────────────
+# USER SETTINGS ENDPOINTS
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/user/settings")
+async def get_user_settings_endpoint(
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Get user interface preferences.
+    
+    Response:
+        {
+            success: true,
+            data: {
+                settings: {theme: ..., language: ..., ...},
+                count: int
+            },
+            error: null
+        }
+    """
+    try:
+        _, user_id, db = payload
+        
+        settings = await get_user_settings(db, user_id)
+        return success({
+            "settings": settings,
+            "count": len(settings),
+        })
+    
+    except Exception as e:
+        logger.error(f"Error loading settings: {e}")
+        return success({"settings": {}, "count": 0})
+
+
+@router.put("/user/settings")
+async def update_user_settings_endpoint(
+    settings: Dict[str, Any],
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Update user settings.
+    
+    Request:
+        PUT /api/user/settings
+        {
+            theme: "dark" | "light",
+            language: "en" | "es",
+            notifications_enabled: true,
+            ...
+        }
+    """
+    try:
+        _, user_id, db = payload
+        
+        # Upsert each setting
+        for key, value in settings.items():
+            await upsert_user_setting(db, user_id=user_id, key=key, value=value)
+        
+        updated_settings = await get_user_settings(db, user_id)
+        return success({
+            "settings": updated_settings,
+            "count": len(updated_settings),
+        })
+    
+    except Exception as e:
+        logger.error(f"Error updating settings: {e}")
+        return error("Failed to update settings", 500)
+
+
+# ─────────────────────────────────────────────────────────────
+# CONTEXT WINDOW (FOR LLM)
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/context")
+async def get_context_window(
+    chat_id: str,
+    max_messages: int = 10,
+    max_tokens: int = 2048,
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Build deterministic context window for LLM.
+    
+    Combines:
+      • Recent messages (recency)
+      • User memory (relevance)
+      • Enforce token limit
+    
+    Response:
+        {
+            success: true,
+            data: {
+                messages: [{role, content, ...}],
+                memory: [{key, value, weight, ...}],
+                token_estimate: int
+            },
+            error: null
+        }
+    """
+    try:
+        _, user_id, db = payload
+        
+        chat_uuid = UUID(chat_id)
+        chat = await get_chat(db, chat_uuid)
+        if not chat or chat.user_id != user_id:
+            return error("Chat not found", 404)
+        
+        # Get recent messages
+        messages = await get_chat_messages(db, chat_uuid, limit=max_messages)
+        message_dicts = [message_to_dict(m) for m in messages]
+        
+        # Get user memory
+        memory_entries = await get_user_memory(db, user_id, limit=20)
+        memory_dicts = [memory_to_dict(m) for m in memory_entries]
+        
+        # Build context (enforce token limit in client or LLM)
+        data = context_window_response(message_dicts, memory_dicts)
+        
+        return success(data)
+    
+    except Exception as e:
+        logger.error(f"Error building context: {e}")
+        return error("Failed to build context", 500)
+
+
+# ─────────────────────────────────────────────────────────────
+# USER ENDPOINT
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/user")
+async def get_current_user_info(
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Get current user info.
+    
+    Response:
+        {
+            success: true,
+            data: {
+                id: string,
+                email: string,
+                name: string,
+                stats: {chat_count, message_count, memory_count}
+            },
+            error: null
+        }
+    """
+    try:
+        user, user_id, db = payload
+        
+        user_obj = await get_user_by_id(db, user_id)
+        stats = await get_user_stats(db, user_id)
+        
+        return success({
+            "user": user_to_dict(user_obj),
+            "stats": stats,
+        })
+    
+    except Exception as e:
+        logger.error(f"Error loading user: {e}")
+        return error("Failed to load user", 500)

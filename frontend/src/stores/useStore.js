@@ -55,6 +55,15 @@ const useStore = create(
         set({ chats: nextChats, messages: nextMessages, isLoaded: true });
       },
 
+      setChatsGuarded: (newChats) => {
+        // PHASE 5: Guard against invalid overwrites
+        if (!Array.isArray(newChats)) {
+          console.warn('setChatsGuarded: Invalid chats array, skipping overwrite');
+          return;
+        }
+        set({ chats: newChats });
+      },
+
       setChats: (chats) => set({ chats }),
       setMessages: (messages) => set({ messages }),
       setMemory: (memory) => set({ memory }),

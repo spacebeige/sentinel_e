@@ -5,7 +5,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, Moon, Shield, Sigma, Sun, X } from 'lucide-react';
-import { UserButton } from '@clerk/clerk-react';
 import { useAuthContext } from '../hooks/useAuthContext';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
@@ -24,6 +23,7 @@ export default function Navbar() {
     isAuthenticated,
     loading,
     openAuthModal,
+    signOut,
     user,
   } = useAuthContext();
 
@@ -164,14 +164,26 @@ export default function Navbar() {
                   Open Chat
                 </Link>
               )}
-
-              <div
-                className={`flex items-center justify-center p-1 rounded-full border ${
-                  dark ? 'bg-white/6 border-white/10 text-white' : 'bg-white border-black/5 text-[#0f172a]'
-                }`}
-              >
-                <UserButton appearance={{ elements: { userButtonAvatarBox: "w-9 h-9" } }} />
+              <div className={`flex items-center gap-3 px-3 py-2 rounded-2xl border ${dark ? 'bg-white/6 border-white/10 text-white' : 'bg-white border-black/5 text-[#0f172a]'}`}>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center text-white text-sm font-semibold">
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+                <div className="max-w-[160px]">
+                  <div className={`truncate ${dark ? 'text-white' : 'text-[#0f172a]'}`} style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 600 }}>
+                    {displayName}
+                  </div>
+                  <div className={dark ? 'text-white/45' : 'text-[#64748b]'} style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500 }}>
+                    Firebase session
+                  </div>
+                </div>
               </div>
+              <button
+                onClick={signOut}
+                className={`px-4 py-2 rounded-full transition-all ${dark ? 'text-white/75 hover:bg-white/10' : 'text-[#1d1d1f] hover:bg-black/5'}`}
+                style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}
+              >
+                Sign out
+              </button>
             </>
           ) : (
             <button
@@ -232,7 +244,9 @@ export default function Navbar() {
             {isAuthenticated ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <UserButton appearance={{ elements: { userButtonAvatarBox: "w-9 h-9" } }} />
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center text-white text-sm font-semibold">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
                   <div className="min-w-0">
                     <div
                       className={`truncate ${dark ? 'text-white' : 'text-[#0f172a]'}`}
@@ -256,6 +270,13 @@ export default function Navbar() {
                   >
                     Open Chat
                   </Link>
+                  <button
+                    onClick={signOut}
+                    className={`flex-1 px-4 py-2.5 rounded-xl border ${dark ? 'border-white/10 text-white/75 hover:bg-white/10' : 'border-black/5 text-[#1d1d1f] hover:bg-black/5'}`}
+                    style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}
+                  >
+                    Sign out
+                  </button>
                 </div>
               </div>
             ) : (
