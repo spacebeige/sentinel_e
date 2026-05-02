@@ -88,27 +88,34 @@ def _init_firebase():
         return
     
     try:
-        # Try to get service account from environment
-        service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+        # PRIMARY: Load from firebase.json (recommended for production)
+        firebase_json_path = os.path.join(os.path.dirname(__file__), "..", "firebase.json")
         
         service_account = None
-        if service_account_json:
-            # Parse JSON (could be a JSON string or path)
+        if os.path.isfile(firebase_json_path):
             try:
-                service_account = json.loads(service_account_json)
-            except json.JSONDecodeError:
-                # Try treating it as a file path
-                if os.path.isfile(service_account_json):
-                    with open(service_account_json) as f:
-                        service_account = json.load(f)
-                else:
-                    logger.warning("FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON or file path; falling back to FIREBASE_* env vars")
-
+                with open(firebase_json_path) as f:
+                    service_account = json.load(f)
+                logger.info(f"Loading Firebase credentials from {firebase_json_path}")
+            except Exception as e:
+                logger.warning(f"Failed to load firebase.json: {e}")
+        
+        # FALLBACK: Try environment variable (for backward compatibility)
+        if service_account is None:
+            service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+            if service_account_json:
+                try:
+                    service_account = json.loads(service_account_json)
+                    logger.info("Loading Firebase credentials from FIREBASE_SERVICE_ACCOUNT_JSON env var")
+                except json.JSONDecodeError:
+                    logger.warning("FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON")
+        
+        # FALLBACK: Build from individual env vars
         if service_account is None:
             service_account = _build_service_account_from_env()
 
         if not service_account:
-            logger.warning("⚠️  FIREBASE_SERVICE_ACCOUNT_JSON not set and FIREBASE_* env vars incomplete")
+            logger.warning("⚠️  Firebase credentials not found. Tried: firebase.json, FIREBASE_SERVICE_ACCOUNT_JSON env var, individual FIREBASE_* vars")
             return
         
         # Initialize Firebase
