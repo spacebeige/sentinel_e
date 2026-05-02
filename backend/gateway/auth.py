@@ -523,135 +523,58 @@
 
 
 """
-Unified Auth Layer — Clerk + Optional Anonymous Support (Production Ready)
+Firebase-backed authentication compatibility layer.
+
+This module preserves the older import path used throughout the backend
+while delegating all live auth behavior to the Firebase implementation.
 """
 
-import jwt
 from typing import Optional, Dict, Any
 from fastapi import Depends, HTTPException, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt as jose_jwt
-from jose import jwk
-import requests
-from functools import lru_cache
 
-from gateway.config import get_settings
+from gateway.auth_v2 import (
+    extract_token_from_header,
+    get_current_user as firebase_get_current_user,
+    verify_firebase_token,
+)
 
-security = HTTPBearer(auto_error=False)
-
-
-# ── JWKS CACHE ─────────────────────────────────────────────
-
-@lru_cache(maxsize=1)
-def get_jwks(jwks_url: str):
-    return requests.get(jwks_url).json()
-
-
-# ── TOKEN VERIFICATION ─────────────────────────────────────
-
-def verify_clerk_token(token: str) -> Dict[str, Any]:
-    settings = get_settings()
-
-    jwks_url = settings.clerk_jwks_url
-    if not jwks_url:
-        raise HTTPException(status_code=500, detail="Clerk not configured")
-
-    jwks = get_jwks(jwks_url)
-
-    headers = jwt.get_unverified_header(token)
-    kid = headers.get("kid")
-
-    key = next((k for k in jwks["keys"] if k["kid"] == kid), None)
-    if not key:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    public_key = jwk.construct(key)
-
-    try:
-        payload = jose_jwt.decode(
-            token,
-            public_key.to_pem().decode("utf-8"),
-            algorithms=["RS256"],
-            audience=settings.CLERK_JWT_AUDIENCE,
-            issuer=settings.CLERK_JWT_ISSUER,
-        )
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
-    return payload
-
-
-# ── REQUIRED AUTH ─────────────────────────────────────────
 
 async def get_current_user(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Dict[str, Any]:
+    return await firebase_get_current_user(request=request)
 
-    if not credentials or not credentials.credentials:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    payload = verify_clerk_token(credentials.credentials)
-
-    return {
-        "user_id": payload.get("sub"),
-        "email": payload.get("email"),
-        "role": payload.get("public_metadata", {}).get("role", "user"),
-        "authenticated": True,
-    }
-
-
-# ── OPTIONAL AUTH ─────────────────────────────────────────
 
 async def get_optional_user(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Optional[Dict[str, Any]]:
-
     try:
-        if not credentials:
-            return None
-
-        payload = verify_clerk_token(credentials.credentials)
-
-        return {
-            "user_id": payload.get("sub"),
-            "email": payload.get("email"),
-            "role": payload.get("public_metadata", {}).get("role", "user"),
-            "authenticated": True,
-        }
-
-    except Exception:
+        return await firebase_get_current_user(request=request)
+    except HTTPException:
         return None
 
-
-# ── ADMIN GUARD ───────────────────────────────────────────
 
 async def require_admin(
     user: Dict[str, Any] = Depends(get_current_user),
 ) -> Dict[str, Any]:
-
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
 
-# ── USER ID HELPER ────────────────────────────────────────
+    return user
+
 
 async def get_user_id(request: Request) -> Optional[str]:
-    """
-    Returns the user_id (sub) from the Clerk JWT if present,
-    otherwise returns None. Safe to call on any request.
-    """
+    """Returns the Firebase UID from the Authorization header if present."""
     try:
-        # Check Authorization header
         auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
+        token = extract_token_from_header(auth_header)
+        if not token:
             return None
-        
-        token = auth_header.split(" ")[1]
-        payload = verify_clerk_token(token)
-        return payload.get("sub")
+
+        payload = await verify_firebase_token(token)
+        return payload.get("uid") if payload else None
     except Exception:
         return None

@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@clerk/clerk-react": "^5.61.6",
     "axios": "^1.7.7",
     "d3": "^7.9.0",
     "firebase": "^12.12.1",
