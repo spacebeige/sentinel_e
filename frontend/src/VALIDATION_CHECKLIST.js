@@ -15,9 +15,9 @@
 // - All critical components have explicit UI fallbacks
 // - Root component always renders a visible screen
 
-// ✅ PHASE 2: AUTH VALIDATION (CLERK)
-// - Console logs: "✓ CLERK: Production publishable key loaded." or warning if test key
-// - AUTH STATE logged in console with: { isLoaded, isSignedIn, userId, email, syncedUser, loading }
+// ✅ PHASE 2: AUTH VALIDATION (FIREBASE)
+// - Console logs: "✓ Firebase initialized successfully"
+// - AUTH STATE logged in console with: { firebaseUser, syncedUser, loading }
 // - ProtectedRoute shows "Checking authentication..." during load
 // - Auth modal appears if not authenticated
 
@@ -63,7 +63,7 @@
 // [ ] Chat/history UI loads or shows fallback gracefully
 // [ ] Copy functionality works
 // [ ] No ESLint build failures
-// [ ] Clerk production key configured in Vercel env
+// [ ] Firebase env vars configured in Vercel env
 // [ ] Backend API_BASE reachable and responding
 // [ ] Error boundaries catch and display errors
 // [ ] Global crash logger working
@@ -77,19 +77,19 @@
    - Push to main branch
    - Vercel auto-deploys
    - Verify build logs show "Compiled successfully"
-   - Check environment variables have REACT_APP_CLERK_PUBLISHABLE_KEY set
+   - Check environment variables have REACT_APP_FIREBASE_* set
 
 2. VERIFY FRONTEND:
    - Open https://sentinel-e.vercel.app
    - Should NOT show blank screen
    - Should show LoadingScreen briefly
    - Console should show:
-     ✓ CLERK: Production publishable key loaded.
+   ✓ Firebase initialized successfully
      ✓ API: Using https://sentinel-e.onrender.com (from DEFAULT)
      AUTH STATE: { isLoaded: true, isSignedIn: ..., userId: ..., ... }
 
 3. VERIFY AUTH:
-   - Verify Clerk login works
+   - Verify Firebase login works
    - Check localStorage for session data
    - Verify protected routes show auth UI
 
@@ -109,10 +109,10 @@
    - Build completes successfully
    - No ESLint violations
 
-7. VERIFY CLERK UPGRADE (if upgrading from test):
-   - Update REACT_APP_CLERK_PUBLISHABLE_KEY to production key in Vercel
+7. VERIFY FIREBASE UPGRADE (if upgrading config):
+   - Update Firebase env vars in Vercel
    - Redeploy
-   - Verify "Production publishable key loaded" in console
+   - Verify "Firebase initialized successfully" in console
    - No usage limits on login
 */
 

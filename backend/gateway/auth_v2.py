@@ -17,7 +17,7 @@ Principles:
   • No duplicate users
 
 Configuration:
-  • FIREBASE_SERVICE_ACCOUNT_JSON: From Firebase Console (JSON string or path)
+    • firebase.json file in backend/ (service account JSON)
 """
 
 import os
@@ -25,7 +25,6 @@ import logging
 from typing import Optional, Dict, Any
 from fastapi import Depends, HTTPException, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-import json
 
 # Firebase Admin SDK imports
 try:
@@ -42,34 +41,6 @@ logger = logging.getLogger("Auth")
 # ─────────────────────────────────────────────────────────────
 
 _firebase_app = None
-
-
-def _build_service_account_from_env() -> Optional[Dict[str, Any]]:
-    """Build a Firebase service-account dict from individual env vars."""
-    project_id = os.getenv("FIREBASE_PROJECT_ID")
-    private_key_id = os.getenv("FIREBASE_PRIVATE_KEY_ID")
-    private_key = os.getenv("FIREBASE_PRIVATE_KEY")
-    client_email = os.getenv("FIREBASE_CLIENT_EMAIL")
-    client_id = os.getenv("FIREBASE_CLIENT_ID")
-
-    if not all([project_id, private_key_id, private_key, client_email, client_id]):
-        return None
-
-    return {
-        "type": "service_account",
-        "project_id": project_id,
-        "private_key_id": private_key_id,
-        "private_key": private_key,
-        "client_email": client_email,
-        "client_id": client_id,
-        "auth_uri": os.getenv("FIREBASE_AUTH_URI", "https://accounts.google.com/o/oauth2/auth"),
-        "token_uri": os.getenv("FIREBASE_TOKEN_URI", "https://oauth2.googleapis.com/token"),
-        "auth_provider_x509_cert_url": os.getenv(
-            "FIREBASE_AUTH_PROVIDER_X509_CERT_URL",
-            "https://www.googleapis.com/oauth2/v1/certs",
-        ),
-        "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_X509_CERT_URL", ""),
-    }
 
 def _init_firebase():
     """Initialize Firebase Admin SDK if not already done."""
@@ -88,38 +59,17 @@ def _init_firebase():
         return
     
     try:
-        # PRIMARY: Load from firebase.json (recommended for production)
-        firebase_json_path = os.path.join(os.path.dirname(__file__), "..", "firebase.json")
-        
-        service_account = None
-        if os.path.isfile(firebase_json_path):
-            try:
-                with open(firebase_json_path) as f:
-                    service_account = json.load(f)
-                logger.info(f"Loading Firebase credentials from {firebase_json_path}")
-            except Exception as e:
-                logger.warning(f"Failed to load firebase.json: {e}")
-        
-        # FALLBACK: Try environment variable (for backward compatibility)
-        if service_account is None:
-            service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
-            if service_account_json:
-                try:
-                    service_account = json.loads(service_account_json)
-                    logger.info("Loading Firebase credentials from FIREBASE_SERVICE_ACCOUNT_JSON env var")
-                except json.JSONDecodeError:
-                    logger.warning("FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON")
-        
-        # FALLBACK: Build from individual env vars
-        if service_account is None:
-            service_account = _build_service_account_from_env()
+        # PRIMARY: Load from firebase.json (file-based, production-safe)
+        firebase_json_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "firebase.json")
+        )
 
-        if not service_account:
-            logger.warning("⚠️  Firebase credentials not found. Tried: firebase.json, FIREBASE_SERVICE_ACCOUNT_JSON env var, individual FIREBASE_* vars")
+        if not os.path.isfile(firebase_json_path):
+            logger.warning(f"⚠️  firebase.json not found at {firebase_json_path}")
             return
         
         # Initialize Firebase
-        cred = credentials.Certificate(service_account)
+        cred = credentials.Certificate(firebase_json_path)
         _firebase_app = firebase_admin.initialize_app(cred)
         logger.info("Firebase Admin initialized ✅")
         
@@ -260,6 +210,7 @@ async def get_current_user(
         "user_id": user_id,
         "email": email or "",
         "name": name,
+        "role": decoded.get("role", "user"),
         "provider": "firebase",
     }
 
@@ -365,12 +316,15 @@ async def check_auth_setup() -> Dict[str, Any]:
     
     Returns:
         {
-            "clerk_enabled": bool,
-            "secret_key_set": bool,
-            "publishable_key_set": bool,
+            "firebase_enabled": bool,
+            "firebase_json_exists": bool,
         }
     """
+    firebase_json_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "firebase.json")
+    )
+
     return {
         "firebase_enabled": bool(_firebase_app and firebase_auth),
-        "service_account_set": bool(os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON") or _build_service_account_from_env()),
+        "firebase_json_exists": os.path.isfile(firebase_json_path),
     }

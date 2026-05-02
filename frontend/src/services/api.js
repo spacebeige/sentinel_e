@@ -50,7 +50,6 @@ api.interceptors.request.use(
       if (user) {
         const token = await user.getIdToken();
         if (token) {
-          console.log('TOKEN:', token?.slice(0, 20));
           config.headers.Authorization = `Bearer ${token}`;
           // Add debug header for user tracing
           config.headers['X-Debug-User'] = user.uid;
