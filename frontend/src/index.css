@@ -86,6 +86,7 @@
   --radius-full: 9999px;
 }
 
+:root.dark,
 [data-theme="dark"] {
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
@@ -120,6 +121,17 @@
 }
 
 @layer base {
+  html {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    color-scheme: light;
+  }
+
+  html.dark,
+  html[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
   body {
     font-family: var(--font-sans);
     background-color: var(--bg-primary);
@@ -150,6 +162,85 @@
 }
 
 @layer components {
+  .sentinel-bg-app {
+    background-color: var(--bg-secondary);
+  }
+
+  .sentinel-surface {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+  }
+
+  .sentinel-surface-panel {
+    background-color: color-mix(in srgb, var(--bg-card) 92%, transparent);
+    border-color: var(--border-primary);
+    color: var(--text-primary);
+  }
+
+  .sentinel-text-primary {
+    color: var(--text-primary);
+  }
+
+  .sentinel-text-secondary {
+    color: var(--text-secondary);
+  }
+
+  .sentinel-text-muted {
+    color: var(--text-tertiary);
+  }
+
+  .sentinel-text-inverse {
+    color: var(--text-inverse);
+  }
+
+  .sentinel-border {
+    border-color: var(--border-primary);
+  }
+
+  .sentinel-input {
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-primary);
+    color: var(--text-primary);
+    transition: background-color var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
+  }
+
+  .sentinel-input::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  .sentinel-input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--border-focus) 20%, transparent);
+  }
+
+  .sentinel-nav-shell {
+    background-color: color-mix(in srgb, var(--bg-primary) 78%, transparent);
+    border-color: color-mix(in srgb, var(--border-primary) 78%, transparent);
+    color: var(--text-primary);
+  }
+
+  .sentinel-nav-active {
+    background-color: var(--text-primary);
+    color: var(--text-inverse);
+  }
+
+  .sentinel-nav-muted {
+    color: var(--text-secondary);
+  }
+
+  .sentinel-nav-muted:hover {
+    color: var(--text-primary);
+  }
+
+  .sentinel-icon-button {
+    color: var(--text-secondary);
+  }
+
+  .sentinel-icon-button:hover {
+    color: var(--text-primary);
+    background-color: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  }
+
   /* Card component */
   .card {
     background-color: var(--bg-card);
@@ -400,22 +491,26 @@
 }
 
 /* Dark mode blockquote */
+.dark .figma-chat-shell blockquote,
 [data-theme="dark"] .figma-chat-shell blockquote {
   border-left-color: #475569;
   color: #94a3b8;
 }
 
 /* Dark mode table borders */
+.dark .figma-chat-shell th,
 [data-theme="dark"] .figma-chat-shell th {
   border-bottom-color: #334155;
   color: #94a3b8;
 }
 
+.dark .figma-chat-shell td,
 [data-theme="dark"] .figma-chat-shell td {
   border-bottom-color: #1e293b;
 }
 
 /* Dark mode horizontal rules */
+.dark .figma-chat-shell hr,
 [data-theme="dark"] .figma-chat-shell hr {
   border-top-color: #334155;
 }
@@ -426,16 +521,19 @@ html.transitioning * {
 }
 
 /* Ensure chat area messages have proper dark mode contrast */
+.dark .figma-chat-shell .bg-white,
 [data-theme="dark"] .figma-chat-shell .bg-white {
   background-color: #1c1c1e;
 }
 
 /* Fix boundary warning card contrast in dark mode */
+.dark .figma-chat-shell [style*="backgroundColor: #fef2f2"],
 [data-theme="dark"] .figma-chat-shell [style*="backgroundColor: #fef2f2"] {
   background-color: rgba(239, 68, 68, 0.1) !important;
   border-color: rgba(239, 68, 68, 0.2) !important;
 }
 
+.dark .figma-chat-shell [style*="backgroundColor: #fffbeb"],
 [data-theme="dark"] .figma-chat-shell [style*="backgroundColor: #fffbeb"] {
   background-color: rgba(245, 158, 11, 0.1) !important;
   border-color: rgba(245, 158, 11, 0.2) !important;

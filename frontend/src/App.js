@@ -16,20 +16,23 @@ import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider, useAuthContext } from './hooks/useAuthContext';
 import useStore from './stores/useStore';
-import { auth } from './firebase';
 import { API_BASE } from './config';
 import api from './services/api';
+import { restoreGuestSession } from './services/guestSession';
 
 function SessionInitializer({ children }) {
-  const { isAuthenticated, loading } = useAuthContext();
+  const { isAuthenticated, loading, user, isGuestMode } = useAuthContext();
   const reloadHistory = useStore(state => state.reloadHistory);
   const setUserId = useStore(state => state.setUserId);
   const clearSession = useStore(state => state.clearSession);
   const storeUserId = useStore(state => state.userId);
   const storeIsLoaded = useStore(state => state.isLoaded);
   const hasHydrated = useStore(state => state.hasHydrated);
+  const initInFlightRef = React.useRef(false);
 
-  const userId = auth.currentUser?.uid;
+  const guestSession = React.useMemo(() => restoreGuestSession(), []);
+  const guestSessionId = guestSession?.guestSessionId;
+  const userId = user?.user_id || user?.uid || guestSessionId || 'guest-user';
 
   React.useEffect(() => {
     fetch(`${API_BASE}/health`).catch(() => {});
@@ -38,6 +41,7 @@ function SessionInitializer({ children }) {
   React.useEffect(() => {
     if (!hasHydrated) return;
     if (loading) return;
+    if (isGuestMode && !guestSessionId) return;
     if (!userId && isAuthenticated) return;
 
     if (isAuthenticated) {
@@ -48,7 +52,8 @@ function SessionInitializer({ children }) {
 
       setUserId(userId);
 
-      if (switchedUsers || !storeIsLoaded) {
+      if ((switchedUsers || !storeIsLoaded) && !initInFlightRef.current) {
+        initInFlightRef.current = true;
         const initFlow = async () => {
           try {
             await api.createSession();
@@ -56,15 +61,17 @@ function SessionInitializer({ children }) {
           } catch (error) {
             console.error('INIT FLOW FAILED:', error);
             useStore.setState({ isLoaded: true });
+          } finally {
+            initInFlightRef.current = false;
           }
         };
 
         initFlow();
       }
     } else {
-      setUserId(null);
+      setUserId(guestSessionId || 'guest-user');
     }
-  }, [hasHydrated, loading, isAuthenticated, userId, reloadHistory, setUserId, clearSession, storeUserId, storeIsLoaded]);
+  }, [hasHydrated, loading, isAuthenticated, isGuestMode, userId, guestSessionId, reloadHistory, setUserId, clearSession, storeUserId, storeIsLoaded]);
 
   return <>{children}</>;
 }
@@ -77,6 +84,7 @@ function AuthModal() {
     closeAuthModal,
     handleSignIn,
     handleSignUp,
+    isGuestMode,
   } = useAuthContext();
   const navigate = useNavigate();
   const [mode, setMode] = React.useState('signin');
@@ -86,7 +94,7 @@ function AuthModal() {
   const [localError, setLocalError] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
 
-  if (!authModalOpen) return null;
+  if (isGuestMode || !authModalOpen) return null;
 
   const submit = async (event) => {
     event.preventDefault();
@@ -111,19 +119,19 @@ function AuthModal() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-md rounded-3xl bg-white dark:bg-[#111827] shadow-2xl border border-black/5 dark:border-white/10 p-6 text-[#0f172a] dark:text-white">
+      <div className="w-full max-w-md rounded-3xl sentinel-surface-panel shadow-2xl border p-6 sentinel-text-primary">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <div className="text-2xl font-semibold tracking-tight">
               {mode === 'signup' ? 'Create your account' : 'Sign in to Sentinel'}
             </div>
-            <div className="text-sm text-[#6b7280] dark:text-white/60 mt-1">
+            <div className="text-sm sentinel-text-muted mt-1">
               Use Firebase auth to unlock chat and history.
             </div>
           </div>
           <button
             onClick={closeAuthModal}
-            className="rounded-full w-9 h-9 flex items-center justify-center text-[#6b7280] hover:bg-black/5 dark:hover:bg-white/10"
+            className="rounded-full w-9 h-9 flex items-center justify-center sentinel-text-muted hover:bg-black/5 dark:hover:bg-white/10"
             aria-label="Close authentication modal"
           >
             ×
@@ -133,41 +141,41 @@ function AuthModal() {
         <form onSubmit={submit} className="space-y-3">
           {mode === 'signup' && (
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wide text-[#6b7280] dark:text-white/60 mb-1">
+              <label className="block text-xs font-semibold uppercase tracking-wide sentinel-text-muted mb-1">
                 Display name
               </label>
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#0b1220] px-4 py-3 outline-none"
+                className="w-full rounded-2xl sentinel-input px-4 py-3 outline-none"
                 placeholder="Alex"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-[#6b7280] dark:text-white/60 mb-1">
+            <label className="block text-xs font-semibold uppercase tracking-wide sentinel-text-muted mb-1">
               Email
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#0b1220] px-4 py-3 outline-none"
+              className="w-full rounded-2xl sentinel-input px-4 py-3 outline-none"
               placeholder="you@example.com"
               autoComplete="email"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-[#6b7280] dark:text-white/60 mb-1">
+            <label className="block text-xs font-semibold uppercase tracking-wide sentinel-text-muted mb-1">
               Password
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#0b1220] px-4 py-3 outline-none"
+              className="w-full rounded-2xl sentinel-input px-4 py-3 outline-none"
               placeholder="••••••••"
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
             />

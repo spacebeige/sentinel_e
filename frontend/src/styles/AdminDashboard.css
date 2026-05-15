@@ -24,7 +24,7 @@
 .admin-header h1 {
   margin: 0 0 8px;
   font-size: 32px;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 700;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
 }
@@ -89,7 +89,7 @@
 .admin-section h2 {
   margin: 0 0 24px;
   font-size: 20px;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 600;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
 }
@@ -250,7 +250,7 @@
 .analytics-card h3 {
   margin: 0 0 16px;
   font-size: 14px;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 600;
   border-bottom: 1px solid rgba(125, 211, 252, 0.15);
   padding-bottom: 12px;

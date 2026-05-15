@@ -19,6 +19,8 @@
 
 import axios from 'axios';
 import { API_BASE } from '../config';
+import { GUEST_USER, TEMP_AUTH_DISABLED } from '../firebase';
+import { getGuestSessionId } from './guestSession';
 
 // ── Token Storage ───────────────────────────────
 // MIGRATION NOTE: Tokens are now fetched dynamically via Firebase Auth context
@@ -36,27 +38,37 @@ const api = axios.create({
   },
 });
 
-// ── Request Interceptor: Add request ID and Firebase Token ───
+// ── Request Interceptor: Add request ID and Guest Context ───
 api.interceptors.request.use(
   async (config) => {
     config.headers['X-Request-ID'] = generateRequestId();
     config.withCredentials = true;
     
     try {
-      // Import Firebase auth dynamically to avoid circular dependencies
-      const { auth } = await import('../firebase');
-      const user = auth.currentUser;
-
-      if (user) {
-        const token = await user.getIdToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-          // Add debug header for user tracing
-          config.headers['X-Debug-User'] = user.uid;
-        }
+      if (TEMP_AUTH_DISABLED) {
+        // TODO: Re-enable live Firebase authentication after auth configuration fixes
+        // TODO: Replace guest-session persistence with Firebase-auth session persistence later
+        const guestSessionId = getGuestSessionId() || 'guest-user';
+        config.headers['X-Guest-Mode'] = 'true';
+        config.headers['X-Debug-User'] = GUEST_USER?.uid || guestSessionId || 'guest-user';
+        config.headers['X-Guest-Session-ID'] = guestSessionId || 'guest-user';
+      } else {
+        // TODO: Re-enable live Firebase authentication after auth configuration fixes
+        // Original Firebase bearer-token injection preserved below.
+        //
+        // const { auth } = await import('../firebase');
+        // const user = auth.currentUser;
+        //
+        // if (user) {
+        //   const token = await user.getIdToken();
+        //   if (token) {
+        //     config.headers.Authorization = `Bearer ${token}`;
+        //     config.headers['X-Debug-User'] = user.uid;
+        //   }
+        // }
       }
     } catch (err) {
-      console.warn("Failed to retrieve Firebase token for request", err);
+      console.warn('Failed to prepare guest/auth headers for request', err);
     }
     
     return config;
@@ -465,7 +477,7 @@ function sanitizeError(error) {
     case 400:
       return new Error('Invalid request. Please try rephrasing.');
     case 401:
-      return new Error('Please sign in to continue.');
+      return new Error(TEMP_AUTH_DISABLED ? 'Guest mode request was rejected by the backend.' : 'Please sign in to continue.');
     case 404:
       return new Error('The requested resource was not found.');
     case 413:

@@ -20,7 +20,6 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { auth } from '../firebase';
 import FigmaChatShell from '../figma_shell/FigmaChatShell';
 import useModels from '../hooks/useModels';
 import { getDefaultPipelineSteps } from '../engines/modeController';
@@ -31,10 +30,23 @@ import {
   sendMCOQuery, sendDirectModelQuery,
   getChatMessages, getSessionDescriptive, getOmegaSession,
 } from '../services/api';
+import {
+  createNewConversation,
+  loadConversationHistory,
+  loadConversationState,
+  persistSessionState,
+  restoreGuestSession,
+  saveConversationHistory,
+  switchConversation,
+} from '../services/guestSession';
 import useStore from '../stores/useStore';
 import { validateResponseShape, Schemas } from '../utils/validation';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function normalizeLocalMessages(messages) {
+  return Array.isArray(messages) ? messages.filter(Boolean) : [];
+}
 
 export default function ChatEngineV5() {
   const { chatModels, mcoModels, toggleClaude: onToggleClaude } = useModels();
@@ -52,6 +64,9 @@ export default function ChatEngineV5() {
   const [lastQueryText, setLastQueryText] = useState('');
   const [governanceVerdict, setGovernanceVerdict] = useState(null);
   const [error, setError] = useState(null);
+  const [guestHydrated, setGuestHydrated] = useState(false);
+  const [localConversations, setLocalConversations] = useState([]);
+  const guestBootstrapRef = React.useRef(false);
 
   const [input, setInput] = useState('');
   const persistedChats = useStore((state) => state.chats);
@@ -60,7 +75,8 @@ export default function ChatEngineV5() {
   const reloadHistory = useStore((state) => state.reloadHistory);
 
   const history = useMemo(
-    () => (persistedChats || []).map((item) => ({
+    () => {
+      const backendHistory = (persistedChats || []).map((item) => ({
       id: item.id,
       timestamp: item.updated_at || item.created_at || new Date().toISOString(),
       mode: item.mode,
@@ -68,12 +84,75 @@ export default function ChatEngineV5() {
       filename: item.id,
       data: null,
       sub_mode: item.sub_mode || null,
-    })),
-    [persistedChats]
+      }));
+
+      const backendIds = new Set(backendHistory.map((item) => String(item.id)));
+      const localHistory = (localConversations || [])
+        .filter((item) => item?.id && !backendIds.has(String(item.id)))
+        .map((item) => ({
+          id: item.id,
+          timestamp: item.updatedAt || item.createdAt || new Date().toISOString(),
+          mode: item.mode || 'standard',
+          summary: item.title || 'New Chat',
+          filename: item.id,
+          data: null,
+          sub_mode: item.subMode || null,
+          isLocalGuest: true,
+        }));
+
+      return [...localHistory, ...backendHistory].sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+    },
+    [persistedChats, localConversations]
   );
   // Default to Sentinel Standard aggregate mode (not an individual model)
   const SENTINEL_STD = { id: 'sentinel-std', name: 'Sentinel-E Standard', provider: 'Aggregated', color: '#3b82f6', category: 'standard', isMeta: true, enabled: true };
   const [selectedModel, setSelectedModel] = useState(SENTINEL_STD);
+
+  const persistActiveConversation = useCallback((overrides = {}) => {
+    const safeActiveChatId = overrides.activeChatId || activeChatId;
+    if (!guestHydrated || !safeActiveChatId) return null;
+
+    // TODO: Replace guest-session persistence with Firebase-auth session persistence later
+    const saved = persistSessionState({
+      conversationId: safeActiveChatId,
+      mode,
+      subMode,
+      messages: Array.isArray(messages) ? messages : [],
+      currentResult,
+      sessionState,
+      lastQueryText,
+      lastResponseText,
+      governanceVerdict,
+      orchestrationState: currentResult?.omega_metadata || currentResult?.orchestration_state || null,
+      analyticsState: currentResult?.analytics || currentResult?.omega_metadata || null,
+      debateState: subMode === 'debate' ? (currentResult?.debate || currentResult?.omega_metadata || null) : null,
+      tacticalMapState: currentResult?.tactical_map || currentResult?.map_state || null,
+      uiState: {
+        mode,
+        subMode,
+        killActive,
+        selectedModelId: selectedModel?.id || 'sentinel-std',
+      },
+      ...overrides,
+    });
+    setLocalConversations(loadConversationHistory());
+    return saved?.conversation || null;
+  }, [
+    activeChatId,
+    currentResult,
+    governanceVerdict,
+    guestHydrated,
+    killActive,
+    lastQueryText,
+    lastResponseText,
+    messages,
+    mode,
+    selectedModel?.id,
+    sessionState,
+    subMode,
+  ]);
 
   // ── Mode Sync ────────────────────────────────────────────
   // Individual models (tier-based, no category) always run in standard mode.
@@ -132,22 +211,65 @@ export default function ChatEngineV5() {
   }, [checkHealth]);
 
   useEffect(() => {
-    const savedChatId = localStorage.getItem('sentinel-active-chat-id');
-    if (savedChatId && UUID_REGEX.test(savedChatId)) {
-      setActiveChatId(savedChatId);
+    if (guestBootstrapRef.current) return;
+    guestBootstrapRef.current = true;
+
+    const restored = restoreGuestSession();
+    const conversations = loadConversationHistory();
+    let conversation = restored.activeChatId ? loadConversationHistory(restored.activeChatId) : null;
+
+    if (!conversation && conversations.length > 0) {
+      conversation = conversations[0];
     }
+
+    if (!conversation) {
+      conversation = createNewConversation({ mode: 'standard' });
+    }
+
+    switchConversation(conversation.id, { createIfMissing: true, mode: conversation.mode, subMode: conversation.subMode });
+    persistSessionState({
+      conversationId: conversation.id,
+      uiState: {
+        mode: conversation.mode || restored.uiState?.mode || 'standard',
+        subMode: conversation.subMode ?? restored.uiState?.subMode ?? null,
+        killActive: Boolean(restored.uiState?.killActive),
+      },
+    });
+    setActiveChatId(conversation.id);
+    setMessages(Array.isArray(conversation.messages) ? conversation.messages : []);
+    setCurrentResult(conversation.currentResult || null);
+    setSessionState(conversation.sessionState || null);
+    setLastQueryText(conversation.lastQueryText || '');
+    setLastResponseText(conversation.lastResponseText || '');
+    setGovernanceVerdict(conversation.governanceVerdict || null);
+    setMode(conversation.mode || restored.uiState?.mode || 'standard');
+    setSubMode(conversation.subMode ?? restored.uiState?.subMode ?? null);
+    setKillActive(Boolean(restored.uiState?.killActive));
+    setLocalConversations(loadConversationHistory());
+    setGuestHydrated(true);
   }, []);
 
   useEffect(() => {
+    if (!guestHydrated) return;
     if (activeChatId) {
       localStorage.setItem('sentinel-active-chat-id', activeChatId);
     } else {
       localStorage.removeItem('sentinel-active-chat-id');
     }
-  }, [activeChatId]);
+  }, [activeChatId, guestHydrated]);
 
   useEffect(() => {
-    if (!activeChatId || messages.length > 0) return;
+    persistActiveConversation();
+  }, [persistActiveConversation]);
+
+  useEffect(() => {
+    if (!guestHydrated || !activeChatId || messages.length > 0) return;
+    const localConversation = loadConversationHistory(activeChatId);
+    if (localConversation?.messages?.length > 0) {
+      setMessages(localConversation.messages);
+      return;
+    }
+
     const cached = (persistedMessages || [])
       .filter((m) => String(m.chat_id) === String(activeChatId))
       .map((m) => ({
@@ -163,11 +285,11 @@ export default function ChatEngineV5() {
     if (cached.length > 0) {
       setMessages(cached);
     }
-  }, [activeChatId, persistedMessages, messages.length]);
+  }, [activeChatId, persistedMessages, messages.length, guestHydrated]);
 
   // ── Session State ────────────────────────────────────────
   useEffect(() => {
-    if (!activeChatId) { setSessionState(null); return; }
+    if (!guestHydrated || !activeChatId) return;
     const fetchSession = async () => {
       try {
         const data = await getSessionDescriptive(activeChatId);
@@ -180,26 +302,34 @@ export default function ChatEngineV5() {
       }
     };
     fetchSession();
-  }, [activeChatId]);
+  }, [activeChatId, guestHydrated]);
 
   // ── Send Handler ─────────────────────────────────────────
   const handleSend = async ({ text, file }) => {
+    const activeUserId = restoreGuestSession()?.guestSessionId || 'guest-user';
+
     // PHASE 1: Log current user id for diagnostics
     try {
-      console.log('FRONTEND: SEND - USER_ID', auth.currentUser?.uid || null);
+      console.log('FRONTEND: SEND - USER_ID', activeUserId);
     } catch (e) {
       /* ignore */
     }
 
-    // PATCH 3: Block send if no userId
-    if (!auth.currentUser?.uid) {
-      console.error('NO USER_ID — blocking send');
-      setError('Not authenticated. Please sign in.');
-      return;
-    }
+    // TODO: Restore Firebase Auth after configuration fixes
+    // Original auth gate preserved below.
+    //
+    // if (!activeUserId) {
+    //   console.error('NO USER_ID — blocking send');
+    //   setError('Not authenticated. Please sign in.');
+    //   return;
+    // }
 
     if (!text && !file) return;
-    const chatId = activeChatId;
+    const ensuredConversation = activeChatId
+      ? loadConversationState(activeChatId)
+      : createNewConversation({ mode, subMode });
+    const chatId = activeChatId || ensuredConversation?.id || createNewConversation({ mode, subMode }).id;
+    if (!activeChatId) setActiveChatId(chatId);
     setLoading(true);
     setError(null);
     setShowLearning(false);
@@ -224,7 +354,14 @@ export default function ChatEngineV5() {
         }
       } catch { /* ignore preview failure */ }
     }
-    setMessages(prev => [...prev, userMsg]);
+    const optimisticMessages = [...(Array.isArray(messages) ? messages : []), userMsg];
+    setMessages(optimisticMessages);
+    saveConversationHistory(chatId, optimisticMessages, {
+      mode,
+      subMode,
+      lastQueryText: text || '',
+    });
+    setLocalConversations(loadConversationHistory());
     memoryManager.recordMessage(userMsg, mode, subMode);
 
     try {
@@ -272,10 +409,25 @@ export default function ChatEngineV5() {
         content: answerText,
         timestamp: new Date().toISOString(),
       };
-      setMessages(prev => [...prev, assistantMsg]);
+      const completedMessages = [...optimisticMessages, assistantMsg];
+      setMessages(completedMessages);
       setCurrentResult(result);
       setLastResponseText(answerText);
       if (result.session_state) setSessionState(result.session_state);
+      saveConversationHistory(returnedChatId || chatId, completedMessages, {
+        mode,
+        subMode,
+        currentResult: result,
+        sessionState: result.session_state || sessionState,
+        lastQueryText: text || '',
+        lastResponseText: answerText,
+        governanceVerdict: null,
+        orchestrationState: result.omega_metadata || result.orchestration_state || null,
+        analyticsState: result.analytics || result.omega_metadata || null,
+        debateState: subMode === 'debate' ? (result.debate || result.omega_metadata || null) : null,
+        tacticalMapState: result.tactical_map || result.map_state || null,
+      });
+      setLocalConversations(loadConversationHistory());
 
       memoryManager.recordMessage(assistantMsg, mode, subMode);
       memoryManager.recordAnalytics(result);
@@ -287,6 +439,14 @@ export default function ChatEngineV5() {
         mode, subMode,
       });
       setGovernanceVerdict(verdict);
+      saveConversationHistory(returnedChatId || chatId, completedMessages, {
+        currentResult: result,
+        sessionState: result.session_state || sessionState,
+        lastQueryText: text || '',
+        lastResponseText: answerText,
+        governanceVerdict: verdict,
+      });
+      setLocalConversations(loadConversationHistory());
 
       if (returnedChatId && UUID_REGEX.test(returnedChatId)) {
         setActiveChatId(returnedChatId);
@@ -298,7 +458,10 @@ export default function ChatEngineV5() {
       setServerStatus('online');
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.');
-      setMessages(prev => prev.slice(0, -1)); // Remove optimistic user msg
+      const rolledBackMessages = optimisticMessages.slice(0, -1);
+      setMessages(rolledBackMessages); // Remove optimistic user msg
+      saveConversationHistory(chatId, rolledBackMessages, { mode, subMode });
+      setLocalConversations(loadConversationHistory());
       if (err.message?.includes('Unable to reach')) {
         setServerStatus('offline');
       }
@@ -313,11 +476,14 @@ export default function ChatEngineV5() {
     setError(null);
     if (run.mode === 'standard' || run.mode === 'conversational') {
       setMode('standard');
+      if (!run.sub_mode) setSubMode(null);
     } else {
       setMode('experimental');
     }
     if (run.sub_mode) setSubMode(run.sub_mode);
     setActiveChatId(run.id);
+    switchConversation(run.id, { createIfMissing: true, mode: run.mode || 'standard', subMode: run.sub_mode || null });
+    const localConversation = loadConversationState(run.id);
     const cached = (persistedMessages || [])
       .filter((m) => String(m.chat_id) === String(run.id))
       .map((m) => ({
@@ -330,9 +496,19 @@ export default function ChatEngineV5() {
         reasoning_json: m.reasoning_json || null,
       }));
 
-    setMessages(cached);
-    setCurrentResult(null);
+    const safeCached = cached.length > 0 ? cached : normalizeLocalMessages(localConversation?.messages);
+    setMessages(safeCached);
+    setCurrentResult(localConversation?.currentResult || null);
+    setSessionState(localConversation?.sessionState || null);
+    setLastQueryText(localConversation?.lastQueryText || '');
+    setLastResponseText(localConversation?.lastResponseText || '');
+    setGovernanceVerdict(localConversation?.governanceVerdict || null);
     setLoading(true);
+
+    if (run.isLocalGuest) {
+      setLoading(false);
+      return;
+    }
 
     try {
       const data = await getChatMessages(run.id);
@@ -348,8 +524,13 @@ export default function ChatEngineV5() {
           reasoning_json: m.reasoning_json || null,
         }));
       setMessages(loaded);
+      saveConversationHistory(run.id, loaded, {
+        mode: run.mode || mode,
+        subMode: run.sub_mode || subMode,
+      });
+      setLocalConversations(loadConversationHistory());
     } catch (err) {
-      if (cached.length === 0) {
+      if (safeCached.length === 0) {
         setError('Failed to load chat history.');
       }
     } finally {
@@ -359,7 +540,8 @@ export default function ChatEngineV5() {
 
   // ── New Chat ─────────────────────────────────────────────
   const handleNewChat = () => {
-    setActiveChatId(null);
+    const conversation = createNewConversation({ mode, subMode });
+    setActiveChatId(conversation.id);
     setMessages([]);
     setCurrentResult(null);
     setShowLearning(false);
@@ -368,6 +550,7 @@ export default function ChatEngineV5() {
     setLastResponseText('');
     setLastQueryText('');
     setError(null);
+    setLocalConversations(loadConversationHistory());
     memoryManager.newSession();
   };
 

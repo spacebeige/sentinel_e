@@ -392,7 +392,7 @@ export default function FigmaChatShell({
               return (
                 <code style={{
                   fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
-                  fontSize: '13px', backgroundColor: 'rgba(0,0,0,0.05)',
+                  fontSize: '13px', backgroundColor: 'color-mix(in srgb, var(--text-primary) 8%, transparent)',
                   padding: '1px 5px', borderRadius: '4px', color: 'inherit',
                 }}>{children}</code>
               );
@@ -401,14 +401,14 @@ export default function FigmaChatShell({
             return (
               <div className="my-3 rounded-xl overflow-hidden border border-black/5 dark:border-white/10">
                 {lang && (
-                  <div className="px-4 py-1.5 bg-[#f5f5f7] dark:bg-[#2a2a2e] border-b border-black/5 dark:border-white/10">
-                    <span className="text-[#6e6e73] dark:text-[#94a3b8]" style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  <div className="px-4 py-1.5 sentinel-bg-app border-b sentinel-border">
+                    <span className="sentinel-text-secondary" style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                       {lang}
                     </span>
                   </div>
                 )}
-                <pre className="p-4 bg-[#fafafa] dark:bg-[#1a1a1e] overflow-x-auto" style={{ margin: 0 }}>
-                  <code className="text-[#1d1d1f] dark:text-[#e2e8f0]" style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace", fontSize: '13px', lineHeight: 1.5 }}>
+                <pre className="p-4 sentinel-surface overflow-x-auto" style={{ margin: 0 }}>
+                  <code className="sentinel-text-primary" style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace", fontSize: '13px', lineHeight: 1.5 }}>
                     {children}
                   </code>
                 </pre>
@@ -425,7 +425,7 @@ export default function FigmaChatShell({
           ),
           // Blockquote
           blockquote: ({ children }) => (
-            <blockquote style={{ borderLeft: '3px solid #d1d5db', paddingLeft: '12px', margin: '8px 0', color: '#6e6e73', fontStyle: 'italic' }}>{children}</blockquote>
+            <blockquote style={{ borderLeft: '3px solid var(--border-primary)', paddingLeft: '12px', margin: '8px 0', color: 'var(--text-secondary)', fontStyle: 'italic' }}>{children}</blockquote>
           ),
           // Table
           table: ({ children }) => (
@@ -434,13 +434,13 @@ export default function FigmaChatShell({
             </div>
           ),
           th: ({ children }) => (
-            <th style={{ textAlign: 'left', padding: '6px 10px', borderBottom: '2px solid #e5e7eb', fontWeight: 600, fontSize: '12px', color: '#6e6e73' }}>{children}</th>
+            <th style={{ textAlign: 'left', padding: '6px 10px', borderBottom: '2px solid var(--border-primary)', fontWeight: 600, fontSize: '12px', color: 'var(--text-secondary)' }}>{children}</th>
           ),
           td: ({ children }) => (
-            <td style={{ padding: '6px 10px', borderBottom: '1px solid #f3f4f6', color: 'inherit' }}>{children}</td>
+            <td style={{ padding: '6px 10px', borderBottom: '1px solid var(--border-secondary)', color: 'inherit' }}>{children}</td>
           ),
           // Horizontal rule
-          hr: () => <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '12px 0' }} />,
+          hr: () => <hr style={{ border: 'none', borderTop: '1px solid var(--border-primary)', margin: '12px 0' }} />,
         }}
       >
         {text}
@@ -832,7 +832,7 @@ export default function FigmaChatShell({
   // MAIN RENDER
   // ============================================================
   return (
-    <div className="figma-chat-shell flex bg-[#f5f5f7] dark:bg-[#0f0f10] text-[#1d1d1f] dark:text-[#f1f5f9]" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="figma-chat-shell flex sentinel-bg-app sentinel-text-primary" style={{ height: 'calc(100vh - 56px)' }}>
 
       {/* ==================== HISTORY SIDEBAR ==================== */}
       <AnimatePresence>
