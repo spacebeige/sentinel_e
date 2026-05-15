@@ -7,6 +7,27 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        sentinel: {
+          bg: 'var(--bg-primary)',
+          surface: 'var(--bg-card)',
+          panel: 'var(--bg-secondary)',
+          input: 'var(--bg-input)',
+          border: 'var(--border-primary)',
+          text: {
+            primary: 'var(--text-primary)',
+            secondary: 'var(--text-secondary)',
+            muted: 'var(--text-tertiary)',
+            inverse: 'var(--text-inverse)',
+          },
+          accent: {
+            blue: 'var(--accent-blue)',
+            cyan: '#06b6d4',
+            purple: 'var(--accent-purple)',
+            green: 'var(--accent-green)',
+            red: 'var(--accent-red)',
+            yellow: 'var(--accent-yellow)',
+          },
+        },
         'poly-dark': '#0f172a',
         'poly-accent': '#38bdf8',
         'anthropic-bg': '#1e1e1e', // Dark background like Anthropic

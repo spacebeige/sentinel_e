@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, Moon, Shield, Sigma, Sun, X } from 'lucide-react';
 import { useAuthContext } from '../hooks/useAuthContext';
+import { getInitialTheme, persistTheme } from '../services/themeManager';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -21,6 +22,7 @@ export default function Navbar() {
   const {
     isAdmin,
     isAuthenticated,
+    isGuestMode,
     loading,
     openAuthModal,
     signOut,
@@ -28,23 +30,10 @@ export default function Navbar() {
   } = useAuthContext();
 
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [dark, setDark] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    const stored = localStorage.getItem('sentinel-theme');
-    if (stored) return stored === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
+  const [dark, setDark] = useState(() => getInitialTheme() === 'dark');
 
   useEffect(() => {
-    const root = document.documentElement;
-    if (dark) {
-      root.classList.add('dark');
-      root.setAttribute('data-theme', 'dark');
-    } else {
-      root.classList.remove('dark');
-      root.setAttribute('data-theme', 'light');
-    }
-    localStorage.setItem('sentinel-theme', dark ? 'dark' : 'light');
+    persistTheme(dark ? 'dark' : 'light');
   }, [dark]);
 
   useEffect(() => {
@@ -71,13 +60,13 @@ export default function Navbar() {
     const baseClass = mobile
       ? `block px-4 py-2.5 rounded-xl mb-1 transition-all ${
           isActive
-            ? dark ? 'bg-white text-[#1d1d1f]' : 'bg-[#1d1d1f] text-white'
-            : dark ? 'text-white/60 hover:bg-white/10' : 'text-[#6e6e73] hover:bg-black/5'
+            ? 'sentinel-nav-active'
+            : 'sentinel-nav-muted hover:bg-black/5 dark:hover:bg-white/10'
         }`
       : `px-4 py-1.5 rounded-full transition-all ${
           isActive
-            ? dark ? 'bg-white text-[#1d1d1f]' : 'bg-[#1d1d1f] text-white'
-            : dark ? 'text-white/60 hover:text-white hover:bg-white/10' : 'text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-black/5'
+            ? 'sentinel-nav-active'
+            : 'sentinel-nav-muted hover:bg-black/5 dark:hover:bg-white/10'
         }`;
 
     return (
@@ -96,9 +85,7 @@ export default function Navbar() {
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-xl border-b transition-colors duration-300 ${
-        dark
-          ? 'bg-[#0a0f1a]/78 border-white/10'
-          : 'bg-white/72 border-white/20'
+        'sentinel-nav-shell'
       }`}
     >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -108,13 +95,13 @@ export default function Navbar() {
           </div>
           <div>
             <span
-              className={dark ? 'text-white' : 'text-[#0f172a]'}
+              className="sentinel-text-primary"
               style={{ fontFamily: FONT, fontWeight: 650, fontSize: '18px', letterSpacing: '-0.02em' }}
             >
               Sentinel-E
             </span>
             <div
-              className={dark ? 'text-white/45' : 'text-[#64748b]'}
+              className="sentinel-text-muted"
               style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500 }}
             >
               Multi-model reasoning
@@ -144,9 +131,7 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-2">
           <button
             onClick={() => setDark((prev) => !prev)}
-            className={`p-2.5 rounded-2xl transition-all ${
-              dark ? 'hover:bg-white/10 text-white/70 hover:text-white' : 'hover:bg-black/5 text-[#6e6e73] hover:text-[#1d1d1f]'
-            }`}
+            className="p-2.5 rounded-2xl transition-all sentinel-icon-button"
             title={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             aria-label="Toggle theme"
           >
@@ -164,22 +149,22 @@ export default function Navbar() {
                   Open Chat
                 </Link>
               )}
-              <div className={`flex items-center gap-3 px-3 py-2 rounded-2xl border ${dark ? 'bg-white/6 border-white/10 text-white' : 'bg-white border-black/5 text-[#0f172a]'}`}>
+              <div className="flex items-center gap-3 px-3 py-2 rounded-2xl border sentinel-surface-panel">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center text-white text-sm font-semibold">
                   {displayName.charAt(0).toUpperCase()}
                 </div>
                 <div className="max-w-[160px]">
-                  <div className={`truncate ${dark ? 'text-white' : 'text-[#0f172a]'}`} style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 600 }}>
+                  <div className="truncate sentinel-text-primary" style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 600 }}>
                     {displayName}
                   </div>
-                  <div className={dark ? 'text-white/45' : 'text-[#64748b]'} style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500 }}>
-                    Firebase session
+                  <div className="sentinel-text-muted" style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500 }}>
+                    {isGuestMode ? 'Guest session' : 'Firebase session'}
                   </div>
                 </div>
               </div>
               <button
                 onClick={signOut}
-                className={`px-4 py-2 rounded-full transition-all ${dark ? 'text-white/75 hover:bg-white/10' : 'text-[#1d1d1f] hover:bg-black/5'}`}
+                className="px-4 py-2 rounded-full transition-all sentinel-nav-muted hover:bg-black/5 dark:hover:bg-white/10"
                 style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}
               >
                 Sign out
@@ -199,28 +184,26 @@ export default function Navbar() {
         <div className="md:hidden flex items-center gap-1">
           <button
             onClick={() => setDark((prev) => !prev)}
-            className={`p-2 rounded-xl ${dark ? 'text-white/70' : 'text-[#6e6e73]'}`}
+            className="p-2 rounded-xl sentinel-icon-button"
             aria-label="Toggle theme"
           >
             {dark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
           <button
-            className={`p-2 rounded-xl ${dark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}
+            className="p-2 rounded-xl sentinel-icon-button"
             onClick={() => setMobileOpen((prev) => !prev)}
             aria-label="Toggle navigation menu"
           >
             {mobileOpen
-              ? <X className={`w-5 h-5 ${dark ? 'text-white' : ''}`} />
-              : <Menu className={`w-5 h-5 ${dark ? 'text-white' : ''}`} />
+              ? <X className="w-5 h-5" />
+              : <Menu className="w-5 h-5" />
             }
           </button>
         </div>
       </div>
 
       {mobileOpen && (
-        <div className={`md:hidden backdrop-blur-xl border-b px-6 pb-5 ${
-          dark ? 'bg-[#0a0f1a]/92 border-white/10' : 'bg-white/92 border-white/20'
-        }`}>
+        <div className="md:hidden backdrop-blur-xl border-b px-6 pb-5 sentinel-nav-shell">
           <div className="pt-2">
             {navLinks.map((link) => renderNavLink(link, true))}
 
@@ -240,7 +223,7 @@ export default function Navbar() {
             )}
           </div>
 
-          <div className={`mt-3 p-3 rounded-2xl border ${dark ? 'bg-white/6 border-white/10' : 'bg-[#f8fafc] border-black/5'}`}>
+          <div className="mt-3 p-3 rounded-2xl border sentinel-surface-panel">
             {isAuthenticated ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
@@ -249,16 +232,16 @@ export default function Navbar() {
                   </div>
                   <div className="min-w-0">
                     <div
-                      className={`truncate ${dark ? 'text-white' : 'text-[#0f172a]'}`}
+                      className="truncate sentinel-text-primary"
                       style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}
                     >
                       {displayName}
                     </div>
                     <div
-                      className={dark ? 'text-white/45' : 'text-[#64748b]'}
+                      className="sentinel-text-muted"
                       style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 500 }}
                     >
-                      {user?.provider ? `${user.provider} session` : 'Authenticated'}
+                      {isGuestMode ? 'Guest session' : (user?.provider ? `${user.provider} session` : 'Authenticated')}
                     </div>
                   </div>
                 </div>
@@ -272,7 +255,7 @@ export default function Navbar() {
                   </Link>
                   <button
                     onClick={signOut}
-                    className={`flex-1 px-4 py-2.5 rounded-xl border ${dark ? 'border-white/10 text-white/75 hover:bg-white/10' : 'border-black/5 text-[#1d1d1f] hover:bg-black/5'}`}
+                    className="flex-1 px-4 py-2.5 rounded-xl border sentinel-nav-muted sentinel-border hover:bg-black/5 dark:hover:bg-white/10"
                     style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}
                   >
                     Sign out

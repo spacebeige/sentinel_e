@@ -36,6 +36,25 @@ except ImportError:
 
 logger = logging.getLogger("Auth")
 
+TEMP_AUTH_DISABLED = True
+
+# TODO: Restore Firebase Auth after configuration fixes
+GUEST_USER: Dict[str, Any] = {
+    "id": "guest-dev-user",
+    "user_id": "guest-dev-user",
+    "email": "guest@sentinel.local",
+    "name": "Guest Developer",
+    "role": "admin",
+    "provider": "guest",
+    "authenticated": False,
+    "is_guest": True,
+}
+
+
+def get_guest_user() -> Dict[str, Any]:
+    """Return a copy of the temporary guest-mode principal."""
+    return dict(GUEST_USER)
+
 # ─────────────────────────────────────────────────────────────
 # FIREBASE INITIALIZATION
 # ─────────────────────────────────────────────────────────────
@@ -45,6 +64,11 @@ _firebase_app = None
 def _init_firebase():
     """Initialize Firebase Admin SDK if not already done."""
     global _firebase_app
+
+    if TEMP_AUTH_DISABLED:
+        # TODO: Restore Firebase Auth after configuration fixes
+        logger.warning("Firebase Admin initialization bypassed; guest mode is active.")
+        return
     
     if _firebase_app is not None:
         return
@@ -116,6 +140,11 @@ async def verify_firebase_token(token: str) -> Optional[Dict[str, Any]]:
             ...
         }
     """
+    if TEMP_AUTH_DISABLED:
+        # TODO: Restore Firebase Auth after configuration fixes
+        logger.info("Guest mode active; Firebase token verification bypassed.")
+        return get_guest_user()
+
     if not firebase_auth or not _firebase_app:
         logger.warning("⚠️  Firebase not initialized, skipping token verification")
         return None
@@ -171,6 +200,12 @@ async def get_current_user(
     Raises:
         HTTPException(401): If auth token invalid or missing
     """
+    if TEMP_AUTH_DISABLED:
+        # TODO: Restore Firebase Auth after configuration fixes
+        request.state.user_id = GUEST_USER["user_id"]
+        request.state.current_user = get_guest_user()
+        return get_guest_user()
+
     # Extract token
     token = extract_token_from_header(authorization)
     if not token:
@@ -293,6 +328,14 @@ class AuthMiddleware:
     
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
+            if TEMP_AUTH_DISABLED:
+                # TODO: Restore Firebase Auth after configuration fixes
+                scope.setdefault("state", {})
+                scope["state"]["user_id"] = GUEST_USER["user_id"]
+                scope["state"]["current_user"] = get_guest_user()
+                await self.app(scope, receive, send)
+                return
+
             # Extract auth header
             headers = dict(scope.get("headers", []))
             auth_header = headers.get(b"authorization", b"").decode()
@@ -325,6 +368,7 @@ async def check_auth_setup() -> Dict[str, Any]:
     )
 
     return {
-        "firebase_enabled": bool(_firebase_app and firebase_auth),
+        "firebase_enabled": bool(_firebase_app and firebase_auth and not TEMP_AUTH_DISABLED),
         "firebase_json_exists": os.path.isfile(firebase_json_path),
+        "guest_mode_enabled": TEMP_AUTH_DISABLED,
     }

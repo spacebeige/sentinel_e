@@ -20,7 +20,7 @@ const features = [
 
 export function FeaturesSection() {
   return (
-    <section className="py-24 px-6 bg-[#f5f5f7]">
+    <section className="py-24 px-6 sentinel-bg-app">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -29,11 +29,11 @@ export function FeaturesSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <h2 className="text-[#1d1d1f] mb-4" style={{ fontFamily: FONT, fontSize: 'clamp(32px, 5vw, 48px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+          <h2 className="sentinel-text-primary mb-4" style={{ fontFamily: FONT, fontSize: 'clamp(32px, 5vw, 48px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
             Designed for<br />
             <span className="bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] bg-clip-text text-transparent">the way you think.</span>
           </h2>
-          <p className="text-[#6e6e73] max-w-lg mx-auto" style={{ fontFamily: FONT, fontSize: '17px', lineHeight: 1.6, fontWeight: 400 }}>
+          <p className="sentinel-text-secondary max-w-lg mx-auto" style={{ fontFamily: FONT, fontSize: '17px', lineHeight: 1.6, fontWeight: 400 }}>
             Every feature is crafted to feel intuitive, fast, and delightful.
           </p>
         </motion.div>
@@ -46,7 +46,7 @@ export function FeaturesSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="group p-6 rounded-3xl bg-white border border-black/5 hover:shadow-xl hover:shadow-black/5 transition-all duration-300 hover:-translate-y-1 cursor-default"
+              className="group p-6 rounded-3xl sentinel-surface-panel hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-black/30 transition-all duration-300 hover:-translate-y-1 cursor-default"
             >
               <div
                 className={`w-11 h-11 rounded-[14px] bg-gradient-to-br ${feature.gradient} flex items-center justify-center text-white mb-5 group-hover:scale-105 group-hover:-rotate-3 transition-all duration-300`}
@@ -54,10 +54,10 @@ export function FeaturesSection() {
               >
                 {feature.icon}
               </div>
-              <h3 className="text-[#1d1d1f] mb-2" style={{ fontFamily: FONT, fontSize: '18px', fontWeight: 600 }}>
+              <h3 className="sentinel-text-primary mb-2" style={{ fontFamily: FONT, fontSize: '18px', fontWeight: 600 }}>
                 {feature.title}
               </h3>
-              <p className="text-[#6e6e73]" style={{ fontFamily: FONT, fontSize: '15px', lineHeight: 1.6, fontWeight: 400 }}>
+              <p className="sentinel-text-secondary" style={{ fontFamily: FONT, fontSize: '15px', lineHeight: 1.6, fontWeight: 400 }}>
                 {feature.description}
               </p>
             </motion.div>
