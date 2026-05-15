@@ -2,11 +2,11 @@
  * Navbar.js — Application Shell Navigation
  * Modal-first auth integrated into the existing design system.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, Moon, Shield, Sigma, Sun, X } from 'lucide-react';
 import { useAuthContext } from '../hooks/useAuthContext';
-import { getInitialTheme, persistTheme } from '../services/themeManager';
+import { getCurrentTheme, persistTheme, subscribeThemeChanges } from '../services/themeManager';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -30,10 +30,14 @@ export default function Navbar() {
   } = useAuthContext();
 
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [dark, setDark] = useState(() => getInitialTheme() === 'dark');
+  const [dark, setDark] = useState(() => getCurrentTheme() === 'dark');
 
-  useEffect(() => {
-    persistTheme(dark ? 'dark' : 'light');
+  useEffect(() => subscribeThemeChanges((theme) => setDark(theme === 'dark')), []);
+
+  const toggleTheme = useCallback(() => {
+    const nextTheme = dark ? 'light' : 'dark';
+    setDark(nextTheme === 'dark');
+    persistTheme(nextTheme);
   }, [dark]);
 
   useEffect(() => {
@@ -130,12 +134,16 @@ export default function Navbar() {
 
         <div className="hidden md:flex items-center gap-2">
           <button
-            onClick={() => setDark((prev) => !prev)}
-            className="p-2.5 rounded-2xl transition-all sentinel-icon-button"
+            onClick={toggleTheme}
+            className="px-3 py-2.5 rounded-2xl transition-all sentinel-icon-button sentinel-theme-toggle flex items-center gap-2"
             title={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            aria-label="Toggle theme"
+            aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-pressed={dark}
           >
             {dark ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
+            <span style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 600 }}>
+              {dark ? 'Light' : 'Dark'}
+            </span>
           </button>
 
           {isAuthenticated ? (
@@ -183,9 +191,10 @@ export default function Navbar() {
 
         <div className="md:hidden flex items-center gap-1">
           <button
-            onClick={() => setDark((prev) => !prev)}
-            className="p-2 rounded-xl sentinel-icon-button"
-            aria-label="Toggle theme"
+            onClick={toggleTheme}
+            className="p-2 rounded-xl sentinel-icon-button sentinel-theme-toggle"
+            aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-pressed={dark}
           >
             {dark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
