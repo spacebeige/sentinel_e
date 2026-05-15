@@ -52,20 +52,20 @@ export function MakeAdminForm({ onSuccess }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl p-8 border border-black/5 max-w-2xl"
+      className="rounded-2xl p-8 border sentinel-border sentinel-surface max-w-2xl"
     >
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
           <Shield className="w-5 h-5 text-purple-600" />
         </div>
-        <h2 className="text-2xl font-bold text-[#1d1d1f]" style={{ fontFamily: FONT }}>
+        <h2 className="text-2xl font-bold sentinel-text-primary" style={{ fontFamily: FONT }}>
           Promote to Admin
         </h2>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-[#1d1d1f] mb-2">
+          <label className="block text-sm font-medium sentinel-text-primary mb-2">
             Email Address
           </label>
           <input
@@ -75,10 +75,10 @@ export function MakeAdminForm({ onSuccess }) {
             placeholder="user@example.com"
             required
             disabled={loading}
-            className="w-full px-4 py-2.5 rounded-lg border border-black/10 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-2.5 rounded-lg border sentinel-border sentinel-surface focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed sentinel-text-primary"
             style={{ fontFamily: FONT }}
           />
-          <p className="text-xs text-[#6e6e73] mt-1">
+          <p className="text-xs sentinel-text-muted mt-1">
             The user's email must exist in the system
           </p>
         </div>
@@ -106,7 +106,7 @@ export function MakeAdminForm({ onSuccess }) {
                 {status.message}
               </p>
               {status.data && (
-                <p className="text-xs mt-1 text-[#6e6e73]">
+                <p className="text-xs mt-1 sentinel-text-muted">
                   Status: {status.data.status} • Role: {status.data.role}
                 </p>
               )}

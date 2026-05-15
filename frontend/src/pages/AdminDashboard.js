@@ -20,10 +20,12 @@ import {
 import axios from 'axios';
 import MakeAdminForm from '../components/MakeAdminForm';
 import DataFallback from '../components/common/DataFallback';
+import { useAuthContext } from '../hooks/useAuthContext';
 
 const FONT = "'Inter', -apple-system, sans-serif";
 
 const AdminDashboard = () => {
+  const { isGuestMode } = useAuthContext();
   const [systemStats, setSystemStats] = useState(null);
   const [architecture, setArchitecture] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -32,6 +34,18 @@ const AdminDashboard = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: Activity },
+    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+    { id: 'modes', label: 'Modes', icon: Zap },
+    { id: 'orchestrator', label: 'Orchestrator', icon: RefreshCw },
+    { id: 'memory', label: 'Memory', icon: Brain },
+    { id: 'models', label: 'Models', icon: Activity },
+    { id: 'architecture', label: 'Architecture', icon: Zap },
+    { id: 'feedback', label: 'Feedback', icon: BarChart3 },
+    { id: 'users', label: 'Users', icon: Users },
+  ];
+  const availableTabs = isGuestMode ? tabs.filter((tab) => tab.id !== 'users') : tabs;
 
   const fetchAdminData = useCallback(async () => {
     try {
@@ -82,25 +96,31 @@ const AdminDashboard = () => {
     return () => clearInterval(interval);
   }, [fetchAdminData]);
 
+  useEffect(() => {
+    if (isGuestMode && activeTab === 'users') {
+      setActiveTab('overview');
+    }
+  }, [isGuestMode, activeTab]);
+
   if (loading) return <LoadingScreen />;
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f5f5f7]">
+      <div className="min-h-screen flex items-center justify-center sentinel-bg-app">
         <DataFallback 
           message={error} 
           type="error" 
           onRetry={fetchAdminData} 
-          className="bg-white shadow-xl max-w-md p-10"
+          className="sentinel-surface shadow-xl max-w-md p-10 sentinel-border"
         />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f5f5f7' }}>
+    <div className="admin-control-dashboard min-h-screen sentinel-bg-app">
       {/* Header */}
-      <header className="bg-white border-b border-black/5 sticky top-14 z-40">
+      <header className="sentinel-surface border-b sentinel-border sticky top-14 z-40">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex items-center justify-between">
             <div>
@@ -112,12 +132,12 @@ const AdminDashboard = () => {
                 </div>
                 <div>
                   <h1
-                    className="text-2xl text-[#1d1d1f] font-bold"
+                    className="text-2xl sentinel-text-primary font-bold"
                     style={{ fontFamily: FONT }}
                   >
                     Admin Control Center
                   </h1>
-                  <p className="text-xs text-[#aeaeb2]">System Architecture & Analytics</p>
+                  <p className="text-xs sentinel-text-muted">System Architecture & Analytics</p>
                 </div>
               </div>
             </div>
@@ -125,7 +145,7 @@ const AdminDashboard = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={fetchAdminData}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#f5f5f7] hover:bg-[#e8e8ed] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg sentinel-surface-panel sentinel-text-primary transition-colors"
               style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 500 }}
             >
               <RefreshCw className="w-4 h-4" />
@@ -134,18 +154,8 @@ const AdminDashboard = () => {
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex gap-2 mt-6 border-b border-black/5 overflow-x-auto pb-0">
-            {[
-              { id: 'overview', label: 'Overview', icon: Activity },
-              { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-              { id: 'modes', label: 'Modes', icon: Zap },
-              { id: 'orchestrator', label: 'Orchestrator', icon: RefreshCw },
-              { id: 'memory', label: 'Memory', icon: Brain },
-              { id: 'models', label: 'Models', icon: Activity },
-              { id: 'architecture', label: 'Architecture', icon: Zap },
-              { id: 'feedback', label: 'Feedback', icon: BarChart3 },
-              { id: 'users', label: 'Users', icon: Users },
-            ].map(tab => {
+          <div className="flex gap-2 mt-6 border-b sentinel-border overflow-x-auto pb-0">
+            {availableTabs.map(tab => {
               const Icon = tab.icon;
               return (
                 <button
@@ -154,7 +164,7 @@ const AdminDashboard = () => {
                   className={`flex items-center gap-2 px-4 py-3 border-b-2 whitespace-nowrap transition-colors ${
                     activeTab === tab.id
                       ? 'border-[#3b82f6] text-[#3b82f6]'
-                      : 'border-transparent text-[#6e6e73] hover:text-[#1d1d1f]'
+                      : 'border-transparent sentinel-text-muted hover:text-[#1d1d1f] dark:hover:text-white'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -212,13 +222,29 @@ const AdminDashboard = () => {
         {activeTab === 'users' && (
           <div className="space-y-12">
             <section>
-              <h2 className="text-xl font-bold mb-6" style={{ fontFamily: FONT }}>
-                User Management
-              </h2>
-              <MakeAdminForm onSuccess={() => {
-                // Optionally refresh data after promoting user
-                setTimeout(fetchAdminData, 1000);
-              }} />
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                <h2 className="text-xl font-bold sentinel-text-primary" style={{ fontFamily: FONT }}>
+                  User Management
+                </h2>
+                {isGuestMode && (
+                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                    Guest mode: read-only
+                  </span>
+                )}
+              </div>
+              {isGuestMode ? (
+                <div className="rounded-2xl border sentinel-border sentinel-surface p-6">
+                  {/* TODO: Re-enable live Firebase authentication after auth configuration fixes */}
+                  <p className="sentinel-text-primary text-sm" style={{ fontFamily: FONT }}>
+                    Promote-to-admin actions are disabled while Guest Mode is enabled.
+                  </p>
+                </div>
+              ) : (
+                <MakeAdminForm onSuccess={() => {
+                  // Optionally refresh data after promoting user
+                  setTimeout(fetchAdminData, 1000);
+                }} />
+              )}
             </section>
           </div>
         )}

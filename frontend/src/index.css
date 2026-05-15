@@ -241,6 +241,15 @@
     background-color: color-mix(in srgb, var(--text-primary) 8%, transparent);
   }
 
+  .sentinel-theme-toggle {
+    border: 1px solid color-mix(in srgb, var(--border-primary) 70%, transparent);
+    background-color: color-mix(in srgb, var(--bg-card) 85%, transparent);
+  }
+
+  .sentinel-theme-toggle[aria-pressed="true"] {
+    color: #f59e0b;
+  }
+
   /* Card component */
   .card {
     background-color: var(--bg-card);
@@ -329,6 +338,31 @@
     font-weight: 600;
     color: var(--text-primary);
   }
+}
+
+.admin-control-dashboard {
+  color: var(--text-primary);
+}
+
+.admin-control-dashboard .bg-white {
+  background-color: var(--bg-card) !important;
+}
+
+.admin-control-dashboard [class*="bg-[#f5f5f7]"] {
+  background-color: var(--bg-secondary) !important;
+}
+
+.admin-control-dashboard [class*="text-[#1d1d1f]"] {
+  color: var(--text-primary) !important;
+}
+
+.admin-control-dashboard [class*="text-[#6e6e73]"],
+.admin-control-dashboard [class*="text-[#aeaeb2]"] {
+  color: var(--text-tertiary) !important;
+}
+
+.admin-control-dashboard [class*="border-black/"] {
+  border-color: var(--border-primary) !important;
 }
 
 /* Markdown rendering overrides */
