@@ -42,3 +42,15 @@ frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
 node_modules
+
+########################################
+# Sensitive / system files
+########################################
+# Firebase / Google service account files
+backend/firebase.json
+backend/*serviceAccount*.json
+backend/*-credentials.json
+# Environment files
+.env
+.env.*
+*.secret
