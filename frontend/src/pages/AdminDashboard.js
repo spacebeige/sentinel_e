@@ -234,7 +234,7 @@ const AdminDashboard = () => {
               </div>
               {isGuestMode ? (
                 <div className="rounded-2xl border sentinel-border sentinel-surface p-6">
-                  {/* TODO: Re-enable live Firebase authentication after auth configuration fixes */}
+                  {/* TODO: Remove or fully restore Firebase auth after Supabase migration stabilizes */}
                   <p className="sentinel-text-primary text-sm" style={{ fontFamily: FONT }}>
                     Promote-to-admin actions are disabled while Guest Mode is enabled.
                   </p>

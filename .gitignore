@@ -1,10 +1,10 @@
-dist/
 ########################################
 # General
 ########################################
 .DS_Store
 .vscode/
 __pycache__/
+dist/
 
 ########################################
 # Backend (Python)
@@ -12,12 +12,19 @@ __pycache__/
 backend/__pycache__/
 backend/*.py[cod]
 backend/*$py.class
-backend/.env
-backend/firebase.json
-.env
 backend/venv/
+backend/.venv/
 backend/.pytest_cache/
 *.log
+
+########################################
+# Backend Secrets & Credentials — NEVER commit
+########################################
+backend/.env
+backend/firebase.json
+backend/*serviceAccount*.json
+backend/*-credentials.json
+backend/*-service-account*.json
 
 ########################################
 # Backend User Data & Models
@@ -36,21 +43,66 @@ backend/models/*.bin
 frontend/node_modules/
 frontend/build/
 frontend/dist/
-frontend/.env
-frontend/.env.local
 frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
-node_modules
+node_modules/
 
 ########################################
-# Sensitive / system files
+# Frontend Environment Files — NEVER commit real keys
+# Real keys live in .env.local (local) and Vercel Dashboard (production)
 ########################################
-# Firebase / Google service account files
-backend/firebase.json
-backend/*serviceAccount*.json
-backend/*-credentials.json
-# Environment files
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+########################################
+# Root-level Environment Files
+########################################
 .env
 .env.*
+!.env.example
+
+########################################
+# Supabase Local Artifacts
+########################################
+supabase/.branches/*
+supabase/.temp/*
+supabase/.env
+supabase/.env.*
+
+########################################
+# Vercel
+########################################
+.vercel/
+vercel.env
+vercel.env.*
+
+########################################
+# Secrets & Sensitive Files
+########################################
 *.secret
+*.pem
+*.key
+*_rsa
+
+########################################
+# Debug / Internal Tooling Scripts
+# (These should not be deployed)
+########################################
+fix_guards.py
+fix_maps.py
+fix_maps2.py
+fix_maps.js
+debug_keys.py
+debug_requests.py
+_test_imports.py
+_validate_openrouter_removal.py
+_verify_refactor.py
+structure_summary_script.py
+PRODUCTION_VALIDATION_REPORT.js
+FIREBASE_VALIDATION_CHECKLIST.js
+PR_OUTPUT.json
+dump.rdb

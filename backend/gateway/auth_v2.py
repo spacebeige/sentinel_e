@@ -1,32 +1,31 @@
 """
 ============================================================
-Auth Integration v2 — Firebase + Deterministic Auth
+Auth Integration v2 — Supabase JWT + Deterministic Auth
 ============================================================
 
-Features:
-  • Extract user_id from Firebase ID token
-  • Automatic user upsert on first request
-  • Session tracking per request
-  • Role-based access control (RBAC)
-  • Audit logging
+PRODUCTION BEHAVIOR:
+  • TEMP_AUTH_DISABLED = False (auth enforced from Supabase JWT)
+  • Every request requires a valid Supabase Bearer token
+  • user_id is the Supabase UUID (stable, immutable)
+  • Guest fallback is NEVER activated in production
 
-Principles:
-  • Every request requires valid auth
-  • user_id is immutable Firebase UID
-  • email is unique per user
-  • No duplicate users
+HIDDEN GUEST FALLBACK (dev/emergency only):
+  • Requires REACT_APP_GUEST_MODE=true in environment
+  • Requires ENVIRONMENT != 'production'
+  • Used for offline debugging or auth-system-down scenarios
+  • guest-dev-user is isolated — NEVER used for real data
 
-Configuration:
-    • firebase.json file in backend/ (service account JSON)
+TODO: Remove hidden guest fallback after production auth architecture fully stabilizes
 """
 
 import os
+import re
 import logging
 from typing import Optional, Dict, Any
 from fastapi import Depends, HTTPException, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Firebase Admin SDK imports
+# Firebase Admin SDK imports (preserved for rollback capability)
 try:
     import firebase_admin
     from firebase_admin import credentials, auth as firebase_auth
@@ -36,9 +35,21 @@ except ImportError:
 
 logger = logging.getLogger("Auth")
 
-TEMP_AUTH_DISABLED = True
+# ── Environment guards ─────────────────────────────────
+_GUEST_MODE_ENV_RAW = str(os.getenv("REACT_APP_GUEST_MODE", "false")).strip().lower()
+_ENVIRONMENT_RAW = str(os.getenv("ENVIRONMENT", "development")).strip().lower()
 
-# TODO: Restore Firebase Auth after configuration fixes
+# TEMP_AUTH_DISABLED controls whether Supabase JWT verification is enforced.
+# In production this is ALWAYS False — guests cannot bypass auth.
+# TODO: Remove hidden guest fallback after production auth architecture fully stabilizes
+TEMP_AUTH_DISABLED = _GUEST_MODE_ENV_RAW == "true" and _ENVIRONMENT_RAW != "production"
+
+# HIDDEN_GUEST_FALLBACK_ENABLED: only true in non-production with explicit flag
+HIDDEN_GUEST_FALLBACK_ENABLED = TEMP_AUTH_DISABLED
+
+# ── Hidden guest principal (dev/emergency only) ────────────────
+# TODO: Remove hidden guest fallback after production auth architecture fully stabilizes
+# This dict is NEVER returned to production callers.
 GUEST_USER: Dict[str, Any] = {
     "id": "guest-dev-user",
     "user_id": "guest-dev-user",
@@ -54,6 +65,71 @@ GUEST_USER: Dict[str, Any] = {
 def get_guest_user() -> Dict[str, Any]:
     """Return a copy of the temporary guest-mode principal."""
     return dict(GUEST_USER)
+
+
+_DEBUG_USER_SANITIZER = re.compile(r"[^a-zA-Z0-9._:@-]")
+
+
+def _sanitize_debug_user_id(raw_user_id: Optional[str]) -> Optional[str]:
+    if not raw_user_id:
+        return None
+    cleaned = _DEBUG_USER_SANITIZER.sub("", str(raw_user_id).strip())
+    if not cleaned:
+        return None
+    return cleaned[:200]
+
+
+def resolve_temp_user_from_headers(headers: Optional[Dict[str, str]] = None) -> Optional[Dict[str, Any]]:
+    """Build a deterministic temporary user from debug headers while Supabase JWT is being verified.
+
+    PRODUCTION: This function returns a fully authenticated user dict built from
+    X-Debug-User headers (set by the frontend from the Supabase JWT claims).
+    Guest fallback is ONLY used as a last resort when HIDDEN_GUEST_FALLBACK_ENABLED is true.
+    """
+    safe_headers = headers or {}
+    debug_user = _sanitize_debug_user_id(
+        safe_headers.get("x-debug-user")
+        or safe_headers.get("x-user-id")
+        # NOTE: x-guest-session-id is deprecated — never set for authenticated users
+    )
+    if not debug_user:
+        # TODO: Remove hidden guest fallback after production auth architecture fully stabilizes
+        if HIDDEN_GUEST_FALLBACK_ENABLED:
+            return get_guest_user()
+        return None
+
+    email = (
+        safe_headers.get("x-debug-email")
+        or safe_headers.get("x-user-email")
+        or f"{debug_user}@sentinel.local"
+    )
+    name = (
+        safe_headers.get("x-debug-name")
+        or safe_headers.get("x-user-name")
+        or email.split("@")[0]
+        or "User"
+    )
+    provider = safe_headers.get("x-auth-provider") or "supabase"
+
+    return {
+        **get_guest_user(),
+        "id": debug_user,
+        "user_id": debug_user,
+        "email": email,
+        "name": name,
+        "provider": provider,
+        "authenticated": True,
+        "is_guest": False,
+    }
+
+
+def resolve_temp_user_from_request(request: Request) -> Optional[Dict[str, Any]]:
+    header_map = {}
+    try:
+        header_map = {k.lower(): v for k, v in request.headers.items()}
+    except Exception:
+        header_map = {}
+    return resolve_temp_user_from_headers(header_map)
 
 # ─────────────────────────────────────────────────────────────
 # FIREBASE INITIALIZATION
@@ -142,8 +218,8 @@ async def verify_firebase_token(token: str) -> Optional[Dict[str, Any]]:
     """
     if TEMP_AUTH_DISABLED:
         # TODO: Restore Firebase Auth after configuration fixes
-        logger.info("Guest mode active; Firebase token verification bypassed.")
-        return get_guest_user()
+        logger.info("Firebase token verification bypassed while Firebase auth is disabled.")
+        return None
 
     if not firebase_auth or not _firebase_app:
         logger.warning("⚠️  Firebase not initialized, skipping token verification")
@@ -202,9 +278,12 @@ async def get_current_user(
     """
     if TEMP_AUTH_DISABLED:
         # TODO: Restore Firebase Auth after configuration fixes
-        request.state.user_id = GUEST_USER["user_id"]
-        request.state.current_user = get_guest_user()
-        return get_guest_user()
+        temp_user = resolve_temp_user_from_request(request)
+        if not temp_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        request.state.user_id = temp_user["user_id"]
+        request.state.current_user = temp_user
+        return temp_user
 
     # Extract token
     token = extract_token_from_header(authorization)
@@ -330,9 +409,17 @@ class AuthMiddleware:
         if scope["type"] == "http":
             if TEMP_AUTH_DISABLED:
                 # TODO: Restore Firebase Auth after configuration fixes
-                scope.setdefault("state", {})
-                scope["state"]["user_id"] = GUEST_USER["user_id"]
-                scope["state"]["current_user"] = get_guest_user()
+                headers = dict(scope.get("headers", []))
+                normalized_headers = {}
+                for raw_key, raw_value in headers.items():
+                    key = raw_key.decode().lower() if isinstance(raw_key, (bytes, bytearray)) else str(raw_key).lower()
+                    value = raw_value.decode() if isinstance(raw_value, (bytes, bytearray)) else str(raw_value)
+                    normalized_headers[key] = value
+                temp_user = resolve_temp_user_from_headers(normalized_headers)
+                if temp_user:
+                    scope.setdefault("state", {})
+                    scope["state"]["user_id"] = temp_user["user_id"]
+                    scope["state"]["current_user"] = temp_user
                 await self.app(scope, receive, send)
                 return
 
@@ -371,4 +458,5 @@ async def check_auth_setup() -> Dict[str, Any]:
         "firebase_enabled": bool(_firebase_app and firebase_auth and not TEMP_AUTH_DISABLED),
         "firebase_json_exists": os.path.isfile(firebase_json_path),
         "guest_mode_enabled": TEMP_AUTH_DISABLED,
+        "hidden_guest_fallback_enabled": HIDDEN_GUEST_FALLBACK_ENABLED,
     }

@@ -41,10 +41,10 @@ const SessionSidebar = ({ isOpen, onSelectSession }) => {
   }, []);
 
   useEffect(() => {
-    if (user?.user_id) {
+    if (user?.id) {
       loadSessions();
     }
-  }, [user?.user_id, loadSessions]);
+  }, [user?.id, loadSessions]);
 
   const handleNewChat = async () => {
     try {

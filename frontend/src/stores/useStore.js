@@ -1,3 +1,16 @@
+/**
+ * ============================================================
+ * useStore.js — Authenticated User Session Store
+ * ============================================================
+ *
+ * Persistence keys are user-scoped to prevent guest/auth state mixing:
+ *   conversation:${user.id}  (production, authenticated)
+ *   NOT: guest-session       (isolated to hidden dev fallback only)
+ *
+ * Defensive guards prevent guest-state hydration into authenticated slots.
+ *
+ * TODO: Remove hidden guest fallback after production auth architecture fully stabilizes
+ */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import api from '../services/api';
@@ -155,9 +168,27 @@ const useStore = create(
       })
     }),
     {
+      // Persist key is stable per deployment — user ID is stored inside the state.
+      // Guest state is isolated to the 'guest-session' namespace (dev/emergency only).
+      // Authenticated users ALWAYS get fresh state from the server on login.
       name: 'sentinel-session-storage',
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
+        // DEFENSIVE GUARD: Block guest-key hydration into authenticated user slots.
+        // If the rehydrated state contains a guest userId and we're in production,
+        // clear the stale guest state to prevent contamination.
+        // TODO: Remove hidden guest fallback after production auth architecture fully stabilizes
+        const isGuestId = (id) => id && (id === 'guest-session' || String(id).startsWith('guest'));
+        const guestModeEnabled = String(process.env.REACT_APP_GUEST_MODE ?? 'false').trim().toLowerCase() === 'true';
+        if (!guestModeEnabled && state?.userId && isGuestId(state.userId)) {
+          console.warn('[Sentinel] Blocked guest-state hydration — clearing stale guest session.');
+          // Clear guest-contaminated state
+          state.userId = null;
+          state.chats = [];
+          state.messages = [];
+          state.memory = [];
+          state.isLoaded = false;
+        }
         state?.setLoading(false);
         useStore.setState({ hasHydrated: true });
       },

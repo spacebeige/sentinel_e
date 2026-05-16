@@ -1,16 +1,26 @@
-import { Navigate } from 'react-router-dom';
+// TODO: Remove deprecated Firebase auth flow after Supabase stabilization
+import { useEffect } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import LoadingScreen from './LoadingScreen';
 import { useAuthContext } from '../hooks/useAuthContext';
+import useStore from '../stores/useStore';
 
 export function ProtectedRoute({ children, requireAdmin = false }) {
-  const { loading, isAuthenticated, isAdmin, isGuestMode } = useAuthContext();
+  const location = useLocation();
+  // authResolved: auth check finished (not still loading)
+  // sessionReady: authenticated + auth resolved — safe to render protected content
+  const { loading, authResolved, isAuthenticated, isAdmin, openAuthModal } = useAuthContext();
+  // hasHydrated: localStorage rehydration complete — prevents blank flash before store loads
+  const hasHydrated = useStore(state => state.hasHydrated);
 
-  // TODO: Re-enable live Firebase authentication after auth configuration fixes
-  if (isGuestMode) {
-    return children;
-  }
+  useEffect(() => {
+    if (authResolved && !isAuthenticated) {
+      openAuthModal({ returnTo: location.pathname });
+    }
+  }, [isAuthenticated, authResolved, location.pathname, openAuthModal]);
 
-  if (loading) {
+  // Wait for both auth resolution AND store hydration to avoid blank/flash UI
+  if (loading || !hasHydrated) {
     return <LoadingScreen message="Checking authentication..." />;
   }
 
