@@ -4,9 +4,8 @@
  * ============================================================
  * 
  * SECURITY (FIX #3 - XSS Protection):
- *   - SuperTokens session management (auto-refresh)
- *   - Tokens now stored in HttpOnly cookies (server-side)
- *   - Frontend never exposes tokens to JavaScript
+ *   - Supabase OAuth session management (auto-refresh)
+ *   - Access tokens are read from Supabase session only when needed
  *   - No API keys in frontend
  *   - No system prompts exposed
  *   - All sensitive logic server-side
@@ -19,15 +18,13 @@
 
 import axios from 'axios';
 import { API_BASE } from '../config';
-import { GUEST_USER, TEMP_AUTH_DISABLED } from '../firebase';
-import { getGuestSessionId } from './guestSession';
-
-// ── Token Storage ───────────────────────────────
-// MIGRATION NOTE: Tokens are now fetched dynamically via Firebase Auth context
+import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
+import { getPersistenceUserId } from './sessionPersistence';
+import { readSupabaseSessionSnapshot } from './supabaseSessionManager';
 
 /**
  * Create an axios instance with interceptors for auth.
- * primarily relies on Firebase Bearer tokens now.
+ * Supabase session is the source of truth for auth continuity.
  */
 const api = axios.create({
   baseURL: API_BASE,
@@ -38,37 +35,52 @@ const api = axios.create({
   },
 });
 
-// ── Request Interceptor: Add request ID and Guest Context ───
+// ── Request Interceptor: Add request ID and Supabase auth context ───
 api.interceptors.request.use(
   async (config) => {
+    config.headers = config.headers || {};
     config.headers['X-Request-ID'] = generateRequestId();
     config.withCredentials = true;
     
     try {
-      if (TEMP_AUTH_DISABLED) {
-        // TODO: Re-enable live Firebase authentication after auth configuration fixes
-        // TODO: Replace guest-session persistence with Firebase-auth session persistence later
-        const guestSessionId = getGuestSessionId() || 'guest-user';
-        config.headers['X-Guest-Mode'] = 'true';
-        config.headers['X-Debug-User'] = GUEST_USER?.uid || guestSessionId || 'guest-user';
-        config.headers['X-Guest-Session-ID'] = guestSessionId || 'guest-user';
-      } else {
-        // TODO: Re-enable live Firebase authentication after auth configuration fixes
-        // Original Firebase bearer-token injection preserved below.
-        //
-        // const { auth } = await import('../firebase');
-        // const user = auth.currentUser;
-        //
-        // if (user) {
-        //   const token = await user.getIdToken();
-        //   if (token) {
-        //     config.headers.Authorization = `Bearer ${token}`;
-        //     config.headers['X-Debug-User'] = user.uid;
-        //   }
-        // }
+      const snapshot = readSupabaseSessionSnapshot();
+      const fallbackUserId = snapshot?.user?.id || getPersistenceUserId() || null;
+
+      if (isSupabaseConfigured) {
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          throw error;
+        }
+
+        const session = data?.session;
+        const accessToken = session?.access_token || snapshot?.access_token || null;
+        const sessionUser = session?.user || null;
+        const resolvedUserId = sessionUser?.id || fallbackUserId;
+
+        if (accessToken) {
+          config.headers.Authorization = `Bearer ${accessToken}`;
+        }
+
+        if (resolvedUserId) {
+          config.headers['X-Debug-User'] = resolvedUserId;
+          config.headers['X-Auth-Provider'] = 'supabase';
+          if (sessionUser?.email) {
+            config.headers['X-Debug-Email'] = sessionUser.email;
+          }
+          const displayName = sessionUser?.user_metadata?.full_name
+            || sessionUser?.user_metadata?.name
+            || sessionUser?.email?.split('@')[0]
+            || '';
+          if (displayName) {
+            config.headers['X-Debug-Name'] = displayName;
+          }
+        }
+      } else if (fallbackUserId) {
+        config.headers['X-Debug-User'] = fallbackUserId;
       }
     } catch (err) {
-      console.warn('Failed to prepare guest/auth headers for request', err);
+      console.warn('Failed to prepare Supabase auth headers for request', err);
     }
     
     return config;
@@ -477,7 +489,7 @@ function sanitizeError(error) {
     case 400:
       return new Error('Invalid request. Please try rephrasing.');
     case 401:
-      return new Error(TEMP_AUTH_DISABLED ? 'Guest mode request was rejected by the backend.' : 'Please sign in to continue.');
+      return new Error('Please sign in to continue.');
     case 404:
       return new Error('The requested resource was not found.');
     case 413:

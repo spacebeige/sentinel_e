@@ -536,6 +536,7 @@ from gateway.auth_v2 import (
     extract_token_from_header,
     get_current_user as firebase_get_current_user,
     get_guest_user,
+    resolve_temp_user_from_request,
     TEMP_AUTH_DISABLED,
     verify_firebase_token,
 )
@@ -546,8 +547,12 @@ async def get_current_user(
 ) -> Dict[str, Any]:
     if TEMP_AUTH_DISABLED:
         # TODO: Restore Firebase Auth after configuration fixes
-        request.state.user_id = get_guest_user()["user_id"]
-        return get_guest_user()
+        temp_user = resolve_temp_user_from_request(request)
+        if not temp_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        request.state.user_id = temp_user["user_id"]
+        request.state.current_user = temp_user
+        return temp_user
     return await firebase_get_current_user(request=request)
 
 
@@ -555,7 +560,7 @@ async def get_optional_user(
     request: Request,
 ) -> Optional[Dict[str, Any]]:
     if TEMP_AUTH_DISABLED:
-        return get_guest_user()
+        return resolve_temp_user_from_request(request)
     try:
         return await firebase_get_current_user(request=request)
     except HTTPException:
@@ -582,7 +587,8 @@ async def get_user_id(request: Request) -> Optional[str]:
     """Returns the Firebase UID from the Authorization header if present."""
     try:
         if TEMP_AUTH_DISABLED:
-            return get_guest_user()["user_id"]
+            user = resolve_temp_user_from_request(request)
+            return user.get("user_id") if user else None
 
         auth_header = request.headers.get("Authorization")
         token = extract_token_from_header(auth_header)

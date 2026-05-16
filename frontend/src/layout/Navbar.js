@@ -46,6 +46,9 @@ export default function Navbar() {
 
   const isChat = location.pathname === '/chat';
   const displayName = user?.name || user?.email?.split('@')[0] || 'Sentinel User';
+  const sessionLabel = user?.provider && user.provider !== 'guest'
+    ? `${user.provider} session`
+    : 'Authenticated session';
 
   const handleProtectedNavigation = (event, targetPath, isProtected) => {
     if (loading) {
@@ -166,7 +169,7 @@ export default function Navbar() {
                     {displayName}
                   </div>
                   <div className="sentinel-text-muted" style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500 }}>
-                    {isGuestMode ? 'Guest session' : 'Firebase session'}
+                    {isGuestMode ? 'Authenticated session' : sessionLabel}
                   </div>
                 </div>
               </div>
@@ -186,7 +189,7 @@ export default function Navbar() {
             >
               Login / Sign Up
             </button>
-          )}
+            )}
         </div>
 
         <div className="md:hidden flex items-center gap-1">
@@ -250,7 +253,7 @@ export default function Navbar() {
                       className="sentinel-text-muted"
                       style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 500 }}
                     >
-                      {isGuestMode ? 'Guest session' : (user?.provider ? `${user.provider} session` : 'Authenticated')}
+                      {isGuestMode ? 'Authenticated session' : sessionLabel}
                     </div>
                   </div>
                 </div>
