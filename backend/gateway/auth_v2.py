@@ -33,7 +33,16 @@ except ImportError:
     firebase_admin = None
     firebase_auth = None
 
+# PyJWT for Supabase token verification
+try:
+    import jwt as pyjwt
+except ImportError:
+    pyjwt = None
+
 logger = logging.getLogger("Auth")
+
+# ── Supabase JWT verification ──────────────────────────────────
+_SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
 
 # ── Environment guards ─────────────────────────────────
 _GUEST_MODE_ENV_RAW = str(os.getenv("REACT_APP_GUEST_MODE", "false")).strip().lower()
@@ -248,6 +257,45 @@ async def verify_firebase_token(token: str) -> Optional[Dict[str, Any]]:
 # DEPENDENCY: CURRENT USER
 # ─────────────────────────────────────────────────────────────
 
+async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
+    """
+    Verify a Supabase JWT (access_token) using the project's JWT secret.
+    Returns decoded claims if valid, None otherwise.
+    """
+    if not pyjwt:
+        logger.warning("[Auth] PyJWT not installed — Supabase token verification unavailable")
+        return None
+    if not _SUPABASE_JWT_SECRET:
+        logger.warning("[Auth] SUPABASE_JWT_SECRET not set — cannot verify Supabase JWT")
+        return None
+
+    import base64
+    try:
+        # Supabase uses HS256 with a base64url-encoded secret
+        secret_bytes = base64.b64decode(_SUPABASE_JWT_SECRET + "=" * (-len(_SUPABASE_JWT_SECRET) % 4))
+    except Exception:
+        secret_bytes = _SUPABASE_JWT_SECRET.encode()
+
+    try:
+        claims = pyjwt.decode(
+            token,
+            secret_bytes,
+            algorithms=["HS256"],
+            options={"verify_aud": False},  # Supabase anon JWTs may not have aud
+        )
+        logger.debug(f"[Auth] Supabase token verified for sub={claims.get('sub')}")
+        return claims
+    except pyjwt.ExpiredSignatureError:
+        logger.warning("[Auth] Supabase JWT expired")
+        return None
+    except pyjwt.InvalidTokenError as e:
+        logger.warning(f"[Auth] Supabase JWT invalid: {e}")
+        return None
+    except Exception as e:
+        logger.warning(f"[Auth] Supabase JWT verification error: {e}")
+        return None
+
+
 async def get_current_user(
     request: Request,
     authorization: Optional[str] = Header(None),
@@ -255,29 +303,15 @@ async def get_current_user(
 ) -> Dict[str, Any]:
     """
     FastAPI dependency to get current authenticated user.
-    
-    Extracts user_id from Firebase ID token.
-    Ensures user exists in database.
-    
-    Usage:
-        @app.get("/api/endpoint")
-        async def endpoint(user: Dict = Depends(get_current_user)):
-            user_id = user["id"]
-            ...
-    
-    Returns:
-        {
-            "id": "firebase_uid",
-            "email": "user@example.com",
-            "name": "User Name",
-            "provider": "firebase",
-        }
-    
-    Raises:
-        HTTPException(401): If auth token invalid or missing
+
+    Priority:
+      1. Supabase JWT (Bearer token from Authorization header)
+      2. Firebase JWT (legacy — preserved for rollback)
+      3. X-Debug-User header (set by frontend from Supabase session claims)
+
+    In TEMP_AUTH_DISABLED mode (dev/guest), uses X-Debug-User headers directly.
     """
     if TEMP_AUTH_DISABLED:
-        # TODO: Restore Firebase Auth after configuration fixes
         temp_user = resolve_temp_user_from_request(request)
         if not temp_user:
             raise HTTPException(status_code=401, detail="Authentication required")
@@ -285,48 +319,55 @@ async def get_current_user(
         request.state.current_user = temp_user
         return temp_user
 
-    # Extract token
     token = extract_token_from_header(authorization)
-    if not token:
-        raise HTTPException(status_code=401, detail="Missing auth token")
-    
-    # Verify Firebase token
-    decoded = await verify_firebase_token(token)
-    if not decoded:
-        raise HTTPException(status_code=401, detail="Invalid auth token")
-    
-    # Extract user_id and email from claims
-    try:
-        user_id = decoded["uid"]
-    except KeyError:
-        raise HTTPException(status_code=401, detail="Token missing user ID")
 
-    email = decoded.get("email")
-    name = decoded.get("name", "")
-    
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Token missing user ID")
-    
-    # Strict user_id validation
-    if not isinstance(user_id, str):
-        raise HTTPException(status_code=401, detail="Invalid user")
+    # ── 1. Try Supabase JWT (primary path) ──────────────────
+    if token:
+        supabase_claims = await verify_supabase_token(token)
+        if supabase_claims:
+            user_id = supabase_claims.get("sub")
+            email = supabase_claims.get("email", "")
+            if user_id:
+                logger.info(f"[Auth] Supabase JWT verified: user_id={user_id}")
+                return {
+                    "id": user_id,
+                    "user_id": user_id,
+                    "email": email,
+                    "name": supabase_claims.get("user_metadata", {}).get("full_name", ""),
+                    "role": supabase_claims.get("role", "authenticated"),
+                    "provider": "supabase",
+                    "authenticated": True,
+                    "is_guest": False,
+                }
 
-    # Log for runtime diagnostics
-    try:
-        logger.info(f"FIREBASE USER_ID: {user_id}")
-        print("FIREBASE USER_ID:", user_id)
-    except Exception:
-        pass
+        # ── 2. Try Firebase JWT (legacy fallback) ────────────
+        firebase_claims = await verify_firebase_token(token)
+        if firebase_claims:
+            user_id = firebase_claims.get("uid")
+            email = firebase_claims.get("email", "")
+            if user_id:
+                logger.info(f"[Auth] Firebase JWT verified: user_id={user_id}")
+                return {
+                    "id": user_id,
+                    "user_id": user_id,
+                    "email": email,
+                    "name": firebase_claims.get("name", ""),
+                    "role": firebase_claims.get("role", "user"),
+                    "provider": "firebase",
+                    "authenticated": True,
+                    "is_guest": False,
+                }
 
-    # Return user info
-    return {
-        "id": user_id,
-        "user_id": user_id,
-        "email": email or "",
-        "name": name,
-        "role": decoded.get("role", "user"),
-        "provider": "firebase",
-    }
+        logger.warning(f"[Auth] Bearer token present but verification failed (Supabase+Firebase both rejected)")
+
+    # ── 3. Fallback: X-Debug-User header (set by frontend from Supabase session) ──
+    header_user = resolve_temp_user_from_request(request)
+    if header_user and not header_user.get("is_guest"):
+        logger.info(f"[Auth] Accepted via X-Debug-User header: user_id={header_user.get('user_id')}")
+        return header_user
+
+    logger.warning("[Auth] No valid auth token or debug header — returning 401")
+    raise HTTPException(status_code=401, detail="Missing or invalid auth token")
 
 
 async def ensure_user_exists(

@@ -621,7 +621,9 @@ class TimeoutMiddleware(BaseHTTPMiddleware):
                 content={"success": False, "data": {}, "detail": "Request timed out. The ensemble analysis took too long. Please try a simpler query or fewer models."},
             )
 
-# ── Middleware Stack (order matters: outermost first) ────────
+# ── Middleware Stack (order matters: outermost = last added, processed first) ─
+# Registration order here is REVERSE of execution order.
+# CORS must be the LAST middleware added so it runs FIRST on every request.
 app.add_middleware(TimeoutMiddleware)
 app.add_middleware(ErrorHandlerMiddleware)
 app.add_middleware(RequestTrackingMiddleware)
@@ -629,18 +631,18 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(InputValidationMiddleware)
 
-# ── CORS (FIXED FOR VERCEL + RENDER) ─────────────────────────
-origins = [
-    "https://sentinel-e.vercel.app",  # ✅ your frontend
-    "http://localhost:3000",          # optional (dev)
-]
-
+# ── CORS — added LAST so it executes FIRST (before auth/rate-limit) ──────────
+# Origins pulled from settings.cors_origins (env: ALLOWED_ORIGINS, comma-separated).
+# Includes https://sentinel-e.vercel.app and localhost by default.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.cors_origins,
+    allow_origin_regex=r"https://sentinel-e.*\.vercel\.app",  # Vercel preview branches
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID", "X-Response-Time"],
+    max_age=600,  # cache preflight for 10 min
 )
 # ── Meta-Cognitive Orchestrator Router ──────────────────────
 app.include_router(mco_router)

@@ -177,12 +177,23 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
 
-    LOG_LEVEL: str = "INFO"   # ✅ ADD THIS
+    LOG_LEVEL: str = "INFO"
     RAG_MAX_SOURCES: int = 5
     JWT_SECRET_KEY: str = "CHANGE-ME"
     JWT_ALGORITHM: str = "HS256"
 
-    ALLOWED_ORIGINS: str = "http://localhost:3000"
+    # CORS — comma-separated list of allowed origins
+    # Override in production via ALLOWED_ORIGINS env var on Render:
+    #   https://sentinel-e.vercel.app,http://localhost:3000
+    ALLOWED_ORIGINS: str = "https://sentinel-e.vercel.app,http://localhost:3000,http://localhost:8000"
+
+    # Rate limiting
+    RATE_LIMIT_REQUESTS: int = 60
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # Redis session TTL (seconds)
+    REDIS_SESSION_TTL: int = 7200  # 2 hours
+
     TAVILY_API_KEY: str = ""
     CLERK_JWT_ISSUER: str = ""
     CLERK_JWKS_URL: str = ""
@@ -203,6 +214,9 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"
+
+    class Config:
+        extra = "ignore"  # silently ignore unknown env vars
 
 
 @lru_cache()

@@ -108,14 +108,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         settings = get_settings()
 
-        # Content Security Policy
+        # Build connect-src to include all allowed CORS origins + Supabase
+        connect_origins = " ".join(settings.cors_origins)
         csp_directives = [
             "default-src 'self'",
-            "script-src 'self'",
+            "script-src 'self' 'unsafe-inline'",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: https:",
             "font-src 'self' https://fonts.gstatic.com",
-            "connect-src 'self' " + " ".join(settings.cors_origins),
+            f"connect-src 'self' {connect_origins} https://*.supabase.co wss://*.supabase.co https://sentinel-e-backend.onrender.com",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",

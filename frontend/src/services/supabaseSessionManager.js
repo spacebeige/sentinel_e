@@ -154,13 +154,22 @@ export async function signInWithEmail({ email, password }) {
     throw new Error('Supabase auth is not configured.');
   }
 
+  // Validate before calling Supabase to prevent 422 unprocessable-entity errors
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    throw new Error('A valid email address is required.');
+  }
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    throw new Error('Password must be at least 6 characters.');
+  }
+
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.auth.signInWithPassword({
-    email,
+    email: email.trim().toLowerCase(),
     password,
   });
 
   if (error) {
+    console.error('[Supabase] signInWithEmail error:', error.status, error.message);
     throw error;
   }
 
@@ -172,15 +181,30 @@ export async function signUpWithEmail({ email, password, options = {} }) {
     throw new Error('Supabase auth is not configured.');
   }
 
+  // Validate before calling Supabase to prevent 422 unprocessable-entity errors
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    throw new Error('A valid email address is required.');
+  }
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    throw new Error('Password must be at least 6 characters.');
+  }
+
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.auth.signUp({
-    email,
+    email: email.trim().toLowerCase(),
     password,
     options,
   });
 
   if (error) {
+    console.error('[Supabase] signUpWithEmail error:', error.status, error.message);
     throw error;
+  }
+
+  // Detect duplicate signup (Supabase returns a fake user with no session)
+  if (data?.user && !data.session && data.user.identities?.length === 0) {
+    console.warn('[Supabase] signUpWithEmail: email already registered (no identities returned)');
+    throw new Error('An account with this email already exists. Please sign in instead.');
   }
 
   return data;
