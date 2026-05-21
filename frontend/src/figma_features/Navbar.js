@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react';
 import { Menu, X } from 'lucide-react';
-import SigmaIdentity from '../components/SigmaIdentity';
+import SentinelIdentity from '../components/SentinelIdentity';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -23,7 +23,7 @@ export function Navbar({ activePath = '/' }) {
     <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-white/70 border-b border-white/20">
       <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
         <a href="/" className="flex items-center gap-2">
-          <SigmaIdentity size={32} />
+          <SentinelIdentity size={32} />
           <span className="text-[#1d1d1f] tracking-tight"
             style={{ fontFamily: FONT, fontWeight: 600, fontSize: '18px' }}>
             Sentinel-E

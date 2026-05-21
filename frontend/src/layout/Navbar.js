@@ -7,7 +7,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, Moon, Shield, Sun, X } from 'lucide-react';
 import { useAuthContext } from '../hooks/useAuthContext';
 import { getCurrentTheme, persistTheme, subscribeThemeChanges } from '../services/themeManager';
-import SigmaIdentity from '../components/SigmaIdentity';
+import SentinelIdentity from '../components/SentinelIdentity';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -46,7 +46,7 @@ export default function Navbar() {
 
   const isChat = location.pathname === '/chat';
   const displayName = user?.name || user?.email?.split('@')[0] || 'Sentinel User';
-  const sessionLabel = user?.provider
+  const sessionLabel = (user?.provider && user.provider !== 'guest')
     ? `${user.provider} session`
     : 'Authenticated session';
 
@@ -97,7 +97,7 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
-          <SigmaIdentity size={36} />
+          <SentinelIdentity size={36} />
           <div>
             <span
               className="sentinel-text-primary"

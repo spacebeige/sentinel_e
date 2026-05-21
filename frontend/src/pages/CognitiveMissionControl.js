@@ -21,11 +21,11 @@ import MakeAdminForm from '../components/MakeAdminForm';
 import DataFallback from '../components/common/DataFallback';
 import api from '../services/api';
 import { readSupabaseSessionSnapshot } from '../services/supabaseSessionManager';
-import SigmaIdentity from '../components/SigmaIdentity';
+import SentinelIdentity from '../components/SentinelIdentity';
 
 const FONT = "'Inter', -apple-system, sans-serif";
 
-const AdminDashboard = () => {
+const CognitiveMissionControl = () => {
   const [systemStats, setSystemStats] = useState(null);
   const [architecture, setArchitecture] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -121,7 +121,7 @@ const AdminDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <SigmaIdentity size={42} pulse />
+                <SentinelIdentity size={42} pulse />
                 <div>
                   <h1
                     className="text-2xl sentinel-text-primary font-bold"
@@ -146,17 +146,17 @@ const AdminDashboard = () => {
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex gap-2 mt-6 border-b sentinel-border overflow-x-auto pb-0">
+          <div className="flex gap-2 mt-6 border-b sentinel-border overflow-x-auto pb-[1px]" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {availableTabs.map(tab => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 whitespace-nowrap transition-colors ${
+                  className={`flex flex-shrink-0 items-center gap-2 px-4 py-3 border-b-2 whitespace-nowrap transition-colors ${
                     activeTab === tab.id
                       ? 'border-[#3b82f6] text-[#3b82f6]'
-                      : 'border-transparent sentinel-text-muted hover:text-[#1d1d1f] dark:hover:text-white'
+                      : 'border-transparent sentinel-text-muted hover:text-[#1d1d1f] dark:text-[#f1f5f9] dark:hover:text-white'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -270,19 +270,19 @@ function AgenticControlsTab() {
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl p-6 border border-black/5">
-            <h3 className="font-bold mb-4 text-[#1d1d1f]">Execution Boundaries</h3>
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5">
+            <h3 className="font-bold mb-4 text-[#1d1d1f] dark:text-[#f1f5f9]">Execution Boundaries</h3>
             <div className="space-y-4">
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
-                  <p className="font-medium text-sm text-[#1d1d1f]">Browser Automation</p>
+                  <p className="font-medium text-sm text-[#1d1d1f] dark:text-[#f1f5f9]">Browser Automation</p>
                   <p className="text-xs text-[#6e6e73]">Allow agents to spawn browser instances</p>
                 </div>
                 <input type="checkbox" checked={permissions.browserAutomation} onChange={() => handleToggle('browserAutomation')} className="toggle-checkbox" />
               </label>
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
-                  <p className="font-medium text-sm text-[#1d1d1f]">Require Confirmation for Risky Actions</p>
+                  <p className="font-medium text-sm text-[#1d1d1f] dark:text-[#f1f5f9]">Require Confirmation for Risky Actions</p>
                   <p className="text-xs text-[#6e6e73]">Block submits, deletes, and purchases</p>
                 </div>
                 <input type="checkbox" checked={permissions.requireConfirmationRisky} onChange={() => handleToggle('requireConfirmationRisky')} className="toggle-checkbox" />
@@ -290,19 +290,19 @@ function AgenticControlsTab() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 border border-black/5">
-            <h3 className="font-bold mb-4 text-[#1d1d1f]">File Operations</h3>
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5">
+            <h3 className="font-bold mb-4 text-[#1d1d1f] dark:text-[#f1f5f9]">File Operations</h3>
             <div className="space-y-4">
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
-                  <p className="font-medium text-sm text-[#1d1d1f]">Allow Downloads</p>
+                  <p className="font-medium text-sm text-[#1d1d1f] dark:text-[#f1f5f9]">Allow Downloads</p>
                   <p className="text-xs text-[#6e6e73]">Agents can download files to sandbox</p>
                 </div>
                 <input type="checkbox" checked={permissions.allowDownloads} onChange={() => handleToggle('allowDownloads')} className="toggle-checkbox" />
               </label>
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
-                  <p className="font-medium text-sm text-[#1d1d1f]">Allow Uploads</p>
+                  <p className="font-medium text-sm text-[#1d1d1f] dark:text-[#f1f5f9]">Allow Uploads</p>
                   <p className="text-xs text-[#6e6e73]">Agents can upload local files to external domains</p>
                 </div>
                 <input type="checkbox" checked={permissions.allowUploads} onChange={() => handleToggle('allowUploads')} className="toggle-checkbox" />
@@ -322,7 +322,7 @@ function LoadingScreen() {
         animate={{ rotate: 360 }}
         transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
       >
-        <SigmaIdentity size={58} pulse />
+        <SentinelIdentity size={58} pulse />
       </motion.div>
     </div>
   );
@@ -342,7 +342,7 @@ function OverviewTab({ stats }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl p-6 border border-black/5 hover:border-black/10 transition-all hover:shadow-lg"
+      className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5 hover:border-black/10 transition-all hover:shadow-lg"
     >
       <div className="flex items-start justify-between mb-4">
         <div>
@@ -424,9 +424,9 @@ function OverviewTab({ stats }) {
                 key={mode}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-white rounded-xl p-6 border border-black/5"
+                className="bg-white dark:bg-[#1c1c1e] rounded-xl p-6 border border-black/5 dark:border-white/5"
               >
-                <h3 className="font-semibold text-[#1d1d1f] capitalize mb-2">{mode}</h3>
+                <h3 className="font-semibold text-[#1d1d1f] dark:text-[#f1f5f9] capitalize mb-2">{mode}</h3>
                 <p className="text-3xl font-bold text-[#3b82f6]">{count}</p>
               </motion.div>
             ))}
@@ -445,9 +445,9 @@ function OverviewTab({ stats }) {
             { label: 'Database', status: stats.system?.db_status },
             { label: 'Cache', status: stats.system?.cache_status },
           ].map(item => (
-            <div key={item.label} className="bg-white rounded-xl p-6 border border-black/5">
+            <div key={item.label} className="bg-white dark:bg-[#1c1c1e] rounded-xl p-6 border border-black/5 dark:border-white/5">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-[#1d1d1f]">{item.label}</h3>
+                <h3 className="font-semibold text-[#1d1d1f] dark:text-[#f1f5f9]">{item.label}</h3>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-[#34c759]" />
                   <span className="text-sm font-medium text-[#34c759] capitalize">
@@ -481,19 +481,19 @@ function AnalyticsTab({ analytics, feedback }) {
           7-Day Overview
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-2xl p-8 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
             <p className="text-sm uppercase tracking-wider text-[#6e6e73] mb-2">Total Sessions</p>
             <h3 className="text-4xl font-bold" style={{ fontFamily: FONT }}>
               {analytics.summary?.total_sessions || 0}
             </h3>
           </div>
-          <div className="bg-white rounded-2xl p-8 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
             <p className="text-sm uppercase tracking-wider text-[#6e6e73] mb-2">Unique Users</p>
             <h3 className="text-4xl font-bold" style={{ fontFamily: FONT }}>
               {analytics.summary?.unique_users || 0}
             </h3>
           </div>
-          <div className="bg-white rounded-2xl p-8 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
             <p className="text-sm uppercase tracking-wider text-[#6e6e73] mb-2">Avg per User</p>
             <h3 className="text-4xl font-bold" style={{ fontFamily: FONT }}>
               {analytics.summary?.avg_sessions_per_user?.toFixed(1) || 0}
@@ -549,7 +549,7 @@ function ArchitectureTab({ architecture }) {
         <h2 className="text-xl font-bold mb-6" style={{ fontFamily: FONT }}>
           System Overview
         </h2>
-        <div className="bg-white rounded-2xl p-8 border border-black/5">
+        <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <h3 className="font-bold text-xl mb-2">{architecture.system?.name}</h3>
@@ -562,7 +562,7 @@ function ArchitectureTab({ architecture }) {
                 {(Array.isArray(architecture.features?.capabilities) ? architecture.features.capabilities : []).slice(0, 4).map((cap, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm">
                     <CheckCircle className="w-4 h-4 text-[#34c759] flex-shrink-0 mt-0.5" />
-                    <span className="text-[#1d1d1f]">{cap}</span>
+                    <span className="text-[#1d1d1f] dark:text-[#f1f5f9]">{cap}</span>
                   </li>
                 ))}
               </ul>
@@ -573,7 +573,7 @@ function ArchitectureTab({ architecture }) {
                 {(Array.isArray(architecture.features?.modes) ? architecture.features.modes : []).map((mode, i) => (
                   <span
                     key={i}
-                    className="px-3 py-1 rounded-full text-xs font-medium bg-[#f5f5f7] text-[#1d1d1f]"
+                    className="px-3 py-1 rounded-full text-xs font-medium bg-[#f5f5f7] dark:bg-[#2a2a2e] text-[#1d1d1f] dark:text-[#f1f5f9]"
                   >
                     {mode}
                   </span>
@@ -596,11 +596,11 @@ function ArchitectureTab({ architecture }) {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="bg-white rounded-xl p-6 border border-black/5 hover:border-black/10 transition-all"
+              className="bg-white dark:bg-[#1c1c1e] rounded-xl p-6 border border-black/5 dark:border-white/5 hover:border-black/10 transition-all"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="font-bold text-[#1d1d1f] mb-1">{layer.name}</h3>
+                  <h3 className="font-bold text-[#1d1d1f] dark:text-[#f1f5f9] mb-1">{layer.name}</h3>
                   <p className="text-sm text-[#6e6e73] mb-2">{layer.component}</p>
                   <p className="text-xs text-[#aeaeb2]">{layer.responsibility}</p>
                 </div>
@@ -620,13 +620,13 @@ function ArchitectureTab({ architecture }) {
         </h2>
         <div className="space-y-4">
           {(Array.isArray(architecture.models?.reasoning) ? architecture.models.reasoning : []).map((stage, i) => (
-            <div key={i} className="bg-white rounded-xl p-6 border border-black/5">
-              <h3 className="font-bold text-[#1d1d1f] capitalize mb-3">{stage.role}</h3>
+            <div key={i} className="bg-white dark:bg-[#1c1c1e] rounded-xl p-6 border border-black/5 dark:border-white/5">
+              <h3 className="font-bold text-[#1d1d1f] dark:text-[#f1f5f9] capitalize mb-3">{stage.role}</h3>
               <div className="flex flex-wrap gap-2">
                 {(Array.isArray(stage.models) ? stage.models : []).map((model, j) => (
                   <span
                     key={j}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-[#3b82f6]/10 to-[#06b6d4]/10 text-[#1d1d1f] border border-[#3b82f6]/20"
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-[#3b82f6]/10 to-[#06b6d4]/10 text-[#1d1d1f] dark:text-[#f1f5f9] border border-[#3b82f6]/20"
                   >
                     {model}
                   </span>
@@ -664,9 +664,9 @@ function FeedbackTab({ feedback }) {
                 key={mode}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-white rounded-xl p-6 border border-black/5"
+                className="bg-white dark:bg-[#1c1c1e] rounded-xl p-6 border border-black/5 dark:border-white/5"
               >
-                <h3 className="font-bold text-[#1d1d1f] capitalize mb-4">{mode}</h3>
+                <h3 className="font-bold text-[#1d1d1f] dark:text-[#f1f5f9] capitalize mb-4">{mode}</h3>
                 <div className="space-y-2">
                   <div>
                     <p className="text-xs text-[#6e6e73] mb-1">Feedback Count</p>
@@ -698,12 +698,12 @@ function FeedbackTab({ feedback }) {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-white rounded-lg p-4 border border-black/5 text-sm"
+                className="bg-white dark:bg-[#1c1c1e] rounded-lg p-4 border border-black/5 dark:border-white/5 text-sm"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-[#1d1d1f] capitalize">{item.sub_mode}</span>
+                      <span className="font-semibold text-[#1d1d1f] dark:text-[#f1f5f9] capitalize">{item.sub_mode}</span>
                       <span className="text-xs text-[#aeaeb2]">{item.mode}</span>
                     </div>
                     {item.reason && (
@@ -754,11 +754,11 @@ function ModesTab({ stats }) {
                 key={mode}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl p-6 border border-black/5 hover:border-black/10 transition-all"
+                className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5 hover:border-black/10 transition-all"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="font-bold text-[#1d1d1f] capitalize text-lg">{mode}</h3>
+                    <h3 className="font-bold text-[#1d1d1f] dark:text-[#f1f5f9] capitalize text-lg">{mode}</h3>
                     <p className="text-xs text-[#6e6e73] mt-1">Chats</p>
                   </div>
                   <div className="text-right">
@@ -766,7 +766,7 @@ function ModesTab({ stats }) {
                     <p className="text-xs text-[#aeaeb2] mt-1">{percentage}%</p>
                   </div>
                 </div>
-                <div className="w-full bg-[#f5f5f7] rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-[#f5f5f7] dark:bg-[#2a2a2e] rounded-full h-2 overflow-hidden">
                   <div
                     className="bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] h-full transition-all"
                     style={{ width: `${percentage}%` }}
@@ -783,15 +783,15 @@ function ModesTab({ stats }) {
         <h2 className="text-xl font-bold mb-6" style={{ fontFamily: FONT }}>
           Mode Breakdown
         </h2>
-        <div className="bg-white rounded-2xl p-8 border border-black/5">
+        <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
           <div className="space-y-4">
             {Object.entries(modes).map(([mode, count]) => (
               <div
                 key={mode}
-                className="flex items-center justify-between pb-4 border-b border-black/5 last:border-b-0 last:pb-0"
+                className="flex items-center justify-between pb-4 border-b border-black/5 dark:border-white/5 last:border-b-0 last:pb-0"
               >
                 <div>
-                  <p className="font-semibold text-[#1d1d1f] capitalize">{mode}</p>
+                  <p className="font-semibold text-[#1d1d1f] dark:text-[#f1f5f9] capitalize">{mode}</p>
                   <p className="text-xs text-[#6e6e73] mt-1">Active conversations</p>
                 </div>
                 <div className="text-right">
@@ -853,25 +853,25 @@ function OrchestratorTab() {
           MCO (MetaCognitive Orchestrator) Performance
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl p-8 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Total Queries</p>
             <h3 className="text-4xl font-bold text-[#3b82f6]">
               {orchestratorData?.total_queries || 0}
             </h3>
           </div>
-          <div className="bg-white rounded-2xl p-8 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Avg Response Time</p>
             <h3 className="text-4xl font-bold text-[#8b5cf6]">
               {orchestratorData?.avg_response_time || '2.1'}s
             </h3>
           </div>
-          <div className="bg-white rounded-2xl p-8 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Cache Hit Rate</p>
             <h3 className="text-4xl font-bold text-[#34c759]">
               {orchestratorData?.cache_hit_rate || '78'}%
             </h3>
           </div>
-          <div className="bg-white rounded-2xl p-8 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Success Rate</p>
             <h3 className="text-4xl font-bold text-[#06b6d4]">
               {orchestratorData?.success_rate || '95'}%
@@ -894,13 +894,13 @@ function OrchestratorTab() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-white rounded-lg p-4 border border-black/5"
+                className="bg-white dark:bg-[#1c1c1e] rounded-lg p-4 border border-black/5 dark:border-white/5"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-[#1d1d1f]">{mode}</span>
+                  <span className="font-semibold text-[#1d1d1f] dark:text-[#f1f5f9]">{mode}</span>
                   <span className="text-sm text-[#6e6e73]">{latency != null ? `${Number(latency).toFixed(2)}s` : 'No telemetry'}</span>
                 </div>
-                <div className="w-full bg-[#f5f5f7] rounded-full h-2 mt-2">
+                <div className="w-full bg-[#f5f5f7] dark:bg-[#2a2a2e] rounded-full h-2 mt-2">
                   <div
                     className="bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] h-full"
                     style={{ width: latency != null ? `${Math.min((Number(latency) / 3.5) * 100, 100)}%` : '0%' }}
@@ -968,7 +968,7 @@ function MemoryTab() {
           Memory System Overview
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-2xl p-8 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">3-Tier Memory</p>
             <div className="space-y-3 mt-4">
               <div>
@@ -992,7 +992,7 @@ function MemoryTab() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-8 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Knowledge Learning</p>
             <div className="space-y-3 mt-4">
               <div>
@@ -1016,7 +1016,7 @@ function MemoryTab() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-8 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Knowledge Base</p>
             <div className="space-y-3 mt-4">
               <div>
@@ -1058,11 +1058,11 @@ function MemoryTab() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: i * 0.1 }}
-              className="bg-white rounded-lg p-4 border border-black/5"
+              className="bg-white dark:bg-[#1c1c1e] rounded-lg p-4 border border-black/5 dark:border-white/5"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-semibold text-[#1d1d1f]">{item.model}</p>
+                  <p className="font-semibold text-[#1d1d1f] dark:text-[#f1f5f9]">{item.model}</p>
                   <p className="text-xs text-[#6e6e73] mt-1">{item.violations} violations recorded</p>
                 </div>
                 <div className="text-right">
@@ -1134,29 +1134,29 @@ function ModelsTab() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.05 }}
-                  className="border-b border-black/5 hover:bg-[#f5f5f7] transition-colors"
+                  className="border-b border-black/5 dark:border-white/5 hover:bg-[#f5f5f7] dark:bg-[#2a2a2e] transition-colors"
                 >
                   <td className="py-3 px-4">
                     <div>
-                      <p className="font-semibold text-[#1d1d1f] text-sm">{model.name}</p>
+                      <p className="font-semibold text-[#1d1d1f] dark:text-[#f1f5f9] text-sm">{model.name}</p>
                     </div>
                   </td>
                   <td className="py-3 px-4 text-sm text-[#6e6e73]">{model.provider}</td>
                   <td className="py-3 px-4 text-sm">
-                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#f5f5f7] text-[#1d1d1f]">
+                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#f5f5f7] dark:bg-[#2a2a2e] text-[#1d1d1f] dark:text-[#f1f5f9]">
                       {model.role}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-sm font-mono text-[#3b82f6]">{model.tokens}</td>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-16 bg-[#f5f5f7] rounded-full h-2">
+                      <div className="w-16 bg-[#f5f5f7] dark:bg-[#2a2a2e] rounded-full h-2">
                         <div
                           className="bg-gradient-to-r from-[#34c759] to-[#00d084] h-full rounded-full"
                           style={{ width: `${model.accuracy}%` }}
                         />
                       </div>
-                      <span className="text-sm font-semibold text-[#1d1d1f]">{model.accuracy}%</span>
+                      <span className="text-sm font-semibold text-[#1d1d1f] dark:text-[#f1f5f9]">{model.accuracy}%</span>
                     </div>
                   </td>
                 </motion.tr>
@@ -1185,9 +1185,9 @@ function ModelsTab() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="bg-white rounded-lg p-6 border border-black/5 hover:border-black/10 transition-all"
+              className="bg-white dark:bg-[#1c1c1e] rounded-lg p-6 border border-black/5 dark:border-white/5 hover:border-black/10 transition-all"
             >
-              <h3 className="font-bold text-[#1d1d1f] mb-1">{item.role}</h3>
+              <h3 className="font-bold text-[#1d1d1f] dark:text-[#f1f5f9] mb-1">{item.role}</h3>
               <p className="text-xs text-[#6e6e73] mb-4">{item.desc}</p>
               <div className="flex items-center justify-between">
                 <p className="text-xs text-[#aeaeb2]">Models assigned</p>
@@ -1202,7 +1202,7 @@ function ModelsTab() {
 }
 
 
-export default AdminDashboard;
+export default CognitiveMissionControl;
 
 // ============================================================
 // COGNITIVE MISSION CONTROL TAB — v8.0
@@ -1342,15 +1342,15 @@ function CognitiveMissionControlTab({ apiBase }) {
 
         {/* Active runs */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-2xl p-6 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#aeaeb2] mb-1">Active Runs</p>
             <h3 className="text-4xl font-bold text-[#3b82f6]" style={{ fontFamily: FONT }}>{activeRuns.length}</h3>
           </div>
-          <div className="bg-white rounded-2xl p-6 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#aeaeb2] mb-1">Recent Runs</p>
             <h3 className="text-4xl font-bold text-[#8b5cf6]" style={{ fontFamily: FONT }}>{recentRuns.length}</h3>
           </div>
-          <div className="bg-white rounded-2xl p-6 border border-black/5">
+          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#aeaeb2] mb-1">Completed</p>
             <h3 className="text-4xl font-bold text-[#34c759]" style={{ fontFamily: FONT }}>
               {recentRuns.filter(r => r.lifecycle_state === 'completed').length}
@@ -1380,7 +1380,7 @@ function CognitiveMissionControlTab({ apiBase }) {
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   onClick={() => fetchRunDetail(run.orchestration_run_id)}
-                  className="bg-white rounded-xl p-4 border border-black/5 hover:border-[#3b82f6]/30 transition-all cursor-pointer"
+                  className="bg-white dark:bg-[#1c1c1e] rounded-xl p-4 border border-black/5 dark:border-white/5 hover:border-[#3b82f6]/30 transition-all cursor-pointer"
                   style={{ fontFamily: FONT }}
                 >
                   <div className="flex items-center justify-between gap-4">
@@ -1397,7 +1397,7 @@ function CognitiveMissionControlTab({ apiBase }) {
                         {run.orchestration_run_id?.slice(0, 8)}…
                       </span>
                       {/* Phase label */}
-                      <span className="text-xs font-medium text-[#1d1d1f] truncate">
+                      <span className="text-xs font-medium text-[#1d1d1f] dark:text-[#f1f5f9] truncate">
                         {run.phase_label || run.cognitive_phase || '—'}
                       </span>
                     </div>
@@ -1469,18 +1469,18 @@ function CognitiveMissionControlTab({ apiBase }) {
               { label: 'Contradiction ρ', value: selectedRun.contradiction_density != null ? `${(selectedRun.contradiction_density * 100).toFixed(1)}%` : '—' },
               { label: 'Total Latency', value: selectedRun.total_latency_ms > 0 ? `${(selectedRun.total_latency_ms / 1000).toFixed(2)}s` : '—' },
             ].map(({ label, value }) => (
-              <div key={label} className="bg-white rounded-xl p-4 border border-black/5">
+              <div key={label} className="bg-white dark:bg-[#1c1c1e] rounded-xl p-4 border border-black/5 dark:border-white/5">
                 <p className="text-xs uppercase tracking-wider text-[#aeaeb2] mb-1">{label}</p>
-                <p className="text-sm font-semibold text-[#1d1d1f] capitalize">{value}</p>
+                <p className="text-sm font-semibold text-[#1d1d1f] dark:text-[#f1f5f9] capitalize">{value}</p>
               </div>
             ))}
           </div>
 
           {/* Event timeline */}
           {Array.isArray(selectedRun.event_timeline) && selectedRun.event_timeline.length > 0 && (
-            <div className="bg-white rounded-xl border border-black/5 overflow-hidden">
-              <div className="p-4 border-b border-black/5">
-                <h4 className="text-sm font-bold text-[#1d1d1f]" style={{ fontFamily: FONT }}>
+            <div className="bg-white dark:bg-[#1c1c1e] rounded-xl border border-black/5 dark:border-white/5 overflow-hidden">
+              <div className="p-4 border-b border-black/5 dark:border-white/5">
+                <h4 className="text-sm font-bold text-[#1d1d1f] dark:text-[#f1f5f9]" style={{ fontFamily: FONT }}>
                   Cognitive Event Timeline ({selectedRun.event_count || selectedRun.event_timeline.length} events)
                 </h4>
               </div>
@@ -1492,7 +1492,7 @@ function CognitiveMissionControlTab({ apiBase }) {
                       background: evt.severity === 'warning' ? '#f59e0b' : evt.severity === 'critical' ? '#ef4444' : '#3b82f6',
                     }} />
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-medium text-[#1d1d1f]">{evt.event_type?.replace(/_/g, ' ')}</span>
+                      <span className="text-xs font-medium text-[#1d1d1f] dark:text-[#f1f5f9]">{evt.event_type?.replace(/_/g, ' ')}</span>
                       <span className="text-xs text-[#aeaeb2] ml-2">{evt.phase}</span>
                     </div>
                     <span className="text-xs text-[#aeaeb2] flex-shrink-0 font-mono">

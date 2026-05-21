@@ -4,7 +4,7 @@
  * Standalone — not wired into the chat engine.
  */
 import React from 'react';
-import SigmaIdentity from '../components/SigmaIdentity';
+import SentinelIdentity from '../components/SentinelIdentity';
 
 const FONT = "'Inter', -apple-system, sans-serif";
 
@@ -15,7 +15,7 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <SigmaIdentity size={34} />
+              <SentinelIdentity size={34} />
               <span style={{ fontFamily: FONT, fontSize: '18px', fontWeight: 600 }}>Sentinel-E</span>
             </div>
             <p className="text-white/40" style={{ fontFamily: FONT, fontSize: '13px', lineHeight: 1.6, fontWeight: 400 }}>

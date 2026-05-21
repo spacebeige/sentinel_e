@@ -12,13 +12,14 @@ import LandingPage from './pages/LandingPage';
 import ChatPage from './pages/ChatPage';
 import PricingPageWrapper from './pages/PricingPageWrapper';
 import ModelsPageWrapper from './pages/ModelsPageWrapper';
-import AdminDashboard from './pages/AdminDashboard';
+import CognitiveMissionControl from './pages/CognitiveMissionControl';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider, useAuthContext } from './hooks/useAuthContext';
 import useStore from './stores/useStore';
 import { API_BASE } from './config';
 import api from './services/api';
-import SigmaIdentity from './components/SigmaIdentity';
+import SentinelIdentity from './components/SentinelIdentity';
+import { LoadingScreen } from './components/LoadingScreen';
 
 function SessionInitializer({ children }) {
   const { isAuthenticated, loading, user } = useAuthContext();
@@ -108,7 +109,7 @@ function AuthModal() {
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <div className="mb-4">
-              <SigmaIdentity size={46} showLabel label="Sentinel-E" pulse />
+              <SentinelIdentity size={46} showLabel label="Sentinel-E" pulse />
             </div>
             <div className="text-2xl font-semibold tracking-tight">
               Sign in to Sentinel-E
@@ -154,6 +155,26 @@ function AuthModal() {
 }
 
 function AppContent() {
+  const { authResolved, isAuthenticated } = useAuthContext();
+  const storeIsLoaded = useStore(state => state.isLoaded);
+  const [bootState, setBootState] = React.useState('BOOTING');
+
+  React.useEffect(() => {
+    if (authResolved) {
+      if (isAuthenticated) {
+        if (storeIsLoaded) {
+          setBootState('READY');
+        }
+      } else {
+        setBootState('READY');
+      }
+    }
+  }, [authResolved, isAuthenticated, storeIsLoaded]);
+
+  if (bootState === 'BOOTING') {
+    return <LoadingScreen message="Booting Runtime..." subtext="Synchronizing cognitive subsystems..." />;
+  }
+
   return (
     <>
       <SessionInitializer>
@@ -181,7 +202,7 @@ function AppContent() {
               path="/admin"
               element={
                 <ProtectedRoute requireAdmin>
-                  <AdminDashboard />
+                  <CognitiveMissionControl />
                 </ProtectedRoute>
               }
             />

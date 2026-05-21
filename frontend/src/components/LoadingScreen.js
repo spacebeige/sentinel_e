@@ -7,31 +7,17 @@
  */
 
 import React from 'react';
-import SigmaIdentity from './SigmaIdentity';
+import SentinelIdentity from './SentinelIdentity';
 
-export function LoadingScreen({ message = "Loading..." }) {
+export function LoadingScreen({ message = "Booting Runtime...", subtext = "Initializing Cognitive Matrix..." }) {
   return (
-    <div style={{
-      height: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#0f172a',
-      color: '#f8fafc',
-      fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
-    }}>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '24px'
-      }}>
-        <SigmaIdentity size={58} pulse />
+    <div className="min-h-screen flex flex-col items-center justify-center sentinel-bg-app sentinel-text-primary" style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+      <div className="flex flex-col items-center gap-6">
+        <SentinelIdentity size={58} pulse />
         <div style={{
           width: '128px',
           height: '1px',
-          background: 'linear-gradient(90deg, transparent, #38bdf8, transparent)',
+          background: 'linear-gradient(90deg, transparent, #3b82f6, transparent)',
           animation: 'runtimeScan 1.6s ease-in-out infinite'
         }}>
           <style>{`
@@ -43,23 +29,12 @@ export function LoadingScreen({ message = "Loading..." }) {
         </div>
         
         {/* Message */}
-        <div style={{
-          textAlign: 'center'
-        }}>
-          <p style={{
-            fontSize: '16px',
-            fontWeight: '500',
-            color: '#f8fafc',
-            margin: '0 0 8px 0'
-          }}>
+        <div className="text-center">
+          <p className="text-base font-semibold mb-2">
             {message}
           </p>
-          <p style={{
-            fontSize: '13px',
-            color: '#aeaeb2',
-            margin: '0'
-          }}>
-            Please wait...
+          <p className="text-sm sentinel-text-muted">
+            {subtext}
           </p>
         </div>
       </div>

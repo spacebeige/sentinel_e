@@ -33,16 +33,17 @@ import {
   Wifi, WifiOff, AlertCircle, ThumbsUp, ThumbsDown,
   History, ChevronRight,
   Activity, Brain, Shield, BarChart3, Zap,
-  Skull, Loader2,
-  MessageSquare, PanelRightOpen, Bug
+  Skull, Loader2, Globe,
+  MessageSquare, PanelRightOpen, Bug, RefreshCw
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import StructuredOutput from '../components/structured/StructuredOutput';
 import SemanticCognitionGraph from '../components/SemanticCognitionGraph';
+import AgenticExecutionGraph from '../components/AgenticExecutionGraph';
 import { CognitionQualityBadge } from '../components/CognitionStreamPanel';
 import AdvancedCopyMenu from '../components/AdvancedCopyMenu';
-import SigmaIdentity from '../components/SigmaIdentity';
+import SentinelIdentity from '../components/SentinelIdentity';
 import { normalizeResponseText } from '../engines/responseNormalizer';
 import memoryManager from '../engines/memoryManager';
 import { getVisibility, hasAnyVisibleAnalytics } from '../engines/analyticsVisibilityController';
@@ -104,12 +105,15 @@ export default function FigmaChatShell({
   setMode,
   subMode,
   setSubMode,
+  agentMode,
+  setAgentMode,
   killActive,
   setKillActive,
 
   // === Handlers ===
   onNewChat,
   onSelectRun,
+  onRegenerate,
 
   // === Memory context (vNext) ===
   lastQueryText,
@@ -953,13 +957,13 @@ export default function FigmaChatShell({
       </AnimatePresence>
 
       {/* ==================== MAIN CHAT AREA ==================== */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 relative">
 
         {/* ---------- CHAT HEADER ---------- */}
         <div className="flex items-center justify-between px-2 sm:px-4 py-3 bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/10 overflow-hidden">
           <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
             <div className="hidden sm:flex mr-1">
-              <SigmaIdentity size={34} pulse={backendOnline} />
+              <SentinelIdentity size={34} pulse={backendOnline} />
             </div>
             {/* History toggle */}
             <button
@@ -1242,13 +1246,49 @@ export default function FigmaChatShell({
                     </>
                   );
                 })()}
+
+                {/* ── Agentic Runtime Toggle ── */}
+                <div className="my-1.5 mx-3 border-t border-black/5 dark:border-white/10" />
+                <div className="px-3 pt-2 pb-1 text-[#6e6e73] dark:text-[#94a3b8]"
+                  style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  Agentic Runtime
+                </div>
+                <div className="relative group">
+                  <div className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-default ${
+                    agentMode ? 'opacity-100 bg-[#f5f5f7] dark:bg-white/10' : 'opacity-80 hover:bg-[#f5f5f7] dark:hover:bg-white/5'
+                  }`}>
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: '#3b82f620' }}>
+                      <Globe className="w-4 h-4" style={{ color: '#3b82f6' }} />
+                    </div>
+                    <div className="text-left flex-1 min-w-0">
+                      <div className="text-[#1d1d1f] dark:text-[#f1f5f9] truncate"
+                        style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}>
+                        Browser Agent
+                      </div>
+                      <div className="text-[#3b82f6] truncate"
+                        style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500 }}>
+                        {agentMode ? 'Active — can browse web' : 'Inactive'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setAgentMode(!agentMode); }}
+                      className="flex-shrink-0 w-9 h-5 rounded-full transition-colors relative"
+                      style={{ backgroundColor: agentMode ? '#3b82f6' : '#d1d5db' }}
+                      title={agentMode ? 'Disable Browser Agent' : 'Enable Browser Agent'}
+                    >
+                      <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+                        style={{ left: agentMode ? '18px' : '2px' }} />
+                    </button>
+                  </div>
+                </div>
               </motion.div>
             </>
           )}
         </AnimatePresence>
 
         {/* ---------- MESSAGES ---------- */}
-        <div className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6">
+        <div className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6 pb-[140px] relative">
           <div className="max-w-5xl mx-auto space-y-3 sm:space-y-4">
             <AnimatePresence>
               {enhancedMessages.map((message) => {
@@ -1266,8 +1306,8 @@ export default function FigmaChatShell({
                     <div
                       className={`${
                         message.role === 'user'
-                          ? 'max-w-[90%] sm:max-w-[70%] rounded-[20px] rounded-br-md bg-white dark:bg-[#020204] text-[#0f172a] dark:text-white border border-black/10 dark:border-white/10 shadow-sm px-3 sm:px-4 py-2.5 sm:py-3'
-                          : 'max-w-[98%] sm:max-w-[85%] rounded-[20px] rounded-bl-md bg-[#f5f5f7] dark:bg-[#18191f] border border-black/5 dark:border-white/10 text-[#1d1d1f] dark:text-white shadow-sm overflow-hidden'
+                          ? 'max-w-[90%] sm:max-w-[70%] rounded-[24px] rounded-br-md bg-[#3b82f6] text-white shadow-md px-4 sm:px-5 py-3 sm:py-3.5 border border-transparent'
+                          : 'max-w-[98%] sm:max-w-[85%] rounded-[24px] rounded-bl-md bg-[#f5f5f7] dark:bg-[#202024] border border-black/5 dark:border-white/5 text-[#1d1d1f] dark:text-[#f1f5f9] shadow-sm overflow-hidden'
                       }`}
                       style={undefined}
                     >
@@ -1342,6 +1382,9 @@ export default function FigmaChatShell({
                                     />
                                   </div>
                                 )}
+                                {(meta.agentic_traces || message.agent_traces || meta.execution_steps) && (
+                                  <AgenticExecutionGraph steps={meta.agentic_traces || message.agent_traces || meta.execution_steps} />
+                                )}
                               </div>
                             );
                           })()
@@ -1398,8 +1441,8 @@ export default function FigmaChatShell({
                         )}
 
                         {/* Timestamp + Feedback */}
-                        <div className="flex items-center justify-between mt-1">
-                          <div className={message.role === 'user' ? 'text-black/45 dark:text-white/50' : 'text-[#6e6e73]'}
+                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/5 dark:border-white/5">
+                          <div className={message.role === 'user' ? 'text-blue-100' : 'text-[#6e6e73] dark:text-[#94a3b8]'}
                             style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 400 }}>
                             {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
@@ -1407,6 +1450,13 @@ export default function FigmaChatShell({
                           {message.role === 'assistant' && message.id !== 'welcome' && (
                             <div className="flex items-center gap-1 ml-2">
                               <AdvancedCopyMenu message={message} />
+                              <button
+                                onClick={() => onRegenerate && onRegenerate(message.id)}
+                                className="p-1 rounded-md transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                                title="Regenerate response"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5 text-[#aeaeb2] hover:text-[#6e6e73] dark:hover:text-white" />
+                              </button>
                               <button
                                 onClick={() => handleFeedback(message.id, 'up')}
                                 className={`p-1 rounded-md transition-colors ${
@@ -1456,7 +1506,7 @@ export default function FigmaChatShell({
                 >
                   <div className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <SigmaIdentity size={28} pulse />
+                      <SentinelIdentity size={28} pulse />
                       <div>
                         <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#3b82f6]">
                           Runtime Request Active
@@ -1508,15 +1558,14 @@ export default function FigmaChatShell({
           </div>
         </div>
 
-        {/* ---------- INPUT AREA ---------- */}
-        <div className="px-2 sm:px-4 pb-4 sm:pb-6 pt-2">
-          <div className="max-w-5xl mx-auto">
+        <div className="absolute bottom-0 left-0 right-0 px-2 sm:px-6 pb-6 pt-10 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-[#0f172a] dark:via-[#0f172a]/95 pointer-events-none z-10">
+          <div className="max-w-4xl mx-auto pointer-events-auto">
             <div
               ref={dropZoneRef}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`relative flex flex-col gap-0 p-2 rounded-[28px] bg-white dark:bg-[#1c1c1e] shadow-lg transition-colors duration-200 ${
+              className={`relative flex flex-col gap-0 p-2 rounded-[32px] bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-2xl shadow-xl transition-colors duration-200 ${
                 isDragging ? 'ring-2 ring-[#3b82f6] ring-offset-2 dark:ring-offset-[#0f0f10]' : ''
               }`}
               style={{

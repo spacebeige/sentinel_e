@@ -336,13 +336,13 @@
     border-left: 2px solid var(--accent-blue);
   }
 
-  .sentinel-sigma-identity {
+  .sentinel-identity {
     display: inline-flex;
     align-items: center;
     gap: 10px;
   }
 
-  .sentinel-sigma-mark {
+  .sentinel-mark {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -356,29 +356,29 @@
     color: #ffffff;
   }
 
-  .sentinel-sigma-logo {
+  .sentinel-logo {
     object-fit: contain;
     filter: drop-shadow(0 2px 6px rgba(15, 23, 42, 0.35));
   }
 
-  .sentinel-sigma-identity--pulse .sentinel-sigma-mark {
+  .sentinel-identity--pulse .sentinel-mark {
     animation: sentinel-runtime-pulse 2.8s ease-in-out infinite;
   }
 
-  .sentinel-sigma-label {
+  .sentinel-label {
     display: flex;
     flex-direction: column;
     line-height: 1.05;
   }
 
-  .sentinel-sigma-label span {
+  .sentinel-label span {
     color: var(--text-primary);
     font-size: 14px;
     font-weight: 700;
     letter-spacing: -0.02em;
   }
 
-  .sentinel-sigma-label small {
+  .sentinel-label small {
     color: var(--text-tertiary);
     font-size: 9px;
     font-weight: 700;
@@ -387,11 +387,11 @@
     text-transform: uppercase;
   }
 
-  .sentinel-sigma-identity--sidebar .sentinel-sigma-label span {
+  .sentinel-identity--sidebar .sentinel-label span {
     color: var(--text-sidebar);
   }
 
-  .sentinel-sigma-identity--sidebar .sentinel-sigma-label small {
+  .sentinel-identity--sidebar .sentinel-label small {
     color: var(--text-sidebar-muted);
   }
 
