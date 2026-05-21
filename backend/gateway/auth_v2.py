@@ -43,6 +43,11 @@ logger = logging.getLogger("Auth")
 
 # ── Supabase JWT verification ──────────────────────────────────
 _SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
+_RUNTIME_ADMIN_EMAILS = {
+    email.strip().lower()
+    for email in os.getenv("SENTINEL_RUNTIME_ADMIN_EMAILS", "oomkaragarkhed0710@gmail.com").split(",")
+    if email and email.strip()
+}
 
 # ── Environment guards ─────────────────────────────────
 _GUEST_MODE_ENV_RAW = str(os.getenv("REACT_APP_GUEST_MODE", "false")).strip().lower()
@@ -120,12 +125,15 @@ def resolve_temp_user_from_headers(headers: Optional[Dict[str, str]] = None) -> 
     )
     provider = safe_headers.get("x-auth-provider") or "supabase"
 
+    role = "admin" if str(email).strip().lower() in _RUNTIME_ADMIN_EMAILS else "authenticated"
+
     return {
         **get_guest_user(),
         "id": debug_user,
         "user_id": debug_user,
         "email": email,
         "name": name,
+        "role": role,
         "provider": provider,
         "authenticated": True,
         "is_guest": False,
@@ -328,13 +336,14 @@ async def get_current_user(
             user_id = supabase_claims.get("sub")
             email = supabase_claims.get("email", "")
             if user_id:
+                role = "admin" if str(email).strip().lower() in _RUNTIME_ADMIN_EMAILS else supabase_claims.get("role", "authenticated")
                 logger.info(f"[Auth] Supabase JWT verified: user_id={user_id}")
                 return {
                     "id": user_id,
                     "user_id": user_id,
                     "email": email,
                     "name": supabase_claims.get("user_metadata", {}).get("full_name", ""),
-                    "role": supabase_claims.get("role", "authenticated"),
+                    "role": role,
                     "provider": "supabase",
                     "authenticated": True,
                     "is_guest": False,

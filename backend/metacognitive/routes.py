@@ -34,6 +34,7 @@ from database.crud import (
 from utils.chat_naming import generate_chat_name
 from utils.output_sanitizer import sanitize_output, sanitize_json_response
 from core.context_builder import get_context_builder
+from core.document_cognition import build_document_cognition
 
 from metacognitive.schemas import (
     OperatingMode,
@@ -53,6 +54,22 @@ router = APIRouter(prefix="/api/mco", tags=["Meta-Cognitive Orchestrator"])
 _orchestrator: Optional[MetaCognitiveOrchestrator] = None
 _daemon: Optional[BackgroundDaemon] = None
 _cognitive_engine = None  # CognitiveCoreEngine for debate mode
+
+try:
+    from core.orchestration_run import create_orchestration_run, CognitivePhase
+    from core.runtime_event_bus import create_run_bus
+    from core.cognitive_artifact_builder import build_cognitive_artifact
+    from memory.layered_memory import get_deliberative_memory, get_tactical_memory
+    _COGNITIVE_RUNTIME_ENABLED = True
+except ImportError as runtime_import_error:
+    logger.warning("Cognitive runtime bridge unavailable in MCO routes: %s", runtime_import_error)
+    create_orchestration_run = None
+    CognitivePhase = None
+    create_run_bus = None
+    build_cognitive_artifact = None
+    get_deliberative_memory = None
+    get_tactical_memory = None
+    _COGNITIVE_RUNTIME_ENABLED = False
 
 
 def set_orchestrator(orch: MetaCognitiveOrchestrator):
@@ -178,6 +195,235 @@ def _sanitize_mco_response(response: Dict[str, Any]) -> Dict[str, Any]:
         response["all_outputs"] = sanitized_outputs
     
     return response
+
+
+def _start_runtime_run(chat_id: str, user_id: str, query: str, execution_path: str = "pending"):
+    if not _COGNITIVE_RUNTIME_ENABLED:
+        return None, None
+
+    try:
+        run = create_orchestration_run(
+            chat_id=str(chat_id),
+            user_id=user_id,
+            query_preview=(query or "")[:80],
+            execution_path=execution_path,
+        )
+        bus = create_run_bus(run.orchestration_run_id)
+        _transition_runtime(run, bus, CognitivePhase.OBSERVE, {"source": "api.mco.run"})
+        _transition_runtime(run, bus, CognitivePhase.ANALYZE, {"source": "api.mco.run"})
+        return run, bus
+    except Exception as runtime_err:
+        logger.debug("[MCO Runtime] Failed to start runtime run: %s", runtime_err)
+        return None, None
+
+
+def _transition_runtime(run, bus, phase, payload: Optional[Dict[str, Any]] = None) -> None:
+    if run is None or phase is None:
+        return
+
+    payload = payload or {}
+    try:
+        run.transition_to(phase, payload)
+        if bus is not None:
+            bus.publish({
+                "event_type": "phase_transition",
+                "phase": phase.value,
+                "phase_label": run.phase_label,
+                "payload": payload,
+                "run_id": run.orchestration_run_id,
+            })
+    except Exception as runtime_err:
+        logger.debug("[MCO Runtime] Phase transition failed: %s", runtime_err)
+
+
+def _record_runtime_memory(run, bus, layer: str, key: str, preview: str, relevance_score: float = 1.0) -> None:
+    if run is None:
+        return
+
+    try:
+        _transition_runtime(run, bus, CognitivePhase.RETRIEVE_MEMORY, {"layer": layer, "key": key})
+        run.record_memory_retrieval(
+            layer=layer,
+            key=key,
+            content_preview=(preview or "")[:200],
+            relevance_score=relevance_score,
+        )
+    except Exception as runtime_err:
+        logger.debug("[MCO Runtime] Memory recording failed: %s", runtime_err)
+
+
+def _record_runtime_routing(
+    run,
+    bus,
+    *,
+    execution_path: str,
+    reason: str,
+    query_complexity: str,
+    selected_model: Optional[str] = None,
+    debate_requested: bool = False,
+    cache_hit: bool = False,
+) -> None:
+    if run is None:
+        return
+
+    decision = {
+        "path": execution_path,
+        "reason": reason,
+        "query_complexity": query_complexity,
+        "selected_model": selected_model,
+        "debate_requested": debate_requested,
+        "cache_hit": cache_hit,
+    }
+    try:
+        _transition_runtime(run, bus, CognitivePhase.ROUTE, decision)
+        run.record_routing_decision(decision)
+    except Exception as runtime_err:
+        logger.debug("[MCO Runtime] Routing recording failed: %s", runtime_err)
+
+
+def _attach_runtime_metadata(result: Dict[str, Any], run, artifact: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    if run is None:
+        return result
+
+    omega_metadata = dict(result.get("omega_metadata", {}) or {})
+    omega_metadata["orchestration_run"] = run.to_frontend_dict()
+    if artifact:
+        omega_metadata["cognitive_artifact"] = artifact
+    result["omega_metadata"] = omega_metadata
+    return result
+
+
+def _complete_runtime_run(run, bus, *, reflection: str = "") -> None:
+    if run is None:
+        return
+
+    try:
+        if reflection:
+            _transition_runtime(run, bus, CognitivePhase.REFLECT)
+            run.record_reflection(reflection)
+        _transition_runtime(run, bus, CognitivePhase.STORE_SNAPSHOT)
+        run.mark_completed()
+    except Exception as runtime_err:
+        logger.debug("[MCO Runtime] Completion failed: %s", runtime_err)
+    finally:
+        if bus is not None:
+            bus.close()
+
+
+def _fail_runtime_run(run, bus, error: str, error_code: str = "MCO_RUNTIME_ERROR") -> None:
+    if run is None:
+        return
+
+    try:
+        run.mark_failed(error, error_code=error_code)
+        if bus is not None:
+            bus.publish({
+                "event_type": "orchestration_failed",
+                "phase": run.cognitive_phase.value,
+                "error": error,
+                "error_code": error_code,
+                "run_id": run.orchestration_run_id,
+            })
+            bus.close()
+    except Exception as runtime_err:
+        logger.debug("[MCO Runtime] Failure handling failed: %s", runtime_err)
+
+
+def _build_mco_cognitive_artifact(response, run) -> Dict[str, Any]:
+    all_results = list(response.all_results or [])
+    divergence = response.divergence_metrics or {}
+    knowledge_bundle = list(response.knowledge_bundle or [])
+    alternatives = []
+
+    for result in all_results[:6]:
+        raw_output = getattr(result.output, "raw_output", "") or ""
+        if not raw_output.strip():
+            continue
+        alternatives.append({
+            "model_id": result.output.model_name,
+            "model_name": result.output.model_name,
+            "position": raw_output[:280],
+            "confidence": round(getattr(result.score, "final_score", 0.0), 4),
+        })
+
+    winner_model = response.winning_model or ""
+    non_winner_alternatives = [item for item in alternatives if item["model_name"] != winner_model][:3]
+    contradiction_density = float(divergence.get("max_divergence", 0.0) or 0.0)
+    convergence = divergence.get("convergence", "moderate") or "moderate"
+    reliability = "high" if response.winning_score >= 0.8 else "medium" if response.winning_score >= 0.55 else "low"
+    participation = sum(1 for result in all_results if getattr(result.output, "success", False)) / max(len(all_results), 1)
+
+    return {
+        "primary_conclusion": (response.aggregated_answer or "")[:500],
+        "reasoning_topology": [
+            {
+                "model_id": result.output.model_name,
+                "model_name": result.output.model_name,
+                "confidence": round(getattr(result.score, "final_score", 0.0), 4),
+                "reasoning_steps": [sanitize_output((getattr(result.output, "raw_output", "") or "")[:240])],
+                "assumptions": [],
+                "vulnerabilities": [],
+            }
+            for result in all_results[:5]
+            if (getattr(result.output, "raw_output", "") or "").strip()
+        ],
+        "evidence_matrix": [
+            {
+                "type": "knowledge_block",
+                "title": kb.source or f"Knowledge {index + 1}",
+                "content_preview": (kb.content or "")[:180],
+                "reliability": round(getattr(kb, "confidence", 0.0), 4),
+            }
+            for index, kb in enumerate(knowledge_bundle[:5])
+        ],
+        "contradiction_analysis": {
+            "density": round(contradiction_density, 4),
+            "severity": "high" if contradiction_density > 0.65 else "medium" if contradiction_density > 0.35 else "low",
+            "summary": f"MCO convergence={convergence}; drift={response.drift_score:.2f}; volatility={response.volatility_score:.2f}.",
+            "unresolved_conflicts": [item["position"][:160] for item in non_winner_alternatives[:3]],
+            "resolved_conflicts": [],
+            "requires_verification": contradiction_density > 0.5 or response.volatility_score > 0.5,
+        },
+        "alternative_perspectives": non_winner_alternatives,
+        "verification_results": {
+            "stability_index": round(max(0.0, 1.0 - contradiction_density), 4),
+            "fragility_score": round(min(1.0, response.volatility_score), 4),
+            "calibration_method": "mco_arbitration",
+            "reliability_assessment": reliability,
+            "verification_passed": contradiction_density < 0.6,
+        },
+        "confidence_evolution": [
+            {"phase": "route", "value": round(max(0.25, response.winning_score * 0.72), 4), "method": "heuristic"},
+            {"phase": "synthesize", "value": round(response.winning_score, 4), "method": "mco_arbitration"},
+        ],
+        "reflective_cognition": (
+            f"The MCO pipeline completed {response.refinement_cycles} refinement cycle(s) with "
+            f"{len(all_results)} model result(s). Confidence settled at {response.winning_score:.2f}."
+        ),
+        "memory_continuity_links": [
+            {
+                "layer": retrieval.get("layer", "unknown"),
+                "key": retrieval.get("key", ""),
+                "preview": (retrieval.get("content_preview") or retrieval.get("preview") or "")[:100],
+                "relevance": round(float(retrieval.get("relevance_score", retrieval.get("relevance", 1.0)) or 1.0), 4),
+            }
+            for retrieval in (run.to_frontend_dict().get("memory_retrievals", []) if run else [])[:10]
+        ],
+        "orchestration_identity": run.to_summary() if run else {},
+        "quality_indicators": {
+            "models_executed": len(all_results),
+            "models_succeeded": sum(1 for result in all_results if getattr(result.output, "success", False)),
+            "participation_rate": round(participation, 4),
+            "debate_rounds": 0,
+            "stability_index": round(max(0.0, 1.0 - contradiction_density), 4),
+            "response_grade": (
+                "A" if participation >= 0.8 and response.winning_score >= 0.8 else
+                "B" if participation >= 0.6 and response.winning_score >= 0.6 else
+                "C" if participation >= 0.4 else
+                "D"
+            ),
+        },
+    }
 
 
 
@@ -331,6 +577,48 @@ async def _mco_run_impl(
             user_id=user["user_id"],
         )
 
+    orch_run, orch_bus = _start_runtime_run(
+        str(chat.id),
+        user.get("user_id", "anonymous"),
+        query,
+    )
+
+    document_cognition: Dict[str, Any] = {"available": False}
+    if image_b64:
+        try:
+            _transition_runtime(
+                orch_run,
+                orch_bus,
+                CognitivePhase.VERIFY,
+                {"source": "document_cognition", "mime": image_mime},
+            )
+            document_cognition = build_document_cognition(
+                image_b64,
+                image_mime,
+                max_context_chars=5000,
+            )
+            if document_cognition.get("available"):
+                orch_run.record_memory_retrieval(
+                    "working",
+                    "document_cognition",
+                    document_cognition.get("semantic_context", ""),
+                    0.88,
+                ) if orch_run else None
+                if orch_bus:
+                    orch_bus.publish({
+                        "event_type": "document_cognition_extracted",
+                        "phase": "verify",
+                        "document_type": document_cognition.get("document_type"),
+                        "extraction_method": document_cognition.get("extraction_method"),
+                        "text_char_count": document_cognition.get("text_char_count", 0),
+                    })
+        except Exception as doc_err:
+            logger.warning("Document cognition extraction skipped: %s", doc_err)
+            document_cognition = {
+                "available": False,
+                "error": str(doc_err)[:200],
+            }
+
     await add_message(
         db,
         chat.id,
@@ -343,7 +631,13 @@ async def _mco_run_impl(
 
     # Build user-aware context before any model execution
     contextual_query = query
-    context_meta: Dict[str, Any] = {}
+    context_meta: Dict[str, Any] = {
+        "document_cognition": {
+            key: value
+            for key, value in document_cognition.items()
+            if key != "semantic_context"
+        }
+    } if document_cognition.get("available") else {}
     try:
         recent_messages = await get_chat_messages(db, chat.id, user_id=user.get("user_id"))
         recent_payload = [
@@ -369,11 +663,30 @@ async def _mco_run_impl(
                 "model": built.get("model"),
                 "available_tokens": built.get("available_tokens"),
             }
+            _record_runtime_memory(
+                orch_run,
+                orch_bus,
+                "episodic",
+                "context_builder",
+                built_context,
+                0.92,
+            )
         else:
             context_meta = {"context_applied": False}
     except Exception as ctx_err:
         logger.warning(f"Context build skipped: {ctx_err}")
         context_meta = {"context_applied": False, "error": str(ctx_err)[:200]}
+
+    if document_cognition.get("semantic_context"):
+        contextual_query = (
+            f"[DOCUMENT COGNITION]\n{document_cognition['semantic_context']}"
+            f"\n\n{contextual_query}"
+        )
+        context_meta["document_cognition"] = {
+            key: value
+            for key, value in document_cognition.items()
+            if key != "semantic_context"
+        }
 
     # ══════════════════════════════════════════════════════════
     # QUERY COMPLEXITY CHECK — Skip debate for trivial queries
@@ -398,8 +711,25 @@ async def _mco_run_impl(
         logger.info(f"Single model '{selected_model}' selected — skipping debate")
         effective_sub_mode = None
 
+    predicted_execution_path = (
+        "ensemble" if effective_sub_mode == "debate" else
+        "fast_standard" if query_complexity == "trivial" and not selected_model and not image_b64 else
+        "single_model" if selected_model else
+        "standard_mco"
+    )
+    _record_runtime_routing(
+        orch_run,
+        orch_bus,
+        execution_path=predicted_execution_path,
+        reason="debate_sub_mode" if effective_sub_mode == "debate" else "mco_standard_pipeline",
+        query_complexity=query_complexity,
+        selected_model=selected_model,
+        debate_requested=effective_sub_mode == "debate",
+    )
+
     if effective_sub_mode == "debate" and _cognitive_engine is not None:
         logger.info(f"Debate mode: delegating to CognitiveOrchestrator for chat {chat.id}")
+        _transition_runtime(orch_run, orch_bus, CognitivePhase.SPAWN_AGENTS, {"path": "ensemble"})
         try:
             from core.ensemble_schemas import EnsembleFailure
             ensemble_response = await _cognitive_engine.process(
@@ -507,6 +837,69 @@ async def _mco_run_impl(
                 },
             })
 
+            if orch_run is not None:
+                try:
+                    orch_run.models_executed = ensemble_response.models_executed
+                    orch_run.models_succeeded = ensemble_response.models_succeeded
+                    orch_run.models_failed = ensemble_response.models_failed
+                    orch_run.active_agents = [
+                        getattr(output, "model_name", getattr(output, "model_id", "unknown"))
+                        for output in (ensemble_response.model_outputs or [])
+                    ]
+                    for output in (ensemble_response.model_outputs or []):
+                        orch_run.record_provider_call(
+                            model_id=getattr(output, "model_id", getattr(output, "model_name", "unknown")),
+                            model_name=getattr(output, "model_name", "unknown"),
+                            provider=getattr(output, "provider", "unknown"),
+                            latency_ms=float(getattr(output, "latency_ms", 0.0) or 0.0),
+                            succeeded=bool(getattr(output, "succeeded", False)),
+                            error=getattr(output, "error", None),
+                            input_tokens=int(getattr(output, "input_tokens", 0) or 0),
+                            output_tokens=int(getattr(output, "output_tokens", 0) or 0),
+                        )
+                    orch_run.record_confidence_snapshot(
+                        phase="post_debate",
+                        value=confidence,
+                        method="calibrated_ensemble",
+                    )
+                    orch_run.record_debate_round(
+                        round_number=getattr(ensemble_response.debate_result, "total_rounds", 0),
+                        positions=[
+                            {
+                                "model_id": getattr(output, "model_id", getattr(output, "model_name", "unknown")),
+                                "model_name": getattr(output, "model_name", "unknown"),
+                                "confidence": round(float(getattr(output, "confidence", 0.0) or 0.0), 4),
+                            }
+                            for output in (ensemble_response.model_outputs or [])
+                        ],
+                        contradiction_density=float(getattr(ensemble_response.ensemble_metrics, "contradiction_density", 0.0) or 0.0),
+                        drift_index=float(getattr(ensemble_response.debate_result, "drift_index", 0.0) or 0.0),
+                    )
+                    if getattr(ensemble_response.ensemble_metrics, "contradiction_density", 0.0) > 0.0:
+                        _transition_runtime(
+                            orch_run,
+                            orch_bus,
+                            CognitivePhase.VERIFY,
+                            {"contradiction_density": round(float(ensemble_response.ensemble_metrics.contradiction_density), 4)},
+                        )
+                    _transition_runtime(orch_run, orch_bus, CognitivePhase.SYNTHESIZE, {"method": "ensemble_weighted"})
+                    orch_run.record_synthesis_start("ensemble_weighted", ensemble_response.models_succeeded)
+                    orch_run.record_synthesis_complete(len(formatted_output or ""))
+                    runtime_artifact = build_cognitive_artifact(
+                        ensemble_response=ensemble_response,
+                        orchestration_run=orch_run,
+                    ) if build_cognitive_artifact is not None else None
+                    if runtime_artifact:
+                        omega_metadata["cognitive_artifact"] = runtime_artifact
+                    omega_metadata["orchestration_run"] = orch_run.to_frontend_dict()
+                    _complete_runtime_run(
+                        orch_run,
+                        orch_bus,
+                        reflection=(runtime_artifact or {}).get("reflective_cognition", ""),
+                    )
+                except Exception as runtime_err:
+                    logger.debug("[MCO Runtime] Debate runtime enrichment failed: %s", runtime_err)
+
             # Update MCO session analytics
             if _orchestrator and hasattr(_orchestrator, 'session_engine'):
                 try:
@@ -550,7 +943,12 @@ async def _mco_run_impl(
                 "models_succeeded": ensemble_response.models_succeeded,
                 "models_failed": ensemble_response.models_failed,
             }
-            
+
+            debate_result = _attach_runtime_metadata(
+                debate_result,
+                orch_run,
+                omega_metadata.get("cognitive_artifact"),
+            )
             # Sanitize before returning
             debate_result = _sanitize_mco_response(debate_result)
             return debate_result
@@ -585,12 +983,39 @@ async def _mco_run_impl(
                     answer = output.raw_output.strip()
                     _elapsed = (_time.monotonic() - _fast_start) * 1000
                     omega_metadata = {
+                        "version": "8.0.0-cognitive-runtime",
                         "winning_model": fast_model,
                         "winning_score": 0.95,
                         "latency_ms": round(_elapsed, 1),
                         "fast_path": True,
                         "context_builder": context_meta,
                     }
+                    if orch_run is not None:
+                        try:
+                            orch_run.active_agents = [fast_model]
+                            orch_run.models_executed = 1
+                            orch_run.models_succeeded = 1
+                            orch_run.record_provider_call(
+                                model_id=fast_model,
+                                model_name=output.model_name,
+                                provider="mco_fast_path",
+                                latency_ms=_elapsed,
+                                succeeded=True,
+                                input_tokens=int(getattr(output, "input_tokens", 0) or 0),
+                                output_tokens=int(getattr(output, "output_tokens", 0) or 0),
+                            )
+                            orch_run.record_confidence_snapshot("fast_standard", 0.95, method="fast_path")
+                            _transition_runtime(orch_run, orch_bus, CognitivePhase.SYNTHESIZE, {"method": "fast_standard"})
+                            orch_run.record_synthesis_start("fast_standard", 1)
+                            orch_run.record_synthesis_complete(len(answer))
+                            _complete_runtime_run(
+                                orch_run,
+                                orch_bus,
+                                reflection="Fast-path routing resolved a trivial query without debate escalation.",
+                            )
+                            omega_metadata["orchestration_run"] = orch_run.to_frontend_dict()
+                        except Exception as runtime_err:
+                            logger.debug("[MCO Runtime] Fast-path runtime enrichment failed: %s", runtime_err)
                     await add_message(
                         db,
                         chat.id,
@@ -626,8 +1051,36 @@ async def _mco_run_impl(
     cached_result = await reasoning_cache.get_query(query, mode, sub_mode or "")
     if cached_result and not force_retrieval:
         logger.info(f"Returning cached result for [{mode}/{sub_mode}]")
+        cached_result = dict(cached_result)
         cached_result["chat_id"] = str(chat.id)
         cached_result["session_id"] = str(chat.id)
+        _record_runtime_routing(
+            orch_run,
+            orch_bus,
+            execution_path="cache_hit",
+            reason="reasoning_cache",
+            query_complexity=query_complexity,
+            selected_model=selected_model,
+            debate_requested=bool(sub_mode == "debate"),
+            cache_hit=True,
+        )
+        _transition_runtime(orch_run, orch_bus, CognitivePhase.SYNTHESIZE, {"cache_hit": True})
+        if orch_run is not None:
+            cached_confidence = float(
+                cached_result.get("confidence")
+                or (cached_result.get("omega_metadata", {}) or {}).get("confidence")
+                or 0.5
+            )
+            orch_run.record_confidence_snapshot("cache_hit", cached_confidence, method="cache_reuse")
+            orch_run.record_synthesis_start("cache_reuse", 0)
+            cached_output = cached_result.get("formatted_output") or cached_result.get("aggregated_answer") or ""
+            orch_run.record_synthesis_complete(len(cached_output))
+            _complete_runtime_run(
+                orch_run,
+                orch_bus,
+                reflection="Cached cognitive result reused for this request.",
+            )
+            _attach_runtime_metadata(cached_result, orch_run)
         return cached_result
 
     # Build request
@@ -646,17 +1099,21 @@ async def _mco_run_impl(
 
     # Execute 10-step protocol
     try:
+        _transition_runtime(orch_run, orch_bus, CognitivePhase.SPAWN_AGENTS, {"path": predicted_execution_path})
         response = await orch.process(request)
     except RuntimeError as e:
         logger.error(f"MCO execution error: {e}")
+        _fail_runtime_run(orch_run, orch_bus, str(e), "MCO_RUNTIME_ERROR")
         raise HTTPException(status_code=502, detail="Model processing failed. Please try again.")
     except Exception as e:
         logger.error(f"MCO execution failed: {e}", exc_info=True)
+        _fail_runtime_run(orch_run, orch_bus, str(e), "MCO_EXECUTION_ERROR")
         raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
 
     # Guard: no blank responses
     if not response.aggregated_answer or not response.aggregated_answer.strip():
         logger.error(f"Empty output from model '{response.winning_model}'")
+        _fail_runtime_run(orch_run, orch_bus, "empty_aggregated_answer", "MCO_EMPTY_OUTPUT")
         raise HTTPException(
             status_code=502,
             detail="No response generated. Please try again.",
@@ -719,6 +1176,41 @@ async def _mco_run_impl(
         "divergence_metrics": divergence,
         "context_builder": context_meta,
     }
+
+    if orch_run is not None:
+        try:
+            orch_run.models_executed = len(response.all_results or [])
+            orch_run.models_succeeded = sum(1 for result_item in (response.all_results or []) if getattr(result_item.output, "success", False))
+            orch_run.models_failed = max(0, orch_run.models_executed - orch_run.models_succeeded)
+            orch_run.active_agents = [result_item.output.model_name for result_item in (response.all_results or [])]
+            for result_item in (response.all_results or []):
+                orch_run.record_provider_call(
+                    model_id=result_item.output.model_name,
+                    model_name=result_item.output.model_name,
+                    provider="mco",
+                    latency_ms=float(getattr(result_item.output, "latency_ms", 0.0) or 0.0),
+                    succeeded=bool(getattr(result_item.output, "success", False)),
+                    error=getattr(result_item.output, "error", None),
+                    input_tokens=int(getattr(result_item.output, "input_tokens", 0) or 0),
+                    output_tokens=int(getattr(result_item.output, "output_tokens", 0) or 0),
+                )
+            orch_run.record_confidence_snapshot(
+                phase="mco_arbitration",
+                value=float(response.winning_score or 0.0),
+                method="mco_arbitration",
+            )
+            if divergence.get("max_divergence"):
+                _transition_runtime(
+                    orch_run,
+                    orch_bus,
+                    CognitivePhase.VERIFY,
+                    {"max_divergence": round(float(divergence.get("max_divergence") or 0.0), 4)},
+                )
+            _transition_runtime(orch_run, orch_bus, CognitivePhase.SYNTHESIZE, {"method": "mco_arbitration"})
+            orch_run.record_synthesis_start("mco_arbitration", orch_run.models_succeeded)
+            orch_run.record_synthesis_complete(len(response.aggregated_answer or ""))
+        except Exception as runtime_err:
+            logger.debug("[MCO Runtime] Standard runtime enrichment failed: %s", runtime_err)
 
     # Build API response
     result = {
@@ -1046,6 +1538,42 @@ async def _mco_run_impl(
         result["all_outputs"] = all_outputs_serialized
         result["divergence_metrics"] = divergence
         result["scoring_breakdown"] = scoring_serialized
+
+    runtime_artifact = _build_mco_cognitive_artifact(response, orch_run) if orch_run is not None else None
+    if runtime_artifact:
+        omega_metadata["cognitive_artifact"] = runtime_artifact
+    result = _attach_runtime_metadata(result, orch_run, runtime_artifact)
+    if orch_run is not None:
+        if get_deliberative_memory is not None and divergence.get("max_divergence", 0.0):
+            try:
+                topic_hash = str(abs(hash(query.lower().strip())) % 10_000_000)
+                get_deliberative_memory().record(
+                    topic_hash=topic_hash,
+                    contradiction_density=float(divergence.get("max_divergence", 0.0) or 0.0),
+                    consensus_reached=float(divergence.get("max_divergence", 0.0) or 0.0) < 0.35,
+                    drift_index=float(response.drift_score or 0.0),
+                    key_conflicts=[item.get("position", "")[:120] for item in runtime_artifact.get("alternative_perspectives", [])[:3]],
+                    chat_id=str(chat.id),
+                )
+            except Exception as memory_err:
+                logger.debug("[MCO Runtime] Deliberative memory update failed: %s", memory_err)
+        if get_tactical_memory is not None:
+            try:
+                get_tactical_memory().record(
+                    query_complexity=query_complexity,
+                    execution_path=predicted_execution_path,
+                    model_count=len(response.all_results or []),
+                    latency_ms=float(response.latency_ms or 0.0),
+                    confidence=float(response.winning_score or 0.0),
+                    success=True,
+                )
+            except Exception as memory_err:
+                logger.debug("[MCO Runtime] Tactical memory update failed: %s", memory_err)
+        _complete_runtime_run(
+            orch_run,
+            orch_bus,
+            reflection=(runtime_artifact or {}).get("reflective_cognition", ""),
+        )
 
     # ── Cache write ──────────────────────────────────────────
     try:

@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from datetime import datetime, timedelta
 
-from gateway.auth import get_current_user
+from gateway.admin_access import is_runtime_admin_email, require_runtime_admin
 from database.connection import get_db
 from database.models import User, Chat, Message
 from database.crud import list_chats, get_chat_messages
@@ -25,12 +25,7 @@ logger = logging.getLogger("admin_routes")
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
-async def require_admin(user: dict = Depends(get_current_user)):
-    """Dependency: verify user is admin."""
-    if user.get("role") != "admin":
-        logger.warning(f"Unauthorized admin access attempt by {user.get('user_id')}")
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return user
+require_admin = require_runtime_admin
 
 
 @router.post("/users/make-admin")
@@ -41,6 +36,11 @@ async def make_user_admin(
 ):
     """✅ Promote a user to admin by email."""
     try:
+        if not is_runtime_admin_email(email):
+            raise HTTPException(
+                status_code=403,
+                detail="Runtime admin allowlist is fixed for this deployment.",
+            )
         # Find user by email
         result = await db.execute(
             select(User).where(User.email == email)
@@ -78,6 +78,8 @@ async def make_user_admin(
             "role": "admin",
             "message": f"User {email} is now an admin"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error promoting user: {e}")
         raise HTTPException(status_code=500, detail="Unable to update user role.")

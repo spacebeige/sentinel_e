@@ -540,6 +540,7 @@ from gateway.auth_v2 import (
     TEMP_AUTH_DISABLED,
     verify_firebase_token,
 )
+from gateway.admin_access import enrich_runtime_admin_role, is_runtime_admin_email
 
 
 async def get_current_user(
@@ -553,7 +554,7 @@ async def get_current_user(
         request.state.user_id = temp_user["user_id"]
         request.state.current_user = temp_user
         return temp_user
-    return await firebase_get_current_user(request=request)
+    return enrich_runtime_admin_role(await firebase_get_current_user(request=request))
 
 
 async def get_optional_user(
@@ -577,7 +578,7 @@ async def require_admin(
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    if user.get("role") != "admin":
+    if user.get("role") != "admin" or not is_runtime_admin_email(user.get("email")):
         raise HTTPException(status_code=403, detail="Admin access required")
 
     return user

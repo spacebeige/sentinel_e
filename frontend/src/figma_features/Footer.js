@@ -4,7 +4,7 @@
  * Standalone — not wired into the chat engine.
  */
 import React from 'react';
-import { Sigma } from 'lucide-react';
+import SigmaIdentity from '../components/SigmaIdentity';
 
 const FONT = "'Inter', -apple-system, sans-serif";
 
@@ -15,20 +15,27 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center">
-                <Sigma className="w-4 h-4 text-white" />
-              </div>
+              <SigmaIdentity size={34} />
               <span style={{ fontFamily: FONT, fontSize: '18px', fontWeight: 600 }}>Sentinel-E</span>
             </div>
             <p className="text-white/40" style={{ fontFamily: FONT, fontSize: '13px', lineHeight: 1.6, fontWeight: 400 }}>
-              Intelligence, reimagined. The next generation of AI, designed for everyone.
+              Persistent hybrid cognition with transparent orchestration, memory continuity, and permission-aware agentic execution.
             </p>
+            <a
+              href="https://www.producthunt.com/products/sentinel-e"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex mt-4 text-white/55 hover:text-white transition-colors"
+              style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 600 }}
+            >
+              Sentinel-E on Product Hunt
+            </a>
           </div>
 
           {[
-            { title: 'Product', links: ['Chat', 'Models', 'API', 'Pricing'] },
-            { title: 'Company', links: ['About', 'Blog', 'Careers', 'Press'] },
-            { title: 'Resources', links: ['Documentation', 'Help Center', 'Community', 'Status'] },
+            { title: 'Product', links: ['Chat', 'Models', 'Agentic Runtime', 'Pricing'] },
+            { title: 'Runtime', links: ['Orchestration Philosophy', 'Memory Behavior', 'Telemetry Handling', 'Permission System'] },
+            { title: 'Transparency', links: ['Authentication', 'Privacy Expectations', 'Document Cognition', 'Product Hunt'] },
           ].map((section) => (
             <div key={section.title}>
               <h4 className="text-white/60 mb-3"
@@ -38,7 +45,11 @@ export function Footer() {
               <ul className="space-y-2">
                 {section.links.map((link) => (
                   <li key={link}>
-                    <a href="/" className="text-white/40 hover:text-white/80 transition-colors"
+                    <a
+                      href={link === 'Product Hunt' ? 'https://www.producthunt.com/products/sentinel-e' : '/'}
+                      target={link === 'Product Hunt' ? '_blank' : undefined}
+                      rel={link === 'Product Hunt' ? 'noopener noreferrer' : undefined}
+                      className="text-white/40 hover:text-white/80 transition-colors"
                       style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 400 }}>
                       {link}
                     </a>

@@ -50,9 +50,12 @@ httpx>=0.27.0
 # huggingface_hub
 # pypdf
 PyMuPDF
+playwright>=1.45.0
 Pillow
 pytesseract
 opencv-python-headless
+# Optional OCR fallback. Install only where scanned image/canvas extraction is required.
+# easyocr
 # streamlit
 # matplotlib
 # seaborn

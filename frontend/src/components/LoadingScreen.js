@@ -7,6 +7,7 @@
  */
 
 import React from 'react';
+import SigmaIdentity from './SigmaIdentity';
 
 export function LoadingScreen({ message = "Loading..." }) {
   return (
@@ -26,19 +27,17 @@ export function LoadingScreen({ message = "Loading..." }) {
         alignItems: 'center',
         gap: '24px'
       }}>
-        {/* Spinner */}
+        <SigmaIdentity size={58} pulse />
         <div style={{
-          width: '48px',
-          height: '48px',
-          border: '4px solid #38bdf820',
-          borderTop: '4px solid #38bdf8',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite'
+          width: '128px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, #38bdf8, transparent)',
+          animation: 'runtimeScan 1.6s ease-in-out infinite'
         }}>
           <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
+            @keyframes runtimeScan {
+              0%, 100% { opacity: 0.25; transform: scaleX(0.6); }
+              50% { opacity: 1; transform: scaleX(1); }
             }
           `}</style>
         </div>

@@ -43,6 +43,7 @@ import {
 } from '../services/sessionPersistence';
 import useStore from '../stores/useStore';
 import { validateResponseShape, Schemas } from '../utils/validation';
+import { useCognitiveStore } from '../stores/cognitiveStore';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -70,8 +71,10 @@ export default function ChatEngineV5() {
   const [sessionHydrated, setSessionHydrated] = useState(false);
   const [localConversations, setLocalConversations] = useState([]);
   const bootstrapUserRef = React.useRef(null);
+  const newChatLockRef = React.useRef(false);
 
   const [input, setInput] = useState('');
+  const { addDebateResult } = useCognitiveStore();
   const persistedChats = useStore((state) => state.chats);
   const persistedMessages = useStore((state) => state.messages);
   const historyLoading = useStore((state) => state.isLoading);
@@ -113,6 +116,16 @@ export default function ChatEngineV5() {
   // Default to Sentinel Standard aggregate mode (not an individual model)
   const SENTINEL_STD = { id: 'sentinel-std', name: 'Sentinel-E Standard', provider: 'Aggregated', color: '#3b82f6', category: 'standard', isMeta: true, enabled: true };
   const [selectedModel, setSelectedModel] = useState(SENTINEL_STD);
+
+  const isCurrentConversationEmpty = useCallback(() => {
+    return (
+      activeChatId
+      && (!Array.isArray(messages) || messages.length === 0)
+      && !currentResult
+      && !lastQueryText
+      && !lastResponseText
+    );
+  }, [activeChatId, currentResult, lastQueryText, lastResponseText, messages]);
 
   const persistActiveConversation = useCallback((overrides = {}) => {
     const safeActiveChatId = overrides.activeChatId || activeChatId;
@@ -406,6 +419,7 @@ export default function ChatEngineV5() {
       const completedMessages = [...optimisticMessages, assistantMsg];
       setMessages(completedMessages);
       setCurrentResult(result);
+      addDebateResult(result);
       setLastResponseText(answerText);
       if (result.session_state) setSessionState(result.session_state);
       saveConversationHistory(returnedChatId || chatId, completedMessages, {
@@ -540,7 +554,39 @@ export default function ChatEngineV5() {
   // ── New Chat ─────────────────────────────────────────────
   const handleNewChat = () => {
     if (!activeUserId) return;
+    if (newChatLockRef.current) return;
+    newChatLockRef.current = true;
+    setTimeout(() => {
+      newChatLockRef.current = false;
+    }, 450);
+
+    if (isCurrentConversationEmpty()) {
+      switchConversation(activeChatId, {
+        createIfMissing: true,
+        mode,
+        subMode,
+        userId: activeUserId,
+      });
+      saveConversationHistory(activeChatId, [], {
+        mode,
+        subMode,
+        currentResult: null,
+        sessionState: null,
+        lastQueryText: '',
+        lastResponseText: '',
+        governanceVerdict: null,
+      }, { userId: activeUserId });
+      setShowLearning(false);
+      setSessionState(null);
+      setKillActive(false);
+      setError(null);
+      setLocalConversations(loadConversationHistory(null, { userId: activeUserId }));
+      memoryManager.newSession();
+      return;
+    }
+
     const conversation = createNewConversation({ mode, subMode, userId: activeUserId });
+    if (!conversation?.id) return;
     setActiveChatId(conversation.id);
     setMessages([]);
     setCurrentResult(null);
