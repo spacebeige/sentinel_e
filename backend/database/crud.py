@@ -117,16 +117,20 @@ async def create_chat(
     chat_name: str, 
     mode: str, 
     user_id: str,
-    session_id: Optional[UUID] = None
+    session_id: Optional[UUID] = None,
+    chat_id: Optional[UUID] = None
 ) -> Chat:
-    new_chat = Chat(
-        chat_name=chat_name,
-        mode=mode,
-        user_id=user_id,
-        session_id=session_id,
-        rounds=0,
-        models_used=[]
-    )
+    kwargs = {
+        "chat_name": chat_name,
+        "mode": mode,
+        "user_id": user_id,
+        "session_id": session_id,
+        "rounds": 0,
+        "models_used": []
+    }
+    if chat_id:
+        kwargs["id"] = chat_id
+    new_chat = Chat(**kwargs)
     db.add(new_chat)
     await db.commit()
     await db.refresh(new_chat)

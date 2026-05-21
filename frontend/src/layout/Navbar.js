@@ -4,9 +4,10 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, Moon, Shield, Sigma, Sun, X } from 'lucide-react';
+import { Menu, Moon, Shield, Sun, X } from 'lucide-react';
 import { useAuthContext } from '../hooks/useAuthContext';
 import { getCurrentTheme, persistTheme, subscribeThemeChanges } from '../services/themeManager';
+import SigmaIdentity from '../components/SigmaIdentity';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -22,7 +23,6 @@ export default function Navbar() {
   const {
     isAdmin,
     isAuthenticated,
-    isGuestMode,
     loading,
     openAuthModal,
     signOut,
@@ -46,7 +46,7 @@ export default function Navbar() {
 
   const isChat = location.pathname === '/chat';
   const displayName = user?.name || user?.email?.split('@')[0] || 'Sentinel User';
-  const sessionLabel = user?.provider && user.provider !== 'guest'
+  const sessionLabel = user?.provider
     ? `${user.provider} session`
     : 'Authenticated session';
 
@@ -97,9 +97,7 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <Sigma className="w-4.5 h-4.5 text-white" />
-          </div>
+          <SigmaIdentity size={36} />
           <div>
             <span
               className="sentinel-text-primary"
@@ -149,12 +147,16 @@ export default function Navbar() {
             </span>
           </button>
 
-          {isAuthenticated ? (
+          {loading ? (
+            <div className="px-4 py-2 rounded-full sentinel-surface-panel sentinel-text-muted" style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 600 }}>
+              Restoring session…
+            </div>
+          ) : isAuthenticated ? (
             <>
               {!isChat && (
                 <Link
                   to="/chat"
-                  className="px-5 py-2 rounded-full bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] text-white transition-all hover:opacity-95 shadow-lg shadow-cyan-500/20"
+                  className="px-5 py-2 rounded-full sentinel-glass-button sentinel-glass-button--primary transition-all"
                   style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}
                 >
                   Open Chat
@@ -169,7 +171,7 @@ export default function Navbar() {
                     {displayName}
                   </div>
                   <div className="sentinel-text-muted" style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500 }}>
-                    {isGuestMode ? 'Authenticated session' : sessionLabel}
+                    {sessionLabel}
                   </div>
                 </div>
               </div>
@@ -184,12 +186,12 @@ export default function Navbar() {
           ) : (
             <button
               onClick={() => openAuthModal({ returnTo: '/chat' })}
-              className="px-5 py-2 rounded-full bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] text-white transition-all hover:opacity-95 shadow-lg shadow-cyan-500/20"
+              className="px-5 py-2 rounded-full sentinel-glass-button sentinel-glass-button--primary transition-all"
               style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}
             >
-              Login / Sign Up
+              Sign in
             </button>
-            )}
+          )}
         </div>
 
         <div className="md:hidden flex items-center gap-1">
@@ -236,7 +238,11 @@ export default function Navbar() {
           </div>
 
           <div className="mt-3 p-3 rounded-2xl border sentinel-surface-panel">
-            {isAuthenticated ? (
+            {loading ? (
+              <div className="text-center text-xs sentinel-text-muted" style={{ fontFamily: FONT, fontWeight: 600 }}>
+                Restoring session…
+              </div>
+            ) : isAuthenticated ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center text-white text-sm font-semibold">
@@ -253,14 +259,14 @@ export default function Navbar() {
                       className="sentinel-text-muted"
                       style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 500 }}
                     >
-                      {isGuestMode ? 'Authenticated session' : sessionLabel}
+                      {sessionLabel}
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Link
                     to="/chat"
-                    className="flex-1 text-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] text-white"
+                    className="flex-1 text-center px-4 py-2.5 rounded-xl sentinel-glass-button sentinel-glass-button--primary"
                     style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}
                   >
                     Open Chat
@@ -277,10 +283,10 @@ export default function Navbar() {
             ) : (
               <button
                 onClick={() => openAuthModal({ returnTo: '/chat' })}
-                className="block text-center w-full px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] text-white"
+                className="block text-center w-full px-5 py-2.5 rounded-xl sentinel-glass-button sentinel-glass-button--primary"
                 style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 600 }}
               >
-                Login / Sign Up
+                Sign in
               </button>
             )}
           </div>

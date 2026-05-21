@@ -5,35 +5,15 @@
  *
  * PRODUCTION ARCHITECTURE:
  *   - All persistence is user-scoped: conversation:${user.id}
- *   - Keys NEVER use 'guest-session' for authenticated users
- *   - Guest state NEVER hydrates into authenticated user slots
- *   - No mixed-key corruption possible when auth is active
- *
- * HIDDEN GUEST FALLBACK (dev/emergency only):
- *   - Isolated under 'guest-session' namespace
- *   - Only accessible when HIDDEN_GUEST_FALLBACK_ENABLED=true
- *   - Guest keys and auth user keys are strictly separated
+ *   - Authenticated users always own persistence.
  *
  * Storage strategy:
  * - localStorage: long-lived conversation/session state per authenticated user
  * - sessionStorage: hydration in-flight markers to prevent race conditions
- *
- * TODO: Remove hidden guest fallback after production auth architecture fully stabilizes
  */
 
 const STORAGE_PREFIX = 'sentinel';
 const AUTH_USER_KEY = `${STORAGE_PREFIX}-auth-user-id`;
-// Legacy guest keys — preserved for hidden dev fallback only
-const LEGACY_SESSION_KEY = 'sentinel-guest-session';
-const LEGACY_CONVERSATIONS_KEY = 'sentinel-guest-conversations';
-const LEGACY_ACTIVE_CHAT_KEY = 'sentinel-active-chat-id';
-const LEGACY_UI_STATE_KEY = 'sentinel-guest-ui-state';
-const LEGACY_MIGRATION_KEY_PREFIX = `${STORAGE_PREFIX}-legacy-migrated`;
-// DEFAULT_FALLBACK_USER: isolated namespace for hidden guest fallback (dev/emergency only)
-const DEFAULT_FALLBACK_USER = 'guest-session';
-const guestModeRaw = String(process.env.REACT_APP_GUEST_MODE ?? 'false').trim().toLowerCase();
-// TODO: Remove hidden guest fallback after production auth architecture fully stabilizes
-const HIDDEN_GUEST_FALLBACK_ENABLED = guestModeRaw === 'true' && process.env.NODE_ENV !== 'production';
 
 let activePersistenceUserId = null;
 
@@ -138,41 +118,15 @@ function normalizeUserId(rawUserId) {
   return value.slice(0, 200);
 }
 
-function isGuestSessionId(userId) {
-  if (!userId) return false;
-  const normalized = String(userId).toLowerCase();
-  return normalized === DEFAULT_FALLBACK_USER || normalized.startsWith('guest');
-}
-
 function resolveUserId(userId = null) {
   const explicit = normalizeUserId(userId);
-  if (explicit) {
-    // Authenticated user IDs always take priority
-    if (!isGuestSessionId(explicit)) return explicit;
-    // Guest ID: only allowed when fallback is explicitly enabled
-    if (HIDDEN_GUEST_FALLBACK_ENABLED) return explicit;
-    return null;
-  }
+  if (explicit) return explicit;
 
   const active = normalizeUserId(activePersistenceUserId);
-  if (active) {
-    if (!isGuestSessionId(active)) return active;
-    if (HIDDEN_GUEST_FALLBACK_ENABLED) return active;
-    return null;
-  }
+  if (active) return active;
 
   const stored = normalizeUserId(readLocalRaw(AUTH_USER_KEY, null));
-  if (stored) {
-    // Defensive: never use a stored guest key as auth user in production
-    if (isGuestSessionId(stored) && !HIDDEN_GUEST_FALLBACK_ENABLED) return null;
-    return stored;
-  }
-
-  // Production: return null (no implicit guest fallback)
-  // TODO: Remove hidden guest fallback after production auth architecture fully stabilizes
-  if (HIDDEN_GUEST_FALLBACK_ENABLED) {
-    return DEFAULT_FALLBACK_USER;
-  }
+  if (stored) return stored;
 
   return null;
 }
@@ -247,102 +201,14 @@ function createSessionShell(userId) {
   };
 }
 
-function migrateLegacyGuestState(userId) {
-  if (!HIDDEN_GUEST_FALLBACK_ENABLED || !isGuestSessionId(userId)) {
-    return;
-  }
-  const migrationKey = `${LEGACY_MIGRATION_KEY_PREFIX}-${userId}`;
-  if (!hasLocalStorage() || readLocalRaw(migrationKey, null) === 'true') return;
 
-  const keys = storageKeysForUser(userId);
-  if (readLocalRaw(keys.session, null)) {
-    writeLocalRaw(migrationKey, 'true');
-    return;
-  }
-
-  const legacySession = readLocal(LEGACY_SESSION_KEY, null);
-  const legacyConversations = readLocal(LEGACY_CONVERSATIONS_KEY, null);
-  const legacyActiveChat = readLocalRaw(LEGACY_ACTIVE_CHAT_KEY, null);
-  const legacyUiState = readLocal(LEGACY_UI_STATE_KEY, null);
-
-  if (legacySession && typeof legacySession === 'object') {
-    writeLocal(keys.session, {
-      ...createSessionShell(userId),
-      activeChatId: legacyActiveChat || legacySession.activeChatId || null,
-      updatedAt: nowIso(),
-      metadata: {
-        ...(legacySession.metadata || {}),
-        migratedFromGuest: true,
-      },
-    });
-  }
-
-  if (legacyConversations && typeof legacyConversations === 'object') {
-    writeLocal(keys.conversations, legacyConversations);
-  }
-
-  if (legacyActiveChat) {
-    writeLocalRaw(keys.activeChat, legacyActiveChat);
-  }
-
-  if (legacyUiState && typeof legacyUiState === 'object') {
-    writeLocal(keys.uiState, legacyUiState);
-  }
-
-  writeLocalRaw(migrationKey, 'true');
-}
-
-function migrateLegacyUserScopedState(userId) {
-  if (!userId || isGuestSessionId(userId)) return;
-  const migrationKey = `${LEGACY_MIGRATION_KEY_PREFIX}-userscoped-${userId}`;
-  if (!hasLocalStorage() || readLocalRaw(migrationKey, null) === 'true') return;
-
-  const keys = storageKeysForUser(userId);
-  const legacyKeys = legacyStorageKeysForUser(userId);
-
-  const legacySession = readLocal(legacyKeys.session, null);
-  const legacyConversations = readLocal(legacyKeys.conversations, null);
-  const legacyActiveChat = readLocalRaw(legacyKeys.activeChat, null);
-  const legacyUiState = readLocal(legacyKeys.uiState, null);
-
-  if (!readLocal(keys.session, null) && legacySession && typeof legacySession === 'object') {
-    writeLocal(keys.session, { ...legacySession, userId });
-  }
-
-  if (!readLocal(keys.conversations, null) && legacyConversations && typeof legacyConversations === 'object') {
-    writeLocal(keys.conversations, legacyConversations);
-  }
-
-  if (!readLocalRaw(keys.activeChat, null) && legacyActiveChat) {
-    writeLocalRaw(keys.activeChat, legacyActiveChat);
-  }
-
-  if (!readLocal(keys.uiState, null) && legacyUiState && typeof legacyUiState === 'object') {
-    writeLocal(keys.uiState, legacyUiState);
-  }
-
-  writeLocalRaw(migrationKey, 'true');
-}
 
 export function setPersistenceUser(userId) {
   const resolved = resolveUserId(userId);
   if (!resolved) return null;
 
-  const stored = normalizeUserId(readLocalRaw(AUTH_USER_KEY, null));
-
-  // DEFENSIVE GUARD: Guest session NEVER overwrites an authenticated user's stored key.
-  // If a real (non-guest) user ID is already stored, reject the guest takeover.
-  if (isGuestSessionId(resolved) && stored && !isGuestSessionId(stored)) {
-    // Real user exists — do not allow guest to override
-    activePersistenceUserId = stored;
-    return stored;
-  }
-
   activePersistenceUserId = resolved;
-  // Only persist non-guest IDs to localStorage
-  if (!isGuestSessionId(resolved)) {
-    writeLocalRaw(AUTH_USER_KEY, resolved);
-  }
+  writeLocalRaw(AUTH_USER_KEY, resolved);
   return resolved;
 }
 
@@ -358,13 +224,6 @@ export function clearPersistenceUser() {
 export function restoreUserSession(options = {}) {
   const userId = setPersistenceUser(options.userId);
   if (!userId) return null;
-
-  if (isGuestSessionId(userId) && !HIDDEN_GUEST_FALLBACK_ENABLED) {
-    return null;
-  }
-
-  migrateLegacyUserScopedState(userId);
-  migrateLegacyGuestState(userId);
 
   const keys = storageKeysForUser(userId);
   const wasHydrating = isSessionHydrating({ userId });
@@ -566,6 +425,69 @@ export function persistSessionState(state = {}, options = {}) {
   return { session: nextSession, conversation };
 }
 
+export function deleteConversation(conversationId, options = {}) {
+  if (!conversationId) return null;
+  const userId = resolveUserId(options.userId);
+  if (!userId) return null;
+  const conversations = getConversationsMap(userId);
+  if (!conversations[conversationId]) return null;
+
+  delete conversations[conversationId];
+  persistConversationsMap(userId, conversations);
+
+  const keys = storageKeysForUser(userId);
+  const session = restoreUserSession({ userId });
+  if (session?.activeChatId === conversationId) {
+    const nextActive = Object.keys(conversations)[0] || null;
+    const nextSession = {
+      ...session,
+      activeChatId: nextActive,
+      updatedAt: nowIso(),
+    };
+    writeLocal(keys.session, nextSession);
+    writeLocalRaw(keys.activeChat, nextActive);
+  }
+
+  return true;
+}
+
+export function reassignConversationId(previousId, nextId, options = {}) {
+  if (!previousId || !nextId || previousId === nextId) return null;
+  const userId = setPersistenceUser(options.userId);
+  if (!userId) return null;
+
+  const conversations = getConversationsMap(userId);
+  const source = conversations[previousId];
+  if (!source) return conversations[nextId] || null;
+
+  const target = conversations[nextId] || {};
+  const merged = normalizeConversation({
+    ...source,
+    ...target,
+    id: nextId,
+    createdAt: target.createdAt || source.createdAt,
+    updatedAt: nowIso(),
+  }, nextId);
+
+  conversations[nextId] = merged;
+  delete conversations[previousId];
+  persistConversationsMap(userId, conversations);
+
+  const keys = storageKeysForUser(userId);
+  const session = restoreUserSession({ userId });
+  if (session?.activeChatId === previousId) {
+    const nextSession = {
+      ...session,
+      activeChatId: nextId,
+      updatedAt: nowIso(),
+    };
+    writeLocal(keys.session, nextSession);
+    writeLocalRaw(keys.activeChat, nextId);
+  }
+
+  return merged;
+}
+
 export function isSessionHydrating(options = {}) {
   const userId = resolveUserId(options.userId);
   if (!userId) return false;
@@ -574,43 +496,4 @@ export function isSessionHydrating(options = {}) {
   return window.sessionStorage.getItem(keys.hydration) === 'true';
 }
 
-// Compatibility shims for legacy imports.
-export function createGuestSession() {
-  const session = restoreUserSession({ userId: DEFAULT_FALLBACK_USER, allowGuest: true });
-  if (!session) {
-    return {
-      ...createSessionShell(DEFAULT_FALLBACK_USER),
-      guestSessionId: DEFAULT_FALLBACK_USER,
-      uiState: {},
-      conversations: {},
-    };
-  }
-  return {
-    ...session,
-    guestSessionId: session.userId,
-  };
-}
 
-export function restoreGuestSession() {
-  const session = restoreUserSession({ userId: DEFAULT_FALLBACK_USER, allowGuest: true });
-  if (!session) {
-    return {
-      ...createSessionShell(DEFAULT_FALLBACK_USER),
-      guestSessionId: DEFAULT_FALLBACK_USER,
-      uiState: {},
-      conversations: {},
-    };
-  }
-  return {
-    ...session,
-    guestSessionId: session.userId,
-  };
-}
-
-export function getGuestSessionId() {
-  return getPersistenceUserId();
-}
-
-export function isGuestHydrating() {
-  return isSessionHydrating();
-}

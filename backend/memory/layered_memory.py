@@ -249,12 +249,14 @@ class LayeredMemoryContext:
         user_id: str = "",
         deliberative: Optional[DeliberativeMemory] = None,
         tactical: Optional[TacticalMemory] = None,
+        behavioral_profile_hint: str = "",
     ):
         self._engine = memory_engine
         self.user_id = user_id
         self.working = WorkingMemory()
         self.deliberative = deliberative or DeliberativeMemory()
         self.tactical = tactical or TacticalMemory()
+        self.behavioral_profile_hint = behavioral_profile_hint
 
     def build_layered_context(
         self,
@@ -272,7 +274,8 @@ class LayeredMemoryContext:
           2. Episodic (existing MemoryEngine.build_prompt_context())
           3. Deliberative (prior debate priors)
           4. Tactical (routing strategy hint)
-          5. Semantic (existing UserMemory — handled by MemoryEngine)
+          5. Behavioral (Adaptive User Profile)
+          6. Semantic (existing UserMemory — handled by MemoryEngine)
 
         Returns a single system prompt injection string.
         """
@@ -307,6 +310,11 @@ class LayeredMemoryContext:
             if tactical_hint:
                 parts.append(f"[Routing Intelligence]\n{tactical_hint}")
                 retrieved_layers.append("tactical")
+
+        # ── Layer 5: Behavioral Memory ────────────────────────
+        if getattr(self, "behavioral_profile_hint", ""):
+            parts.append(f"[Behavioral Context]\n{self.behavioral_profile_hint}")
+            retrieved_layers.append("behavioral")
 
         # ── Record retrievals on OrchestrationRun ─────────────
         if run is not None:
@@ -359,7 +367,7 @@ def get_tactical_memory() -> TacticalMemory:
     return _tactical_memory
 
 
-def create_layered_context(memory_engine, user_id: str = "") -> LayeredMemoryContext:
+def create_layered_context(memory_engine, user_id: str = "", behavioral_profile_hint: str = "") -> LayeredMemoryContext:
     """
     Factory: create a LayeredMemoryContext wrapping an existing MemoryEngine,
     sharing the global deliberative and tactical memory stores.
@@ -369,4 +377,5 @@ def create_layered_context(memory_engine, user_id: str = "") -> LayeredMemoryCon
         user_id=user_id,
         deliberative=get_deliberative_memory(),
         tactical=get_tactical_memory(),
+        behavioral_profile_hint=behavioral_profile_hint,
     )

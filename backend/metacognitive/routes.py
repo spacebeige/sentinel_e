@@ -22,7 +22,7 @@ import traceback
 from typing import Dict, Optional, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -70,6 +70,11 @@ except ImportError as runtime_import_error:
     get_deliberative_memory = None
     get_tactical_memory = None
     _COGNITIVE_RUNTIME_ENABLED = False
+
+try:
+    from memory.behavioral_memory import BehavioralMemoryManager
+except ImportError:
+    BehavioralMemoryManager = None
 
 
 def set_orchestrator(orch: MetaCognitiveOrchestrator):
@@ -433,6 +438,7 @@ def _build_mco_cognitive_artifact(response, run) -> Dict[str, Any]:
 
 @router.post("/run")
 async def mco_run(
+    background_tasks: BackgroundTasks,
     payload: Optional[Dict[str, Any]] = Body(None),
     db: AsyncSession = Depends(get_db),
     user: Optional[Dict] = Depends(get_optional_user),
@@ -480,7 +486,7 @@ async def mco_run(
             "authenticated": False,
         }
 
-        return await _mco_run_impl(
+        result_payload = await _mco_run_impl(
             query=query,
             mode=mode,
             sub_mode=sub_mode,
@@ -493,6 +499,20 @@ async def mco_run(
             db=db,
             user=safe_user,
         )
+
+        if BehavioralMemoryManager and safe_user.get("user_id") != "anonymous":
+            background_tasks.add_task(
+                BehavioralMemoryManager.update_profile_async,
+                db=db,
+                user_id=safe_user["user_id"],
+                interaction_metrics={
+                    "model": result_payload.get("data", {}).get("machine_metadata", {}).get("mode", mode),
+                    "query_complexity": "complex" if len(query) > 100 else "simple",
+                    "latency_ms": 0, # Could extract actual latency from omega_metadata if available
+                }
+            )
+
+        return result_payload
     except HTTPException as http_exc:
         logger.error("/api/mco/run HTTPException: %s", http_exc.detail)
         return JSONResponse(status_code=http_exc.status_code, content={"detail": str(http_exc.detail)})
@@ -592,7 +612,7 @@ async def _mco_run_impl(
                 CognitivePhase.VERIFY,
                 {"source": "document_cognition", "mime": image_mime},
             )
-            document_cognition = build_document_cognition(
+            document_cognition = await build_document_cognition(
                 image_b64,
                 image_mime,
                 max_context_chars=5000,

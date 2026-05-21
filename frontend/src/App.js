@@ -83,43 +83,18 @@ function AuthModal() {
     authIntent,
     closeAuthModal,
     handleSignIn,
-    handleEmailSignIn,
-    handleEmailSignUp,
     isSupabaseConfigured,
   } = useAuthContext();
-
-  const [mode, setMode] = React.useState('signin'); // 'signin' or 'signup'
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
   const [localError, setLocalError] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
 
   if (!authModalOpen) return null;
 
-  const signInWithGitHub = async () => {
+  const signInWithGoogle = async () => {
     setSubmitting(true);
     setLocalError('');
     try {
       await handleSignIn({ returnTo: authIntent || '/chat' });
-    } catch (error) {
-      setLocalError(error?.message || 'Authentication failed');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleEmailAuth = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setLocalError('');
-    try {
-      if (mode === 'signin') {
-        await handleEmailSignIn({ email, password });
-        closeAuthModal();
-      } else {
-        await handleEmailSignUp({ email, password });
-        setLocalError('Check your email for a confirmation link!');
-      }
     } catch (error) {
       setLocalError(error?.message || 'Authentication failed');
     } finally {
@@ -136,12 +111,10 @@ function AuthModal() {
               <SigmaIdentity size={46} showLabel label="Sentinel-E" pulse />
             </div>
             <div className="text-2xl font-semibold tracking-tight">
-              {mode === 'signin' ? 'Sign in to Sentinel' : 'Create an account'}
+              Sign in to Sentinel-E
             </div>
             <div className="text-sm sentinel-text-muted mt-1">
-              {mode === 'signin'
-                ? 'Continue to unlock chat and persistent history.'
-                : 'Join Sentinel to start your AI-powered journey.'}
+              Google Sign-In is required to access the cognitive runtime.
             </div>
           </div>
           <button
@@ -160,63 +133,14 @@ function AuthModal() {
             </div>
           )}
 
-          <form onSubmit={handleEmailAuth} className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium sentinel-text-muted mb-1 ml-1">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="w-full rounded-2xl border sentinel-border bg-black/5 dark:bg-white/5 px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/50"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium sentinel-text-muted mb-1 ml-1">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full rounded-2xl border sentinel-border bg-black/5 dark:bg-white/5 px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/50"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={submitting || !isSupabaseConfigured}
-              className="w-full rounded-2xl bg-blue-600 hover:bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-60 transition-colors"
-            >
-              {submitting ? 'Processing...' : mode === 'signin' ? 'Sign In' : 'Sign Up'}
-            </button>
-          </form>
-
-          <div className="relative flex items-center py-2">
-            <div className="flex-grow border-t sentinel-border"></div>
-            <span className="flex-shrink mx-4 text-xs sentinel-text-muted">OR</span>
-            <div className="flex-grow border-t sentinel-border"></div>
-          </div>
-
           <button
             type="button"
-            onClick={signInWithGitHub}
+            onClick={signInWithGoogle}
             disabled={submitting || !isSupabaseConfigured}
             className="w-full rounded-2xl border sentinel-border bg-white dark:bg-black/20 px-4 py-3 font-semibold sentinel-text-primary hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 flex items-center justify-center gap-2 transition-all"
           >
-             Continue with GitHub
+             Continue with Google
           </button>
-
-          <div className="text-center text-sm mt-4">
-            <button
-              onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-              className="text-blue-500 hover:underline"
-            >
-              {mode === 'signin'
-                ? "Don't have an account? Sign up"
-                : 'Already have an account? Sign in'}
-            </button>
-          </div>
 
           {!isSupabaseConfigured && (
             <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-800 dark:text-amber-200">

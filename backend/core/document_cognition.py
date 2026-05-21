@@ -74,7 +74,7 @@ def _document_type(file_mime: Optional[str]) -> str:
     return "unknown"
 
 
-def build_document_cognition(
+async def build_document_cognition(
     file_b64: Optional[str],
     file_mime: Optional[str] = None,
     filename: Optional[str] = None,
@@ -92,6 +92,7 @@ def build_document_cognition(
             "reason": "no_document",
         }
 
+    # Pipeline Step 1: Lightweight OCR (via file_preprocessor)
     processed = preprocess_file(file_b64, file_mime)
     extracted_text = _compact_text(processed.get("extracted_text"), max_context_chars)
     doc_type = _document_type(file_mime)
@@ -103,6 +104,45 @@ def build_document_cognition(
     sections = _extract_sections(extracted_text)
     metadata = processed.get("metadata") if isinstance(processed.get("metadata"), dict) else {}
 
+    # Pipeline Step 2 & 3: Semantic Extraction & Fallback Escalation
+    vision_extracted_text = None
+    vision_model_used = None
+    if requires_model_escalation:
+        try:
+            from metacognitive.cognitive_gateway import CognitiveModelGateway
+            from metacognitive.schemas import CognitiveGatewayInput, QueryMode
+            
+            gateway = CognitiveModelGateway()
+            models_to_try = ["qwen-2.5-vl", "gemini-flash"]
+            
+            for vision_model in models_to_try:
+                # Pipeline Step 4: Verification (built into the extraction prompt)
+                prompt = (
+                    "Extract the text and semantic structure from this document. "
+                    "Format it into clean markdown. Identify key entities, dates, and intent. "
+                    "Do NOT hallucinate. Only output what is visually present."
+                )
+                gw_input = CognitiveGatewayInput(
+                    user_query=prompt,
+                    mode=QueryMode.RAW,
+                    image_b64=processed.get("compressed_b64", file_b64),
+                    image_mime=processed.get("compressed_mime", file_mime),
+                )
+                
+                output = await gateway.invoke_model(vision_model, gw_input)
+                if output.success and output.raw_output:
+                    vision_extracted_text = output.raw_output
+                    vision_model_used = vision_model
+                    extraction_method = f"vision_semantic_{vision_model}"
+                    break
+                    
+        except Exception as e:
+            pass
+
+    # Pipeline Step 5: Orchestration Injection
+    final_text = vision_extracted_text if vision_extracted_text else extracted_text
+    sections = _extract_sections(final_text)
+
     semantic_context_parts = [
         f"Document type: {doc_type}",
         f"Filename: {filename or 'attached document'}",
@@ -110,7 +150,11 @@ def build_document_cognition(
     ]
     if metadata:
         semantic_context_parts.append(f"Metadata: {metadata}")
-    if sections:
+        
+    if vision_extracted_text:
+        semantic_context_parts.append(f"Vision Semantic Extraction ({vision_model_used}):")
+        semantic_context_parts.append(_compact_text(vision_extracted_text, max_context_chars))
+    elif sections:
         semantic_context_parts.append("Semantic sections:")
         semantic_context_parts.extend(
             f"- {section['title']}: {section['text']}"
@@ -129,7 +173,7 @@ def build_document_cognition(
         "requires_ocr_fallback": requires_ocr,
         "requires_model_escalation": requires_model_escalation,
         "skip_vision_api": bool(processed.get("skip_vision_api")),
-        "text_char_count": len(extracted_text),
+        "text_char_count": len(final_text),
         "metadata": metadata,
         "sections": sections,
         "semantic_context": _compact_text("\n".join(semantic_context_parts), max_context_chars),

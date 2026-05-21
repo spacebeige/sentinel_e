@@ -4,7 +4,8 @@
  * Standalone — not wired into the chat engine.
  */
 import React, { useState } from 'react';
-import { Menu, X, Sigma } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
+import SigmaIdentity from '../components/SigmaIdentity';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -22,9 +23,7 @@ export function Navbar({ activePath = '/' }) {
     <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-white/70 border-b border-white/20">
       <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
         <a href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center">
-            <Sigma className="w-4 h-4 text-white" />
-          </div>
+          <SigmaIdentity size={32} />
           <span className="text-[#1d1d1f] tracking-tight"
             style={{ fontFamily: FONT, fontWeight: 600, fontSize: '18px' }}>
             Sentinel-E
@@ -51,7 +50,7 @@ export function Navbar({ activePath = '/' }) {
         <div className="hidden md:flex items-center gap-3">
           <a
             href="/chat"
-            className="px-5 py-1.5 rounded-full bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] text-white transition-all hover:opacity-90 shadow-lg shadow-blue-500/25"
+            className="px-5 py-1.5 rounded-full sentinel-glass-button sentinel-glass-button--primary transition-all"
             style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 500 }}
           >
             Try Free
@@ -84,7 +83,7 @@ export function Navbar({ activePath = '/' }) {
           <a
             href="/chat"
             onClick={() => setMobileOpen(false)}
-            className="block text-center mt-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] text-white"
+            className="block text-center mt-2 px-5 py-2.5 rounded-xl sentinel-glass-button sentinel-glass-button--primary"
             style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 500 }}
           >
             Try Free

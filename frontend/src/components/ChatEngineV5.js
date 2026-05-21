@@ -36,6 +36,7 @@ import {
   loadConversationHistory,
   loadConversationState,
   persistSessionState,
+  reassignConversationId,
   restoreUserSession,
   saveConversationHistory,
   setPersistenceUser,
@@ -98,13 +99,13 @@ export default function ChatEngineV5() {
         .filter((item) => item?.id && !backendIds.has(String(item.id)))
         .map((item) => ({
           id: item.id,
-          timestamp: item.updatedAt || item.createdAt || new Date().toISOString(),
+          timestamp: item.updatedAt || item.updated_at || item.createdAt || item.created_at || new Date().toISOString(),
           mode: item.mode || 'standard',
-          summary: item.title || 'New Chat',
+          summary: item.title || item.chat_name || 'New Chat',
           filename: item.id,
           data: null,
-          sub_mode: item.subMode || null,
-          isLocalGuest: true,
+          sub_mode: item.subMode || item.sub_mode || null,
+          isLocalOnly: true,
         }));
 
       return [...localHistory, ...backendHistory].sort(
@@ -403,6 +404,7 @@ export default function ChatEngineV5() {
       }
 
       const returnedChatId = result.chat_id ? String(result.chat_id) : null;
+      const resolvedChatId = returnedChatId || chatId;
       
       // Validate result shape before rendering
       const isValid = validateResponseShape(result, Schemas.CHAT_RUN, 'sendMCOQuery');
@@ -422,7 +424,11 @@ export default function ChatEngineV5() {
       addDebateResult(result);
       setLastResponseText(answerText);
       if (result.session_state) setSessionState(result.session_state);
-      saveConversationHistory(returnedChatId || chatId, completedMessages, {
+      if (returnedChatId && returnedChatId !== chatId) {
+        reassignConversationId(chatId, returnedChatId, { userId: activeUserId });
+      }
+
+      saveConversationHistory(resolvedChatId, completedMessages, {
         mode,
         subMode,
         currentResult: result,
@@ -447,7 +453,7 @@ export default function ChatEngineV5() {
         mode, subMode,
       });
       setGovernanceVerdict(verdict);
-      saveConversationHistory(returnedChatId || chatId, completedMessages, {
+      saveConversationHistory(resolvedChatId, completedMessages, {
         currentResult: result,
         sessionState: result.session_state || sessionState,
         lastQueryText: text || '',
@@ -518,7 +524,7 @@ export default function ChatEngineV5() {
     setGovernanceVerdict(localConversation?.governanceVerdict || null);
     setLoading(true);
 
-    if (run.isLocalGuest) {
+    if (run.isLocalOnly) {
       setLoading(false);
       return;
     }
