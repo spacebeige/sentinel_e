@@ -653,7 +653,7 @@ app.add_middleware(InputValidationMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_origin_regex=r"https://sentinel-e.*\.vercel\.app",  # Vercel preview branches
+    allow_origin_regex=r"https://sentinel-[a-z0-9-]+\.vercel\.app",  # Vercel preview branches
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -1084,12 +1084,16 @@ async def _run_sentinel_core(
         chat = None
         if request.chat_id:
             chat = await get_chat(db, request.chat_id, user_id=user_id)
-            if not chat:
-                return api_error("Chat not found or unauthorized access", status_code=403)
         
         if not chat:
             chat_name = generate_chat_name(effective_text, request.mode)
-            chat = await create_chat(db, chat_name, request.mode, user_id=user_id)
+            chat = await create_chat(
+                db, 
+                chat_name=chat_name, 
+                mode=request.mode, 
+                user_id=user_id,
+                chat_id=request.chat_id if request.chat_id else None
+            )
 
         await _safe_add_message(
             db,
@@ -1341,6 +1345,12 @@ async def _run_sentinel_core(
 
             tracer.start_span("kernel")
             single_model_id = routing_decision.selected_model
+            
+            if orch_run:
+                orch_run.transition_to(CognitivePhase.SPAWN_AGENTS, {"path": "single_model"})
+                orch_run.active_agents = [single_model_id]
+                orch_run.models_executed += 1
+                
             try:
                 spec = COGNITIVE_MODEL_REGISTRY.get(single_model_id)
                 if not spec or not spec.enabled:
@@ -1355,7 +1365,21 @@ async def _run_sentinel_core(
                     image_mime=request.image_mime,
                 )
                 kernel_latency = tracer.end_span("kernel")
-    
+                
+                if orch_run:
+                    orch_run.record_provider_call(
+                        model_id=single_model_id,
+                        model_name=spec.name,
+                        provider=spec.provider,
+                        latency_ms=kernel_latency,
+                        succeeded=not raw_output.startswith("Error:"),
+                        error=raw_output if raw_output.startswith("Error:") else None,
+                    )
+                    if not raw_output.startswith("Error:"):
+                        orch_run.models_succeeded += 1
+                    else:
+                        orch_run.models_failed += 1
+
                 # Check for error responses from the model
                 if raw_output.startswith("Error:"):
                     logger.error(f"Model '{single_model_id}' returned error: {raw_output}")
@@ -1366,6 +1390,13 @@ async def _run_sentinel_core(
     
                 formatted_output = sanitize_output(raw_output)
                 confidence = 0.8  # Single model — no ensemble calibration
+                
+                if orch_run:
+                    orch_run.record_confidence_snapshot("single_model", confidence, method="direct_model")
+                    orch_run.transition_to(CognitivePhase.SYNTHESIZE, {"method": "single_model"})
+                    orch_run.record_synthesis_start("single_model", 1)
+                    orch_run.record_synthesis_complete(len(formatted_output))
+                    orch_run.final_confidence = confidence
     
                 await _safe_add_message(db, chat.id, user_id, "assistant", formatted_output)
                 memory.add_message("assistant", formatted_output)
@@ -1393,6 +1424,9 @@ async def _run_sentinel_core(
                     machine_metadata=omega_metadata,
                     rounds=0,
                 )
+                
+                if orch_run:
+                    orch_run.mark_completed()
     
                 try:
                     total_latency = tracer.end_span("total")
@@ -1414,6 +1448,8 @@ async def _run_sentinel_core(
                 raise
             except Exception as e:
                 logger.error(f"Single model chat failed for '{single_model_id}': {e}")
+                if orch_run:
+                    orch_run.mark_failed(str(e), "PROVIDER_ERROR")
                 raise HTTPException(
                     status_code=502,
                     detail="Provider unavailable. Please try again or select a different model.",
@@ -1437,6 +1473,11 @@ async def _run_sentinel_core(
                     if not fast_model:
                         raise HTTPException(status_code=503, detail="No models available.")
                     spec = COGNITIVE_MODEL_REGISTRY[fast_model]
+                
+                if orch_run:
+                    orch_run.transition_to(CognitivePhase.SPAWN_AGENTS, {"path": "fast_standard"})
+                    orch_run.active_agents = [fast_model]
+                    orch_run.models_executed += 1
     
                 raw_output = await mco_bridge.call_model(
                     fast_model, effective_text, "",
@@ -1444,27 +1485,65 @@ async def _run_sentinel_core(
                     image_mime=request.image_mime,
                 )
                 kernel_latency = tracer.end_span("kernel")
+                
+                if orch_run:
+                    orch_run.record_provider_call(
+                        model_id=fast_model,
+                        model_name=spec.name,
+                        provider=spec.provider,
+                        latency_ms=kernel_latency,
+                        succeeded=not raw_output.startswith("Error:"),
+                        error=raw_output if raw_output.startswith("Error:") else None,
+                    )
+                    if not raw_output.startswith("Error:"):
+                        orch_run.models_succeeded += 1
+                    else:
+                        orch_run.models_failed += 1
     
                 if raw_output.startswith("Error:"):
                     # For trivial queries, try one fallback before failing
+                    if orch_run:
+                        orch_run.trigger_recovery(reason="primary_fast_model_failed", fallback_path="fallback_fast_model")
+                        
                     fallback_model = next(
                         (k for k, s in COGNITIVE_MODEL_REGISTRY.items()
                          if s.enabled and k != fast_model),
                         None,
                     )
                     if fallback_model:
+                        if orch_run:
+                            orch_run.active_agents = [fallback_model]
+                            orch_run.models_executed += 1
+                            
+                        t0_fallback = time.perf_counter()
                         raw_output = await mco_bridge.call_model(
                             fallback_model, effective_text, "",
                             image_b64=request.image_b64,
                             image_mime=request.image_mime,
                         )
+                        fallback_latency = (time.perf_counter() - t0_fallback) * 1000
+                        spec = COGNITIVE_MODEL_REGISTRY[fallback_model]
+                        
+                        if orch_run:
+                            orch_run.record_provider_call(
+                                model_id=fallback_model,
+                                model_name=spec.name,
+                                provider=spec.provider,
+                                latency_ms=fallback_latency,
+                                succeeded=not raw_output.startswith("Error:"),
+                                error=raw_output if raw_output.startswith("Error:") else None,
+                            )
+                            if not raw_output.startswith("Error:"):
+                                orch_run.models_succeeded += 1
+                            else:
+                                orch_run.models_failed += 1
+                                
                         if raw_output.startswith("Error:"):
                             logger.error(f"Fallback model '{fallback_model}' also failed: {raw_output}")
                             raise HTTPException(
                                 status_code=502,
                                 detail="Provider unavailable. Please try again.",
                             )
-                        spec = COGNITIVE_MODEL_REGISTRY[fallback_model]
                         fast_model = fallback_model
                     else:
                         logger.error(f"No fallback available. Original error: {raw_output}")
@@ -1475,6 +1554,13 @@ async def _run_sentinel_core(
     
                 formatted_output = sanitize_output(raw_output)
                 confidence = 0.7
+                
+                if orch_run:
+                    orch_run.record_confidence_snapshot("fast_standard", confidence, method="direct_fast_model")
+                    orch_run.transition_to(CognitivePhase.SYNTHESIZE, {"method": "fast_standard"})
+                    orch_run.record_synthesis_start("fast_standard", 1)
+                    orch_run.record_synthesis_complete(len(formatted_output))
+                    orch_run.final_confidence = confidence
     
                 await _safe_add_message(db, chat.id, user_id, "assistant", formatted_output)
                 memory.add_message("assistant", formatted_output)
@@ -1501,6 +1587,9 @@ async def _run_sentinel_core(
                     machine_metadata=omega_metadata,
                     rounds=0,
                 )
+                
+                if orch_run:
+                    orch_run.mark_completed()
     
                 try:
                     total_latency = tracer.end_span("total")
@@ -1519,9 +1608,13 @@ async def _run_sentinel_core(
                     "omega_metadata": omega_metadata,
                 }
             except HTTPException:
+                if orch_run:
+                    orch_run.mark_failed("HTTPException", "PROVIDER_ERROR")
                 raise
             except Exception as e:
                 logger.warning(f"Fast path failed, falling through to ensemble: {e}")
+                if orch_run:
+                    orch_run.trigger_recovery(reason=f"fast_path_failed: {e}", fallback_path="ensemble")
                 # Fall through to ensemble if fast path fails
     
         # ══════════════════════════════════════════════════════════
@@ -2048,10 +2141,14 @@ async def _run_sentinel_core(
             pass
     
         # Finalize observability
+        if orch_run:
+            orch_run.mark_completed()
         return api_success(response_payload)
 
     except Exception as e:
         logger.error(f"CRITICAL ERROR in _run_sentinel_core: {e}", exc_info=True)
+        if orch_run:
+            orch_run.mark_failed(str(e), "CRITICAL_CORE_ERROR")
         fallback_chat = locals().get("chat")
         fallback_chat_id = str(fallback_chat.id) if fallback_chat else str(getattr(request, "chat_id", "") or "")
         fallback_mode = str(getattr(request, "mode", "standard") or "standard")
@@ -2116,7 +2213,13 @@ async def run_compressed_api(
         
         if not chat:
             chat_name = generate_chat_name(effective_text, "compressed")
-            chat = await create_chat(db, chat_name, "compressed", user_id=user_id)
+            chat = await create_chat(
+                db, 
+                chat_name=chat_name, 
+                mode="compressed", 
+                user_id=user_id,
+                chat_id=body.chat_id if body.chat_id else None
+            )
 
         await _safe_add_message(db, chat.id, user_id, "user", effective_text)
 

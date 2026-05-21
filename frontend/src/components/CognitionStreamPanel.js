@@ -151,17 +151,21 @@ export default function CognitionStreamPanel({
         {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* Sigma indicator */}
+            {/* Sentinel indicator */}
             <div style={{
               width: '28px', height: '28px',
               borderRadius: '8px',
-              background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+              background: 'rgba(15, 23, 42, 0.65)',
+              border: '1px solid rgba(59,130,246,0.35)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '14px', fontWeight: 700, color: 'white',
               animation: 'cogPulse 2s ease-in-out infinite',
               flexShrink: 0,
             }}>
-              Σ
+              <img
+                src="/assets/branding/sentinel-logo-icon.png"
+                alt="Sentinel-E"
+                style={{ width: '18px', height: '18px', objectFit: 'contain' }}
+              />
             </div>
 
             <div>

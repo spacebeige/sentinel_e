@@ -19,7 +19,6 @@
 import axios from 'axios';
 import { API_BASE } from '../config';
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
-import { getPersistenceUserId } from './sessionPersistence';
 import { readSupabaseSessionSnapshot } from './supabaseSessionManager';
 
 /**
@@ -44,7 +43,6 @@ api.interceptors.request.use(
     
     try {
       const snapshot = readSupabaseSessionSnapshot();
-      const fallbackUserId = snapshot?.user?.id || getPersistenceUserId() || null;
 
       if (isSupabaseConfigured) {
         const supabase = getSupabaseClient();
@@ -56,13 +54,13 @@ api.interceptors.request.use(
         const session = data?.session;
         const accessToken = session?.access_token || snapshot?.access_token || null;
         const sessionUser = session?.user || null;
-        const resolvedUserId = sessionUser?.id || fallbackUserId;
+        const resolvedUserId = sessionUser?.id || snapshot?.user?.id || null;
 
         if (accessToken) {
           config.headers.Authorization = `Bearer ${accessToken}`;
         }
 
-        if (resolvedUserId) {
+        if (accessToken && resolvedUserId) {
           config.headers['X-Debug-User'] = resolvedUserId;
           config.headers['X-Auth-Provider'] = 'supabase';
           if (sessionUser?.email) {
@@ -76,8 +74,6 @@ api.interceptors.request.use(
             config.headers['X-Debug-Name'] = displayName;
           }
         }
-      } else if (fallbackUserId) {
-        config.headers['X-Debug-User'] = fallbackUserId;
       }
     } catch (err) {
       console.warn('Failed to prepare Supabase auth headers for request', err);
@@ -299,10 +295,11 @@ export async function getOmegaSession(chatId) {
 
 /**
  * Health check.
+ * Explicitly disables credentials so the preflight doesn't fail on the public /health endpoint.
  */
 export async function checkHealth() {
   try {
-    await api.get('/', { timeout: 3000 });
+    await api.get('/', { timeout: 3000, withCredentials: false });
     return 'online';
   } catch {
     return 'offline';

@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import MakeAdminForm from '../components/MakeAdminForm';
 import DataFallback from '../components/common/DataFallback';
-import { useAuthContext } from '../hooks/useAuthContext';
 import api from '../services/api';
 import { readSupabaseSessionSnapshot } from '../services/supabaseSessionManager';
 import SigmaIdentity from '../components/SigmaIdentity';
@@ -27,7 +26,6 @@ import SigmaIdentity from '../components/SigmaIdentity';
 const FONT = "'Inter', -apple-system, sans-serif";
 
 const AdminDashboard = () => {
-  const { isGuestMode } = useAuthContext();
   const [systemStats, setSystemStats] = useState(null);
   const [architecture, setArchitecture] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -47,8 +45,9 @@ const AdminDashboard = () => {
     { id: 'feedback', label: 'Feedback', icon: BarChart3 },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'cognitive_runtime', label: 'Cognitive Runtime', icon: Cpu },
+    { id: 'agentic_controls', label: 'Agentic Controls', icon: Zap },
   ];
-  const availableTabs = isGuestMode ? tabs.filter((tab) => tab.id !== 'users') : tabs;
+  const availableTabs = tabs;
 
   const fetchAdminData = useCallback(async () => {
     try {
@@ -99,12 +98,6 @@ const AdminDashboard = () => {
     return () => clearInterval(interval);
   }, [fetchAdminData]);
 
-  useEffect(() => {
-    if (isGuestMode && activeTab === 'users') {
-      setActiveTab('overview');
-    }
-  }, [isGuestMode, activeTab]);
-
   if (loading) return <LoadingScreen />;
 
   if (error) {
@@ -134,7 +127,7 @@ const AdminDashboard = () => {
                     className="text-2xl sentinel-text-primary font-bold"
                     style={{ fontFamily: FONT }}
                   >
-                    Admin Control Center
+                    Cognitive Mission Control
                   </h1>
                   <p className="text-xs sentinel-text-muted">System Architecture & Analytics</p>
                 </div>
@@ -220,6 +213,9 @@ const AdminDashboard = () => {
         {/* v8.0: Cognitive Runtime Tab */}
         {activeTab === 'cognitive_runtime' && <CognitiveMissionControlTab apiBase={API_BASE} />}
 
+        {/* Agentic Controls Tab */}
+        {activeTab === 'agentic_controls' && <AgenticControlsTab />}
+
         {/* Users Tab */}
         {activeTab === 'users' && (
           <div className="space-y-12">
@@ -228,25 +224,14 @@ const AdminDashboard = () => {
                 <h2 className="text-xl font-bold sentinel-text-primary" style={{ fontFamily: FONT }}>
                   User Management
                 </h2>
-                {isGuestMode && (
-                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-                    Guest mode: read-only
-                  </span>
-                )}
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
+                  Protected runtime access
+                </span>
               </div>
-              {isGuestMode ? (
-                <div className="rounded-2xl border sentinel-border sentinel-surface p-6">
-                  {/* TODO: Remove or fully restore Firebase auth after Supabase migration stabilizes */}
-                  <p className="sentinel-text-primary text-sm" style={{ fontFamily: FONT }}>
-                    Promote-to-admin actions are disabled while Guest Mode is enabled.
-                  </p>
-                </div>
-              ) : (
-                <MakeAdminForm onSuccess={() => {
-                  // Optionally refresh data after promoting user
-                  setTimeout(fetchAdminData, 1000);
-                }} />
-              )}
+              <MakeAdminForm onSuccess={() => {
+                // Optionally refresh data after promoting user
+                setTimeout(fetchAdminData, 1000);
+              }} />
             </section>
           </div>
         )}
@@ -254,6 +239,81 @@ const AdminDashboard = () => {
     </div>
   );
 };
+
+function AgenticControlsTab() {
+  const [permissions, setPermissions] = useState({
+    browserAutomation: true,
+    requireConfirmationRisky: true,
+    allowDownloads: false,
+    allowUploads: true,
+    allowedDomains: ['github.com', 'google.com'],
+    blockedDomains: ['facebook.com', 'twitter.com']
+  });
+
+  const handleToggle = (key) => {
+    setPermissions(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  return (
+    <div className="space-y-12">
+      <section>
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <h2 className="text-xl font-bold sentinel-text-primary" style={{ fontFamily: FONT }}>
+            Agentic Permissions & Governance
+          </h2>
+          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200">
+            Runtime Controls
+          </span>
+        </div>
+        <p className="text-sm sentinel-text-muted mb-6">
+          Configure safety boundaries and reasoning-before-acting permissions for agentic mode execution.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-2xl p-6 border border-black/5">
+            <h3 className="font-bold mb-4 text-[#1d1d1f]">Execution Boundaries</h3>
+            <div className="space-y-4">
+              <label className="flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="font-medium text-sm text-[#1d1d1f]">Browser Automation</p>
+                  <p className="text-xs text-[#6e6e73]">Allow agents to spawn browser instances</p>
+                </div>
+                <input type="checkbox" checked={permissions.browserAutomation} onChange={() => handleToggle('browserAutomation')} className="toggle-checkbox" />
+              </label>
+              <label className="flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="font-medium text-sm text-[#1d1d1f]">Require Confirmation for Risky Actions</p>
+                  <p className="text-xs text-[#6e6e73]">Block submits, deletes, and purchases</p>
+                </div>
+                <input type="checkbox" checked={permissions.requireConfirmationRisky} onChange={() => handleToggle('requireConfirmationRisky')} className="toggle-checkbox" />
+              </label>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-black/5">
+            <h3 className="font-bold mb-4 text-[#1d1d1f]">File Operations</h3>
+            <div className="space-y-4">
+              <label className="flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="font-medium text-sm text-[#1d1d1f]">Allow Downloads</p>
+                  <p className="text-xs text-[#6e6e73]">Agents can download files to sandbox</p>
+                </div>
+                <input type="checkbox" checked={permissions.allowDownloads} onChange={() => handleToggle('allowDownloads')} className="toggle-checkbox" />
+              </label>
+              <label className="flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="font-medium text-sm text-[#1d1d1f]">Allow Uploads</p>
+                  <p className="text-xs text-[#6e6e73]">Agents can upload local files to external domains</p>
+                </div>
+                <input type="checkbox" checked={permissions.allowUploads} onChange={() => handleToggle('allowUploads')} className="toggle-checkbox" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
 
 function LoadingScreen() {
   return (
@@ -269,7 +329,14 @@ function LoadingScreen() {
 }
 
 function OverviewTab({ stats }) {
-  if (!stats) return <div>No data</div>;
+  if (!stats) {
+    return (
+      <DataFallback
+        message="System telemetry is not available yet."
+        className="sentinel-surface sentinel-border p-10"
+      />
+    );
+  }
 
   const StatCard = ({ label, value, subtext, icon: Icon, color }) => (
     <motion.div
@@ -397,7 +464,14 @@ function OverviewTab({ stats }) {
 }
 
 function AnalyticsTab({ analytics, feedback }) {
-  if (!analytics) return <div>No analytics data</div>;
+  if (!analytics) {
+    return (
+      <DataFallback
+        message="Analytics data is still loading."
+        className="sentinel-surface sentinel-border p-10"
+      />
+    );
+  }
 
   return (
     <div className="space-y-12">
@@ -459,7 +533,14 @@ function AnalyticsTab({ analytics, feedback }) {
 }
 
 function ArchitectureTab({ architecture }) {
-  if (!architecture) return <div>No architecture data</div>;
+  if (!architecture) {
+    return (
+      <DataFallback
+        message="Architecture summary unavailable."
+        className="sentinel-surface sentinel-border p-10"
+      />
+    );
+  }
 
   return (
     <div className="space-y-12">
@@ -560,7 +641,14 @@ function ArchitectureTab({ architecture }) {
 }
 
 function FeedbackTab({ feedback }) {
-  if (!feedback) return <div>No feedback data</div>;
+  if (!feedback) {
+    return (
+      <DataFallback
+        message="No feedback telemetry yet."
+        className="sentinel-surface sentinel-border p-10"
+      />
+    );
+  }
 
   return (
     <div className="space-y-12">

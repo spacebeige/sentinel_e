@@ -4,7 +4,7 @@ import logging
 import time
 from typing import Any, Dict, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +31,11 @@ except ImportError:
     CognitivePhase = None
     create_run_bus = None
     _COGNITIVE_RUNTIME_ENABLED = False
+
+try:
+    from memory.behavioral_memory import BehavioralMemoryManager
+except ImportError:
+    BehavioralMemoryManager = None
 
 logger = logging.getLogger("ChatRoutes")
 
@@ -84,6 +89,7 @@ async def chat_with_model(
     model_id: str,
     req: ChatRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     try:
@@ -145,7 +151,7 @@ async def chat_with_model(
         document_cognition: Dict[str, Any] = {"available": False}
         if req.image_b64:
             try:
-                document_cognition = build_document_cognition(req.image_b64, req.image_mime)
+                document_cognition = await build_document_cognition(req.image_b64, req.image_mime)
                 if orch_run and document_cognition.get("semantic_context"):
                     orch_run.transition_to(CognitivePhase.VERIFY, {"source": "document_cognition", "mime": req.image_mime})
                     orch_run.record_memory_retrieval(
@@ -251,6 +257,18 @@ async def chat_with_model(
             db, chat.id, user_id, "assistant", sanitized, 
             reasoning_json=assistant_reasoning
         )
+
+        if BehavioralMemoryManager and user_id and user_id != "anonymous":
+            background_tasks.add_task(
+                BehavioralMemoryManager.update_profile_async,
+                db=db,
+                user_id=user_id,
+                interaction_metrics={
+                    "model": model_id,
+                    "query_complexity": "complex" if len(req.query) > 100 else "simple",
+                    "latency_ms": elapsed_ms,
+                }
+            )
 
         return api_success({
             "chat_id": str(chat.id),

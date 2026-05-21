@@ -1,14 +1,24 @@
-// TODO: Remove deprecated Firebase auth flow after Supabase stabilization
 import { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import LoadingScreen from './LoadingScreen';
 import { useAuthContext } from '../hooks/useAuthContext';
 import useStore from '../stores/useStore';
 
+/**
+ * ProtectedRoute — Supabase Auth Gate
+ *
+ * Dual guard pattern:
+ *   - loading: auth check still in-flight (Supabase session restore)
+ *   - hasHydrated: Zustand localStorage rehydration not yet complete
+ *
+ * Both must be resolved before rendering protected content or redirecting
+ * to prevent blank flashes and race conditions on page reload.
+ *
+ * requireAdmin: additionally requires the user to have role='admin'.
+ * Only oomkaragarkhed0710@gmail.com is granted runtime admin status.
+ */
 export function ProtectedRoute({ children, requireAdmin = false }) {
   const location = useLocation();
-  // authResolved: auth check finished (not still loading)
-  // sessionReady: authenticated + auth resolved — safe to render protected content
   const { loading, authResolved, isAuthenticated, isAdmin, openAuthModal } = useAuthContext();
   // hasHydrated: localStorage rehydration complete — prevents blank flash before store loads
   const hasHydrated = useStore(state => state.hasHydrated);
@@ -34,43 +44,5 @@ export function ProtectedRoute({ children, requireAdmin = false }) {
 
   return children;
 }
-
-// TODO: Restore Firebase Auth after configuration fixes
-// Original protected-route guard preserved below.
-//
-// import React, { useEffect } from 'react';
-// import { Navigate, useLocation } from 'react-router-dom';
-// import { useAuthContext } from '../hooks/useAuthContext';
-// import LoadingScreen from './LoadingScreen';
-//
-// export function ProtectedRoute({ children, requireAdmin = false }) {
-//   const location = useLocation();
-//   const {
-//     loading,
-//     isAuthenticated,
-//     isAdmin,
-//     openAuthModal,
-//   } = useAuthContext();
-//
-//   useEffect(() => {
-//     if (!loading && !isAuthenticated) {
-//       openAuthModal({ returnTo: location.pathname });
-//     }
-//   }, [isAuthenticated, loading, location.pathname, openAuthModal]);
-//
-//   if (loading) {
-//     return <LoadingScreen message="Checking authentication..." />;
-//   }
-//
-//   if (!isAuthenticated) {
-//     return <LoadingScreen message="Please log in to continue..." />;
-//   }
-//
-//   if (requireAdmin && !isAdmin) {
-//     return <Navigate to="/chat" replace />;
-//   }
-//
-//   return children;
-// }
 
 export default ProtectedRoute;

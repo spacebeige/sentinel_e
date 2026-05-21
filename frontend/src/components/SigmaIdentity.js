@@ -1,5 +1,6 @@
 import React from 'react';
-import { Sigma } from 'lucide-react';
+
+const LOGO_SRC = '/assets/branding/sentinel-logo-icon.png';
 
 export default function SigmaIdentity({
   size = 40,
@@ -15,7 +16,12 @@ export default function SigmaIdentity({
         style={{ width: size, height: size, borderRadius: Math.max(12, size * 0.28) }}
         aria-hidden="true"
       >
-        <Sigma style={{ width: size * 0.54, height: size * 0.54 }} />
+        <img
+          src={LOGO_SRC}
+          alt="Sentinel-E"
+          className="sentinel-sigma-logo"
+          style={{ width: size * 0.64, height: size * 0.64 }}
+        />
       </div>
       {showLabel && (
         <div className="sentinel-sigma-label">

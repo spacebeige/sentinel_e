@@ -109,7 +109,7 @@ export async function restoreSupabaseSession() {
   return { session, user, error: error || null };
 }
 
-export async function signInWithGitHubOAuth({ redirectTo } = {}) {
+export async function signInWithGoogleOAuth({ redirectTo } = {}) {
   if (!isSupabaseConfigured) {
     throw new Error('Supabase auth is not configured.');
   }
@@ -117,7 +117,7 @@ export async function signInWithGitHubOAuth({ redirectTo } = {}) {
   const supabase = getSupabaseClient();
   const resolvedRedirect = redirectTo || `${window.location.origin}/chat`;
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'github',
+    provider: 'google',
     options: {
       redirectTo: resolvedRedirect,
     },

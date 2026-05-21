@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { isSupabaseConfigured } from '../lib/supabase';
 import {
   restoreSupabaseSession,
-  signInWithGitHubOAuth,
+  readSupabaseSessionSnapshot,
+  signInWithGoogleOAuth,
   signInWithEmail as signInWithEmailService,
   signUpWithEmail as signUpWithEmailService,
   signOutSupabaseSession,
@@ -20,6 +21,14 @@ export function useSupabaseAuth() {
   useEffect(() => {
     let cancelled = false;
     let unsubscribe = () => {};
+    // Safety timeout: if session restore hangs for >5s (network, cold start),
+    // force loading=false so the app doesn't stay blocked indefinitely.
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) {
+        console.warn('[Auth] Session restore safety timeout hit — forcing loading=false');
+        setLoading(false);
+      }
+    }, 5000);
 
     async function hydrate() {
       // Ensure hydration runs exactly once per mount
@@ -37,6 +46,11 @@ export function useSupabaseAuth() {
       console.log('[Auth] Hydrating Supabase session...');
 
       try {
+        const snapshot = readSupabaseSessionSnapshot();
+        if (!cancelled && snapshot?.user?.id) {
+          setUser(snapshot.user);
+          setSession((prev) => prev || (snapshot.access_token ? { access_token: snapshot.access_token, user: snapshot.user } : null));
+        }
         const restored = await restoreSupabaseSession();
         if (!cancelled) {
           setSession(restored.session || null);
@@ -54,6 +68,7 @@ export function useSupabaseAuth() {
           setError(restoreError?.message || 'Failed to restore auth session.');
         }
       } finally {
+        clearTimeout(safetyTimer);
         if (!cancelled) {
           setLoading(false);
           console.log('[Auth] Hydration complete. loading=false');
@@ -76,13 +91,14 @@ export function useSupabaseAuth() {
 
     return () => {
       cancelled = true;
+      clearTimeout(safetyTimer);
       unsubscribe();
     };
   }, []); // intentionally empty — runs once on mount only
 
-  const signInWithGitHub = useCallback(async ({ redirectTo } = {}) => {
+  const signInWithGoogle = useCallback(async ({ redirectTo } = {}) => {
     setError('');
-    await signInWithGitHubOAuth({ redirectTo });
+    await signInWithGoogleOAuth({ redirectTo });
   }, []);
 
   const signInWithEmail = useCallback(async ({ email, password }) => {
@@ -107,7 +123,7 @@ export function useSupabaseAuth() {
     error,
     setError,
     isSupabaseConfigured,
-    signInWithGitHub,
+    signInWithGoogle,
     signInWithEmail,
     signUpWithEmail,
     signOut,
