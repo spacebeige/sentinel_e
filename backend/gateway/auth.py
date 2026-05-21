@@ -530,40 +530,30 @@ while delegating all live auth behavior to the Firebase implementation.
 """
 
 from typing import Optional, Dict, Any
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
 
 from gateway.auth_v2 import (
     extract_token_from_header,
-    get_current_user as firebase_get_current_user,
-    get_guest_user,
+    get_current_user as supabase_get_current_user,
     resolve_temp_user_from_request,
-    TEMP_AUTH_DISABLED,
-    verify_firebase_token,
+    verify_supabase_token,
 )
 from gateway.admin_access import enrich_runtime_admin_role, is_runtime_admin_email
 
 
 async def get_current_user(
     request: Request,
+    authorization: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
-    if TEMP_AUTH_DISABLED:
-        # TODO: Restore Firebase Auth after configuration fixes
-        temp_user = resolve_temp_user_from_request(request)
-        if not temp_user:
-            raise HTTPException(status_code=401, detail="Not authenticated")
-        request.state.user_id = temp_user["user_id"]
-        request.state.current_user = temp_user
-        return temp_user
-    return enrich_runtime_admin_role(await firebase_get_current_user(request=request))
+    return enrich_runtime_admin_role(await supabase_get_current_user(request=request, authorization=authorization))
 
 
 async def get_optional_user(
     request: Request,
+    authorization: Optional[str] = Header(None),
 ) -> Optional[Dict[str, Any]]:
-    if TEMP_AUTH_DISABLED:
-        return resolve_temp_user_from_request(request)
     try:
-        return await firebase_get_current_user(request=request)
+        return await supabase_get_current_user(request=request, authorization=authorization)
     except HTTPException:
         return None
 
@@ -571,10 +561,6 @@ async def get_optional_user(
 async def require_admin(
     user: Dict[str, Any] = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    if TEMP_AUTH_DISABLED:
-        # TODO: Restore Firebase Auth after configuration fixes
-        return user or get_guest_user()
-
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -584,19 +570,20 @@ async def require_admin(
     return user
 
 
-async def get_user_id(request: Request) -> Optional[str]:
-    """Returns the Firebase UID from the Authorization header if present."""
+async def get_user_id(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+) -> Optional[str]:
+    """Returns the user ID (Supabase UUID) from the Authorization header if present."""
     try:
-        if TEMP_AUTH_DISABLED:
-            user = resolve_temp_user_from_request(request)
-            return user.get("user_id") if user else None
-
-        auth_header = request.headers.get("Authorization")
+        auth_header = authorization or request.headers.get("Authorization")
         token = extract_token_from_header(auth_header)
         if not token:
-            return None
+            # Try dev-only header fallback
+            temp_user = resolve_temp_user_from_request(request)
+            return temp_user.get("user_id") if temp_user else None
 
-        payload = await verify_firebase_token(token)
-        return payload.get("uid") if payload else None
+        claims = await verify_supabase_token(token)
+        return claims.get("sub") if claims else None
     except Exception:
         return None
