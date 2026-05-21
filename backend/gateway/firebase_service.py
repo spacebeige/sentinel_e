@@ -13,8 +13,6 @@ import json
 import logging
 from typing import Optional, Dict, Any
 
-from gateway.auth_v2 import TEMP_AUTH_DISABLED
-
 try:
     import firebase_admin
     from firebase_admin import credentials, auth, firestore
@@ -36,11 +34,6 @@ class FirebaseService:
 
     def _initialize(self):
         """Initialize Firebase Admin SDK from environment variables."""
-        if TEMP_AUTH_DISABLED:
-            # TODO: Restore Firebase Auth after configuration fixes
-            logger.warning("Firebase Admin service disabled because guest mode is active.")
-            self.enabled = False
-            return
 
         if not FIREBASE_ADMIN_AVAILABLE:
             logger.warning("Firebase Admin SDK not installed. Install with: pip install firebase-admin")
@@ -105,11 +98,6 @@ class FirebaseService:
         Returns:
             Decoded token with user claims, or None if invalid
         """
-        if TEMP_AUTH_DISABLED:
-            # TODO: Restore Firebase Auth after configuration fixes
-            logger.info("Guest mode active; FirebaseService token verification bypassed.")
-            return None
-
         if not self.enabled:
             logger.debug("Firebase not enabled, skipping token verification")
             return None
@@ -237,4 +225,4 @@ def get_firebase_service() -> FirebaseService:
 
 def firebase_is_enabled() -> bool:
     """Check if Firebase is enabled and initialized."""
-    return get_firebase_service().enabled and not TEMP_AUTH_DISABLED
+    return get_firebase_service().enabled
