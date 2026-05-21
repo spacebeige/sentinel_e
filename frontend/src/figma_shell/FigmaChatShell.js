@@ -39,8 +39,10 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import StructuredOutput from '../components/structured/StructuredOutput';
-import ThinkingAnimation from '../components/structured/ThinkingAnimation';
+import SemanticCognitionGraph from '../components/SemanticCognitionGraph';
+import { CognitionQualityBadge } from '../components/CognitionStreamPanel';
 import AdvancedCopyMenu from '../components/AdvancedCopyMenu';
+import SigmaIdentity from '../components/SigmaIdentity';
 import { normalizeResponseText } from '../engines/responseNormalizer';
 import memoryManager from '../engines/memoryManager';
 import { getVisibility, hasAnyVisibleAnalytics } from '../engines/analyticsVisibilityController';
@@ -108,9 +110,6 @@ export default function FigmaChatShell({
   // === Handlers ===
   onNewChat,
   onSelectRun,
-
-  // === Engine pipeline (v4) ===
-  pipelineSteps,
 
   // === Memory context (vNext) ===
   lastQueryText,
@@ -464,6 +463,45 @@ export default function FigmaChatShell({
       </span>
     </div>
   );
+
+  const renderRuntimeTimeline = (message) => {
+    const events = message.omegaMetadata?.orchestration_run?.event_timeline || [];
+    if (!Array.isArray(events) || events.length === 0 || message.role !== 'assistant') return null;
+
+    return (
+      <div className="mt-3 rounded-2xl border border-black/5 dark:border-white/10 bg-white/55 dark:bg-black/20 overflow-hidden">
+        <div className="px-3 py-2 border-b border-black/5 dark:border-white/10 flex items-center justify-between">
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#3b82f6]">
+            Runtime Events
+          </span>
+          <span className="text-[10px] text-[#6e6e73] dark:text-[#94a3b8]">
+            real orchestration telemetry
+          </span>
+        </div>
+        <div className="divide-y divide-black/5 dark:divide-white/10">
+          {events.slice(-5).map((event, index) => (
+            <div key={`${event.event_type}-${index}`} className="px-3 py-2 flex items-start gap-2">
+              <span
+                className="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0"
+                style={{
+                  backgroundColor: event.severity === 'warning' ? '#f59e0b' : event.severity === 'critical' ? '#ef4444' : '#3b82f6',
+                  boxShadow: event.severity === 'info' ? '0 0 10px rgba(59,130,246,0.45)' : 'none',
+                }}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-semibold text-[#1d1d1f] dark:text-white truncate">
+                  {String(event.event_type || 'runtime_event').replace(/_/g, ' ')}
+                </div>
+                <div className="text-[10px] text-[#6e6e73] dark:text-[#94a3b8] truncate">
+                  {event.phase || 'runtime'} · {event.timestamp ? new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   // ============================================================
   // OMEGA INSIGHTS PANEL
@@ -920,6 +958,9 @@ export default function FigmaChatShell({
         {/* ---------- CHAT HEADER ---------- */}
         <div className="flex items-center justify-between px-2 sm:px-4 py-3 bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/10 overflow-hidden">
           <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
+            <div className="hidden sm:flex mr-1">
+              <SigmaIdentity size={34} pulse={backendOnline} />
+            </div>
             {/* History toggle */}
             <button
               onClick={() => setShowHistory(!showHistory)}
@@ -1225,8 +1266,8 @@ export default function FigmaChatShell({
                     <div
                       className={`${
                         message.role === 'user'
-                          ? 'max-w-[90%] sm:max-w-[70%] rounded-[20px] rounded-br-md bg-blue-600 dark:bg-blue-500 text-white px-3 sm:px-4 py-2.5 sm:py-3'
-                          : 'max-w-[98%] sm:max-w-[85%] rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/10 text-[#1d1d1f] dark:text-white shadow-sm overflow-hidden'
+                          ? 'max-w-[90%] sm:max-w-[70%] rounded-[20px] rounded-br-md bg-white dark:bg-[#020204] text-[#0f172a] dark:text-white border border-black/10 dark:border-white/10 shadow-sm px-3 sm:px-4 py-2.5 sm:py-3'
+                          : 'max-w-[98%] sm:max-w-[85%] rounded-[20px] rounded-bl-md bg-[#f5f5f7] dark:bg-[#18191f] border border-black/5 dark:border-white/10 text-[#1d1d1f] dark:text-white shadow-sm overflow-hidden'
                       }`}
                       style={undefined}
                     >
@@ -1276,6 +1317,11 @@ export default function FigmaChatShell({
                             
                             return (
                               <div className="mt-3 -mx-4 px-4 pt-3 border-t border-black/5">
+                                {(meta.cognitive_artifact || meta.orchestration_run) && (
+                                  <div className="mb-3 flex items-center">
+                                    <CognitionQualityBadge currentResult={{ omega_metadata: meta }} />
+                                  </div>
+                                )}
                                 <StructuredOutput
                                   result={{
                                     ...response,
@@ -1284,6 +1330,18 @@ export default function FigmaChatShell({
                                   }}
                                   activeSubMode={resolvedSubMode}
                                 />
+                                {(meta.cognitive_artifact || meta.orchestration_run || (meta.all_outputs || meta.model_outputs)?.length > 1) && (
+                                  <div className="mt-4">
+                                    <SemanticCognitionGraph
+                                      response={{
+                                        ...response,
+                                        omega_metadata: meta,
+                                      }}
+                                      width={560}
+                                      height={320}
+                                    />
+                                  </div>
+                                )}
                               </div>
                             );
                           })()
@@ -1321,6 +1379,7 @@ export default function FigmaChatShell({
 
                         {/* Omega Insights */}
                         {renderOmegaInsights(message)}
+                        {renderRuntimeTimeline(message)}
 
                         {/* Developer Debug Info (Development Only) */}
                         {process.env.NODE_ENV === 'development' && message.role === 'assistant' && (
@@ -1340,7 +1399,7 @@ export default function FigmaChatShell({
 
                         {/* Timestamp + Feedback */}
                         <div className="flex items-center justify-between mt-1">
-                          <div className={message.role === 'user' ? 'text-white/50' : 'text-[#6e6e73]'}
+                          <div className={message.role === 'user' ? 'text-black/45 dark:text-white/50' : 'text-[#6e6e73]'}
                             style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 400 }}>
                             {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
@@ -1380,28 +1439,34 @@ export default function FigmaChatShell({
               })}
             </AnimatePresence>
 
-            {/* Thinking Animation — pipeline-aware loading indicator */}
+            {/* Runtime loading state — does not simulate cognitive events */}
             {loading && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex justify-start"
-              >
-                <div
-                  className="max-w-[98%] sm:max-w-[85%] rounded-[20px] rounded-bl-md bg-white dark:bg-[#1c1c1e] border shadow-sm overflow-hidden"
+                >
+                  <div
+                  className="max-w-[98%] sm:max-w-[85%] rounded-[20px] rounded-bl-md bg-[#f5f5f7] dark:bg-[#18191f] border shadow-sm overflow-hidden"
                   style={{
                     borderColor: activeSubMode
                       ? (PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color || '#6e6e73') + '30'
                       : 'rgba(0,0,0,0.05)',
                   }}
                 >
-                  <ThinkingAnimation
-                    steps={pipelineSteps || []}
-                    activeColor={activeSubMode
-                      ? PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color
-                      : '#3b82f6'}
-                    thinkMode={mode === 'experimental' || !!activeSubMode}
-                  />
+                  <div className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <SigmaIdentity size={28} pulse />
+                      <div>
+                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#3b82f6]">
+                          Runtime Request Active
+                        </div>
+                        <div className="text-xs text-[#6e6e73] dark:text-[#94a3b8] mt-0.5">
+                          Awaiting OrchestrationRun events from the backend.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             )}

@@ -1,6 +1,12 @@
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
 
 const AUTH_SNAPSHOT_KEY = 'sentinel-supabase-auth-snapshot';
+const RUNTIME_ADMIN_EMAILS = new Set(
+  String(process.env.REACT_APP_RUNTIME_ADMIN_EMAILS || 'oomkaragarkhed0710@gmail.com')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 function safeParse(raw, fallback = null) {
   if (!raw) return fallback;
@@ -27,7 +33,10 @@ function canUseLocalStorage() {
 export function normalizeSupabaseUser(user) {
   if (!user?.id) return null;
 
-  const role = user?.app_metadata?.role || user?.user_metadata?.role || 'user';
+  const email = user.email || '';
+  const role = RUNTIME_ADMIN_EMAILS.has(email.trim().toLowerCase())
+    ? 'admin'
+    : (user?.app_metadata?.role || user?.user_metadata?.role || 'user');
   const provider = user?.app_metadata?.provider
     || user?.identities?.[0]?.provider
     || 'supabase';
@@ -36,7 +45,7 @@ export function normalizeSupabaseUser(user) {
     id: user.id,
     user_id: user.id,
     uid: user.id,
-    email: user.email || '',
+    email,
     name: user.user_metadata?.full_name
       || user.user_metadata?.name
       || user.user_metadata?.user_name

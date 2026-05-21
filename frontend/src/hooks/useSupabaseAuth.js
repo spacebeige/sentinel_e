@@ -19,6 +19,7 @@ export function useSupabaseAuth() {
 
   useEffect(() => {
     let cancelled = false;
+    let unsubscribe = () => {};
 
     async function hydrate() {
       // Ensure hydration runs exactly once per mount
@@ -58,19 +59,20 @@ export function useSupabaseAuth() {
           console.log('[Auth] Hydration complete. loading=false');
         }
       }
+
+      if (!cancelled) {
+        unsubscribe = subscribeToSupabaseSession(({ session: nextSession, user: nextUser }) => {
+          if (cancelled) return;
+          console.log('[Auth] Auth state changed:', nextSession?.user?.id || 'signed out');
+          setSession(nextSession || null);
+          setUser(nextUser || null);
+          setLoading(false);
+          setError('');
+        });
+      }
     }
 
     hydrate();
-
-    // Subscribe AFTER hydration attempt — onAuthStateChange fires on any state update
-    const unsubscribe = subscribeToSupabaseSession(({ session: nextSession, user: nextUser }) => {
-      if (cancelled) return;
-      console.log('[Auth] Auth state changed:', nextSession?.user?.id || 'signed out');
-      setSession(nextSession || null);
-      setUser(nextUser || null);
-      setLoading(false);
-      setError('');
-    });
 
     return () => {
       cancelled = true;

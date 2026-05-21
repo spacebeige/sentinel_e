@@ -18,6 +18,7 @@ import { AuthProvider, useAuthContext } from './hooks/useAuthContext';
 import useStore from './stores/useStore';
 import { API_BASE } from './config';
 import api from './services/api';
+import SigmaIdentity from './components/SigmaIdentity';
 
 function SessionInitializer({ children }) {
   const { isAuthenticated, loading, user } = useAuthContext();
@@ -131,6 +132,9 @@ function AuthModal() {
       <div className="w-full max-w-md rounded-3xl sentinel-surface-panel shadow-2xl border p-6 sentinel-text-primary">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
+            <div className="mb-4">
+              <SigmaIdentity size={46} showLabel label="Sentinel-E" pulse />
+            </div>
             <div className="text-2xl font-semibold tracking-tight">
               {mode === 'signin' ? 'Sign in to Sentinel' : 'Create an account'}
             </div>

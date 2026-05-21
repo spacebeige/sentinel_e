@@ -96,6 +96,21 @@ from core.glass_pipeline import build_glass_result
 from core.evidence_pipeline import build_evidence_result
 from core.synthesis_engine import build_synthesis_result
 
+# ── v8.0: Persistent Hybrid Cognitive Orchestration Runtime ───
+try:
+    from core.orchestration_run import create_orchestration_run, get_run_registry, CognitivePhase
+    from core.runtime_event_bus import create_run_bus, get_event_bus_registry
+    from memory.layered_memory import create_layered_context, get_deliberative_memory, get_tactical_memory
+    from core.cognitive_artifact_builder import build_cognitive_artifact
+    from api.orchestration_routes import router as orchestration_router
+    _COGNITIVE_RUNTIME_ENABLED = True
+    logger_tmp = logging.getLogger("Sentinel-API")
+    logger_tmp.info("✓ Cognitive Runtime v8.0 modules loaded")
+except ImportError as _cre:
+    _COGNITIVE_RUNTIME_ENABLED = False
+    orchestration_router = None
+    logging.getLogger("Sentinel-API").warning(f"Cognitive Runtime v8.0 modules not loaded (non-fatal): {_cre}")
+
 # ── Optimization Layer ───────────────────────────────────────
 from optimization import (
     get_token_optimizer,
@@ -118,6 +133,7 @@ from gateway.chat_routes import router as chat_router
 
 # ── Persistent API v2 (Neon-based) ─────────────────────────
 from api.endpoints_v2 import router as api_v2
+from api.browser_runtime_routes import router as browser_runtime_router
 
 # ── Admin Routes ──────────────────────────────────────────────
 from gateway.admin_routes import router as admin_router
@@ -650,6 +666,14 @@ app.include_router(mco_router)
 # ── Persistent API v2 Router (Neon-based persistence) ───────
 app.include_router(api_v2, prefix="/api")
 
+# ── Embedded Browser Runtime Router ─────────────────────────
+app.include_router(browser_runtime_router)
+
+# ── v8.0: Orchestration Observability Routes ──────────────────
+if _COGNITIVE_RUNTIME_ENABLED and orchestration_router is not None:
+    app.include_router(orchestration_router)
+    logging.getLogger("Sentinel-API").info("✓ Orchestration runtime routes registered")
+
 # ── Battle Platform v2 Router ────────────────────────────────
 app.include_router(battle_router)
 
@@ -1012,6 +1036,27 @@ async def _run_sentinel_core(
     Core execution logic for all Sentinel run endpoints.
     Extracted so both the JSON route and form-data shims can call it.
     """
+    # ── v8.0: Create OrchestrationRun — cognitive identity spine ─
+    # This is purely additive. If the runtime module failed to load,
+    # orch_run is None and all downstream guards are no-ops.
+    orch_run = None
+    orch_bus = None
+    if _COGNITIVE_RUNTIME_ENABLED:
+        try:
+            query_preview = (getattr(request, "text", "") or "")[:80]
+            orch_run = create_orchestration_run(
+                chat_id=str(getattr(request, "chat_id", "") or ""),
+                user_id=user_id,
+                query_preview=query_preview,
+                execution_path="pending",
+            )
+            orch_bus = create_run_bus(orch_run.orchestration_run_id)
+            orch_run.transition_to(CognitivePhase.OBSERVE)
+        except Exception as _orch_err:
+            logger.debug(f"[v8.0] OrchestrationRun creation failed (non-fatal): {_orch_err}")
+            orch_run = None
+            orch_bus = None
+
     try:
         if not user_id:
             return api_error("Authentication required", status_code=401)
@@ -1266,11 +1311,34 @@ async def _run_sentinel_core(
             f"reason={routing_decision.reason}, "
             f"complexity={routing_decision.query_complexity}"
         )
-    
+
+        # ── v8.0: Record routing on OrchestrationRun ─────────────
+        if orch_run is not None:
+            try:
+                orch_run.transition_to(CognitivePhase.ROUTE)
+                orch_run.record_routing_decision({
+                    "path": routing_decision.path.value,
+                    "reason": routing_decision.reason,
+                    "query_complexity": routing_decision.query_complexity,
+                    "skip_debate": routing_decision.skip_debate,
+                    "selected_model": routing_decision.selected_model,
+                })
+                if orch_bus:
+                    orch_bus.publish({
+                        "event_type": "routing_decision_made",
+                        "phase": "route",
+                        "path": routing_decision.path.value,
+                        "reason": routing_decision.reason,
+                        "complexity": routing_decision.query_complexity,
+                    })
+            except Exception:
+                pass
+
         # ══════════════════════════════════════════════════════════
         # PATH: SINGLE MODEL CHAT — bypass ensemble entirely
         # ══════════════════════════════════════════════════════════
         if routing_decision.path == ExecutionPath.SINGLE_MODEL and routing_decision.selected_model:
+
             tracer.start_span("kernel")
             single_model_id = routing_decision.selected_model
             try:
@@ -1585,6 +1653,55 @@ async def _run_sentinel_core(
                         "contradictions": len(rag_result.contradictions),
                         "no_sources": rag_result.no_sources_found,
                     }
+
+                # ── v8.0: Cognitive Artifact + OrchestrationRun identity ─
+                if orch_run is not None and _COGNITIVE_RUNTIME_ENABLED:
+                    try:
+                        # Finalize orch_run telemetry from ensemble response
+                        orch_run.models_executed = ensemble_response.models_executed
+                        orch_run.models_succeeded = ensemble_response.models_succeeded
+                        orch_run.models_failed = ensemble_response.models_failed
+                        orch_run.record_confidence_snapshot(
+                            phase="post_ensemble",
+                            value=confidence,
+                            method="calibrated_ensemble",
+                        )
+                        orch_run.record_debate_round(
+                            round_number=ens_debate_rounds,
+                            positions=[],
+                            contradiction_density=ensemble_response.ensemble_metrics.contradiction_density,
+                            drift_index=getattr(ensemble_response.debate_result, "drift_index", 0.0),
+                        )
+                        orch_run.transition_to(CognitivePhase.SYNTHESIZE)
+                        orch_run.record_synthesis_start("ensemble_weighted", ensemble_response.models_succeeded)
+                        orch_run.record_synthesis_complete(len(formatted_output))
+
+                        # Build cognitive artifact
+                        cognitive_artifact = build_cognitive_artifact(
+                            ensemble_response=ensemble_response,
+                            orchestration_run=orch_run,
+                            rag_result=rag_result,
+                        )
+                        omega_metadata["cognitive_artifact"] = cognitive_artifact
+                        omega_metadata["orchestration_run"] = orch_run.to_frontend_dict()
+                        omega_metadata["version"] = "8.0.0-cognitive-runtime"
+
+                        orch_run.transition_to(CognitivePhase.REFLECT)
+                        orch_run.record_reflection(cognitive_artifact.get("reflective_cognition", ""))
+                        orch_run.transition_to(CognitivePhase.STORE_SNAPSHOT)
+                        orch_run.mark_completed()
+                        if orch_bus:
+                            orch_bus.publish({
+                                "event_type": "synthesis_completed",
+                                "phase": "synthesize",
+                                "confidence": round(confidence, 4),
+                                "models_executed": ensemble_response.models_executed,
+                            })
+                            orch_bus.close()
+                    except Exception as _art_err:
+                        logger.debug(f"[v8.0] Cognitive artifact build failed (non-fatal): {_art_err}")
+
+
     
                 # ── Sub-Mode Pipeline Execution ──────────────────────
                 # Wire Glass / Evidence / Synthesis pipelines so the
@@ -3023,4 +3140,3 @@ async def get_session_debug(
 # ============================================================
 # STARTUP
 # ============================================================
-

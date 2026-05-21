@@ -1,5 +1,6 @@
 import React from 'react';
 import { Plus, Sun, Moon, BookOpen, Wifi, WifiOff, Skull, MessageSquare } from 'lucide-react';
+import SigmaIdentity from './SigmaIdentity';
 
 const relativeTime = (iso) => {
   if (!iso) return '';
@@ -33,7 +34,7 @@ const Sidebar = ({
       {/* Top: Brand + New Chat */}
       <div className="p-3 space-y-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div className="flex items-center justify-between px-1">
-          <span className="text-sm font-semibold tracking-wide">Sentinel-E</span>
+          <SigmaIdentity size={34} showLabel label="Sentinel-E" pulse={serverStatus === 'online'} className="sentinel-sigma-identity--sidebar" />
           <div className="flex items-center gap-1">
             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" 
               style={{ backgroundColor: serverStatus === 'online' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', 

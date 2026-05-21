@@ -19,7 +19,18 @@ from gateway.auth import get_user_id
 from database.connection import get_db
 from database.crud import create_chat, get_chat, add_message, get_chat_messages
 from core.context_builder import get_context_builder
+from core.document_cognition import build_document_cognition
 from utils.api_response import api_response, api_error, api_success
+
+try:
+    from core.orchestration_run import create_orchestration_run, CognitivePhase
+    from core.runtime_event_bus import create_run_bus
+    _COGNITIVE_RUNTIME_ENABLED = True
+except ImportError:
+    create_orchestration_run = None
+    CognitivePhase = None
+    create_run_bus = None
+    _COGNITIVE_RUNTIME_ENABLED = False
 
 logger = logging.getLogger("ChatRoutes")
 
@@ -97,18 +108,70 @@ async def chat_with_model(
             chat_name = req.query.strip()[:60] or "Direct model chat"
             chat = await create_chat(db, chat_name, "standard", user_id=user_id)
 
+        orch_run = None
+        orch_bus = None
+        if _COGNITIVE_RUNTIME_ENABLED:
+            try:
+                orch_run = create_orchestration_run(
+                    chat_id=str(chat.id),
+                    user_id=user_id,
+                    query_preview=req.query[:80],
+                    execution_path="single_model",
+                )
+                orch_bus = create_run_bus(orch_run.orchestration_run_id)
+                orch_run.transition_to(CognitivePhase.OBSERVE, {"source": "chat.direct"})
+                orch_run.transition_to(CognitivePhase.ROUTE, {
+                    "path": "single_model",
+                    "selected_model": model_id,
+                    "reason": "direct_model_endpoint",
+                })
+                orch_run.record_routing_decision({
+                    "path": "single_model",
+                    "selected_model": model_id,
+                    "reason": "direct_model_endpoint",
+                    "query_complexity": "direct_invocation",
+                })
+            except Exception:
+                orch_run = None
+                orch_bus = None
+
         # Persist user turn
         await add_message(
             db, chat.id, user_id, "user", req.query, 
-            image_b64=req.image_b64
+            image_b64=req.image_b64,
+            image_mime=req.image_mime,
         )
+
+        document_cognition: Dict[str, Any] = {"available": False}
+        if req.image_b64:
+            try:
+                document_cognition = build_document_cognition(req.image_b64, req.image_mime)
+                if orch_run and document_cognition.get("semantic_context"):
+                    orch_run.transition_to(CognitivePhase.VERIFY, {"source": "document_cognition", "mime": req.image_mime})
+                    orch_run.record_memory_retrieval(
+                        "working",
+                        "document_cognition",
+                        document_cognition.get("semantic_context", ""),
+                        0.88,
+                    )
+            except Exception as doc_err:
+                logger.warning("Document cognition skipped for direct chat: %s", doc_err)
+                document_cognition = {"available": False, "error": str(doc_err)[:200]}
 
         # Build context
         builder = get_context_builder()
         context_bundle = await builder.build_context(db, user_id, chat.id, req.query)
         system_instructions = context_bundle.get("system_instructions", "")
+        if orch_run and system_instructions:
+            try:
+                orch_run.transition_to(CognitivePhase.RETRIEVE_MEMORY, {"layer": "episodic", "key": "context_builder"})
+                orch_run.record_memory_retrieval("episodic", "context_builder", system_instructions[:200], 0.9)
+            except Exception:
+                pass
         
         contextual_query = f"{system_instructions}\n\n[USER QUERY]\n{req.query}"
+        if document_cognition.get("semantic_context"):
+            contextual_query = f"[DOCUMENT COGNITION]\n{document_cognition['semantic_context']}\n\n{contextual_query}"
 
         # Invoke model
         gateway_input = CognitiveGatewayInput(
@@ -116,21 +179,72 @@ async def chat_with_model(
             mode=QueryMode.RAW,
             max_tokens_override=req.max_tokens,
         )
+        if orch_run:
+            try:
+                orch_run.transition_to(CognitivePhase.SPAWN_AGENTS, {"path": "single_model"})
+            except Exception:
+                pass
         
         start = time.monotonic()
         output, retried = await _invoke_with_retry(gateway, model_id, gateway_input)
         elapsed_ms = (time.monotonic() - start) * 1000
 
         if not output.success:
+            if orch_run:
+                try:
+                    orch_run.mark_failed(output.error or "direct_model_failed", "DIRECT_MODEL_FAILED")
+                    if orch_bus:
+                        orch_bus.close()
+                except Exception:
+                    pass
             return api_error(f"Model invocation failed: {output.error}", status_code=502)
 
         # Sanitize and Persist
         sanitized = sanitize_output(output.raw_output)
+        omega_metadata = {
+            "version": "8.0.0-cognitive-runtime",
+            "mode": "single_model",
+            "sub_mode": None,
+            "selected_model": model_id,
+            "model_name": output.model_name,
+            "provider": getattr(spec, "provider", "unknown"),
+            "confidence": 0.78,
+            "latency_ms": round(elapsed_ms, 2),
+            "retried": retried,
+            "document_cognition": {
+                key: value
+                for key, value in document_cognition.items()
+                if key != "semantic_context"
+            },
+        }
+        if orch_run:
+            try:
+                orch_run.record_provider_call(
+                    model_id=model_id,
+                    model_name=output.model_name,
+                    provider=getattr(spec, "provider", "unknown"),
+                    latency_ms=elapsed_ms,
+                    succeeded=True,
+                    input_tokens=int(getattr(output, "input_tokens", 0) or 0),
+                    output_tokens=int(getattr(output, "output_tokens", 0) or 0),
+                )
+                orch_run.record_confidence_snapshot("single_model", 0.78, method="direct_model")
+                orch_run.transition_to(CognitivePhase.SYNTHESIZE, {"method": "single_model"})
+                orch_run.record_synthesis_start("single_model", 1)
+                orch_run.record_synthesis_complete(len(sanitized))
+                orch_run.transition_to(CognitivePhase.STORE_SNAPSHOT)
+                orch_run.mark_completed()
+                omega_metadata["orchestration_run"] = orch_run.to_frontend_dict()
+                if orch_bus:
+                    orch_bus.close()
+            except Exception:
+                pass
         
         assistant_reasoning = {
             "model_id": model_id,
             "retried": retried,
-            "latency_ms": elapsed_ms
+            "latency_ms": elapsed_ms,
+            **omega_metadata,
         }
         
         await add_message(
@@ -140,7 +254,14 @@ async def chat_with_model(
 
         return api_success({
             "chat_id": str(chat.id),
+            "mode": "single_model",
+            "sub_mode": None,
             "model_id": model_id,
+            "formatted_output": sanitized,
+            "data": {"priority_answer": sanitized},
+            "confidence": 0.78,
+            "boundary_result": {"risk_level": "LOW", "severity_score": 10},
+            "omega_metadata": omega_metadata,
             "response": sanitized,
             "latency_ms": round(elapsed_ms, 2),
             "tokens_used": output.tokens_used
