@@ -57,6 +57,7 @@ export default function ChatEngineV5() {
   const { user } = useAuthContext();
   const [mode, setMode] = useState('standard');
   const [subMode, setSubMode] = useState(null);
+  const [agentMode, setAgentMode] = useState(false);
   const [killActive, setKillActive] = useState(false);
   const [messages, setMessages] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
@@ -404,7 +405,7 @@ export default function ChatEngineV5() {
       }
 
       const returnedChatId = result.chat_id ? String(result.chat_id) : null;
-      const resolvedChatId = returnedChatId || chatId;
+      const resolvedChatId = (returnedChatId && UUID_REGEX.test(returnedChatId)) ? returnedChatId : chatId;
       
       // Validate result shape before rendering
       const isValid = validateResponseShape(result, Schemas.CHAT_RUN, 'sendMCOQuery');
@@ -419,14 +420,17 @@ export default function ChatEngineV5() {
         timestamp: new Date().toISOString(),
       };
       const completedMessages = [...optimisticMessages, assistantMsg];
+      
+      if (resolvedChatId !== chatId) {
+        reassignConversationId(chatId, resolvedChatId, { userId: activeUserId });
+        setActiveChatId(resolvedChatId);
+      }
+
       setMessages(completedMessages);
       setCurrentResult(result);
       addDebateResult(result);
       setLastResponseText(answerText);
       if (result.session_state) setSessionState(result.session_state);
-      if (returnedChatId && returnedChatId !== chatId) {
-        reassignConversationId(chatId, returnedChatId, { userId: activeUserId });
-      }
 
       saveConversationHistory(resolvedChatId, completedMessages, {
         mode,
@@ -461,10 +465,6 @@ export default function ChatEngineV5() {
         governanceVerdict: verdict,
       }, { userId: activeUserId });
       setLocalConversations(loadConversationHistory(null, { userId: activeUserId }));
-
-      if (returnedChatId && UUID_REGEX.test(returnedChatId)) {
-        setActiveChatId(returnedChatId);
-      }
 
       // Keep sidebar and cached state in sync with authoritative backend history.
       reloadHistory();
@@ -625,6 +625,8 @@ export default function ChatEngineV5() {
       setMode={setMode}
       subMode={subMode}
       setSubMode={setSubMode}
+      agentMode={agentMode}
+      setAgentMode={setAgentMode}
       killActive={killActive}
       setKillActive={setKillActive}
       onNewChat={handleNewChat}

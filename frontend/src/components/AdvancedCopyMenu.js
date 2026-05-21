@@ -44,7 +44,7 @@ export default function AdvancedCopyMenu({ message, className = '' }) {
   const codeBlocks = useMemo(() => {
     const matches = safeContent.match(/```[\s\S]*?```/g) || [];
     return matches.map(block =>
-      block.replace(/^```\w*\n?/, '').replace(/\n?```$/, ''),
+      block.replace(/^```[^\n]*\n?/, '').replace(/\n?```$/, ''),
     );
   }, [safeContent]);
 

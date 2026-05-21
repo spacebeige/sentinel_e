@@ -70,6 +70,14 @@ export function blockGuestHydration(restoredState) {
       'Guest ID detected:', storedUserId,
       '— Clearing.'
     );
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('sentinel-session-storage');
+        window.localStorage.removeItem('sentinel-supabase-auth-snapshot');
+      }
+    } catch (e) {
+      // ignore
+    }
     return {
       ...restoredState,
       userId: null,
