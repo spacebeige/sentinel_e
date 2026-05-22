@@ -29,7 +29,7 @@
   /* Border colors */
   --border-primary: #e2e8f0;
   --border-secondary: #f1f5f9;
-  --border-focus: #3b82f6;
+  --border-focus: #1c1c1e;
 
   /* Accent colors */
   --accent-blue: #1c1c1e;
@@ -79,8 +79,8 @@
   --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
 
   /* User/assistant bubble tokens (light mode) */
-  --user-bubble-bg: #e8f0fe;
-  --user-bubble-text: #1a2a4a;
+  --user-bubble-bg: #f3f4f6;
+  --user-bubble-text: #111827;
   --assistant-bubble-bg: #ffffff;
 
   /* Border radius */
@@ -361,7 +361,7 @@
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,0.08),
       0 10px 28px rgba(15, 23, 42, 0.22),
-      0 0 18px rgba(59, 130, 246, 0.18);
+      0 0 18px rgba(0, 0, 0, 0.12);
     backdrop-filter: blur(12px);
     color: #ffffff;
   }
@@ -701,7 +701,7 @@ section.relative .fixed.top-0 {
 }
 
 .toggle-checkbox:checked {
-  background-color: #3b82f6;
+  background-color: #1c1c1e;
 }
 
 .toggle-checkbox::before {
@@ -722,7 +722,7 @@ section.relative .fixed.top-0 {
 }
 
 .toggle-checkbox:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid #1c1c1e;
   outline-offset: 2px;
 }
 
@@ -769,11 +769,11 @@ section.relative .fixed.top-0 {
 
 /* Cognition stream panel adapts to dark mode */
 #cognition-stream-panel {
-  border-color: rgba(59, 130, 246, 0.25);
+  border-color: rgba(0, 0, 0, 0.1);
 }
 
 .dark #cognition-stream-panel,
 [data-theme="dark"] #cognition-stream-panel {
-  background: linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(6,182,212,0.06) 100%) !important;
-  border-color: rgba(59, 130, 246, 0.3) !important;
+  background: linear-gradient(135deg, rgba(72,72,74,0.08) 0%, rgba(72,72,74,0.04) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }

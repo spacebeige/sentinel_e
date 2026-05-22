@@ -48,7 +48,7 @@ function VirtualizedRunList({ runs, fetchRunDetail, LIFECYCLE_COLORS, FONT }) {
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               onClick={() => fetchRunDetail(run.orchestration_run_id)}
-              className="bg-white dark:bg-[#1c1c1e] rounded-xl p-4 border border-black/5 dark:border-white/5 hover:border-[#3b82f6]/30 transition-all cursor-pointer absolute left-0 right-0"
+              className="bg-white dark:bg-[#1c1c1e] rounded-xl p-4 border border-black/5 dark:border-white/5 hover:border-[#1c1c1e] dark:border-white/30 transition-all cursor-pointer absolute left-0 right-0"
               style={{ fontFamily: FONT, top: `${actualIndex * rowHeight}px`, height: `${rowHeight - 8}px` }}
             >
               <div className="flex items-center justify-between gap-4">
@@ -225,7 +225,7 @@ const CognitiveMissionControl = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex flex-shrink-0 items-center gap-2 px-4 py-3 border-b-2 whitespace-nowrap transition-colors ${
                     activeTab === tab.id
-                      ? 'border-[#3b82f6] text-[#3b82f6]'
+                      ? 'border-[#1c1c1e] dark:border-white text-[#1c1c1e] dark:text-[#f1f5f9]'
                       : 'border-transparent sentinel-text-muted hover:text-[#1d1d1f] dark:text-[#f1f5f9] dark:hover:text-white'
                   }`}
                 >
@@ -296,7 +296,7 @@ const CognitiveMissionControl = () => {
                 <h2 className="text-xl font-bold sentinel-text-primary" style={{ fontFamily: FONT }}>
                   User Management
                 </h2>
-                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-[#f5f5f7] text-[#6e6e73] dark:bg-white/10 dark:text-[#94a3b8]">
                   Protected runtime access
                 </span>
               </div>
@@ -322,10 +322,8 @@ function AdaptiveLearningTab({ apiBase }) {
     const fetchTelemetry = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${apiBase}/api/admin/adaptive/telemetry`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        setTelemetry(data);
+        const response = await api.get('/api/admin/adaptive/telemetry');
+        setTelemetry(response.data);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -339,7 +337,7 @@ function AdaptiveLearningTab({ apiBase }) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-10 h-10 border-2 border-[#1c1c1e] dark:border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p style={{ fontFamily: FONT, fontSize: '14px', color: 'var(--text-secondary)' }}>Loading adaptive telemetry…</p>
         </div>
       </div>
@@ -377,7 +375,7 @@ function AdaptiveLearningTab({ apiBase }) {
         <>
           {/* Summary metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <MetricCard label="Active Profiles" value={telemetry?.active_profiles ?? 0} color="#3b82f6" description="Users with behavioral profiles" />
+            <MetricCard label="Active Profiles" value={telemetry?.active_profiles ?? 0} color="#48484a" description="Users with behavioral profiles" />
             <MetricCard label="Avg Learning Confidence" value={telemetry?.avg_confidence != null ? `${(telemetry.avg_confidence * 100).toFixed(0)}` : '—'} unit="%" color="#10b981" description="Cross-user adaptation signal quality" />
             <MetricCard label="Routing Optimizations" value={telemetry?.routing_optimizations ?? '—'} color="#8b5cf6" description="Model routing decisions improved" />
             <MetricCard label="Correction Rate" value={telemetry?.avg_correction_rate != null ? `${(telemetry.avg_correction_rate * 100).toFixed(1)}` : '—'} unit="%" color="#f59e0b" description="User correction frequency (lower = better)" />
@@ -392,7 +390,7 @@ function AdaptiveLearningTab({ apiBase }) {
                   <div key={depth} className="flex items-center gap-3">
                     <span style={{ fontFamily: FONT, fontSize: '12px', color: 'var(--text-secondary)', width: '72px', textTransform: 'capitalize' }}>{depth}</span>
                     <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: 'var(--border-primary)' }}>
-                      <div className="h-2 rounded-full transition-all" style={{ width: `${Math.round(pct * 100)}%`, backgroundColor: depth === 'deep' ? '#8b5cf6' : depth === 'concise' ? '#10b981' : '#3b82f6' }} />
+                      <div className="h-2 rounded-full transition-all" style={{ width: `${Math.round(pct * 100)}%`, backgroundColor: depth === 'deep' ? '#8b5cf6' : depth === 'concise' ? '#10b981' : '#48484a' }} />
                     </div>
                     <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', width: '36px', textAlign: 'right' }}>{Math.round(pct * 100)}%</span>
                   </div>
@@ -573,7 +571,7 @@ function OverviewTab({ stats }) {
             value={stats.users?.total || 0}
             subtext={`${stats.users?.admins || 0} admins`}
             icon={Users}
-            color="#3b82f6"
+            color="#1c1c1e"
           />
           <StatCard
             label="Total Chats"
@@ -587,7 +585,7 @@ function OverviewTab({ stats }) {
             value={stats.messages?.total || 0}
             subtext={`${stats.messages?.avg_per_chat?.toFixed(1) || 0} per chat`}
             icon={Activity}
-            color="#06b6d4"
+            color="#48484a"
           />
           <StatCard
             label="Avg Feedback"
@@ -614,7 +612,7 @@ function OverviewTab({ stats }) {
                 className="bg-white dark:bg-[#1c1c1e] rounded-xl p-6 border border-black/5 dark:border-white/5"
               >
                 <h3 className="font-semibold text-[#1d1d1f] dark:text-[#f1f5f9] capitalize mb-2">{mode}</h3>
-                <p className="text-3xl font-bold text-[#3b82f6]">{count}</p>
+                <p className="text-3xl font-bold text-[#1c1c1e] dark:text-[#f1f5f9]">{count}</p>
               </motion.div>
             ))}
           </div>
@@ -792,7 +790,7 @@ function ArchitectureTab({ architecture }) {
                   <p className="text-xs text-[#aeaeb2]">{layer.responsibility}</p>
                 </div>
                 <div className="ml-4">
-                  <Zap className="w-5 h-5 text-[#3b82f6]" />
+                  <Zap className="w-5 h-5 text-[#1c1c1e] dark:text-[#f1f5f9]" />
                 </div>
               </div>
             </motion.div>
@@ -813,7 +811,7 @@ function ArchitectureTab({ architecture }) {
                 {(Array.isArray(stage.models) ? stage.models : []).map((model, j) => (
                   <span
                     key={j}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-[#3b82f6]/10 to-[#06b6d4]/10 text-[#1d1d1f] dark:text-[#f1f5f9] border border-[#3b82f6]/20"
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-[#f5f5f7] to-[#eeeef0] dark:from-[#2c2c2e] dark:to-[#1c1c1e] text-[#1d1d1f] dark:text-[#f1f5f9] border border-[#1c1c1e] dark:border-white/20"
                   >
                     {model}
                   </span>
@@ -857,7 +855,7 @@ function FeedbackTab({ feedback }) {
                 <div className="space-y-2">
                   <div>
                     <p className="text-xs text-[#6e6e73] mb-1">Feedback Count</p>
-                    <p className="text-2xl font-bold text-[#3b82f6]">{data.count || 0}</p>
+                    <p className="text-2xl font-bold text-[#1c1c1e] dark:text-[#f1f5f9]">{data.count || 0}</p>
                   </div>
                   <div>
                     <p className="text-xs text-[#6e6e73] mb-1">Avg Rating</p>
@@ -897,7 +895,7 @@ function FeedbackTab({ feedback }) {
                       <p className="text-[#6e6e73] text-xs">{item.reason}</p>
                     )}
                   </div>
-                  <div className="text-lg font-bold text-[#3b82f6]">
+                  <div className="text-lg font-bold text-[#1c1c1e] dark:text-[#f1f5f9]">
                     {item.rating}/5
                   </div>
                 </div>
@@ -949,7 +947,7 @@ function ModesTab({ stats }) {
                     <p className="text-xs text-[#6e6e73] mt-1">Chats</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-3xl font-bold text-[#3b82f6]">{count}</p>
+                    <p className="text-3xl font-bold text-[#1c1c1e] dark:text-[#f1f5f9]">{count}</p>
                     <p className="text-xs text-[#aeaeb2] mt-1">{percentage}%</p>
                   </div>
                 </div>
@@ -982,7 +980,7 @@ function ModesTab({ stats }) {
                   <p className="text-xs text-[#6e6e73] mt-1">Active conversations</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-[#3b82f6]">{count}</p>
+                  <p className="text-2xl font-bold text-[#1c1c1e] dark:text-[#f1f5f9]">{count}</p>
                 </div>
               </div>
             ))}
@@ -1042,7 +1040,7 @@ function OrchestratorTab() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Total Queries</p>
-            <h3 className="text-4xl font-bold text-[#3b82f6]">
+            <h3 className="text-4xl font-bold text-[#1c1c1e] dark:text-[#f1f5f9]">
               {orchestratorData?.total_queries || 0}
             </h3>
           </div>
@@ -1060,7 +1058,7 @@ function OrchestratorTab() {
           </div>
           <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Success Rate</p>
-            <h3 className="text-4xl font-bold text-[#06b6d4]">
+            <h3 className="text-4xl font-bold text-[#48484a] dark:text-[#94a3b8]">
               {orchestratorData?.success_rate || '95'}%
             </h3>
           </div>
@@ -1160,7 +1158,7 @@ function MemoryTab() {
             <div className="space-y-3 mt-4">
               <div>
                 <p className="text-xs text-[#6e6e73] mb-1">Short-term (Session)</p>
-                <p className="text-2xl font-bold text-[#3b82f6]">
+                <p className="text-2xl font-bold text-[#1c1c1e] dark:text-[#f1f5f9]">
                   {memoryData?.short_term_size || 0} KB
                 </p>
               </div>
@@ -1214,13 +1212,13 @@ function MemoryTab() {
               </div>
               <div>
                 <p className="text-xs text-[#6e6e73] mb-1">High Agreement</p>
-                <p className="text-2xl font-bold text-[#06b6d4]">
+                <p className="text-2xl font-bold text-[#48484a] dark:text-[#94a3b8]">
                   {memoryData?.high_agreement || 0}%
                 </p>
               </div>
               <div>
                 <p className="text-xs text-[#6e6e73] mb-1">Learning Score</p>
-                <p className="text-2xl font-bold text-[#3b82f6]">
+                <p className="text-2xl font-bold text-[#1c1c1e] dark:text-[#f1f5f9]">
                   {memoryData?.learning_score || 0}/100
                 </p>
               </div>
@@ -1334,7 +1332,7 @@ function ModelsTab() {
                       {model.role}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-sm font-mono text-[#3b82f6]">{model.tokens}</td>
+                  <td className="py-3 px-4 text-sm font-mono text-[#1c1c1e] dark:text-[#f1f5f9]">{model.tokens}</td>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
                       <div className="w-16 bg-[#f5f5f7] dark:bg-[#2a2a2e] rounded-full h-2">
@@ -1378,7 +1376,7 @@ function ModelsTab() {
               <p className="text-xs text-[#6e6e73] mb-4">{item.desc}</p>
               <div className="flex items-center justify-between">
                 <p className="text-xs text-[#aeaeb2]">Models assigned</p>
-                <p className="text-lg font-bold text-[#3b82f6]">{item.count}</p>
+                <p className="text-lg font-bold text-[#1c1c1e] dark:text-[#f1f5f9]">{item.count}</p>
               </div>
             </motion.div>
           ))}
@@ -1404,10 +1402,10 @@ function CognitiveMissionControlTab({ apiBase }) {
 
   const LIFECYCLE_COLORS = {
     created:      { bg: 'rgba(174,174,178,0.15)', text: '#aeaeb2', dot: '#aeaeb2' },
-    routing:      { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6', dot: '#3b82f6' },
+    routing:      { bg: 'rgba(72,72,74,0.12)', text: '#48484a', dot: '#48484a' },
     executing:    { bg: 'rgba(139,92,246,0.12)', text: '#8b5cf6', dot: '#8b5cf6' },
     debating:     { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', dot: '#f59e0b' },
-    synthesizing: { bg: 'rgba(6,182,212,0.12)', text: '#06b6d4', dot: '#06b6d4' },
+    synthesizing: { bg: 'rgba(72,72,74,0.08)', text: '#6e6e73', dot: '#6e6e73' },
     reflecting:   { bg: 'rgba(139,92,246,0.12)', text: '#8b5cf6', dot: '#8b5cf6' },
     completed:    { bg: 'rgba(52,199,89,0.12)', text: '#34c759', dot: '#34c759' },
     failed:       { bg: 'rgba(239,68,68,0.12)', text: '#ef4444', dot: '#ef4444' },
@@ -1531,7 +1529,7 @@ function CognitiveMissionControlTab({ apiBase }) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#aeaeb2] mb-1">Active Runs</p>
-            <h3 className="text-4xl font-bold text-[#3b82f6]" style={{ fontFamily: FONT }}>{activeRuns.length}</h3>
+            <h3 className="text-4xl font-bold text-[#1c1c1e] dark:text-[#f1f5f9]" style={{ fontFamily: FONT }}>{activeRuns.length}</h3>
           </div>
           <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5">
             <p className="text-xs uppercase tracking-wider text-[#aeaeb2] mb-1">Recent Runs</p>
@@ -1566,7 +1564,7 @@ function CognitiveMissionControlTab({ apiBase }) {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-bold sentinel-text-primary" style={{ fontFamily: FONT }}>
-              Run Detail: <span className="font-mono text-[#3b82f6]">
+              Run Detail: <span className="font-mono text-[#1c1c1e] dark:text-[#f1f5f9]">
                 {selectedRun.orchestration_run_id?.slice(0, 8)}…
               </span>
             </h3>
@@ -1618,7 +1616,7 @@ function CognitiveMissionControlTab({ apiBase }) {
                   <div key={i} className="flex items-start gap-3 px-4 py-2.5 border-b border-black/3 hover:bg-[#f9f9f9]">
                     <div style={{
                       width: '5px', height: '5px', borderRadius: '50%', marginTop: '6px', flexShrink: 0,
-                      background: evt.severity === 'warning' ? '#f59e0b' : evt.severity === 'critical' ? '#ef4444' : '#3b82f6',
+                      background: evt.severity === 'warning' ? '#f59e0b' : evt.severity === 'critical' ? '#ef4444' : '#48484a',
                     }} />
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-medium text-[#1d1d1f] dark:text-[#f1f5f9]">{evt.event_type?.replace(/_/g, ' ')}</span>

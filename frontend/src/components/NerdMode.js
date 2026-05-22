@@ -59,7 +59,7 @@ const NerdMode = ({ sessionId, onClose }) => {
       .data(nodes)
       .enter().append('circle')
       .attr('r', 8)
-      .attr('fill', d => d.status === 'resolved' ? '#10b981' : '#3b82f6');
+      .attr('fill', d => d.status === 'resolved' ? '#10b981' : '#48484a');
 
     node.append('title').text(d => `${d.endpoint} (${d.latency_ms}ms)`);
 
@@ -85,7 +85,7 @@ const NerdMode = ({ sessionId, onClose }) => {
     <div className="fixed inset-y-0 right-0 w-[640px] bg-[#0a0f1a] border-l border-white/10 shadow-2xl z-[100] flex flex-col">
       <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
         <div className="flex items-center gap-2">
-          <Activity className="w-5 h-5 text-cyan-400" />
+          <Activity className="w-5 h-5 text-white/70" />
           <h2 className="text-lg font-semibold text-white">Nerd Mode Diagnostics</h2>
         </div>
         <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white/50">
@@ -130,7 +130,7 @@ const NerdMode = ({ sessionId, onClose }) => {
             {data.memory.map((mem, i) => (
               <div key={i} className="bg-white/5 p-3 rounded-lg border border-white/5 flex items-center justify-between">
                 <div>
-                  <div className="text-xs font-mono text-cyan-400 mb-1">{mem.key}</div>
+                  <div className="text-xs font-mono text-white/50 mb-1">{mem.key}</div>
                   <div className="text-sm text-white">{mem.value}</div>
                 </div>
                 <div className="text-xs text-white/30 font-mono">{mem.confidence}% conf</div>

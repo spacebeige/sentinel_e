@@ -45,8 +45,12 @@ export default function Navbar() {
   }, [location.pathname]);
 
   const isChat = location.pathname === '/chat';
-  const displayName = user?.name || user?.email?.split('@')[0] || 'Sentinel User';
-  const sessionLabel = 'Authenticated session';
+  const displayName = user?.user_metadata?.full_name
+    || user?.user_metadata?.name
+    || user?.email?.split('@')[0]
+    || 'User';
+  const displayEmail = user?.email || '';
+  const sessionLabel = displayEmail || 'Authenticated session';
 
   const handleProtectedNavigation = (event, targetPath, isProtected) => {
     if (loading) {
@@ -120,8 +124,8 @@ export default function Navbar() {
               to="/admin"
               className={`px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 ${
                 location.pathname === '/admin'
-                  ? dark ? 'bg-cyan-400/20 text-cyan-200' : 'bg-cyan-100 text-cyan-700'
-                  : dark ? 'text-cyan-300/70 hover:text-cyan-200 hover:bg-cyan-400/10' : 'text-cyan-700 hover:bg-cyan-50'
+                  ? 'bg-[#1c1c1e]/10 dark:bg-white/10 text-[#1c1c1e] dark:text-white'
+                  : 'text-[#6e6e73] dark:text-[#94a3b8] hover:text-[#1c1c1e] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
               }`}
               style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 500 }}
             >
@@ -224,8 +228,8 @@ export default function Navbar() {
                 to="/admin"
                 className={`px-4 py-2.5 rounded-xl mb-1 transition-all flex items-center gap-2 ${
                   location.pathname === '/admin'
-                    ? dark ? 'bg-cyan-400/20 text-cyan-200' : 'bg-cyan-100 text-cyan-700'
-                    : dark ? 'text-cyan-300/70 hover:bg-cyan-400/10' : 'text-cyan-700 hover:bg-cyan-50'
+                    ? 'bg-[#1c1c1e]/10 dark:bg-white/10 text-[#1c1c1e] dark:text-white'
+                    : 'text-[#6e6e73] dark:text-[#94a3b8] hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
                 style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 500 }}
               >

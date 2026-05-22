@@ -513,7 +513,7 @@ export default function FigmaChatShell({
     return (
       <div className="mt-3 rounded-2xl border border-black/5 dark:border-white/10 bg-white/55 dark:bg-black/20 overflow-hidden">
         <div className="px-3 py-2 border-b border-black/5 dark:border-white/10 flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#3b82f6]">
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#6e6e73] dark:text-[#94a3b8]">
             Runtime Events
           </span>
           <span className="text-[10px] text-[#6e6e73] dark:text-[#94a3b8]">
@@ -1050,9 +1050,9 @@ export default function FigmaChatShell({
                 </span>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#3b82f6]/10">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
-                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#3b82f6' }}>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1c1c1e]/5 dark:bg-white/5">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#1c1c1e] dark:bg-white" />
+                <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)' }}>
                   Sentinel-E Standard
                 </span>
               </div>
@@ -1344,7 +1344,7 @@ export default function FigmaChatShell({
                     <div
                       className={`${
                         message.role === 'user'
-                          ? 'max-w-[90%] sm:max-w-[70%] rounded-[24px] rounded-br-md bg-[#3b82f6] text-white shadow-md px-4 sm:px-5 py-3 sm:py-3.5 border border-transparent'
+                          ? 'max-w-[90%] sm:max-w-[70%] rounded-[24px] rounded-br-md bg-[#f3f4f6] dark:bg-[#1f2937] text-[#111827] dark:text-[#f9fafb] shadow-sm px-4 sm:px-5 py-3 sm:py-3.5 border border-black/5 dark:border-white/10'
                           : 'max-w-[98%] sm:max-w-[85%] rounded-[24px] rounded-bl-md bg-[#f5f5f7] dark:bg-[#202024] border border-black/5 dark:border-white/5 text-[#1d1d1f] dark:text-[#f1f5f9] shadow-sm overflow-hidden'
                       }`}
                       style={undefined}
@@ -1480,7 +1480,7 @@ export default function FigmaChatShell({
 
                         {/* Timestamp + Feedback */}
                         <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/5 dark:border-white/5">
-                          <div className={message.role === 'user' ? 'text-white/90' : 'text-[#6e6e73] dark:text-[#94a3b8]'}
+                          <div className={message.role === 'user' ? 'text-[#6e6e73] dark:text-[#94a3b8]' : 'text-[#6e6e73] dark:text-[#94a3b8]'}
                             style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 400 }}>
                             {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
@@ -1546,7 +1546,7 @@ export default function FigmaChatShell({
                     <div className="flex items-center gap-2">
                       <SentinelIdentity size={28} pulse />
                       <div>
-                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#3b82f6]">
+                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#6e6e73] dark:text-[#94a3b8]">
                           Runtime Request Active
                         </div>
                         <div className="text-xs text-[#6e6e73] dark:text-[#94a3b8] mt-0.5">
@@ -1627,13 +1627,13 @@ export default function FigmaChatShell({
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={`relative flex flex-col gap-0 p-2 rounded-[32px] bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-2xl shadow-xl transition-colors duration-200 ${
-                isDragging ? 'ring-2 ring-[#3b82f6] ring-offset-2 dark:ring-offset-[#0f0f10]' : ''
+                isDragging ? 'ring-2 ring-[#1c1c1e] ring-offset-2 dark:ring-offset-[#0f0f10]' : ''
               }`}
               style={{
                 borderWidth: '1px',
                 borderStyle: 'solid',
                 borderColor: isDragging
-                  ? '#3b82f6'
+                  ? '#1c1c1e'
                   : activeSubMode
                     ? (PRO_SUB_MODES.find(m => m.id === activeSubMode)?.color || '#007aff') + '40'
                     : 'rgba(0,0,0,0.1)',
@@ -1649,9 +1649,9 @@ export default function FigmaChatShell({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="absolute inset-0 z-10 flex items-center justify-center rounded-[28px] bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 border-2 border-dashed border-[#3b82f6] pointer-events-none"
+                    className="absolute inset-0 z-10 flex items-center justify-center rounded-[28px] bg-[#1c1c1e]/5 dark:bg-white/10 border-2 border-dashed border-[#48484a] pointer-events-none"
                   >
-                    <span className="text-[#3b82f6] font-semibold" style={{ fontFamily: FONT, fontSize: '14px' }}>
+                    <span className="text-[#1c1c1e] dark:text-white font-semibold" style={{ fontFamily: FONT, fontSize: '14px' }}>
                       Drop file here
                     </span>
                   </motion.div>

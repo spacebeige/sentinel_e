@@ -10,7 +10,7 @@ import { MessageSquare, Layers, Palette, Globe, Lock, Cpu } from 'lucide-react';
 const FONT = "'Inter', -apple-system, sans-serif";
 
 const features = [
-  { icon: <MessageSquare className="w-6 h-6" />, title: 'Natural Conversations', description: 'Context-aware dialogue that understands nuance, remembers context, and responds naturally.', gradient: 'from-[#3b82f6] to-[#8b5cf6]', shadowColor: 'rgba(59,130,246,0.35)' },
+  { icon: <MessageSquare className="w-6 h-6" />, title: 'Natural Conversations', description: 'Context-aware dialogue that understands nuance, remembers context, and responds naturally.', gradient: 'from-[#2d2d2f] to-[#1d1d1f]', shadowColor: 'rgba(45,45,47,0.35)' },
   { icon: <Layers className="w-6 h-6" />, title: 'Multi-Model Support', description: 'Switch between Qwen, Llama 3.3 70B, Groq, and more with a single tap.', gradient: 'from-[#2d2d2f] to-[#1d1d1f]', shadowColor: 'rgba(45,45,47,0.35)' },
   { icon: <Palette className="w-6 h-6" />, title: 'Creative Tools', description: 'Generate images, code, documents, and creative content with integrated AI tools.', gradient: 'from-[#f59e0b] to-[#ef4444]', shadowColor: 'rgba(245,158,11,0.35)' },
   { icon: <Globe className="w-6 h-6" />, title: '100+ Languages', description: 'Communicate in over 100 languages with real-time translation and localization.', gradient: 'from-[#2d2d2f] to-[#1d1d1f]', shadowColor: 'rgba(45,45,47,0.35)' },

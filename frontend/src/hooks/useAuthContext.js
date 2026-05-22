@@ -106,21 +106,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       clearPersistenceUser();
       if (typeof window !== 'undefined' && window.localStorage) {
-        const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (
-            key.startsWith('sentinel-') || 
-            key.startsWith('session:') || 
-            key.startsWith('conversation:') || 
-            key.startsWith('activeConversation:') || 
-            key.startsWith('hydration:') || 
-            key.startsWith('uiState:')
-          )) {
-            keysToRemove.push(key);
-          }
-        }
-        keysToRemove.forEach(key => localStorage.removeItem(key));
+        localStorage.clear();
       }
       
       const { default: useStore } = await import('../stores/useStore');
@@ -128,6 +114,7 @@ export const AuthProvider = ({ children }) => {
       
       closeAuthModal();
       navigate('/', { replace: true });
+      window.location.reload();
     }
   }, [closeAuthModal, navigate, signOutSupabase]);
 
