@@ -4,7 +4,7 @@ import { Globe, CheckCircle2, Clock, AlertCircle, ChevronRight, Activity } from 
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
-export default function AgenticExecutionGraph({ steps = [], className = '' }) {
+const AgenticExecutionGraph = ({ steps = [], className = '' }) => {
   if (!steps || steps.length === 0) return null;
 
   return (
@@ -69,3 +69,5 @@ export default function AgenticExecutionGraph({ steps = [], className = '' }) {
     </div>
   );
 }
+
+export default React.memo(AgenticExecutionGraph);

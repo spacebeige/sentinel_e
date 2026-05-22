@@ -162,7 +162,7 @@ const Sidebar = ({
           {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
         </button>
-        <a href="https://github.com/ashwinagarkhed/sentinel-e" target="_blank" rel="noopener noreferrer"
+        <a href="https://www.producthunt.com/products/sentinel-e" target="_blank" rel="noopener noreferrer"
           className="sidebar-item w-full flex items-center gap-2 text-[13px]"
           style={{ color: 'var(--text-sidebar-muted)', textDecoration: 'none' }}
         >

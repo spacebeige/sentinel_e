@@ -35,7 +35,7 @@ export function Footer() {
           {[
             { title: 'Product', links: ['Chat', 'Models', 'Agentic Runtime', 'Pricing'] },
             { title: 'Runtime', links: ['Orchestration Philosophy', 'Memory Behavior', 'Telemetry Handling', 'Permission System'] },
-            { title: 'Transparency', links: ['Authentication', 'Privacy Expectations', 'Document Cognition', 'Product Hunt'] },
+          { title: 'Transparency', links: ['Authentication', 'Privacy Expectations', 'Document Cognition', 'Product Hunt', 'Contact'] },
           ].map((section) => (
             <div key={section.title}>
               <h4 className="text-white/60 mb-3"
@@ -46,9 +46,13 @@ export function Footer() {
                 {section.links.map((link) => (
                   <li key={link}>
                     <a
-                      href={link === 'Product Hunt' ? 'https://www.producthunt.com/products/sentinel-e' : '/'}
-                      target={link === 'Product Hunt' ? '_blank' : undefined}
-                      rel={link === 'Product Hunt' ? 'noopener noreferrer' : undefined}
+                      href={
+                        link === 'Product Hunt' ? 'https://www.producthunt.com/products/sentinel-e' :
+                        link === 'Contact' ? 'https://www.linkedin.com/in/oomkar-agarkhed-978613277/' :
+                        '/'
+                      }
+                      target={link === 'Product Hunt' || link === 'Contact' ? '_blank' : undefined}
+                      rel={link === 'Product Hunt' || link === 'Contact' ? 'noopener noreferrer' : undefined}
                       className="text-white/40 hover:text-white/80 transition-colors"
                       style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 400 }}>
                       {link}

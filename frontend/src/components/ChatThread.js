@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Copy, Check, Zap, Brain, ShieldAlert, Pencil, RefreshCw } from 'lucide-react';
+import { Copy, Check, Zap, Brain, ShieldAlert, Pencil, RefreshCw, FileText } from 'lucide-react';
+import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import FeedbackButton from './FeedbackButton';
@@ -96,10 +97,37 @@ const UserBubble = ({ message, onMessageEdited }) => {
           />
         )}
         {message?.image_b64 && message?.image_mime === 'application/pdf' && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-gray-700/50 rounded-xl mb-2 text-sm">
-            <span className="text-red-400 text-lg">📄</span>
-            <span className="text-gray-200">{message?.pdf_filename || 'Document.pdf'}</span>
-            <span className="text-gray-400 text-xs">PDF attached</span>
+          <div className="flex flex-col gap-2 px-4 py-3 rounded-2xl mb-2 text-sm border shadow-sm w-[280px]"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-primary)' }}>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30">
+                <FileText className="w-5 h-5 text-red-500" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold truncate text-[#1d1d1f] dark:text-[#f1f5f9]" style={{ fontSize: '13px' }}>
+                  {message?.pdf_filename || 'Document.pdf'}
+                </div>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-400">PDF</span>
+                  <span className="text-[10px] text-[#6e6e73] dark:text-[#94a3b8]">Secure Local Vault</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-1 pt-2 border-t border-black/5 dark:border-white/5">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-medium text-[#3b82f6]">Deep Cognition & Chunking</span>
+                <span className="text-[10px] text-[#3b82f6] animate-pulse">Processing...</span>
+              </div>
+              <div className="w-full h-1 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden relative">
+                <motion.div 
+                  initial={{ x: '-100%' }}
+                  animate={{ x: '200%' }}
+                  transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                  className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full" 
+                />
+              </div>
+            </div>
           </div>
         )}
         {editing ? (
@@ -120,7 +148,7 @@ const UserBubble = ({ message, onMessageEdited }) => {
           </div>
         ) : (
           <div className="px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap"
-            style={{ backgroundColor: 'var(--accent-blue)', color: '#fff' }}>
+            style={{ backgroundColor: 'var(--user-bubble-bg)', color: 'var(--user-bubble-text)' }}>
             {message?.content || ''}
           </div>
         )}
@@ -188,7 +216,7 @@ const AssistantBubble = ({ message, mode, subMode, onRegenerate }) => {
     setRegenerating(false);
   };
 
-  const labelText = mode === 'experimental' ? `Omega · ${subMode || 'debate'}` : 'Sentinel';
+  const labelText = mode === 'experimental' ? `Sentinel-E · ${subMode || 'debate'}` : 'Sentinel-E';
 
   return (
     <div className="flex items-start gap-3 mb-5 group">
@@ -347,4 +375,4 @@ const ChatThread = ({ messages, loading, mode, subMode, onMessageEdited, onRegen
   );
 };
 
-export default ChatThread;
+export default React.memo(ChatThread);

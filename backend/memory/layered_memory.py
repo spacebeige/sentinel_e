@@ -225,6 +225,56 @@ class TacticalMemory:
         }
 
 
+# ── Semantic Memory Compression (Adaptive Pruning) ─────────────
+
+class AdaptivePruner:
+    """
+    Consolidates semantic and working memory when limits are exceeded,
+    rather than naive truncation. Preserves structure and key tactical signals.
+    """
+    @staticmethod
+    def prune(parts: List[str], max_chars: int) -> str:
+        total_len = sum(len(p) for p in parts) + (len(parts) * 2)
+        if total_len <= max_chars:
+            return "\n\n".join(parts)
+            
+        # Reserve space for intelligence signals (deliberative, tactical, behavioral)
+        # These are usually short and critical
+        intelligence_parts = [p for p in parts if p.startswith("[Prior") or p.startswith("[Routing") or p.startswith("[Behavioral")]
+        core_parts = [p for p in parts if p not in intelligence_parts]
+        
+        intelligence_len = sum(len(p) for p in intelligence_parts)
+        core_budget = max(100, max_chars - intelligence_len - (len(parts)*2))
+        
+        # Distribute core budget proportionally among working and episodic memory
+        pruned_core = []
+        if core_parts:
+            budget_per_core = core_budget // len(core_parts)
+            for p in core_parts:
+                if len(p) > budget_per_core:
+                    # Keep first half and last half, dropping the middle (which is usually older context in episodic)
+                    half_budget = (budget_per_core - 20) // 2
+                    if half_budget > 0:
+                        pruned_core.append(p[:half_budget] + "\n...[pruned]...\n" + p[-half_budget:])
+                    else:
+                        pruned_core.append(p[:budget_per_core])
+                else:
+                    pruned_core.append(p)
+                    
+        # Reassemble preserving original order
+        final_parts = []
+        core_idx = 0
+        int_idx = 0
+        for p in parts:
+            if p in intelligence_parts:
+                final_parts.append(intelligence_parts[int_idx])
+                int_idx += 1
+            else:
+                final_parts.append(pruned_core[core_idx])
+                core_idx += 1
+                
+        return "\n\n".join(final_parts)
+
 # ── Layered Memory Context Builder ────────────────────────────
 
 class LayeredMemoryContext:
@@ -332,11 +382,8 @@ class LayeredMemoryContext:
         if not parts:
             return ""
 
-        # Merge and cap
-        merged = "\n\n".join(parts)
-        if len(merged) > max_chars:
-            merged = merged[:max_chars] + "...[truncated]"
-        return merged
+        # Merge and cap intelligently using AdaptivePruning
+        return AdaptivePruner.prune(parts, max_chars)
 
     def get_memory_state(self) -> Dict[str, Any]:
         """Serializable snapshot of all memory layers for admin/observability."""
