@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Globe, CheckCircle2, Clock, AlertCircle, ChevronRight, Activity } from 'lucide-react';
+import { Globe, CheckCircle2, Clock, AlertCircle, Activity } from 'lucide-react';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
@@ -18,7 +18,7 @@ const AgenticExecutionGraph = ({ steps = [], className = '' }) => {
       
       <div className="space-y-2 relative before:absolute before:inset-y-0 before:left-[15px] before:w-0.5 before:bg-black/5 dark:before:bg-white/10">
         {steps.map((step, index) => {
-          const isLast = index === steps.length - 1;
+
           const statusColors = {
             running: 'bg-blue-500 text-white border-blue-600',
             success: 'bg-emerald-500 text-white border-emerald-600',
