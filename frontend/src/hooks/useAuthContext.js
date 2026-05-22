@@ -109,7 +109,14 @@ export const AuthProvider = ({ children }) => {
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key && key.startsWith('sentinel-')) {
+          if (key && (
+            key.startsWith('sentinel-') || 
+            key.startsWith('session:') || 
+            key.startsWith('conversation:') || 
+            key.startsWith('activeConversation:') || 
+            key.startsWith('hydration:') || 
+            key.startsWith('uiState:')
+          )) {
             keysToRemove.push(key);
           }
         }

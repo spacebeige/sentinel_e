@@ -334,11 +334,12 @@ export default function ChatEngineV5() {
     }
 
     if (!text && !file) return;
-    const ensuredConversation = activeChatId
-      ? loadConversationState(activeChatId, { userId: activeUserId })
-      : createNewConversation({ mode, subMode, userId: activeUserId });
-    const chatId = activeChatId || ensuredConversation?.id || createNewConversation({ mode, subMode, userId: activeUserId }).id;
-    if (!activeChatId) setActiveChatId(chatId);
+    let currentChatId = activeChatId;
+    if (!currentChatId) {
+      currentChatId = createNewConversation({ mode, subMode, userId: activeUserId }).id;
+      setActiveChatId(currentChatId);
+    }
+
     setLoading(true);
     setError(null);
     setShowLearning(false);
@@ -365,7 +366,7 @@ export default function ChatEngineV5() {
     }
     const optimisticMessages = [...(Array.isArray(messages) ? messages : []), userMsg];
     setMessages(optimisticMessages);
-    saveConversationHistory(chatId, optimisticMessages, {
+    saveConversationHistory(currentChatId, optimisticMessages, {
       mode,
       subMode,
       lastQueryText: text || '',
@@ -381,14 +382,14 @@ export default function ChatEngineV5() {
 
       if (isSingleModel) {
         // Single Model Focus: route directly to /chat/{model_id}
-        result = await sendDirectModelQuery(selectedModel.id, text, chatId, {
+        result = await sendDirectModelQuery(selectedModel.id, text, currentChatId, {
           image_b64: userMsg.image_b64 || null,
           image_mime: userMsg.image_mime || null,
         });
       } else if (mode === 'experimental') {
         // ALL experimental sub-modes (debate, evidence, glass, kill) → MCO
         result = await sendMCOQuery(text, {
-          chatId,
+          chatId: currentChatId,
           mode: 'experimental',
           subMode: (subMode === 'glass' && killActive) ? 'glass' : subMode,
           image_b64: userMsg.image_b64 || null,
@@ -397,7 +398,7 @@ export default function ChatEngineV5() {
       } else {
         // Standard mode → MCO
         result = await sendMCOQuery(text, {
-          chatId,
+          chatId: currentChatId,
           mode: 'standard',
           image_b64: userMsg.image_b64 || null,
           image_mime: userMsg.image_mime || null,
@@ -405,7 +406,7 @@ export default function ChatEngineV5() {
       }
 
       const returnedChatId = result.chat_id ? String(result.chat_id) : null;
-      const resolvedChatId = (returnedChatId && UUID_REGEX.test(returnedChatId)) ? returnedChatId : chatId;
+      const resolvedChatId = (returnedChatId && UUID_REGEX.test(returnedChatId)) ? returnedChatId : currentChatId;
       
       // Validate result shape before rendering
       const isValid = validateResponseShape(result, Schemas.CHAT_RUN, 'sendMCOQuery');
@@ -421,8 +422,8 @@ export default function ChatEngineV5() {
       };
       const completedMessages = [...optimisticMessages, assistantMsg];
       
-      if (resolvedChatId !== chatId) {
-        reassignConversationId(chatId, resolvedChatId, { userId: activeUserId });
+      if (resolvedChatId !== currentChatId) {
+        reassignConversationId(currentChatId, resolvedChatId, { userId: activeUserId });
         setActiveChatId(resolvedChatId);
       }
 
@@ -474,7 +475,7 @@ export default function ChatEngineV5() {
       setError(err.message || 'Something went wrong. Please try again.');
       const rolledBackMessages = optimisticMessages.slice(0, -1);
       setMessages(rolledBackMessages); // Remove optimistic user msg
-      saveConversationHistory(chatId, rolledBackMessages, { mode, subMode }, { userId: activeUserId });
+      saveConversationHistory(currentChatId, rolledBackMessages, { mode, subMode }, { userId: activeUserId });
       setLocalConversations(loadConversationHistory(null, { userId: activeUserId }));
       if (err.message?.includes('Unable to reach')) {
         setServerStatus('offline');
