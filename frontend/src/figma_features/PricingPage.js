@@ -18,7 +18,7 @@ const plans = [
     cta: 'Get Started',
   },
   {
-    name: 'Pro', price: '₹1,000', period: '/month', popular: true, gradient: 'from-[#3b82f6] to-[#06b6d4]',
+    name: 'Pro', price: '₹1,000', period: '/month', popular: true, gradient: 'from-[#2d2d2f] to-[#1d1d1f]',
     description: 'Unlimited access to all models and premium features.',
     features: ['Unlimited messages', 'All AI models access', 'Priority speed', 'Unlimited chat history', 'File uploads & analysis', 'Custom instructions', 'Priority support'],
     cta: 'Start Free Trial',
@@ -50,7 +50,7 @@ export function PricingPage() {
           <h1 className="text-[#1d1d1f] dark:text-[#f1f5f9] mb-4"
             style={{ fontFamily: FONT, fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
             Simple,<br />
-            <span className="bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] bg-clip-text text-transparent">transparent pricing.</span>
+            <span className="bg-gradient-to-r from-[#2d2d2f] to-[#1d1d1f] bg-clip-text text-transparent">transparent pricing.</span>
           </h1>
           <p className="text-[#6e6e73] dark:text-[#94a3b8] max-w-lg mx-auto"
             style={{ fontFamily: FONT, fontSize: '17px', lineHeight: 1.6, fontWeight: 400 }}>
@@ -73,7 +73,7 @@ export function PricingPage() {
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex items-center gap-1.5 px-4 py-1 rounded-full bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] text-white shadow-lg"
+                  <span className="inline-flex items-center gap-1.5 px-4 py-1 rounded-full bg-gradient-to-r from-[#2d2d2f] to-[#1d1d1f] text-white shadow-lg"
                     style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 600 }}>
                     <Sparkles className="w-3 h-3" />
                     Most Popular

@@ -66,6 +66,9 @@ const PRO_SUB_MODES = [
   { id: 'glass', label: 'Glass Mode', iconKey: 'gem', color: '#8b5cf6', description: 'Shows its full reasoning chain — nothing hidden', placeholder: "Ask something and I'll show my thinking..." },
   { id: 'evidence', label: 'Evidence Mode', iconKey: 'filesearch', color: '#06b6d4', description: 'Every claim backed by a cited source', placeholder: 'What do you need evidence for...' },
   { id: 'synthesis', label: 'Synthesis Mode', iconKey: 'brain', color: '#10b981', description: 'Models collaborate to build the best answer together', placeholder: 'What should we reason about together...' },
+  { id: 'agentic', label: 'Agentic Mode', iconKey: 'activity', color: '#14b8a6', description: 'Plan-first autonomous execution across multiple steps', placeholder: 'What complex task should I solve...' },
+  { id: 'ocr', label: 'OCR Cognition', iconKey: 'filesearch', color: '#f59e0b', description: 'Advanced document processing and extraction', placeholder: 'Upload a document for OCR analysis...' },
+  { id: 'memory', label: 'Semantic Memory', iconKey: 'history', color: '#ec4899', description: 'Persists concepts and preferences across sessions', placeholder: 'What should I remember...' },
 ];
 
 const SUB_MODE_ICONS = {
@@ -73,6 +76,8 @@ const SUB_MODE_ICONS = {
   gem: (cls) => <Gem className={cls} />,
   filesearch: (cls) => <FileSearch className={cls} />,
   brain: (cls) => <Brain className={cls} />,
+  activity: (cls) => <Activity className={cls} />,
+  history: (cls) => <History className={cls} />,
 };
 
 /** Font stack matching Figma design system */

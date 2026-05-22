@@ -347,6 +347,7 @@ export async function sendMCOQuery(query, options = {}) {
     selected_model: selectedModel,
     force_retrieval: forceRetrieval,
   };
+  if (subMode === 'agentic') body.agentic = true;
   if (chatId) body.chat_id = chatId;
   if (subMode) body.sub_mode = subMode;
   if (image_b64) body.image_b64 = image_b64;
