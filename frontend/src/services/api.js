@@ -19,7 +19,7 @@
 import axios from 'axios';
 import { API_BASE } from '../config';
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
-import { readSupabaseSessionSnapshot } from './supabaseSessionManager';
+
 
 /**
  * Create an axios instance with interceptors for auth.
