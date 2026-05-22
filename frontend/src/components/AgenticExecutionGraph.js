@@ -20,7 +20,7 @@ const AgenticExecutionGraph = ({ steps = [], className = '' }) => {
         {steps.map((step, index) => {
 
           const statusColors = {
-            running: 'bg-blue-500 text-white border-blue-600',
+            running: 'bg-[#1d1d1f] text-white border-black dark:bg-[#e8e8ed] dark:text-black dark:border-white',
             success: 'bg-emerald-500 text-white border-emerald-600',
             error: 'bg-red-500 text-white border-red-600',
             pending: 'bg-gray-200 dark:bg-gray-800 text-gray-500 border-gray-300 dark:border-gray-700'
@@ -47,7 +47,7 @@ const AgenticExecutionGraph = ({ steps = [], className = '' }) => {
               <div className="flex-1 bg-white dark:bg-[#202024] border border-black/5 dark:border-white/5 rounded-xl p-2 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-[#1d1d1f] dark:text-[#f1f5f9]" style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 500 }}>
-                    {step.type === 'browser' ? <Globe className="w-3.5 h-3.5 text-blue-500" /> : <Activity className="w-3.5 h-3.5 text-purple-500" />}
+                    {step.type === 'browser' ? <Globe className="w-3.5 h-3.5 text-[#1d1d1f] dark:text-white" /> : <Activity className="w-3.5 h-3.5 text-purple-500" />}
                     {step.action || 'Executing Action'}
                   </div>
                   {step.duration_ms && (

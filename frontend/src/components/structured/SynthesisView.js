@@ -29,7 +29,7 @@ export default function SynthesisView({ data, boundary, confidence }) {
 
   const revTypeColors = {
     endorsement: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' },
-    refinement: { bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-700 dark:text-blue-400', border: 'border-blue-200 dark:border-blue-800' },
+    refinement: { bg: 'bg-[#f5f5f7] dark:bg-[#2c2c2e]', text: 'text-[#1d1d1f] dark:text-white', border: 'border-black/10 dark:border-white/10' },
     alternative: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800' },
   };
 
@@ -63,7 +63,7 @@ export default function SynthesisView({ data, boundary, confidence }) {
           </div>
           <div className="text-center">
             <p className="text-xs text-[#6e6e73] mb-1">Improvement</p>
-            <p className="text-lg font-semibold text-blue-600">
+            <p className="text-lg font-semibold text-[#1d1d1f] dark:text-white">
               +{(improvementDelta * 100).toFixed(0)}%
             </p>
           </div>
@@ -124,7 +124,7 @@ export default function SynthesisView({ data, boundary, confidence }) {
             const style = revTypeColors[rev.type] || revTypeColors.refinement;
             return (
               <div key={idx} className="flex items-center gap-3 px-4 py-2.5 bg-white dark:bg-[#1c1c1e] rounded-xl border border-[#e5e5ea] dark:border-white/10">
-                <div className={`w-2 h-2 rounded-full ${rev.type === 'endorsement' ? 'bg-emerald-500' : rev.type === 'alternative' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                <div className={`w-2 h-2 rounded-full ${rev.type === 'endorsement' ? 'bg-emerald-500' : rev.type === 'alternative' ? 'bg-amber-500' : 'bg-slate-500'}`} />
                 <span className="text-xs font-medium text-[#1d1d1f] dark:text-white flex-1">{rev.model}</span>
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${style.bg} ${style.text} ${style.border}`}>
                   {rev.type}
@@ -228,7 +228,7 @@ export default function SynthesisView({ data, boundary, confidence }) {
                         <span className="text-xs font-semibold text-[#1d1d1f] dark:text-white mb-1 block">Unique Contributions</span>
                         {rev.key_additions.map((add, i) => (
                           <div key={i} className="flex items-start gap-1.5 mt-1">
-                            <Sparkles size={10} className="text-blue-500 mt-0.5 flex-shrink-0" />
+                            <Sparkles size={10} className="text-[#6e6e73] dark:text-[#94a3b8] mt-0.5 flex-shrink-0" />
                             <p className="text-xs text-[#6e6e73] leading-relaxed">{add}</p>
                           </div>
                         ))}
@@ -254,10 +254,10 @@ export default function SynthesisView({ data, boundary, confidence }) {
         <div className="bg-white dark:bg-[#1c1c1e] rounded-xl border border-[#e5e5ea] dark:border-white/10 shadow-sm p-4">
           <div className="flex flex-col items-center gap-3">
             {/* Draft node */}
-            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-              <MessageSquare size={14} className="text-blue-600" />
-              <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Draft — {draftModel}</span>
-              <span className="text-xs text-blue-500">{(draftScore * 100).toFixed(0)}%</span>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#f5f5f7] dark:bg-[#2c2c2e] border border-black/10 dark:border-white/10">
+              <MessageSquare size={14} className="text-[#1d1d1f] dark:text-white" />
+              <span className="text-xs font-semibold text-[#1d1d1f] dark:text-[#94a3b8]">Draft — {draftModel}</span>
+              <span className="text-xs text-[#6e6e73]">{(draftScore * 100).toFixed(0)}%</span>
             </div>
 
             <ArrowRight size={16} className="text-[#aeaeb2] rotate-90" />

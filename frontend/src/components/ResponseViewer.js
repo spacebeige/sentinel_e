@@ -34,14 +34,14 @@ const ConfidenceEvolution = ({ evolution }) => {
   if (!evolution) return null;
   const stages = [
     { key: 'initial', label: 'Initial', color: 'bg-slate-500' },
-    { key: 'post_reasoning', label: 'Post-Reasoning', color: 'bg-blue-500' },
+    { key: 'post_reasoning', label: 'Post-Reasoning', color: 'bg-indigo-500' },
     { key: 'post_boundary', label: 'Post-Boundary', color: 'bg-amber-500' },
     { key: 'final', label: 'Final', color: 'bg-emerald-500' },
   ];
   return (
     <div className="bg-white/[0.02] rounded-lg border border-white/5 p-4">
       <h4 className="text-[10px] text-slate-400 uppercase font-bold mb-3 flex items-center">
-        <TrendingUp className="w-3 h-3 mr-2 text-blue-400" />
+        <TrendingUp className="w-3 h-3 mr-2 text-[#6e6e73] dark:text-[#94a3b8]" />
         Confidence Evolution
       </h4>
       <div className="flex items-end space-x-2 h-16">
@@ -232,7 +232,7 @@ const ResponseViewer = ({ data, mode }) => {
       {reasoning.total_passes > 0 && (
         <div className="bg-white/[0.02] rounded-lg border border-white/5 p-4">
           <h4 className="text-[10px] text-slate-400 uppercase font-bold mb-3 flex items-center">
-            <Activity className="w-3 h-3 mr-2 text-blue-400" />
+            <Activity className="w-3 h-3 mr-2 text-[#6e6e73] dark:text-[#94a3b8]" />
             Multipass Reasoning Trace
           </h4>
           <div className="grid grid-cols-3 gap-3 text-xs mb-3">
@@ -244,7 +244,7 @@ const ResponseViewer = ({ data, mode }) => {
             <div className="space-y-1">
               <span className="text-[9px] text-slate-500 uppercase font-bold">Evidence Chain</span>
               {reasoning.evidence_chain.slice(0, 5).map((item, i) => (
-                <div key={i} className="text-[10px] text-slate-400 font-mono pl-2 border-l border-blue-500/30">
+                <div key={i} className="text-[10px] text-slate-400 font-mono pl-2 border-l border-slate-500/30">
                   {typeof item === 'string' ? item : JSON.stringify(item)}
                 </div>
               ))}

@@ -156,6 +156,7 @@ export default function FigmaChatShell({
   const [attachedPreview, setAttachedPreview] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [localFeedback, setLocalFeedback] = useState({});
+  const [agenticPlan, setAgenticPlan] = useState(null);
 
   const fileInputRef = useRef(null);
   const dropZoneRef = useRef(null);
@@ -253,11 +254,37 @@ export default function FigmaChatShell({
   const handleSendLocal = useCallback(() => {
     if (!backendOnline) return;
     if (!input.trim() && !attachedFile) return;
+
+    if (subMode === 'agentic') {
+      const planText = `Executing Agentic Task\n\n1. Analyze requirements for "${input.trim()}"\n2. Gather necessary memory context and execute planning loop\n3. Execute required operations\n4. Synthesize final results`;
+      setAgenticPlan({ status: 'analyzing', originalInput: input.trim(), planText: '' });
+      setTimeout(() => {
+        setAgenticPlan({ status: 'plan_ready', originalInput: input.trim(), planText });
+      }, 1200);
+      setInput('');
+      return;
+    }
+
     handleSubmit({ text: input.trim(), file: attachedFile });
     setInput('');
     setAttachedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  }, [backendOnline, input, attachedFile, handleSubmit, setInput]);
+  }, [backendOnline, input, attachedFile, handleSubmit, setInput, subMode]);
+
+  const approveAgenticPlan = useCallback(() => {
+    if (!agenticPlan) return;
+    handleSubmit({ text: agenticPlan.originalInput, file: attachedFile });
+    setAgenticPlan({ ...agenticPlan, status: 'executing' });
+    setAttachedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [agenticPlan, handleSubmit, attachedFile]);
+
+  const cancelAgenticPlan = useCallback(() => {
+    if (agenticPlan?.originalInput) {
+      setInput(agenticPlan.originalInput);
+    }
+    setAgenticPlan(null);
+  }, [agenticPlan, setInput]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -408,7 +435,13 @@ export default function FigmaChatShell({
             const lang = (className || '').replace('language-', '');
             return (
               <div className="my-3 rounded-xl overflow-hidden border border-black/5 dark:border-white/10">
-                {lang && (
+                {loading || (agenticPlan && agenticPlan.status === 'executing') ? (
+                  <div className="px-4 py-1.5 sentinel-bg-app border-b sentinel-border">
+                    <span className="sentinel-text-secondary" style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      {lang}
+                    </span>
+                  </div>
+                ) : (
                   <div className="px-4 py-1.5 sentinel-bg-app border-b sentinel-border">
                     <span className="sentinel-text-secondary" style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                       {lang}
@@ -1447,7 +1480,7 @@ export default function FigmaChatShell({
 
                         {/* Timestamp + Feedback */}
                         <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/5 dark:border-white/5">
-                          <div className={message.role === 'user' ? 'text-blue-100' : 'text-[#6e6e73] dark:text-[#94a3b8]'}
+                          <div className={message.role === 'user' ? 'text-white/90' : 'text-[#6e6e73] dark:text-[#94a3b8]'}
                             style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 400 }}>
                             {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
@@ -1524,6 +1557,29 @@ export default function FigmaChatShell({
                   </div>
                 </div>
               </motion.div>
+            )}
+
+            {/* Agentic Plan Overlay */}
+            {agenticPlan && agenticPlan.status === 'plan_ready' && (
+              <div className="my-6 p-6 rounded-[24px] bg-[#1d1d1f] dark:bg-[#2c2c2e] border border-black/10 dark:border-white/10 shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-cyan-500" />
+                <h3 className="text-white font-semibold text-lg mb-2 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-emerald-400" />
+                  Agentic Execution Plan
+                </h3>
+                <p className="text-[#94a3b8] text-sm mb-4">Review the autonomous sequence before proceeding.</p>
+                <pre className="bg-black/50 text-[#f1f5f9] p-4 rounded-xl text-xs font-mono mb-6 whitespace-pre-wrap border border-white/5">
+                  {agenticPlan.planText}
+                </pre>
+                <div className="flex gap-3 justify-end mt-4 pt-4 border-t border-white/10">
+                  <button onClick={cancelAgenticPlan} className="px-5 py-2.5 rounded-full text-[#94a3b8] hover:text-white hover:bg-white/10 transition-colors text-sm font-medium">
+                    Cancel
+                  </button>
+                  <button onClick={approveAgenticPlan} className="px-5 py-2.5 rounded-full bg-white text-black hover:bg-gray-200 transition-colors text-sm font-semibold shadow-md">
+                    Approve & Execute
+                  </button>
+                </div>
+              </div>
             )}
 
             <div ref={messagesEndRef} />

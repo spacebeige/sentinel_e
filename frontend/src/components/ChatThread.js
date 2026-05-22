@@ -125,7 +125,7 @@ const UserBubble = ({ message, onMessageEdited }) => {
                   initial={{ x: '-100%' }}
                   animate={{ x: '200%' }}
                   transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                  className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full" 
+                  className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-[#2c2c2e] to-[#48484a] dark:from-white/20 dark:to-white/5 rounded-full" 
                 />
               </div>
             </div>
