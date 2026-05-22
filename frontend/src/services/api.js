@@ -42,7 +42,7 @@ api.interceptors.request.use(
     config.withCredentials = true;
     
     try {
-      const snapshot = readSupabaseSessionSnapshot();
+      // Removed unused snapshot variable
 
       if (isSupabaseConfigured) {
         const supabase = getSupabaseClient();
@@ -52,12 +52,9 @@ api.interceptors.request.use(
         }
 
         const session = data?.session;
-        const accessToken = session?.access_token || snapshot?.access_token || null;
+        const accessToken = session?.access_token || null;
         const sessionUser = session?.user || null;
-        let resolvedUserId = sessionUser?.id || snapshot?.user?.id || null;
-        if (resolvedUserId && String(resolvedUserId).startsWith('guest')) {
-          resolvedUserId = null;
-        }
+        const resolvedUserId = sessionUser?.id || null;
 
         if (accessToken) {
           config.headers.Authorization = `Bearer ${accessToken}`;

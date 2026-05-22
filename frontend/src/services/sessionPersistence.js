@@ -132,7 +132,7 @@ function resolveUserId(userId = null) {
 }
 
 function getConversationsMap(userId) {
-  if (!userId || String(userId).startsWith('guest')) return {};
+  if (!userId) return {};
   const keys = storageKeysForUser(userId);
   const legacyKeys = legacyStorageKeysForUser(userId);
   const stored = readLocal(keys.conversations, readLocal(legacyKeys.conversations, {}));
@@ -140,7 +140,7 @@ function getConversationsMap(userId) {
 }
 
 function persistConversationsMap(userId, conversations) {
-  if (!userId || String(userId).startsWith('guest')) return;
+  if (!userId) return;
   const keys = storageKeysForUser(userId);
   writeLocal(keys.conversations, conversations && typeof conversations === 'object' ? conversations : {});
 }
