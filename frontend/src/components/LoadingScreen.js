@@ -17,7 +17,7 @@ export function LoadingScreen({ message = "Booting Runtime...", subtext = "Initi
         <div style={{
           width: '128px',
           height: '1px',
-          background: 'linear-gradient(90deg, transparent, #3b82f6, transparent)',
+          background: 'linear-gradient(90deg, transparent, #636366, transparent)',
           animation: 'runtimeScan 1.6s ease-in-out infinite'
         }}>
           <style>{`

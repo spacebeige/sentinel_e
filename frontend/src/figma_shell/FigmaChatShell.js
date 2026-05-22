@@ -32,9 +32,8 @@ import {
   Swords, Gem, FileSearch, X,
   Wifi, WifiOff, AlertCircle, ThumbsUp, ThumbsDown,
   History, ChevronRight,
-  Activity, Brain, Shield, BarChart3, Zap,
-  Skull, Loader2, Globe,
-  MessageSquare, PanelRightOpen, Bug, RefreshCw
+  Shield, Zap, Check, PanelRightOpen, Bug, RefreshCw,
+  Brain, Activity, BarChart3, MessageSquare, Loader2, Skull, Globe
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -573,7 +572,7 @@ export default function FigmaChatShell({
       <div className="mt-2">
         <button
           onClick={() => setExpandedMeta(isExpanded ? null : message.id)}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-black/5 transition-colors"
+          className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-all duration-200 transition-colors"
         >
           <Brain className="w-3 h-3 text-[#8b5cf6]" />
           <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#8b5cf6' }}>
@@ -931,7 +930,7 @@ export default function FigmaChatShell({
                   Chat History
                 </span>
                 <button onClick={() => setShowHistory(false)}
-                  className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                  className="p-1 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-all duration-200 dark:hover:bg-white/5 transition-colors">
                   <X className="w-4 h-4 text-[#6e6e73] dark:text-[#94a3b8]" />
                 </button>
               </div>
@@ -1006,7 +1005,7 @@ export default function FigmaChatShell({
             {/* History toggle */}
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className={`p-2 rounded-xl transition-colors ${showHistory ? 'bg-[#e8e8ed] dark:bg-white/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
+              className={`p-2 rounded-xl transition-colors ${showHistory ? 'bg-[#e8e8ed] dark:bg-white/10' : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-all duration-200 dark:hover:bg-white/5'}`}
               title="Chat History"
             >
               <History className="w-4 h-4 text-[#6e6e73] dark:text-[#94a3b8]" />
@@ -1015,7 +1014,7 @@ export default function FigmaChatShell({
             {/* Model picker trigger — responsive width */}
             <button
               onClick={() => setShowModelPicker(!showModelPicker)}
-              className="flex items-center justify-between gap-2 min-w-0 max-w-[280px] px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              className="flex items-center justify-between gap-2 min-w-0 max-w-[280px] px-3 py-1.5 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-all duration-200 dark:hover:bg-white/5 transition-colors"
             >
               <div className="flex items-center gap-2 min-w-0">
                 <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: selectedModel.color }} />
@@ -1043,7 +1042,7 @@ export default function FigmaChatShell({
                 </span>
               </div>
             ) : selectedModel.id === 'sentinel-exp' ? (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#8b5cf6]/10">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/[0.04] dark:bg-white/[0.06]">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]" />
                 <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: '#8b5cf6' }}>
                   Sentinel-E Pro{activeSubMode ? ` — ${PRO_SUB_MODES.find(m => m.id === activeSubMode)?.label || ''}` : ''}
@@ -1062,7 +1061,7 @@ export default function FigmaChatShell({
             {/* Connection Status */}
             <div className="flex items-center gap-1.5">
               {serverStatus === 'unknown' ? (
-                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#f5f5f7] dark:bg-white/10">
+                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#f2f2f7] dark:bg-[#161618] dark:bg-white/10">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#aeaeb2] animate-pulse" />
                   <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500, color: '#aeaeb2' }}>
                     Connecting...
@@ -1091,10 +1090,10 @@ export default function FigmaChatShell({
             {activeChatId && (
               <button
                 onClick={() => setShowSessionPanel(!showSessionPanel)}
-                className={`p-2 rounded-xl transition-colors ${showSessionPanel ? 'bg-[#f3e8ff]' : 'hover:bg-black/5'}`}
+                className={`p-2 rounded-xl transition-colors ${showSessionPanel ? 'bg-[#e8e8ed] dark:bg-white/10' : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-all duration-200'}`}
                 title="Session Analytics"
               >
-                <PanelRightOpen className={`w-4 h-4 ${showSessionPanel ? 'text-[#8b5cf6]' : 'text-[#6e6e73]'}`} />
+                <PanelRightOpen className={`w-4 h-4 ${showSessionPanel ? 'text-[#1c1c1e] dark:text-white' : 'text-[#6e6e73]'}`} />
               </button>
             )}
 
@@ -1111,7 +1110,7 @@ export default function FigmaChatShell({
 
             {/* New Chat */}
             <button onClick={handleNewChatLocal}
-              className="p-2 rounded-xl hover:bg-black/5 transition-colors" title="New Chat">
+              className="p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-all duration-200 transition-colors" title="New Chat">
               <Plus className="w-5 h-5 text-[#6e6e73]" />
             </button>
           </div>
@@ -1156,10 +1155,8 @@ export default function FigmaChatShell({
                       </div>
                     </div>
                     {selectedModel.id === model.id && (
-                      <div className="ml-auto w-5 h-5 rounded-full bg-[#007aff] flex items-center justify-center flex-shrink-0">
-                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                          <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                      <div className="ml-auto w-5 h-5 rounded-full bg-[#1c1c1e] dark:bg-white flex items-center justify-center flex-shrink-0">
+                        <Check className="w-3.5 h-3.5 text-white dark:text-[#1c1c1e]" />
                       </div>
                     )}
                   </button>
@@ -1216,10 +1213,8 @@ export default function FigmaChatShell({
                                 </span>
                               )}
                               {!isDisabled && selectedModel.id === model.id && (
-                                <div className="ml-auto w-5 h-5 rounded-full bg-[#007aff] flex items-center justify-center flex-shrink-0">
-                                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                                    <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
+                                <div className="ml-auto w-5 h-5 rounded-full bg-[#1c1c1e] dark:bg-white flex items-center justify-center flex-shrink-0">
+                                  <Check className="w-3.5 h-3.5 text-white dark:text-[#1c1c1e]" />
                                 </div>
                               )}
                             </button>
@@ -1344,9 +1339,39 @@ export default function FigmaChatShell({
                     <div
                       className={`${
                         message.role === 'user'
-                          ? 'max-w-[90%] sm:max-w-[70%] rounded-[24px] rounded-br-md bg-[#f3f4f6] dark:bg-[#1f2937] text-[#111827] dark:text-[#f9fafb] shadow-sm px-4 sm:px-5 py-3 sm:py-3.5 border border-black/5 dark:border-white/10'
-                          : 'max-w-[98%] sm:max-w-[85%] rounded-[24px] rounded-bl-md bg-[#f5f5f7] dark:bg-[#202024] border border-black/5 dark:border-white/5 text-[#1d1d1f] dark:text-[#f1f5f9] shadow-sm overflow-hidden'
-                      }`}
+  ? `
+      max-w-[92%]
+      sm:max-w-[72%]
+      rounded-[28px]
+      rounded-br-[12px]
+      px-5
+      py-4
+      border
+      shadow-sm
+      bg-[#f2f2f7]
+      dark:bg-[#1c1c1e]
+      text-[#111827]
+      dark:text-[#f9fafb]
+      border-black/[0.04]
+      dark:border-white/[0.08]
+      backdrop-blur-xl
+    `
+  : `
+      max-w-[98%]
+      sm:max-w-[86%]
+      rounded-[28px]
+      rounded-bl-[12px]
+      border
+      shadow-sm
+      overflow-hidden
+      bg-white/70
+      dark:bg-[#111113]/85
+      text-[#1d1d1f]
+      dark:text-[#f3f4f6]
+      border-black/[0.04]
+      dark:border-white/[0.08]
+      backdrop-blur-2xl
+    `}`}
                       style={undefined}
                     >
                       {/* Mode badge for assistant messages */}
@@ -1490,7 +1515,7 @@ export default function FigmaChatShell({
                               <AdvancedCopyMenu message={message} />
                               <button
                                 onClick={() => onRegenerate && onRegenerate(message.id)}
-                                className="p-1 rounded-md transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                                className="p-1 rounded-md transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-all duration-200 dark:hover:bg-white/10"
                                 title="Regenerate response"
                               >
                                 <RefreshCw className="w-3.5 h-3.5 text-[#aeaeb2] hover:text-[#6e6e73] dark:hover:text-white" />
@@ -1498,7 +1523,7 @@ export default function FigmaChatShell({
                               <button
                                 onClick={() => handleFeedback(message.id, 'up')}
                                 className={`p-1 rounded-md transition-colors ${
-                                  message.feedbackGiven === 'up' ? 'bg-[#d1fae5]' : 'hover:bg-black/5'
+                                  message.feedbackGiven === 'up' ? 'bg-[#d1fae5]' : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-all duration-200'
                                 }`}
                                 disabled={!!message.feedbackGiven}
                               >
@@ -1509,7 +1534,7 @@ export default function FigmaChatShell({
                               <button
                                 onClick={() => handleFeedback(message.id, 'down')}
                                 className={`p-1 rounded-md transition-colors ${
-                                  message.feedbackGiven === 'down' ? 'bg-[#fef2f2]' : 'hover:bg-black/5'
+                                  message.feedbackGiven === 'down' ? 'bg-[#fef2f2]' : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-all duration-200'
                                 }`}
                                 disabled={!!message.feedbackGiven}
                               >
@@ -1709,7 +1734,7 @@ export default function FigmaChatShell({
                               key={sm.id}
                               onClick={() => handleSubModeToggle(sm.id)}
                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-200 ${
-                                isActive ? 'text-white shadow-md' : 'bg-[#f5f5f7] dark:bg-white/10 text-[#6e6e73] dark:text-[#94a3b8] hover:bg-[#e8e8ed] dark:hover:bg-white/15'
+                                isActive ? 'text-white shadow-md' : 'bg-[#f5f5f7] dark:bg-white/10 text-[#6e6e73] dark:text-[#94a3b8] hover:bg-black/[0.035] dark:bg-white/[0.06] dark:hover:bg-white/15'
                               }`}
                               style={isActive ? {
                                 backgroundColor: sm.color,
@@ -1758,7 +1783,7 @@ export default function FigmaChatShell({
                   onClick={() => fileInputRef.current?.click()}
                   disabled={!backendOnline}
                   className={`p-2 rounded-full transition-colors flex-shrink-0 ${
-                    attachedFile ? 'bg-[#e0f2fe] dark:bg-[#1e3a5f]' : 'hover:bg-black/5 dark:hover:bg-white/5'
+                    attachedFile ? 'bg-[#e0f2fe] dark:bg-[#1e3a5f]' : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-all duration-200 dark:hover:bg-white/5'
                   }`}
                   title="Attach file"
                 >
@@ -1843,7 +1868,7 @@ export default function FigmaChatShell({
                   </span>
                 </div>
                 <button onClick={() => setShowSessionPanel(false)}
-                  className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                  className="p-1.5 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-all duration-200 dark:hover:bg-white/5 transition-colors">
                   <X className="w-4 h-4 text-[#6e6e73] dark:text-[#94a3b8]" />
                 </button>
               </div>

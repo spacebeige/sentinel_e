@@ -117,8 +117,8 @@ const UserBubble = ({ message, onMessageEdited }) => {
             
             <div className="mt-1 pt-2 border-t border-black/5 dark:border-white/5">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-medium text-[#3b82f6]">Deep Cognition & Chunking</span>
-                <span className="text-[10px] text-[#3b82f6] animate-pulse">Processing...</span>
+                <span className="text-[10px] font-medium text-[#1c1c1e] dark:text-[#e2e8f0]">Deep Cognition & Chunking</span>
+                <span className="text-[10px] text-[#6e6e73] dark:text-[#94a3b8] animate-pulse">Processing...</span>
               </div>
               <div className="w-full h-1 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden relative">
                 <motion.div 
@@ -148,7 +148,7 @@ const UserBubble = ({ message, onMessageEdited }) => {
             </div>
           </div>
         ) : (
-          <div className="px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap bg-gray-100 text-gray-900 dark:bg-[#1c1c1e] dark:text-white">
+          <div className="px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap bg-[#f5f5f7] dark:bg-[#1c1c1e] text-[#1c1c1e] dark:text-[#f1f5f9] border border-black/5 dark:border-white/10 shadow-sm">
             {message?.content || ''}
           </div>
         )}
