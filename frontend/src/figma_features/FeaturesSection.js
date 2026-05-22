@@ -11,9 +11,9 @@ const FONT = "'Inter', -apple-system, sans-serif";
 
 const features = [
   { icon: <MessageSquare className="w-6 h-6" />, title: 'Natural Conversations', description: 'Context-aware dialogue that understands nuance, remembers context, and responds naturally.', gradient: 'from-[#3b82f6] to-[#8b5cf6]', shadowColor: 'rgba(59,130,246,0.35)' },
-  { icon: <Layers className="w-6 h-6" />, title: 'Multi-Model Support', description: 'Switch between Qwen, Llama 3.3 70B, Groq, and more with a single tap.', gradient: 'from-[#06b6d4] to-[#3b82f6]', shadowColor: 'rgba(6,182,212,0.35)' },
+  { icon: <Layers className="w-6 h-6" />, title: 'Multi-Model Support', description: 'Switch between Qwen, Llama 3.3 70B, Groq, and more with a single tap.', gradient: 'from-[#2d2d2f] to-[#1d1d1f]', shadowColor: 'rgba(45,45,47,0.35)' },
   { icon: <Palette className="w-6 h-6" />, title: 'Creative Tools', description: 'Generate images, code, documents, and creative content with integrated AI tools.', gradient: 'from-[#f59e0b] to-[#ef4444]', shadowColor: 'rgba(245,158,11,0.35)' },
-  { icon: <Globe className="w-6 h-6" />, title: '100+ Languages', description: 'Communicate in over 100 languages with real-time translation and localization.', gradient: 'from-[#10b981] to-[#06b6d4]', shadowColor: 'rgba(16,185,129,0.35)' },
+  { icon: <Globe className="w-6 h-6" />, title: '100+ Languages', description: 'Communicate in over 100 languages with real-time translation and localization.', gradient: 'from-[#2d2d2f] to-[#1d1d1f]', shadowColor: 'rgba(45,45,47,0.35)' },
   { icon: <Lock className="w-6 h-6" />, title: 'Privacy First', description: 'Your conversations are encrypted and never used for training. Full data control.', gradient: 'from-[#8b5cf6] to-[#ec4899]', shadowColor: 'rgba(139,92,246,0.35)' },
   { icon: <Cpu className="w-6 h-6" />, title: 'Edge Computing', description: 'On-device processing for faster responses and complete offline capabilities.', gradient: 'from-[#14b8a6] to-[#22c55e]', shadowColor: 'rgba(20,184,166,0.35)' },
 ];
@@ -31,7 +31,7 @@ export function FeaturesSection() {
         >
           <h2 className="sentinel-text-primary mb-4" style={{ fontFamily: FONT, fontSize: 'clamp(32px, 5vw, 48px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
             Designed for<br />
-            <span className="bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] bg-clip-text text-transparent">the way you think.</span>
+            <span className="bg-gradient-to-r from-[#2d2d2f] to-[#1d1d1f] bg-clip-text text-transparent">the way you think.</span>
           </h2>
           <p className="sentinel-text-secondary max-w-lg mx-auto" style={{ fontFamily: FONT, fontSize: '17px', lineHeight: 1.6, fontWeight: 400 }}>
             Every feature is crafted to feel intuitive, fast, and delightful.

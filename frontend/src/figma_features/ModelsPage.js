@@ -14,7 +14,7 @@ const FONT = "'Inter', -apple-system, sans-serif";
 
 const ROLE_BADGES = {
   code: { label: 'Code Specialist', color: '#10b981' },
-  vision: { label: 'Multimodal', color: '#06b6d4' },
+  vision: { label: 'Multimodal', color: '#1d1d1f' },
   baseline: { label: 'Reasoning', color: '#6366f1' },
   conceptual: { label: 'Conceptual', color: '#8b5cf6' },
   longctx: { label: 'Long Context', color: '#f59e0b' },
@@ -73,7 +73,7 @@ export function ModelsPage() {
           <h1 className="text-[#1d1d1f] dark:text-[#f1f5f9] mb-4"
             style={{ fontFamily: FONT, fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
             Cognitive Model<br />
-            <span className="bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4] bg-clip-text text-transparent">Registry</span>
+            <span className="bg-gradient-to-r from-[#8b5cf6] to-[#1d1d1f] bg-clip-text text-transparent">Registry</span>
           </h1>
           <p className="text-[#6e6e73] dark:text-[#94a3b8] max-w-lg mx-auto"
             style={{ fontFamily: FONT, fontSize: '17px', lineHeight: 1.6, fontWeight: 400 }}>
