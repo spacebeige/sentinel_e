@@ -167,7 +167,7 @@ const useStore = create(
     {
       // Persist key is stable per deployment — user ID is stored inside the state.
       // Authenticated users ALWAYS get fresh state from the server on login.
-      name: 'sentinel-session',
+      name: 'sentinel-session-v3',
       storage: {
         getItem: (name) => {
           const userId = getPersistenceUserId();

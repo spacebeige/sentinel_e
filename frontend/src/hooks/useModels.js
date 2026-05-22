@@ -25,13 +25,13 @@ import { fetchMCOModels, fetchChatModels, toggleClaude } from '../services/api';
 
 // ── Role → color mapping ────────────────────────────────────
 const ROLE_COLORS = {
-  code: '#10b981',
-  vision: '#06b6d4',
-  baseline: '#6366f1',
-  conceptual: '#8b5cf6',
-  longctx: '#f59e0b',
-  fast: '#ef4444',
-  general: '#3b82f6',
+  code: '#8e8e93',
+  vision: '#aeaeb2',
+  baseline: '#c7c7cc',
+  conceptual: '#636366',
+  longctx: '#48484a',
+  fast: '#3a3a3c',
+  general: '#1c1c1e',
 };
 
 const ROLE_LABELS = {
@@ -51,9 +51,9 @@ const TIER_LABELS = {
 };
 
 const TIER_COLORS = {
-  1: '#f59e0b',   // amber  — anchor
-  2: '#3b82f6',   // blue   — debate
-  3: '#10b981',   // emerald — fallback
+  1: '#1c1c1e',
+  2: '#636366',
+  3: '#aeaeb2',
 };
 
 /**
@@ -217,8 +217,8 @@ function transformChatModels(backendModels) {
     name: m.name,
     provider: m.provider,
     color: m.enabled
-      ? (TIER_COLORS[m.tier] || ROLE_COLORS[m.role] || '#6366f1')
-      : '#6b7280',  // grey when disabled
+      ? (TIER_COLORS[m.tier] || ROLE_COLORS[m.role] || '#8e8e93')
+      : '#c7c7cc',  // grey when disabled
     role: m.role,
     tier: m.tier,
     tierLabel: m.synthesis_only ? 'Synthesis' : (TIER_LABELS[m.tier] || 'Debate'),

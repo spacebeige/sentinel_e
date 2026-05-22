@@ -48,7 +48,7 @@ function VirtualizedRunList({ runs, fetchRunDetail, LIFECYCLE_COLORS, FONT }) {
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               onClick={() => fetchRunDetail(run.orchestration_run_id)}
-              className="bg-white dark:bg-[#1c1c1e] rounded-xl p-4 border border-black/5 dark:border-white/5 hover:border-[#1c1c1e] dark:border-white/30 transition-all cursor-pointer absolute left-0 right-0"
+              className="ios-glass rounded-[28px] p-6 shadow-sm hover:border-[#1c1c1e] dark:border-white/30 transition-all cursor-pointer absolute left-0 right-0"
               style={{ fontFamily: FONT, top: `${actualIndex * rowHeight}px`, height: `${rowHeight - 8}px` }}
             >
               <div className="flex items-center justify-between gap-4">
@@ -454,7 +454,7 @@ function AgenticControlsTab() {
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <h3 className="font-bold mb-4 text-[#1d1d1f] dark:text-[#f1f5f9]">Execution Boundaries</h3>
             <div className="space-y-4">
               <label className="flex items-center justify-between cursor-pointer">
@@ -474,7 +474,7 @@ function AgenticControlsTab() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <h3 className="font-bold mb-4 text-[#1d1d1f] dark:text-[#f1f5f9]">File Operations</h3>
             <div className="space-y-4">
               <label className="flex items-center justify-between cursor-pointer">
@@ -609,7 +609,7 @@ function OverviewTab({ stats }) {
                 key={mode}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-white dark:bg-[#1c1c1e] rounded-xl p-6 border border-black/5 dark:border-white/5"
+                className="ios-glass rounded-[28px] p-6 shadow-sm"
               >
                 <h3 className="font-semibold text-[#1d1d1f] dark:text-[#f1f5f9] capitalize mb-2">{mode}</h3>
                 <p className="text-3xl font-bold text-[#1c1c1e] dark:text-[#f1f5f9]">{count}</p>
@@ -630,7 +630,7 @@ function OverviewTab({ stats }) {
             { label: 'Database', status: stats.system?.db_status },
             { label: 'Cache', status: stats.system?.cache_status },
           ].map(item => (
-            <div key={item.label} className="bg-white dark:bg-[#1c1c1e] rounded-xl p-6 border border-black/5 dark:border-white/5">
+            <div key={item.label} className="ios-glass rounded-[28px] p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-[#1d1d1f] dark:text-[#f1f5f9]">{item.label}</h3>
                 <div className="flex items-center gap-2">
@@ -666,19 +666,19 @@ function AnalyticsTab({ analytics, feedback }) {
           7-Day Overview
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-sm uppercase tracking-wider text-[#6e6e73] mb-2">Total Sessions</p>
             <h3 className="text-4xl font-bold" style={{ fontFamily: FONT }}>
               {analytics.summary?.total_sessions || 0}
             </h3>
           </div>
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-sm uppercase tracking-wider text-[#6e6e73] mb-2">Unique Users</p>
             <h3 className="text-4xl font-bold" style={{ fontFamily: FONT }}>
               {analytics.summary?.unique_users || 0}
             </h3>
           </div>
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-sm uppercase tracking-wider text-[#6e6e73] mb-2">Avg per User</p>
             <h3 className="text-4xl font-bold" style={{ fontFamily: FONT }}>
               {analytics.summary?.avg_sessions_per_user?.toFixed(1) || 0}
@@ -734,7 +734,7 @@ function ArchitectureTab({ architecture }) {
         <h2 className="text-xl font-bold mb-6" style={{ fontFamily: FONT }}>
           System Overview
         </h2>
-        <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
+        <div className="ios-glass rounded-[28px] p-6 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <h3 className="font-bold text-xl mb-2">{architecture.system?.name}</h3>
@@ -781,7 +781,7 @@ function ArchitectureTab({ architecture }) {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="bg-white dark:bg-[#1c1c1e] rounded-xl p-6 border border-black/5 dark:border-white/5 hover:border-black/10 transition-all"
+              className="ios-glass rounded-[28px] p-6 shadow-sm hover:border-black/10 transition-all"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -805,7 +805,7 @@ function ArchitectureTab({ architecture }) {
         </h2>
         <div className="space-y-4">
           {(Array.isArray(architecture.models?.reasoning) ? architecture.models.reasoning : []).map((stage, i) => (
-            <div key={i} className="bg-white dark:bg-[#1c1c1e] rounded-xl p-6 border border-black/5 dark:border-white/5">
+            <div key={i} className="ios-glass rounded-[28px] p-6 shadow-sm">
               <h3 className="font-bold text-[#1d1d1f] dark:text-[#f1f5f9] capitalize mb-3">{stage.role}</h3>
               <div className="flex flex-wrap gap-2">
                 {(Array.isArray(stage.models) ? stage.models : []).map((model, j) => (
@@ -849,7 +849,7 @@ function FeedbackTab({ feedback }) {
                 key={mode}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-white dark:bg-[#1c1c1e] rounded-xl p-6 border border-black/5 dark:border-white/5"
+                className="ios-glass rounded-[28px] p-6 shadow-sm"
               >
                 <h3 className="font-bold text-[#1d1d1f] dark:text-[#f1f5f9] capitalize mb-4">{mode}</h3>
                 <div className="space-y-2">
@@ -883,7 +883,7 @@ function FeedbackTab({ feedback }) {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-white dark:bg-[#1c1c1e] rounded-lg p-4 border border-black/5 dark:border-white/5 text-sm"
+                className="ios-glass rounded-[28px] p-6 shadow-sm text-sm"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div>
@@ -939,7 +939,7 @@ function ModesTab({ stats }) {
                 key={mode}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5 hover:border-black/10 transition-all"
+                className="ios-glass rounded-[28px] p-6 shadow-sm hover:border-black/10 transition-all"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div>
@@ -968,7 +968,7 @@ function ModesTab({ stats }) {
         <h2 className="text-xl font-bold mb-6" style={{ fontFamily: FONT }}>
           Mode Breakdown
         </h2>
-        <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
+        <div className="ios-glass rounded-[28px] p-6 shadow-sm">
           <div className="space-y-4">
             {Object.entries(modes).map(([mode, count]) => (
               <div
@@ -1038,25 +1038,25 @@ function OrchestratorTab() {
           MCO (MetaCognitive Orchestrator) Performance
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Total Queries</p>
             <h3 className="text-4xl font-bold text-[#1c1c1e] dark:text-[#f1f5f9]">
               {orchestratorData?.total_queries || 0}
             </h3>
           </div>
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Avg Response Time</p>
             <h3 className="text-4xl font-bold text-[#8b5cf6]">
               {orchestratorData?.avg_response_time || '2.1'}s
             </h3>
           </div>
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Cache Hit Rate</p>
             <h3 className="text-4xl font-bold text-[#34c759]">
               {orchestratorData?.cache_hit_rate || '78'}%
             </h3>
           </div>
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Success Rate</p>
             <h3 className="text-4xl font-bold text-[#48484a] dark:text-[#94a3b8]">
               {orchestratorData?.success_rate || '95'}%
@@ -1079,7 +1079,7 @@ function OrchestratorTab() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-white dark:bg-[#1c1c1e] rounded-lg p-4 border border-black/5 dark:border-white/5"
+                className="ios-glass rounded-[28px] p-6 shadow-sm"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-[#1d1d1f] dark:text-[#f1f5f9]">{mode}</span>
@@ -1153,7 +1153,7 @@ function MemoryTab() {
           Memory System Overview
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">3-Tier Memory</p>
             <div className="space-y-3 mt-4">
               <div>
@@ -1177,7 +1177,7 @@ function MemoryTab() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Knowledge Learning</p>
             <div className="space-y-3 mt-4">
               <div>
@@ -1201,7 +1201,7 @@ function MemoryTab() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-8 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-xs uppercase tracking-wider text-[#6e6e73] mb-2">Knowledge Base</p>
             <div className="space-y-3 mt-4">
               <div>
@@ -1243,7 +1243,7 @@ function MemoryTab() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: i * 0.1 }}
-              className="bg-white dark:bg-[#1c1c1e] rounded-lg p-4 border border-black/5 dark:border-white/5"
+              className="ios-glass rounded-[28px] p-6 shadow-sm"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -1370,7 +1370,7 @@ function ModelsTab() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="bg-white dark:bg-[#1c1c1e] rounded-lg p-6 border border-black/5 dark:border-white/5 hover:border-black/10 transition-all"
+              className="ios-glass rounded-[28px] p-6 shadow-sm hover:border-black/10 transition-all"
             >
               <h3 className="font-bold text-[#1d1d1f] dark:text-[#f1f5f9] mb-1">{item.role}</h3>
               <p className="text-xs text-[#6e6e73] mb-4">{item.desc}</p>
@@ -1527,15 +1527,15 @@ function CognitiveMissionControlTab({ apiBase }) {
 
         {/* Active runs */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-xs uppercase tracking-wider text-[#aeaeb2] mb-1">Active Runs</p>
             <h3 className="text-4xl font-bold text-[#1c1c1e] dark:text-[#f1f5f9]" style={{ fontFamily: FONT }}>{activeRuns.length}</h3>
           </div>
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-xs uppercase tracking-wider text-[#aeaeb2] mb-1">Recent Runs</p>
             <h3 className="text-4xl font-bold text-[#8b5cf6]" style={{ fontFamily: FONT }}>{recentRuns.length}</h3>
           </div>
-          <div className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5">
+          <div className="ios-glass rounded-[28px] p-6 shadow-sm">
             <p className="text-xs uppercase tracking-wider text-[#aeaeb2] mb-1">Completed</p>
             <h3 className="text-4xl font-bold text-[#34c759]" style={{ fontFamily: FONT }}>
               {recentRuns.filter(r => r.lifecycle_state === 'completed').length}
@@ -1596,7 +1596,7 @@ function CognitiveMissionControlTab({ apiBase }) {
               { label: 'Contradiction ρ', value: selectedRun.contradiction_density != null ? `${(selectedRun.contradiction_density * 100).toFixed(1)}%` : '—' },
               { label: 'Total Latency', value: selectedRun.total_latency_ms > 0 ? `${(selectedRun.total_latency_ms / 1000).toFixed(2)}s` : '—' },
             ].map(({ label, value }) => (
-              <div key={label} className="bg-white dark:bg-[#1c1c1e] rounded-xl p-4 border border-black/5 dark:border-white/5">
+              <div key={label} className="ios-glass rounded-[28px] p-6 shadow-sm">
                 <p className="text-xs uppercase tracking-wider text-[#aeaeb2] mb-1">{label}</p>
                 <p className="text-sm font-semibold text-[#1d1d1f] dark:text-[#f1f5f9] capitalize">{value}</p>
               </div>

@@ -64,6 +64,16 @@ export default function Navbar() {
     }
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } finally {
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/';
+    }
+  };
+
   const renderNavLink = (link, mobile = false) => {
     const isActive = location.pathname === link.to;
     const baseClass = mobile
@@ -178,7 +188,7 @@ export default function Navbar() {
                 </div>
               </div>
               <button
-                onClick={signOut}
+                onClick={handleSignOut}
                 className="px-4 py-2 rounded-full transition-all sentinel-nav-muted hover:bg-black/5 dark:hover:bg-white/10"
                 style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}
               >
@@ -274,7 +284,7 @@ export default function Navbar() {
                     Open Chat
                   </Link>
                   <button
-                    onClick={signOut}
+                    onClick={handleSignOut}
                     className="flex-1 px-4 py-2.5 rounded-xl border sentinel-nav-muted sentinel-border hover:bg-black/5 dark:hover:bg-white/10"
                     style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}
                   >
