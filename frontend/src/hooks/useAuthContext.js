@@ -105,6 +105,20 @@ export const AuthProvider = ({ children }) => {
       await signOutSupabase();
     } finally {
       clearPersistenceUser();
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('sentinel-')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+      }
+      
+      const { default: useStore } = await import('../stores/useStore');
+      useStore.getState().reset();
+      
       closeAuthModal();
       navigate('/', { replace: true });
     }

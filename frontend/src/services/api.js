@@ -54,7 +54,10 @@ api.interceptors.request.use(
         const session = data?.session;
         const accessToken = session?.access_token || snapshot?.access_token || null;
         const sessionUser = session?.user || null;
-        const resolvedUserId = sessionUser?.id || snapshot?.user?.id || null;
+        let resolvedUserId = sessionUser?.id || snapshot?.user?.id || null;
+        if (resolvedUserId && String(resolvedUserId).startsWith('guest')) {
+          resolvedUserId = null;
+        }
 
         if (accessToken) {
           config.headers.Authorization = `Bearer ${accessToken}`;

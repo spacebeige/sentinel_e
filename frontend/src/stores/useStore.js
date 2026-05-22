@@ -170,30 +170,22 @@ const useStore = create(
       name: 'sentinel-session',
       storage: {
         getItem: (name) => {
-          const userId = getPersistenceUserId() || 'guest';
+          const userId = getPersistenceUserId();
+          if (!userId) return null;
           return localStorage.getItem(`${name}-${userId}`);
         },
         setItem: (name, value) => {
-          const userId = getPersistenceUserId() || 'guest';
+          const userId = getPersistenceUserId();
+          if (!userId) return;
           localStorage.setItem(`${name}-${userId}`, value);
         },
         removeItem: (name) => {
-          const userId = getPersistenceUserId() || 'guest';
+          const userId = getPersistenceUserId();
+          if (!userId) return;
           localStorage.removeItem(`${name}-${userId}`);
         }
       },
       onRehydrateStorage: () => (state) => {
-        // DEFENSIVE GUARD: Block legacy guest-key hydration.
-        // If the rehydrated state contains a stale guest userId, clear it.
-        const isGuestId = (id) => id && (id === 'guest-session' || String(id).startsWith('guest'));
-        if (state?.userId && isGuestId(state.userId)) {
-          console.warn('[Sentinel] Blocked stale guest-state hydration — clearing.');
-          state.userId = null;
-          state.chats = [];
-          state.messages = [];
-          state.memory = [];
-          state.isLoaded = false;
-        }
         // Ensure loading is cleared even if state is undefined (Zustand edge case)
         if (state) state.setLoading(false);
         // hasHydrated must always be set — even on null state — to unblock ProtectedRoute
