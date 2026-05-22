@@ -161,7 +161,7 @@ export default function Navbar() {
                 </Link>
               )}
               <div className="flex items-center gap-3 px-3 py-2 rounded-2xl border sentinel-surface-panel">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center text-white text-sm font-semibold">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2d2d2f] to-[#1d1d1f] flex items-center justify-center text-white text-sm font-semibold">
                   {displayName.charAt(0).toUpperCase()}
                 </div>
                 <div className="max-w-[160px]">
@@ -243,7 +243,7 @@ export default function Navbar() {
             ) : isAuthenticated ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center text-white text-sm font-semibold">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2d2d2f] to-[#1d1d1f] flex items-center justify-center text-white text-sm font-semibold">
                     {displayName.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">

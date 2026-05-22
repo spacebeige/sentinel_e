@@ -63,7 +63,8 @@ const UserBubble = ({ message, onMessageEdited }) => {
     return <DataFallback message="User message corrupted or missing" type="invalid" className="mb-5" />;
   }
 
-  const handleCopy = async () => {
+  const handleCopy = async (e) => {
+    if (e) e.stopPropagation();
     try {
       await navigator.clipboard.writeText(message?.content || '');
       setCopied(true);
@@ -147,8 +148,7 @@ const UserBubble = ({ message, onMessageEdited }) => {
             </div>
           </div>
         ) : (
-          <div className="px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap"
-            style={{ backgroundColor: 'var(--user-bubble-bg)', color: 'var(--user-bubble-text)' }}>
+          <div className="px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap bg-gray-100 text-gray-900 dark:bg-[#1c1c1e] dark:text-white">
             {message?.content || ''}
           </div>
         )}
@@ -194,7 +194,8 @@ const AssistantBubble = ({ message, mode, subMode, onRegenerate }) => {
     return <DataFallback message="Assistant response unavailable" type="error" className="mb-5" />;
   }
 
-  const handleCopy = async () => {
+  const handleCopy = async (e) => {
+    if (e) e.stopPropagation();
     try {
       await navigator.clipboard.writeText(message?.content || '');
       setCopied(true);

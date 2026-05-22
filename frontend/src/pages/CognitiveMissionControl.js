@@ -700,7 +700,7 @@ function AnalyticsTab({ analytics, feedback }) {
               <p className="text-sm opacity-90">Positive</p>
               <h3 className="text-4xl font-bold mt-2">{feedback.by_rating?.positive || 0}</h3>
             </div>
-            <div className="bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] rounded-2xl p-8 text-white">
+            <div className="bg-gradient-to-br from-[#2d2d2f] to-[#1d1d1f] rounded-2xl p-8 text-white">
               <p className="text-sm opacity-90">Neutral</p>
               <h3 className="text-4xl font-bold mt-2">{feedback.by_rating?.neutral || 0}</h3>
             </div>
@@ -955,7 +955,7 @@ function ModesTab({ stats }) {
                 </div>
                 <div className="w-full bg-[#f5f5f7] dark:bg-[#2a2a2e] rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] h-full transition-all"
+                    className="bg-gradient-to-r from-[#2d2d2f] to-[#1d1d1f] h-full transition-all"
                     style={{ width: `${percentage}%` }}
                   />
                 </div>
@@ -996,7 +996,7 @@ function ModesTab({ stats }) {
           Summary
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] rounded-2xl p-8 text-white">
+          <div className="bg-gradient-to-br from-[#2d2d2f] to-[#1d1d1f] rounded-2xl p-8 text-white">
             <p className="text-sm opacity-90">Total Chats</p>
             <h3 className="text-4xl font-bold mt-2">{totalChats}</h3>
           </div>
@@ -1089,7 +1089,7 @@ function OrchestratorTab() {
                 </div>
                 <div className="w-full bg-[#f5f5f7] dark:bg-[#2a2a2e] rounded-full h-2 mt-2">
                   <div
-                    className="bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] h-full"
+                    className="bg-gradient-to-r from-[#2d2d2f] to-[#1d1d1f] h-full"
                     style={{ width: latency != null ? `${Math.min((Number(latency) / 3.5) * 100, 100)}%` : '0%' }}
                   />
                 </div>
@@ -1109,7 +1109,7 @@ function OrchestratorTab() {
             <p className="text-sm opacity-90">Simple</p>
             <h3 className="text-4xl font-bold mt-2">{orchestratorData?.complexity_distribution?.simple ?? 0}</h3>
           </div>
-          <div className="bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] rounded-2xl p-8 text-white">
+          <div className="bg-gradient-to-br from-[#2d2d2f] to-[#1d1d1f] rounded-2xl p-8 text-white">
             <p className="text-sm opacity-90">Moderate</p>
             <h3 className="text-4xl font-bold mt-2">{orchestratorData?.complexity_distribution?.moderate ?? 0}</h3>
           </div>
