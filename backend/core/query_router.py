@@ -112,6 +112,7 @@ def route_query(
     selected_model: Optional[str] = None,
     model_registry: Optional[dict] = None,
     image_b64: Optional[str] = None,
+    behavioral_profile_hint: str = "balanced",
 ) -> RoutingDecision:
     """
     Determine the execution path for a query.
@@ -128,6 +129,11 @@ def route_query(
         RoutingDecision with path, reason, and configuration.
     """
     complexity = classify_query_complexity(query)
+
+    # ── Behavioral Override ──────────────────────────────────
+    if behavioral_profile_hint == "concise" and complexity == "simple":
+        logger.info("Downgrading 'simple' query to 'trivial' based on 'concise' profile preference.")
+        complexity = "trivial"
 
     # ── Multimodal override: image attached → never trivial ──
     if image_b64:

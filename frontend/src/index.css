@@ -78,6 +78,11 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
 
+  /* User/assistant bubble tokens (light mode) */
+  --user-bubble-bg: #e8f0fe;
+  --user-bubble-text: #1a2a4a;
+  --assistant-bubble-bg: #ffffff;
+
   /* Border radius */
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -88,36 +93,41 @@
 
 :root.dark,
 [data-theme="dark"] {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --bg-sidebar: #020617;
-  --bg-sidebar-hover: #0f172a;
-  --bg-card: #1e293b;
-  --bg-input: #1e293b;
-  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --bg-primary: #0d0f12;
+  --bg-secondary: #141618;
+  --bg-tertiary: #1e2024;
+  --bg-sidebar: #0a0b0d;
+  --bg-sidebar-hover: #14161a;
+  --bg-card: #1a1c20;
+  --bg-input: #1a1c20;
+  --bg-overlay: rgba(0, 0, 0, 0.75);
 
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-inverse: #0f172a;
-  --text-sidebar: #e2e8f0;
-  --text-sidebar-muted: #64748b;
+  --text-primary: #f0f2f5;
+  --text-secondary: #9aa3b0;
+  --text-tertiary: #5a6272;
+  --text-inverse: #0d0f12;
+  --text-sidebar: #dde1e8;
+  --text-sidebar-muted: #5a6272;
 
-  --border-primary: #334155;
-  --border-secondary: #1e293b;
-  --border-focus: #60a5fa;
+  --border-primary: #272b31;
+  --border-secondary: #1e2024;
+  --border-focus: #5a8af6;
 
-  --model-a-bg: #1e3a5f;
+  /* User/assistant bubble tokens */
+  --user-bubble-bg: #1e2d44;
+  --user-bubble-text: #e8eef8;
+  --assistant-bubble-bg: #1a1c20;
+
+  --model-a-bg: #182040;
   --model-a-border: #2563eb;
-  --model-b-bg: #431407;
+  --model-b-bg: #2d1407;
   --model-b-border: #ea580c;
-  --model-c-bg: #2e1065;
+  --model-c-bg: #1e1040;
   --model-c-border: #7c3aed;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.65);
 }
 
 @layer base {

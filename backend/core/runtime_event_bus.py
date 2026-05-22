@@ -62,6 +62,12 @@ class RunEventBus:
             event_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
         event_dict.setdefault("run_id", self.run_id)
 
+        # ── Payload Compression (Truncate large text fields) ──
+        # To optimize websocket/SSE traffic, limit large strings.
+        for key in ["content", "output", "reasoning", "prompt", "chunk"]:
+            if key in event_dict and isinstance(event_dict[key], str) and len(event_dict[key]) > 2000:
+                event_dict[key] = event_dict[key][:2000] + "... [truncated]"
+
         try:
             self._queue.put_nowait(event_dict)
         except asyncio.QueueFull:
@@ -79,6 +85,10 @@ class RunEventBus:
         if "timestamp" not in event_dict:
             event_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
         event_dict.setdefault("run_id", self.run_id)
+
+        for key in ["content", "output", "reasoning", "prompt", "chunk"]:
+            if key in event_dict and isinstance(event_dict[key], str) and len(event_dict[key]) > 2000:
+                event_dict[key] = event_dict[key][:2000] + "... [truncated]"
         try:
             await asyncio.wait_for(self._queue.put(event_dict), timeout=1.0)
         except (asyncio.TimeoutError, Exception):
@@ -98,7 +108,17 @@ class RunEventBus:
                     self._queue.get(),
                     timeout=min(15.0, remaining),
                 )
-                yield event
+                
+                # Batching: drain available events to reduce overhead
+                batch = [event]
+                while len(batch) < 15:
+                    try:
+                        batch.append(self._queue.get_nowait())
+                    except asyncio.QueueEmpty:
+                        break
+
+                for e in batch:
+                    yield e
             except asyncio.TimeoutError:
                 # Send heartbeat to keep SSE alive
                 yield {

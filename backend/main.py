@@ -1296,6 +1296,15 @@ async def _run_sentinel_core(
                 history.append({"role": "system", "content": opt_system})
             history.extend(opt_history_list)
     
+        # ── Optimization: Behavioral Routing Hint ─────────────────
+        profile_hint = "balanced"
+        if BehavioralMemoryManager and user_id and user_id != "anonymous":
+            try:
+                profile = await BehavioralMemoryManager.get_profile(db, user_id)
+                profile_hint = profile.get("adaptive_preference", {}).get("preferred_reasoning_depth", "balanced")
+            except Exception:
+                pass
+
         # ══════════════════════════════════════════════════════════
         # QUERY ROUTING — Decide execution path before running
         # ══════════════════════════════════════════════════════════
@@ -1309,6 +1318,7 @@ async def _run_sentinel_core(
             selected_model=getattr(request, "selected_model", None),
             model_registry=COGNITIVE_MODEL_REGISTRY,
             image_b64=request.image_b64,
+            behavioral_profile_hint=profile_hint,
         )
         logger.info(
             f"Routing decision: path={routing_decision.path.value}, "

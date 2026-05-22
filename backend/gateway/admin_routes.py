@@ -356,3 +356,105 @@ async def feedback_summary(
     except Exception as e:
         logger.error(f"Error fetching feedback: {e}")
         raise HTTPException(status_code=500, detail="Unable to fetch feedback summary.")
+
+
+@router.get("/adaptive/telemetry")
+async def adaptive_learning_telemetry(
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """
+    ✅ Cohort-level behavioral learning telemetry.
+    Returns aggregate signals from BehavioralMemoryManager — no per-user PII exposed.
+    """
+    try:
+        from database.models import Memory
+        from sqlalchemy import text
+
+        # Fetch all behavioral profiles (v2 schema key)
+        result = await db.execute(
+            select(Memory).where(Memory.key == "behavioral_profile_v2")
+        )
+        profiles = result.scalars().all()
+
+        if not profiles:
+            return {
+                "active_profiles": 0,
+                "avg_confidence": None,
+                "routing_optimizations": 0,
+                "avg_correction_rate": None,
+                "reasoning_depth_distribution": {},
+                "top_models_by_satisfaction": [],
+                "message": "No adaptive profiles yet — data will appear after user interactions.",
+            }
+
+        import json
+        parsed = []
+        for p in profiles:
+            try:
+                val = p.value if not isinstance(p.value, str) else json.loads(p.value)
+                if val.get("_schema_version") == 2:
+                    parsed.append(val)
+            except Exception:
+                continue
+
+        active = len(parsed)
+
+        # Aggregate correction rates
+        correction_rates = []
+        depth_counts = {"deep": 0, "balanced": 0, "concise": 0}
+        model_agg: dict = {}
+        routing_total = 0
+
+        for p in parsed:
+            total_interactions = p.get("_total_interactions", 1) or 1
+            corrections = p.get("behavioral_memory", {}).get("correction_frequency", 0)
+            correction_rates.append(corrections / total_interactions)
+
+            depth = p.get("adaptive_preference", {}).get("preferred_reasoning_depth", "balanced")
+            depth_counts[depth] = depth_counts.get(depth, 0) + 1
+
+            routing_total += p.get("runtime_optimization", {}).get("routing_optimizations", 0)
+
+            for model_id, sat in p.get("adaptive_preference", {}).get("model_satisfaction", {}).items():
+                if model_id not in model_agg:
+                    model_agg[model_id] = {"uses": 0, "positive": 0, "negative": 0}
+                model_agg[model_id]["uses"] += sat.get("uses", 0)
+                model_agg[model_id]["positive"] += sat.get("positive", 0)
+                model_agg[model_id]["negative"] += sat.get("negative", 0)
+
+        avg_correction = round(sum(correction_rates) / len(correction_rates), 4) if correction_rates else None
+
+        # Confidence = inverse of correction rate (simple proxy)
+        avg_confidence = round(1.0 - avg_correction, 4) if avg_correction is not None else None
+
+        # Depth distribution as fractions
+        depth_dist = {k: round(v / active, 4) for k, v in depth_counts.items() if v > 0}
+
+        # Ranked model list
+        model_list = [
+            {
+                "model": m,
+                "uses": data["uses"],
+                "positive": data["positive"],
+                "negative": data["negative"],
+                "satisfaction_rate": round(data["positive"] / data["uses"], 4) if data["uses"] > 0 else 0.0,
+            }
+            for m, data in model_agg.items()
+        ]
+        model_list.sort(key=lambda x: x["satisfaction_rate"], reverse=True)
+
+        return {
+            "active_profiles": active,
+            "avg_confidence": avg_confidence,
+            "routing_optimizations": routing_total,
+            "avg_correction_rate": avg_correction,
+            "reasoning_depth_distribution": depth_dist,
+            "top_models_by_satisfaction": model_list[:10],
+            "generated_at": datetime.utcnow().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error(f"Error fetching adaptive telemetry: {e}")
+        raise HTTPException(status_code=500, detail=f"Unable to fetch adaptive telemetry: {str(e)}")
+

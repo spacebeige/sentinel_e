@@ -218,11 +218,11 @@ function computeLayout(nodes, edges, width, height, iterations = 80) {
 
 
 // ── Main Component ─────────────────────────────────────────────
-export default function SemanticCognitionGraph({
+const SemanticCognitionGraph = ({
   response,
   width = 560,
   height = 360,
-}) {
+}) => {
   const svgRef = useRef(null);
   const [hoveredNode, setHoveredNode] = useState(null);
   const [tooltip, setTooltip] = useState(null);
@@ -499,3 +499,5 @@ function GraphTooltip({ node, x, y, width, height }) {
     </g>
   );
 }
+
+export default React.memo(SemanticCognitionGraph);

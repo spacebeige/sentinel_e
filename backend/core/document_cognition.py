@@ -94,15 +94,23 @@ async def build_document_cognition(
 
     # Pipeline Step 1: Lightweight OCR (via file_preprocessor)
     processed = preprocess_file(file_b64, file_mime)
-    extracted_text = _compact_text(processed.get("extracted_text"), max_context_chars)
     doc_type = _document_type(file_mime)
+    metadata = processed.get("metadata") if isinstance(processed.get("metadata"), dict) else {}
+
+    if doc_type == "pdf" and metadata.get("page_count", 0) > 10:
+        from core.pdf_streaming import PDFStreamingProcessor
+        streamer = PDFStreamingProcessor()
+        hierarchical_summary = await streamer.summarize_hierarchically(file_b64)
+        processed["extracted_text"] = hierarchical_summary
+        processed["skip_vision_api"] = True
+
+    extracted_text = _compact_text(processed.get("extracted_text"), max_context_chars)
     local_sufficient = len(extracted_text) >= MIN_TEXT_THRESHOLD
-    extraction_method = "pymupdf" if doc_type == "pdf" and extracted_text else "ocr" if extracted_text else "none"
+    extraction_method = "pymupdf_stream" if (doc_type == "pdf" and metadata.get("page_count", 0) > 10) else ("pymupdf" if doc_type == "pdf" and extracted_text else "ocr" if extracted_text else "none")
     requires_ocr = doc_type in {"pdf", "image"} and not local_sufficient
     requires_model_escalation = doc_type == "image" and not local_sufficient
 
     sections = _extract_sections(extracted_text)
-    metadata = processed.get("metadata") if isinstance(processed.get("metadata"), dict) else {}
 
     # Pipeline Step 2 & 3: Semantic Extraction & Fallback Escalation
     vision_extracted_text = None

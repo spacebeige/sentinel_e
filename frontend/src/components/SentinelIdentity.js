@@ -1,6 +1,6 @@
 import React from 'react';
 
-const LOGO_SRC = '/assets/branding/sentinel-logo-icon.png';
+const LOGO_SRC = '/assets/branding/sentinel_e.png';
 
 export default function SentinelIdentity({
   size = 40,

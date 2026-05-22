@@ -46,9 +46,7 @@ export default function Navbar() {
 
   const isChat = location.pathname === '/chat';
   const displayName = user?.name || user?.email?.split('@')[0] || 'Sentinel User';
-  const sessionLabel = (user?.provider && user.provider !== 'guest')
-    ? `${user.provider} session`
-    : 'Authenticated session';
+  const sessionLabel = 'Authenticated session';
 
   const handleProtectedNavigation = (event, targetPath, isProtected) => {
     if (loading) {

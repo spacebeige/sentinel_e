@@ -23,6 +23,75 @@ import api from '../services/api';
 import { readSupabaseSessionSnapshot } from '../services/supabaseSessionManager';
 import SentinelIdentity from '../components/SentinelIdentity';
 
+function VirtualizedRunList({ runs, fetchRunDetail, LIFECYCLE_COLORS, FONT }) {
+  const [scrollTop, setScrollTop] = useState(0);
+  const rowHeight = 72; // 64 height + 8 gap
+  const containerHeight = 600;
+
+  const startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - 5);
+  const endIndex = Math.min(runs.length, startIndex + Math.ceil(containerHeight / rowHeight) + 10);
+
+  return (
+    <div 
+      className="overflow-y-auto pr-2" 
+      style={{ height: `${containerHeight}px`, position: 'relative' }}
+      onScroll={(e) => setScrollTop(e.target.scrollTop)}
+    >
+      <div style={{ height: `${runs.length * rowHeight}px`, position: 'relative' }}>
+        {runs.slice(startIndex, endIndex).map((run, idx) => {
+          const actualIndex = startIndex + idx;
+          const lc = run.lifecycle_state || 'unknown';
+          const colors = LIFECYCLE_COLORS[lc] || LIFECYCLE_COLORS.created;
+          return (
+            <motion.div
+              key={run.orchestration_run_id}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              onClick={() => fetchRunDetail(run.orchestration_run_id)}
+              className="bg-white dark:bg-[#1c1c1e] rounded-xl p-4 border border-black/5 dark:border-white/5 hover:border-[#3b82f6]/30 transition-all cursor-pointer absolute left-0 right-0"
+              style={{ fontFamily: FONT, top: `${actualIndex * rowHeight}px`, height: `${rowHeight - 8}px` }}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div style={{
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    background: colors.dot, flexShrink: 0,
+                    boxShadow: lc !== 'completed' && lc !== 'failed' ? `0 0 6px ${colors.dot}` : 'none',
+                  }} />
+                  <span className="font-mono text-xs text-[#6e6e73] truncate" style={{ maxWidth: '120px' }}>
+                    {run.orchestration_run_id?.slice(0, 8)}…
+                  </span>
+                  <span className="text-xs font-medium text-[#1d1d1f] dark:text-[#f1f5f9] truncate">
+                    {run.phase_label || run.cognitive_phase || '—'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 flex-shrink-0">
+                  <span style={{
+                    padding: '2px 8px', borderRadius: '10px',
+                    fontSize: '10px', fontWeight: 600,
+                    background: colors.bg, color: colors.text,
+                  }}>
+                    {lc}
+                  </span>
+                  <span className="text-xs text-[#6e6e73] w-12 text-right">
+                    {run.final_confidence != null ? `${Math.round(run.final_confidence * 100)}%` : '—'}
+                  </span>
+                  <span className="text-xs text-[#aeaeb2] w-16 text-right">
+                    {run.total_latency_ms > 0 ? `${(run.total_latency_ms / 1000).toFixed(1)}s` : '—'}
+                  </span>
+                  <span className="text-xs text-[#aeaeb2] w-10 text-right">
+                    {run.models_succeeded ?? '—'}/{run.models_executed ?? '—'}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const FONT = "'Inter', -apple-system, sans-serif";
 
 const CognitiveMissionControl = () => {
@@ -46,6 +115,7 @@ const CognitiveMissionControl = () => {
     { id: 'users', label: 'Users', icon: Users },
     { id: 'cognitive_runtime', label: 'Cognitive Runtime', icon: Cpu },
     { id: 'agentic_controls', label: 'Agentic Controls', icon: Zap },
+    { id: 'adaptive_learning', label: 'Adaptive Learning', icon: Brain },
   ];
   const availableTabs = tabs;
 
@@ -116,8 +186,8 @@ const CognitiveMissionControl = () => {
   return (
     <div className="admin-control-dashboard min-h-screen sentinel-bg-app">
       {/* Header */}
-      <header className="sentinel-surface border-b sentinel-border sticky top-14 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-8">
+      <header className="sentinel-surface border-b sentinel-border sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6 pt-6 pb-0">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3 mb-2">
@@ -213,8 +283,10 @@ const CognitiveMissionControl = () => {
         {/* v8.0: Cognitive Runtime Tab */}
         {activeTab === 'cognitive_runtime' && <CognitiveMissionControlTab apiBase={API_BASE} />}
 
-        {/* Agentic Controls Tab */}
         {activeTab === 'agentic_controls' && <AgenticControlsTab />}
+
+        {/* Adaptive Learning Tab */}
+        {activeTab === 'adaptive_learning' && <AdaptiveLearningTab apiBase={API_BASE} />}
 
         {/* Users Tab */}
         {activeTab === 'users' && (
@@ -240,7 +312,121 @@ const CognitiveMissionControl = () => {
   );
 };
 
+function AdaptiveLearningTab({ apiBase }) {
+  const [telemetry, setTelemetry] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const FONT = "'Inter', -apple-system, sans-serif";
+
+  useEffect(() => {
+    const fetchTelemetry = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${apiBase}/api/admin/adaptive/telemetry`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        setTelemetry(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTelemetry();
+  }, [apiBase]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p style={{ fontFamily: FONT, fontSize: '14px', color: 'var(--text-secondary)' }}>Loading adaptive telemetry…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const MetricCard = ({ label, value, unit, color, description }) => (
+    <div className="rounded-2xl p-5 border transition-all" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-primary)' }}>
+      <p style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)' }}>{label}</p>
+      <div className="flex items-end gap-1 mt-2 mb-1">
+        <span style={{ fontFamily: FONT, fontSize: '32px', fontWeight: 700, color, lineHeight: 1 }}>{value ?? '—'}</span>
+        {unit && <span style={{ fontFamily: FONT, fontSize: '13px', color: 'var(--text-tertiary)', marginBottom: '3px' }}>{unit}</span>}
+      </div>
+      {description && <p style={{ fontFamily: FONT, fontSize: '12px', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>{description}</p>}
+    </div>
+  );
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 style={{ fontFamily: FONT, fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)' }}>Adaptive Learning Engine</h2>
+        <p style={{ fontFamily: FONT, fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+          Cohort-level behavioral adaptation telemetry. No per-user PII is exposed.
+        </p>
+      </div>
+
+      {error ? (
+        <div className="rounded-2xl p-6 border border-red-500/20 bg-red-500/10">
+          <p style={{ fontFamily: FONT, fontSize: '14px', color: '#ef4444' }}>⚠ Telemetry endpoint unavailable: {error}</p>
+          <p style={{ fontFamily: FONT, fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+            Ensure <code>/api/admin/adaptive/telemetry</code> is deployed on the backend.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Summary metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <MetricCard label="Active Profiles" value={telemetry?.active_profiles ?? 0} color="#3b82f6" description="Users with behavioral profiles" />
+            <MetricCard label="Avg Learning Confidence" value={telemetry?.avg_confidence != null ? `${(telemetry.avg_confidence * 100).toFixed(0)}` : '—'} unit="%" color="#10b981" description="Cross-user adaptation signal quality" />
+            <MetricCard label="Routing Optimizations" value={telemetry?.routing_optimizations ?? '—'} color="#8b5cf6" description="Model routing decisions improved" />
+            <MetricCard label="Correction Rate" value={telemetry?.avg_correction_rate != null ? `${(telemetry.avg_correction_rate * 100).toFixed(1)}` : '—'} unit="%" color="#f59e0b" description="User correction frequency (lower = better)" />
+          </div>
+
+          {/* Reasoning depth distribution */}
+          {telemetry?.reasoning_depth_distribution && (
+            <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-primary)' }}>
+              <h3 style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Reasoning Depth Distribution</h3>
+              <div className="space-y-3">
+                {Object.entries(telemetry.reasoning_depth_distribution).map(([depth, pct]) => (
+                  <div key={depth} className="flex items-center gap-3">
+                    <span style={{ fontFamily: FONT, fontSize: '12px', color: 'var(--text-secondary)', width: '72px', textTransform: 'capitalize' }}>{depth}</span>
+                    <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: 'var(--border-primary)' }}>
+                      <div className="h-2 rounded-full transition-all" style={{ width: `${Math.round(pct * 100)}%`, backgroundColor: depth === 'deep' ? '#8b5cf6' : depth === 'concise' ? '#10b981' : '#3b82f6' }} />
+                    </div>
+                    <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', width: '36px', textAlign: 'right' }}>{Math.round(pct * 100)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Top model satisfaction */}
+          {telemetry?.top_models_by_satisfaction && telemetry.top_models_by_satisfaction.length > 0 && (
+            <div className="rounded-2xl p-6 border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-primary)' }}>
+              <h3 style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>Model Satisfaction (Cohort)</h3>
+              <div className="space-y-2">
+                {telemetry.top_models_by_satisfaction.slice(0, 8).map((m) => (
+                  <div key={m.model} className="flex items-center justify-between py-2 border-b last:border-0" style={{ borderColor: 'var(--border-secondary)' }}>
+                    <span style={{ fontFamily: FONT, fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500 }}>{m.model}</span>
+                    <div className="flex items-center gap-3">
+                      <span style={{ fontFamily: FONT, fontSize: '11px', color: '#10b981' }}>▲ {m.positive}</span>
+                      <span style={{ fontFamily: FONT, fontSize: '11px', color: '#ef4444' }}>▼ {m.negative}</span>
+                      <span style={{ fontFamily: FONT, fontSize: '11px', color: 'var(--text-tertiary)' }}>{m.uses} uses</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function AgenticControlsTab() {
+
   const [permissions, setPermissions] = useState({
     browserAutomation: true,
     requireConfirmationRisky: true,
@@ -342,21 +528,22 @@ function OverviewTab({ stats }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-[#1c1c1e] rounded-2xl p-6 border border-black/5 dark:border-white/5 hover:border-black/10 transition-all hover:shadow-lg"
+      className="rounded-2xl p-6 border hover:border-black/10 dark:hover:border-white/10 transition-all hover:shadow-lg"
+      style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-primary)' }}
     >
       <div className="flex items-start justify-between mb-4">
         <div>
-          <p className="text-xs uppercase tracking-wider" style={{ color: '#aeaeb2' }}>
+          <p className="text-xs uppercase tracking-wider sentinel-text-muted">
             {label}
           </p>
           <h3
-            className="text-4xl font-bold mt-2"
-            style={{ fontFamily: FONT, color: '#1d1d1f' }}
+            className="text-4xl font-bold mt-2 sentinel-text-primary"
+            style={{ fontFamily: FONT }}
           >
             {typeof value === 'number' ? value.toLocaleString() : value}
           </h3>
           {subtext && (
-            <p className="text-xs mt-2" style={{ color: '#6e6e73' }}>
+            <p className="text-xs mt-2 sentinel-text-secondary">
               {subtext}
             </p>
           )}
@@ -364,7 +551,7 @@ function OverviewTab({ stats }) {
         {Icon && (
           <div
             className="w-12 h-12 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: `${color}15` }}
+            style={{ backgroundColor: `${color}18` }}
           >
             <Icon className="w-6 h-6" style={{ color }} />
           </div>
@@ -1370,65 +1557,7 @@ function CognitiveMissionControlTab({ apiBase }) {
             <p className="text-sm">No orchestration runs yet. Start a query to generate runtime data.</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {recentRuns.map((run) => {
-              const lc = run.lifecycle_state || 'unknown';
-              const colors = LIFECYCLE_COLORS[lc] || LIFECYCLE_COLORS.created;
-              return (
-                <motion.div
-                  key={run.orchestration_run_id}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  onClick={() => fetchRunDetail(run.orchestration_run_id)}
-                  className="bg-white dark:bg-[#1c1c1e] rounded-xl p-4 border border-black/5 dark:border-white/5 hover:border-[#3b82f6]/30 transition-all cursor-pointer"
-                  style={{ fontFamily: FONT }}
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      {/* Status dot */}
-                      <div style={{
-                        width: '8px', height: '8px', borderRadius: '50%',
-                        background: colors.dot, flexShrink: 0,
-                        boxShadow: lc !== 'completed' && lc !== 'failed'
-                          ? `0 0 6px ${colors.dot}` : 'none',
-                      }} />
-                      {/* Run ID */}
-                      <span className="font-mono text-xs text-[#6e6e73] truncate" style={{ maxWidth: '120px' }}>
-                        {run.orchestration_run_id?.slice(0, 8)}…
-                      </span>
-                      {/* Phase label */}
-                      <span className="text-xs font-medium text-[#1d1d1f] dark:text-[#f1f5f9] truncate">
-                        {run.phase_label || run.cognitive_phase || '—'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-4 flex-shrink-0">
-                      {/* Lifecycle badge */}
-                      <span style={{
-                        padding: '2px 8px', borderRadius: '10px',
-                        fontSize: '10px', fontWeight: 600,
-                        background: colors.bg, color: colors.text,
-                      }}>
-                        {lc}
-                      </span>
-                      {/* Confidence */}
-                      <span className="text-xs text-[#6e6e73] w-12 text-right">
-                        {run.final_confidence != null ? `${Math.round(run.final_confidence * 100)}%` : '—'}
-                      </span>
-                      {/* Latency */}
-                      <span className="text-xs text-[#aeaeb2] w-16 text-right">
-                        {run.total_latency_ms > 0 ? `${(run.total_latency_ms / 1000).toFixed(1)}s` : '—'}
-                      </span>
-                      {/* Models */}
-                      <span className="text-xs text-[#aeaeb2] w-10 text-right">
-                        {run.models_succeeded ?? '—'}/{run.models_executed ?? '—'}
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
+          <VirtualizedRunList runs={recentRuns} fetchRunDetail={fetchRunDetail} LIFECYCLE_COLORS={LIFECYCLE_COLORS} FONT={FONT} />
         )}
       </section>
 

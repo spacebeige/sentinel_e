@@ -8,8 +8,9 @@
  * into an authenticated user's session slot.
  */
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import api from '../services/api';
+import { getPersistenceUserId } from '../services/sessionPersistence';
 
 async function fetchWithRetry(fetcher, retries = 3, baseDelayMs = 1500) {
   const shouldRetry = (error) => {
@@ -166,8 +167,21 @@ const useStore = create(
     {
       // Persist key is stable per deployment — user ID is stored inside the state.
       // Authenticated users ALWAYS get fresh state from the server on login.
-      name: 'sentinel-session-storage',
-      storage: createJSONStorage(() => localStorage),
+      name: 'sentinel-session',
+      storage: {
+        getItem: (name) => {
+          const userId = getPersistenceUserId() || 'guest';
+          return localStorage.getItem(`${name}-${userId}`);
+        },
+        setItem: (name, value) => {
+          const userId = getPersistenceUserId() || 'guest';
+          localStorage.setItem(`${name}-${userId}`, value);
+        },
+        removeItem: (name) => {
+          const userId = getPersistenceUserId() || 'guest';
+          localStorage.removeItem(`${name}-${userId}`);
+        }
+      },
       onRehydrateStorage: () => (state) => {
         // DEFENSIVE GUARD: Block legacy guest-key hydration.
         // If the rehydrated state contains a stale guest userId, clear it.
