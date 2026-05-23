@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { Sparkles, ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, Cpu } from "lucide-react";
 import { Link } from "react-router";
 import { getLearningSummary, type LearningSummary } from "../api";
+import { GlassPanel } from "./GlassPanel";
 
 const models = [
   {
@@ -59,44 +60,35 @@ export function ModelsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7] pt-14">
-      <div className="max-w-7xl mx-auto px-6 py-16">
+    <div className="min-h-screen pt-24">
+      <div className="max-w-7xl mx-auto px-6 py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="mb-12"
         >
-          <h1
-            className="text-[#1d1d1f] mb-4"
-            style={{
-              fontFamily: "'Inter', -apple-system, sans-serif",
-              fontSize: 'clamp(36px, 5vw, 56px)',
-              fontWeight: 700,
-              letterSpacing: '-0.03em',
-              lineHeight: 1.1,
-            }}
-          >
-            Powered by
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[rgba(110,231,249,0.15)] bg-[rgba(110,231,249,0.05)] mb-5">
+            <div className="w-1 h-1 rounded-full bg-[#6ee7f9]" />
+            <span className="text-[#6ee7f9] text-[10px] font-medium tracking-[0.2em] uppercase">Model Ensemble</span>
+          </div>
+          <h1 className="text-[clamp(32px,5vw,54px)] font-bold tracking-[-0.03em] text-[#f3f5f7] leading-tight mb-4 text-balance">
+            Cognitive engines
             <br />
-            <span className="bg-gradient-to-r from-[#8b5cf6] to-[#06b6d4] bg-clip-text text-transparent">
-              Three Engines
-            </span>
+            <span className="text-[#8a9099] font-light">powering the runtime</span>
           </h1>
-          <p
-            className="text-[#6e6e73] max-w-lg mx-auto"
-            style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '17px', lineHeight: 1.6, fontWeight: 400 }}
-          >
-            Llama, Gemma, Mistral & Phi as the foundation — Sentinel-E as the aggregate brain for debate and research with Chain-of-Thought and Tree-of-Thought reasoning.
+          <p className="text-[#8a9099] max-w-lg text-sm leading-relaxed">
+            Llama, Gemma, Mistral and Sentinel-E aggregate intelligence — all orchestrated for
+            structured deliberation, debate, and research.
           </p>
           {learning && learning.total_feedback > 0 && (
-            <p
-              className="text-[#aeaeb2] mt-3"
-              style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '12px', fontWeight: 500 }}
-            >
-              Continuously learning from {learning.total_feedback} feedback loops
-              {learning.total_risk_profiles > 0 && ` · ${learning.total_risk_profiles} risk profiles tracked`}
-            </p>
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-[rgba(52,211,153,0.08)] border border-[rgba(52,211,153,0.15)]">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#34d399]" />
+              <span className="text-[#34d399] text-[11px] font-medium">
+                Learning from {learning.total_feedback} feedback loops
+                {learning.total_risk_profiles > 0 && ` · ${learning.total_risk_profiles} risk profiles`}
+              </span>
+            </div>
           )}
         </motion.div>
 
@@ -107,98 +99,70 @@ export function ModelsPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.08 }}
-              className="group p-6 rounded-3xl bg-white border border-black/5 hover:shadow-xl hover:shadow-black/5 transition-all duration-300 hover:-translate-y-1 flex flex-col bg-[#ffffff]"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                  style={{ backgroundColor: model.color + "15" }}
-                >
-                  <Sparkles className="w-6 h-6" style={{ color: model.color }} />
+              <GlassPanel className="p-6 h-full flex flex-col hover:-translate-y-0.5 transition-transform duration-300">
+                <div className="flex items-start justify-between mb-4">
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center"
+                    style={{ background: `${model.color}12`, border: `1px solid ${model.color}25` }}
+                  >
+                    <Cpu className="w-5 h-5" style={{ color: model.color }} />
+                  </div>
+                  <span
+                    className="px-2.5 py-0.5 rounded text-[10px] font-semibold tracking-wide"
+                    style={{
+                      background: `${model.color}10`,
+                      border: `1px solid ${model.color}25`,
+                      color: model.color,
+                    }}
+                  >
+                    {model.badge}
+                  </span>
                 </div>
-                <span
-                  className="px-3 py-1 rounded-full border"
+
+                <h3 className="text-[#f3f5f7] font-semibold text-base mb-0.5 tracking-tight">
+                  {model.name}
+                </h3>
+                <p className="text-[#8a9099] text-[11px] font-medium mb-3">
+                  by {model.provider}
+                </p>
+                <p className="text-[#8a9099] text-xs leading-relaxed mb-4">
+                  {model.description}
+                </p>
+
+                <div className="space-y-1.5 mb-5 flex-1">
+                  {model.features.map((feature) => (
+                    <div key={feature} className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-[#34d399] shrink-0" />
+                      <span className="text-[#c7cbd1] text-xs">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[rgba(52,211,153,0.08)] border border-[rgba(52,211,153,0.15)]">
+                    <div className="w-1 h-1 rounded-full bg-[#34d399]" />
+                    <span className="text-[#34d399] text-[10px] font-medium">{model.speed}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[rgba(110,231,249,0.08)] border border-[rgba(110,231,249,0.15)]">
+                    <div className="w-1 h-1 rounded-full bg-[#6ee7f9]" />
+                    <span className="text-[#6ee7f9] text-[10px] font-medium">{model.quality}</span>
+                  </div>
+                </div>
+
+                <Link
+                  to="/chat"
+                  className="group/btn flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-xs font-semibold tracking-wide transition-all"
                   style={{
-                    backgroundColor: model.color + "10",
-                    borderColor: model.color + "25",
+                    background: `${model.color}10`,
+                    border: `1px solid ${model.color}20`,
                     color: model.color,
-                    fontFamily: "'Inter', -apple-system, sans-serif",
-                    fontSize: '11px',
-                    fontWeight: 600,
                   }}
                 >
-                  {model.badge}
-                </span>
-              </div>
-
-              <h3
-                className="text-[#1d1d1f] mb-1"
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '20px', fontWeight: 600 }}
-              >
-                {model.name}
-              </h3>
-              <p
-                className="text-[#6e6e73] mb-1"
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '13px', fontWeight: 500 }}
-              >
-                by {model.provider}
-              </p>
-              <p
-                className="text-[#6e6e73] mb-4"
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '14px', lineHeight: 1.5, fontWeight: 400 }}
-              >
-                {model.description}
-              </p>
-
-              <div className="space-y-2 mb-5 flex-1">
-                {model.features.map((feature) => (
-                  <div key={feature} className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-[#34c759] flex-shrink-0" />
-                    <span
-                      className="text-[#1d1d1f]"
-                      style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '13px', fontWeight: 400 }}
-                    >
-                      {feature}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f5f5f7]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#34c759]" />
-                  <span
-                    className="text-[#6e6e73]"
-                    style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '12px', fontWeight: 500 }}
-                  >
-                    {model.speed}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f5f5f7]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#007aff]" />
-                  <span
-                    className="text-[#6e6e73]"
-                    style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '12px', fontWeight: 500 }}
-                  >
-                    {model.quality}
-                  </span>
-                </div>
-              </div>
-
-              <Link
-                to="/chat"
-                className="group/btn flex items-center justify-center gap-2 w-full py-2.5 rounded-2xl transition-all"
-                style={{
-                  backgroundColor: model.color + "10",
-                  color: model.color,
-                  fontFamily: "'Inter', -apple-system, sans-serif",
-                  fontSize: '14px',
-                  fontWeight: 600,
-                }}
-              >
-                Try {model.name}
-                <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-0.5 transition-transform" />
-              </Link>
+                  Try {model.name}
+                  <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
+                </Link>
+              </GlassPanel>
             </motion.div>
           ))}
         </div>

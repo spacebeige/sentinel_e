@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Swords, Brain, Shield, Eye, Zap, GitBranch,
   BarChart3, ChevronRight, AlertTriangle, CheckCircle2,

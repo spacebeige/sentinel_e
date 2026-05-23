@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { Activity, Cpu, Network, Shield, Zap, BarChart3, GitBranch, Globe, ArrowUpRight } from "lucide-react";
 import { GlassPanel } from "./GlassPanel";
 import { ConsensusMeter } from "./ConsensusMeter";

@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { Shield, AlertTriangle, CheckCircle2, Eye, Lock, Zap, BarChart3, GitBranch, Search } from "lucide-react";
 import { GlassPanel } from "./GlassPanel";
 import { ConsensusMeter } from "./ConsensusMeter";

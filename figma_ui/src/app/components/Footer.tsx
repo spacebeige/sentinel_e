@@ -1,58 +1,72 @@
-import { Sigma } from "lucide-react";
+import { Layers } from "lucide-react";
+import { Link } from "react-router";
+
+const FOOTER_LINKS = [
+  {
+    title: "Platform",
+    links: [
+      { label: "Deliberation", to: "/chat" },
+      { label: "Debate Arena", to: "/debate" },
+      { label: "Mission Control", to: "/mission-control" },
+      { label: "Governance", to: "/governance" },
+    ],
+  },
+  {
+    title: "Models",
+    links: [
+      { label: "Model Library", to: "/models" },
+      { label: "Pricing", to: "/pricing" },
+      { label: "API Docs", to: "#" },
+      { label: "Status", to: "#" },
+    ],
+  },
+  {
+    title: "Company",
+    links: [
+      { label: "About", to: "#" },
+      { label: "Blog", to: "#" },
+      { label: "Careers", to: "#" },
+      { label: "Press", to: "#" },
+    ],
+  },
+];
 
 export function Footer() {
   return (
-    <footer className="bg-[#1d1d1f] text-white py-16 px-6">
+    <footer className="border-t border-[rgba(110,231,249,0.07)] py-14 px-6">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+          {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center">
-                <Sigma className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-7 h-7 rounded-lg bg-[rgba(110,231,249,0.1)] border border-[rgba(110,231,249,0.2)] flex items-center justify-center">
+                <Layers className="w-3.5 h-3.5 text-[#6ee7f9]" />
               </div>
-              <span
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '18px', fontWeight: 600 }}
-              >Sentinel-E</span>
+              <div className="flex flex-col leading-none">
+                <span className="text-[#f3f5f7] font-semibold text-sm tracking-tight">SENTINEL</span>
+                <span className="text-[#6ee7f9] text-[9px] font-medium tracking-[0.18em] uppercase">E · Runtime</span>
+              </div>
             </div>
-            <p
-              className="text-white/40"
-              style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '13px', lineHeight: 1.6, fontWeight: 400 }}
-            >
-              Intelligence, reimagined. The next generation of AI, designed for everyone.
+            <p className="text-[#8a9099] text-xs leading-relaxed max-w-[200px]">
+              Visible machine cognition. Multi-agent AI orchestration for the most demanding reasoning operations.
             </p>
           </div>
 
-          {[
-            {
-              title: "Product",
-              links: ["Chat", "Models", "API", "Pricing"],
-            },
-            {
-              title: "Company",
-              links: ["About", "Blog", "Careers", "Press"],
-            },
-            {
-              title: "Resources",
-              links: ["Documentation", "Help Center", "Community", "Status"],
-            },
-          ].map((section) => (
+          {/* Nav columns */}
+          {FOOTER_LINKS.map((section) => (
             <div key={section.title}>
-              <h4
-                className="text-white/60 mb-3"
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '12px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}
-              >
+              <h4 className="text-[#6ee7f9] text-[10px] font-semibold tracking-[0.15em] uppercase mb-3">
                 {section.title}
               </h4>
               <ul className="space-y-2">
-                {section.links.map((link) => (
-                  <li key={link}>
-                    <a
-                      href="#"
-                      className="text-white/40 hover:text-white/80 transition-colors"
-                      style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '14px', fontWeight: 400 }}
+                {section.links.map(({ label, to }) => (
+                  <li key={label}>
+                    <Link
+                      to={to}
+                      className="text-[#8a9099] hover:text-[#c7cbd1] transition-colors text-xs"
                     >
-                      {link}
-                    </a>
+                      {label}
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -60,18 +74,16 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p
-            className="text-white/30"
-            style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '13px', fontWeight: 400 }}
-          >© 2026 Sentinel-E. All rights reserved.</p>
+        <div className="border-t border-[rgba(110,231,249,0.07)] pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
+          <p className="text-[#8a9099] text-xs">
+            © 2026 Sentinel-E. All rights reserved.
+          </p>
           <div className="flex items-center gap-6">
-            {["Privacy", "Terms", "Cookies"].map((link) => (
+            {["Privacy", "Terms", "Security"].map((link) => (
               <a
                 key={link}
                 href="#"
-                className="text-white/30 hover:text-white/60 transition-colors"
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '13px', fontWeight: 400 }}
+                className="text-[#8a9099] hover:text-[#c7cbd1] transition-colors text-xs"
               >
                 {link}
               </a>

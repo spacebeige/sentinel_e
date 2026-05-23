@@ -1,4 +1,4 @@
-import { cn } from "../components/ui/utils";
+import { cn } from "./ui/utils";
 import { ReactNode } from "react";
 
 interface GlassPanelProps {
