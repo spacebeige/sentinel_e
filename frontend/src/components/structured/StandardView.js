@@ -20,7 +20,7 @@ function qualityLabel(value) {
   if (value == null) return null;
   const pct = Math.round(value * 100);
   if (value >= 0.85) return { pct, text: 'High', color: '#10b981' };
-  if (value >= 0.65) return { pct, text: 'Moderate', color: '#3b82f6' };
+  if (value >= 0.65) return { pct, text: 'Moderate', color: '#1c1c1e' };
   if (value >= 0.40) return { pct, text: 'Low', color: '#f59e0b' };
   return { pct, text: 'Very Low', color: '#ef4444' };
 }
@@ -52,7 +52,7 @@ const markdownComponents = {
     );
   },
   pre: ({ children }) => <>{children}</>,
-  a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline' }}>{children}</a>,
+  a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#1c1c1e', textDecoration: 'underline' }}>{children}</a>,
 };
 
 function RiskCard({ boundary }) {

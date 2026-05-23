@@ -18,6 +18,7 @@ import '../styles/MainLayout.css';
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
 export const MainLayout = ({ children, showSidebar = true }) => {
+  console.log("ACTIVE_RUNTIME:MainLayout (LEGACY)");
   const { user, isAdmin, signOut } = useAuthContext();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 

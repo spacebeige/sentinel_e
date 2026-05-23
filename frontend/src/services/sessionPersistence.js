@@ -85,9 +85,7 @@
 // }
 
 // function generateId(prefix = '') {
-//   const id = typeof crypto !== 'undefined' && crypto.randomUUID
-//     ? crypto.randomUUID()
-//     : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+//   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 //   return `${prefix}${id}`;
 // }
 
@@ -648,8 +646,8 @@ function normalizeUserId(rawUserId) {
     'fallback',
     'temp',
     'local',
-    'undefined',
     'null',
+    'undefined'
   ]);
 
   if (
@@ -810,6 +808,8 @@ function normalizeConversation(
  * USER OWNERSHIP
  * ============================================================
  */
+
+console.log("ACTIVE_RUNTIME:sessionPersistence");
 
 export function setPersistenceUser(userId) {
   const resolved = resolveUserId(userId);

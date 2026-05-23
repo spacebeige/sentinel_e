@@ -3,14 +3,14 @@
  * useStore.js — Authenticated User Session Store
  * ============================================================
  *
- * Persistence keys are user-scoped to prevent stale guest-state mixing.
+ * Persistence keys are user-scoped to prevent stale state mixing.
  * Defensive guards block any legacy guest userId from being rehydrated
  * into an authenticated user's session slot.
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '../services/api';
-import { getPersistenceUserId } from '../services/sessionPersistence';
+import { getPersistenceUserId, reassignConversationId as persistReassignConversationId } from '../services/sessionPersistence';
 
 async function fetchWithRetry(fetcher, retries = 3, baseDelayMs = 1500) {
   const shouldRetry = (error) => {
@@ -134,8 +134,28 @@ const useStore = create(
       })),
 
       addChat: (chat) => set((state) => ({
-        chats: [chat, ...state.chats]
+        chats: [chat, ...state.chats],
       })),
+
+      reassignConversationId: (oldId, newId) => {
+        const { userId } = get();
+        if (!userId) return;
+        persistReassignConversationId(oldId, newId, { userId });
+        
+        set((state) => {
+          const updatedChats = state.chats.map(chat => 
+            chat.id === oldId ? { ...chat, id: newId } : chat
+          );
+          
+          const updatedMessages = { ...state.messages };
+          if (updatedMessages[oldId]) {
+            updatedMessages[newId] = updatedMessages[oldId];
+            delete updatedMessages[oldId];
+          }
+          
+          return { chats: updatedChats, messages: updatedMessages };
+        });
+      },
 
       updateMemory: (memory) => set({ memory }),
 

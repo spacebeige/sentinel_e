@@ -226,7 +226,7 @@ export default function CognitionStreamPanel({
                 height: '6px',
                 borderRadius: '3px',
                 background: idx === phaseIndex
-                  ? 'linear-gradient(90deg, #3b82f6, #06b6d4)'
+                  ? 'linear-gradient(90deg, #1c1c1e, #6e6e73)'
                   : idx < phaseIndex
                     ? 'rgba(59,130,246,0.4)'
                     : 'rgba(174,174,178,0.3)',
@@ -331,7 +331,7 @@ export function CognitionQualityBadge({ currentResult }) {
 
   const gradeColors = {
     A: { bg: 'rgba(52,199,89,0.12)', text: '#34c759', border: 'rgba(52,199,89,0.25)' },
-    B: { bg: 'rgba(59,130,246,0.12)', text: '#3b82f6', border: 'rgba(59,130,246,0.25)' },
+    B: { bg: 'rgba(59,130,246,0.12)', text: '#1c1c1e', border: 'rgba(59,130,246,0.25)' },
     C: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', border: 'rgba(245,158,11,0.25)' },
     D: { bg: 'rgba(239,68,68,0.12)', text: '#ef4444', border: 'rgba(239,68,68,0.25)' },
   };

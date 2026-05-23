@@ -5,10 +5,9 @@
  */
 
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CognitiveStoreProvider } from './stores/cognitiveStore';
 import Layout from './layout/Layout';
-import LandingPage from './pages/LandingPage';
 import ChatPage from './pages/ChatPage';
 import PricingPageWrapper from './pages/PricingPageWrapper';
 import ModelsPageWrapper from './pages/ModelsPageWrapper';
@@ -284,6 +283,9 @@ function AuthModal() {
 }
 
 function AppContent() {
+  console.log("SENTINEL_BUILD:FORENSIC_V1");
+  console.log("ACTIVE_RUNTIME:App");
+
   const { authResolved, isAuthenticated } = useAuthContext();
   const storeIsLoaded = useStore(state => state.isLoaded);
   const [bootState, setBootState] = React.useState('BOOTING');
@@ -308,16 +310,16 @@ function AppContent() {
     <>
       <SessionInitializer>
         <Routes>
+          <Route path="/" element={<Navigate to="/chat" replace />} />
+          <Route
+            path="/chat"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
+              </ProtectedRoute>
+            }
+          />
           <Route element={<Layout />}>
-            <Route path="/" element={<LandingPage />} />
-            <Route
-              path="/chat"
-              element={
-                <ProtectedRoute>
-                  <ChatPage />
-                </ProtectedRoute>
-              }
-            />
             <Route path="/pricing" element={<PricingPageWrapper />} />
             <Route
               path="/models"

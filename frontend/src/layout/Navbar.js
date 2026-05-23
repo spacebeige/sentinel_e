@@ -19,6 +19,7 @@ const navLinks = [
 ];
 
 export default function Navbar() {
+  console.log("ACTIVE_RUNTIME:Navbar");
   const location = useLocation();
   const {
     isAdmin,
@@ -175,9 +176,13 @@ export default function Navbar() {
                 </Link>
               )}
               <div className="flex items-center gap-3 px-3 py-2 rounded-2xl border sentinel-surface-panel">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2d2d2f] to-[#1d1d1f] flex items-center justify-center text-white text-sm font-semibold">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
+                {user?.user_metadata?.avatar_url ? (
+                  <img src={user.user_metadata.avatar_url} alt={displayName} className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className="w-8 h-8 flex items-center justify-center">
+                    <SentinelIdentity size={32} />
+                  </div>
+                )}
                 <div className="max-w-[160px]">
                   <div className="truncate sentinel-text-primary" style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 600 }}>
                     {displayName}
@@ -257,9 +262,13 @@ export default function Navbar() {
             ) : isAuthenticated ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2d2d2f] to-[#1d1d1f] flex items-center justify-center text-white text-sm font-semibold">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
+                  {user?.user_metadata?.avatar_url ? (
+                    <img src={user.user_metadata.avatar_url} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 flex items-center justify-center">
+                      <SentinelIdentity size={40} />
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <div
                       className="truncate sentinel-text-primary"

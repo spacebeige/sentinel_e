@@ -27,6 +27,7 @@ import {
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
+  console.log("ACTIVE_RUNTIME:AuthContext");
   const location = useLocation();
   const navigate = useNavigate();
   const {
@@ -46,10 +47,12 @@ export const AuthProvider = ({ children }) => {
   // ── Persistence ownership ────────────────────────────────
   // Authenticated Supabase users ALWAYS own persistence.
   useEffect(() => {
+    console.log("AUTH_USER", supabaseUser);
+    console.log("AUTH_SESSION", session);
     if (supabaseUser?.id) {
       setPersistenceUser(supabaseUser.id);
     }
-  }, [supabaseUser?.id]);
+  }, [supabaseUser?.id, session]);
 
   useEffect(() => {
     if (supabaseError) {
@@ -105,8 +108,20 @@ export const AuthProvider = ({ children }) => {
       await signOutSupabase();
     } finally {
       clearPersistenceUser();
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.clear();
+      if (typeof window !== 'undefined') {
+        if (window.localStorage) localStorage.clear();
+        if (window.sessionStorage) sessionStorage.clear();
+        // Clear IndexedDB for Supabase if it exists
+        try {
+          const dbs = await window.indexedDB.databases();
+          dbs.forEach((db) => {
+            if (db.name.includes('supabase')) {
+              window.indexedDB.deleteDatabase(db.name);
+            }
+          });
+        } catch (e) {
+          // Ignore indexedDB errors in restricted environments
+        }
       }
       
       const { default: useStore } = await import('../stores/useStore');

@@ -778,8 +778,8 @@ section.relative .fixed.top-0 {
   color: #e2e8f0;
 }
 
-.dark [class*="bg-blue-50"],
-[data-theme="dark"] [class*="bg-blue-50"] {
+.dark [class*="bg-gray-50"],
+[data-theme="dark"] [class*="bg-gray-50"] {
   background-color: rgba(72, 72, 74, 0.1) !important;
 }
 

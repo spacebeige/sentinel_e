@@ -48,6 +48,7 @@ function CTASection() {
 }
 
 export default function LandingPage() {
+  console.log("ACTIVE_RUNTIME:LandingPage (LEGACY)");
   return (
     <div>
       <HeroSection />

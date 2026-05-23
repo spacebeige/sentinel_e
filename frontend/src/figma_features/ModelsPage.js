@@ -18,7 +18,7 @@ const ROLE_BADGES = {
   baseline: { label: 'Reasoning', color: '#6366f1' },
   conceptual: { label: 'Conceptual', color: '#8b5cf6' },
   longctx: { label: 'Long Context', color: '#f59e0b' },
-  general: { label: 'General', color: '#3b82f6' },
+  general: { label: 'General', color: '#1c1c1e' },
   fast: { label: 'Speed', color: '#ef4444' },
 };
 

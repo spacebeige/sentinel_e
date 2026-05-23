@@ -119,10 +119,10 @@ export function PricingPage() {
               </div>
 
               <Link to="/chat"
-                className={`block text-center py-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                className={`w-full py-3 px-6 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-[1.02] active:scale-95 ${
                   plan.popular
-                    ? `bg-gradient-to-r ${plan.gradient} text-white shadow-lg shadow-blue-500/30`
-                    : 'bg-[#f5f5f7] dark:bg-white/10 text-[#1d1d1f] dark:text-[#f1f5f9] hover:bg-[#e8e8ed] dark:hover:bg-white/15'
+                    ? `bg-gradient-to-r ${plan.gradient} text-white shadow-lg shadow-white/10`
+                    : 'bg-[#f5f5f7] dark:bg-[#1c1c1e] text-[#1c1c1e] dark:text-white hover:bg-[#e8e8ed] dark:hover:bg-[#2c2c2e]'
                 }`}
                 style={{ fontFamily: FONT, fontSize: '15px', fontWeight: 600 }}>
                 {plan.cta}

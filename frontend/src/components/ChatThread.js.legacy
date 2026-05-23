@@ -172,6 +172,7 @@ const EmptyState = ({ mode, subMode }) => {
 
 /* ─── Main component ────────────────────────────────────────────── */
 const ChatThread = ({ messages, loading, mode, subMode }) => {
+  console.log("ACTIVE_RUNTIME:ChatThread.legacy");
   const bottomRef = useRef(null);
 
   useEffect(() => {

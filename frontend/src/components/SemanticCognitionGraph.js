@@ -26,8 +26,8 @@ import React, { useRef, useMemo, useState, useCallback } from 'react';
 
 // ── Constants ─────────────────────────────────────────────────
 const NODE_TYPES = {
-  CLAIM:        { color: '#3b82f6', radius: 14, label: 'Claim' },
-  SYNTHESIS:    { color: '#06b6d4', radius: 18, label: 'Synthesis' },
+  CLAIM:        { color: '#1c1c1e', radius: 14, label: 'Claim' },
+  SYNTHESIS:    { color: '#6e6e73', radius: 18, label: 'Synthesis' },
   EVIDENCE:     { color: '#34c759', radius: 10, label: 'Evidence' },
   CONTRADICTION:{ color: '#f59e0b', radius: 12, label: 'Contradiction' },
   MEMORY:       { color: '#8b5cf6', radius: 10, label: 'Memory' },
@@ -269,8 +269,8 @@ const SemanticCognitionGraph = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{
             width: '6px', height: '6px', borderRadius: '50%',
-            background: '#3b82f6',
-            boxShadow: '0 0 8px #3b82f6',
+            background: '#1c1c1e',
+            boxShadow: '0 0 8px #1c1c1e',
             animation: 'cogPulse 2s ease-in-out infinite',
           }} />
           <span style={{
