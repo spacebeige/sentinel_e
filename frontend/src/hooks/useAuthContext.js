@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }) => {
     if (supabaseUser?.id) {
       setPersistenceUser(supabaseUser.id);
     }
-  }, [supabaseUser?.id, session]);
+  }, [supabaseUser, supabaseUser?.id, session]);
 
   useEffect(() => {
     if (supabaseError) {
