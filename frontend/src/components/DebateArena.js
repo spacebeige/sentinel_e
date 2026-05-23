@@ -34,13 +34,13 @@ import {
 // ── Colour palette ────────────────────────────────────────────
 const TIER_COLORS = {
   1: '#f59e0b',   // amber  — anchor
-  2: '#3b82f6',   // blue   — debate
+  2: '#1c1c1e',   // blue   — debate
   3: '#10b981',   // emerald — specialist
 };
 
 const PROVIDER_COLORS = {
   groq: '#6366f1',
-  openrouter: '#06b6d4',
+  openrouter: '#6e6e73',
 };
 
 const STATUS_COLORS = {
@@ -58,7 +58,7 @@ const clamp  = (v) => Math.max(0, Math.min(1, v ?? 0));
 function modelColor(model, idx) {
   if (model.tier && TIER_COLORS[model.tier])  return TIER_COLORS[model.tier];
   if (model.provider && PROVIDER_COLORS[model.provider]) return PROVIDER_COLORS[model.provider];
-  const palette = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#8b5cf6'];
+  const palette = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#6e6e73', '#8b5cf6'];
   return palette[idx % palette.length];
 }
 

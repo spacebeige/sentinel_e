@@ -9,6 +9,7 @@ import Navbar from './Navbar';
 import { Footer } from '../figma_features/Footer';
 
 export default function Layout() {
+  console.log("ACTIVE_RUNTIME:Layout");
   const location = useLocation();
   const isChatPage = location.pathname === '/chat';
 

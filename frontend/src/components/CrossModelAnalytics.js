@@ -25,10 +25,10 @@ const scoreColor = (v) => {
 };
 
 const MODEL_COLORS = {
-  groq: '#3b82f6',
+  groq: '#1c1c1e',
   llama70b: '#6366f1',
   qwen: '#8b5cf6',
-  qwenvl: '#06b6d4',
+  qwenvl: '#6e6e73',
 };
 
 

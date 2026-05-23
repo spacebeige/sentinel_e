@@ -115,7 +115,7 @@
 //     [persistedChats, localConversations]
 //   );
 //   // Default to Sentinel Standard aggregate mode (not an individual model)
-//   const SENTINEL_STD = { id: 'sentinel-std', name: 'Sentinel-E Standard', provider: 'Aggregated', color: '#3b82f6', category: 'standard', isMeta: true, enabled: true };
+//   const SENTINEL_STD = { id: 'sentinel-std', name: 'Sentinel-E Standard', provider: 'Aggregated', color: '#1c1c1e', category: 'standard', isMeta: true, enabled: true };
 //   const [selectedModel, setSelectedModel] = useState(SENTINEL_STD);
 
 //   const isCurrentConversationEmpty = useCallback(() => {
@@ -722,6 +722,7 @@ function normalizeLocalMessages(messages) {
 }
 
 export default function ChatEngineV5() {
+  console.log("ACTIVE_RUNTIME:ChatEngineV5");
   const {
     chatModels,
     mcoModels,
@@ -748,6 +749,10 @@ export default function ChatEngineV5() {
 
   const [activeChatId, setActiveChatId] =
     useState(null);
+
+  React.useEffect(() => {
+    console.log("ACTIVE_CHAT_ID", activeChatId);
+  }, [activeChatId]);
 
   const [currentResult, setCurrentResult] =
     useState(null);
@@ -1095,7 +1100,7 @@ export default function ChatEngineV5() {
 
       const userMsg = {
         id:
-          crypto.randomUUID(),
+          Date.now().toString(),
 
         role: 'user',
 
@@ -1230,6 +1235,10 @@ export default function ChatEngineV5() {
           canonicalChatId !==
           activeChatId
         ) {
+          const { default: useStore } = await import('../stores/useStore');
+          if (activeChatId) {
+            useStore.getState().reassignConversationId(activeChatId, canonicalChatId);
+          }
           setActiveChatId(
             canonicalChatId
           );
@@ -1246,7 +1255,7 @@ export default function ChatEngineV5() {
 
         const assistantMsg = {
           id:
-            crypto.randomUUID(),
+            Date.now().toString(),
 
           role: 'assistant',
 

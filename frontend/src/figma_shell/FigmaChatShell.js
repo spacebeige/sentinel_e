@@ -53,7 +53,7 @@ import { getVisibility, hasAnyVisibleAnalytics } from '../engines/analyticsVisib
 
 /** Meta-mode entries — always shown at top of model picker */
 const META_MODES = [
-  { id: 'sentinel-std', name: 'Sentinel-E Standard', provider: 'Aggregated', color: '#3b82f6', category: 'standard', isMeta: true, enabled: true },
+  { id: 'sentinel-std', name: 'Sentinel-E Standard', provider: 'Aggregated', color: '#1c1c1e', category: 'standard', isMeta: true, enabled: true },
   { id: 'sentinel-exp', name: 'Sentinel-E Pro', provider: 'Multi-model', color: '#8b5cf6', category: 'experimental', isMeta: true, enabled: true },
 ];
 
@@ -63,7 +63,7 @@ export const MODELS = [...META_MODES];
 const PRO_SUB_MODES = [
   { id: 'debate', label: 'Debate Mode', iconKey: 'swords', color: '#ef4444', description: 'Argues both sides of a topic so you can decide', placeholder: 'Give me a topic to debate...' },
   { id: 'glass', label: 'Glass Mode', iconKey: 'gem', color: '#8b5cf6', description: 'Shows its full reasoning chain — nothing hidden', placeholder: "Ask something and I'll show my thinking..." },
-  { id: 'evidence', label: 'Evidence Mode', iconKey: 'filesearch', color: '#06b6d4', description: 'Every claim backed by a cited source', placeholder: 'What do you need evidence for...' },
+  { id: 'evidence', label: 'Evidence Mode', iconKey: 'filesearch', color: '#6e6e73', description: 'Every claim backed by a cited source', placeholder: 'What do you need evidence for...' },
   { id: 'synthesis', label: 'Synthesis Mode', iconKey: 'brain', color: '#10b981', description: 'Models collaborate to build the best answer together', placeholder: 'What should we reason about together...' },
   { id: 'agentic', label: 'Agentic Mode', iconKey: 'activity', color: '#14b8a6', description: 'Plan-first autonomous execution across multiple steps', placeholder: 'What complex task should I solve...' },
   { id: 'ocr', label: 'OCR Cognition', iconKey: 'filesearch', color: '#f59e0b', description: 'Advanced document processing and extraction', placeholder: 'Upload a document for OCR analysis...' },
@@ -136,6 +136,7 @@ export default function FigmaChatShell({
   // === Claude toggle ===
   onToggleClaude,
 }) {
+  console.log("ACTIVE_RUNTIME:FigmaChatShell");
   // ============================================================
   // RESOLVED MODELS — Dynamic from props, fallback to static
   // ============================================================
@@ -461,7 +462,7 @@ export default function FigmaChatShell({
           em: ({ children }) => <em style={{ fontStyle: 'italic', color: 'inherit' }}>{children}</em>,
           // Links
           a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline' }}>{children}</a>
+            <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#1c1c1e', textDecoration: 'underline' }}>{children}</a>
           ),
           // Blockquote
           blockquote: ({ children }) => (
@@ -525,7 +526,7 @@ export default function FigmaChatShell({
               <span
                 className="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0"
                 style={{
-                  backgroundColor: event.severity === 'warning' ? '#f59e0b' : event.severity === 'critical' ? '#ef4444' : '#3b82f6',
+                  backgroundColor: event.severity === 'warning' ? '#f59e0b' : event.severity === 'critical' ? '#ef4444' : '#1c1c1e',
                   boxShadow: event.severity === 'info' ? '0 0 10px rgba(59,130,246,0.45)' : 'none',
                 }}
               />
@@ -598,8 +599,8 @@ export default function FigmaChatShell({
                 {message.confidenceEvolution && (
                   <div>
                     <div className="flex items-center gap-1 mb-2">
-                      <BarChart3 className="w-3 h-3 text-[#3b82f6]" />
-                      <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      <BarChart3 className="w-3 h-3 text-[#1c1c1e]" />
+                      <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#1c1c1e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Confidence Evolution
                       </span>
                     </div>
@@ -610,7 +611,7 @@ export default function FigmaChatShell({
                       {message.confidenceEvolution.post_boundary != null &&
                         renderConfidenceBar(message.confidenceEvolution.post_boundary, 'Post-bound.', '#f59e0b')}
                       {message.confidenceEvolution.post_evidence != null &&
-                        renderConfidenceBar(message.confidenceEvolution.post_evidence, 'Post-evid.', '#06b6d4')}
+                        renderConfidenceBar(message.confidenceEvolution.post_evidence, 'Post-evid.', '#6e6e73')}
                       {message.confidenceEvolution.post_stress != null &&
                         renderConfidenceBar(message.confidenceEvolution.post_stress, 'Post-stress', '#8b5cf6')}
                       {renderConfidenceBar(message.confidenceEvolution.final, 'Final', '#10b981')}
@@ -746,20 +747,20 @@ export default function FigmaChatShell({
                   && (message.omegaMetadata?.forensic_result || message.omegaMetadata?.evidence_result).sources?.length > 0 && (
                   <div>
                     <div className="flex items-center gap-1 mb-1">
-                      <FileSearch className="w-3 h-3 text-[#06b6d4]" />
-                      <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      <FileSearch className="w-3 h-3 text-[#6e6e73]" />
+                      <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#6e6e73', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Evidence Sources ({(message.omegaMetadata?.forensic_result || message.omegaMetadata?.evidence_result).source_count})
                       </span>
                     </div>
                     <div className="space-y-1">
                       {(message.omegaMetadata?.forensic_result || message.omegaMetadata?.evidence_result).sources.slice(0, 5).map((src, i) => (
                         <div key={i} className="flex items-start gap-1.5">
-                          <span style={{ fontFamily: FONT, fontSize: '9px', fontWeight: 600, color: '#06b6d4' }}>[{i + 1}]</span>
+                          <span style={{ fontFamily: FONT, fontSize: '9px', fontWeight: 600, color: '#6e6e73' }}>[{i + 1}]</span>
                           <div>
                             <span className="text-[#1d1d1f] dark:text-white" style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 500 }}>{src.title || src.domain}</span>
                             {src.url && (
                               <a href={src.url} target="_blank" rel="noopener noreferrer"
-                                className="block text-[#3b82f6] hover:underline" style={{ fontSize: '9px' }}>
+                                className="block text-[#1c1c1e] hover:underline" style={{ fontSize: '9px' }}>
                                 {src.url.length > 50 ? src.url.slice(0, 50) + '...' : src.url}
                               </a>
                             )}
@@ -875,7 +876,7 @@ export default function FigmaChatShell({
         {/* Confidence & Risk Metrics */}
         {sessionState.session_confidence != null && (
           <div className="space-y-2">
-            {renderConfidenceBar(sessionState.session_confidence, 'Confidence', '#3b82f6')}
+            {renderConfidenceBar(sessionState.session_confidence, 'Confidence', '#1c1c1e')}
             {sessionState.fragility_index != null &&
               renderConfidenceBar(sessionState.fragility_index, 'Fragility', '#f59e0b')}
             {sessionState.disagreement_score != null &&
@@ -975,7 +976,7 @@ export default function FigmaChatShell({
                           <span className="px-1.5 py-0.5 rounded-md" style={{
                             fontFamily: FONT, fontSize: '9px', fontWeight: 600,
                             backgroundColor: chat.mode === 'experimental' ? '#f3e8ff' : '#e0f2fe',
-                            color: chat.mode === 'experimental' ? '#8b5cf6' : '#3b82f6',
+                            color: chat.mode === 'experimental' ? '#8b5cf6' : '#1c1c1e',
                           }}>
                             {chat.mode || 'standard'}
                           </span>
@@ -1291,15 +1292,15 @@ export default function FigmaChatShell({
                     agentMode ? 'opacity-100 bg-[#f5f5f7] dark:bg-white/10' : 'opacity-80 hover:bg-[#f5f5f7] dark:hover:bg-white/5'
                   }`}>
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: '#3b82f620' }}>
-                      <Globe className="w-4 h-4" style={{ color: '#3b82f6' }} />
+                      style={{ backgroundColor: '#1c1c1e20' }}>
+                      <Globe className="w-4 h-4" style={{ color: '#1c1c1e' }} />
                     </div>
                     <div className="text-left flex-1 min-w-0">
                       <div className="text-[#1d1d1f] dark:text-[#f1f5f9] truncate"
                         style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600 }}>
                         Browser Agent
                       </div>
-                      <div className="text-[#3b82f6] truncate"
+                      <div className="text-[#1c1c1e] truncate"
                         style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500 }}>
                         {agentMode ? 'Active — can browse web' : 'Inactive'}
                       </div>
@@ -1307,7 +1308,7 @@ export default function FigmaChatShell({
                     <button
                       onClick={(e) => { e.stopPropagation(); setAgentMode(!agentMode); }}
                       className="flex-shrink-0 w-9 h-5 rounded-full transition-colors relative"
-                      style={{ backgroundColor: agentMode ? '#3b82f6' : '#d1d5db' }}
+                      style={{ backgroundColor: agentMode ? '#1c1c1e' : '#d1d5db' }}
                       title={agentMode ? 'Disable Browser Agent' : 'Enable Browser Agent'}
                     >
                       <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
@@ -1495,7 +1496,7 @@ export default function FigmaChatShell({
                               <span className="text-[10px] font-bold uppercase tracking-wider text-[#6e6e73]">Developer Diagnostics</span>
                             </div>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] font-mono text-[#8e8e93]">
-                              <div className="truncate">Model: <span className="text-[#3b82f6]">{message.omegaMetadata?.model_name || selectedModel.name}</span></div>
+                              <div className="truncate">Model: <span className="text-[#1c1c1e]">{message.omegaMetadata?.model_name || selectedModel.name}</span></div>
                               <div>Latency: <span className="text-[#10b981]">{message.omegaMetadata?.latency_ms ? `${Math.round(message.omegaMetadata.latency_ms)}ms` : 'N/A'}</span></div>
                               <div>Provider: <span className="text-[#8b5cf6]">{message.omegaMetadata?.provider || 'standard'}</span></div>
                               <div>Tokens: <span className="text-[#f59e0b]">{message.omegaMetadata?.total_tokens || 'N/A'}</span></div>
@@ -1587,7 +1588,7 @@ export default function FigmaChatShell({
             {/* Agentic Plan Overlay */}
             {agenticPlan && agenticPlan.status === 'plan_ready' && (
               <div className="my-6 p-6 rounded-[24px] bg-[#1d1d1f] dark:bg-[#2c2c2e] border border-black/10 dark:border-white/10 shadow-lg relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-cyan-500" />
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gray-400 to-gray-500" />
                 <h3 className="text-white font-semibold text-lg mb-2 flex items-center gap-2">
                   <Activity className="w-5 h-5 text-emerald-400" />
                   Agentic Execution Plan
@@ -1787,7 +1788,7 @@ export default function FigmaChatShell({
                   }`}
                   title="Attach file"
                 >
-                  <Paperclip className={`w-5 h-5 ${attachedFile ? 'text-[#3b82f6]' : 'text-[#6e6e73] dark:text-[#94a3b8]'}`} />
+                  <Paperclip className={`w-5 h-5 ${attachedFile ? 'text-[#1c1c1e]' : 'text-[#6e6e73] dark:text-[#94a3b8]'}`} />
                 </button>
                 <input
                   ref={fileInputRef}

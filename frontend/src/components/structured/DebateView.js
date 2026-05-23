@@ -8,7 +8,7 @@ import BoundaryPanel from './BoundaryPanel';
 
 const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
-const MODEL_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'];
+const MODEL_COLORS = ['#1c1c1e', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#6e6e73', '#ec4899'];
 
 /** Qualitative label for a 0-1 confidence value */
 function confidenceLabel(value) {
@@ -398,7 +398,7 @@ export default function DebateView({ data, boundary, confidence }) {
                         {/* Assumptions */}
                         {model.assumptions && model.assumptions.length > 0 && (
                           <div className="mt-1.5">
-                            <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#3b82f6', textTransform: 'uppercase' }}>
+                            <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#1c1c1e', textTransform: 'uppercase' }}>
                               Assumptions:
                             </span>
                             {model.assumptions.map((a, ai) => (
@@ -427,7 +427,7 @@ export default function DebateView({ data, boundary, confidence }) {
                             </span>
                             <span style={{
                               fontFamily: FONT, fontSize: '12px', fontWeight: 700,
-                              color: conf >= 80 ? '#10b981' : conf >= 60 ? '#3b82f6' : conf >= 40 ? '#f59e0b' : '#ef4444',
+                              color: conf >= 80 ? '#10b981' : conf >= 60 ? '#1c1c1e' : conf >= 40 ? '#f59e0b' : '#ef4444',
                             }}>
                               {conf}%
                             </span>
@@ -717,7 +717,7 @@ export default function DebateView({ data, boundary, confidence }) {
             {driftRiftData && driftRiftData.modelDriftData.length > 1 && driftRiftData.modelDriftKeys.length > 0 && (
               <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#6e6e73', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Model Drift Trajectories
                   </span>
                   <span style={{ fontFamily: FONT, fontSize: '9px', color: '#aeaeb2' }}>
@@ -747,7 +747,7 @@ export default function DebateView({ data, boundary, confidence }) {
             {/* Score Bar Graph */}
             {barData && barData.length > 0 && (
               <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
-                <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#1c1c1e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Score Breakdown
                 </span>
                 <div className="mt-2" style={{ width: '100%', height: 260 }}>
@@ -887,7 +887,7 @@ export default function DebateView({ data, boundary, confidence }) {
             label: 'Convergence',
             value: analysis.convergence_level,
             isText: true,
-            color: '#3b82f6',
+            color: '#1c1c1e',
             display: analysis.convergence_level || 'Incomplete',
           },
           {
@@ -1005,7 +1005,7 @@ export default function DebateView({ data, boundary, confidence }) {
       {/* ── Agreement Heatmap ── */}
       {agreementHeatmap.length > 0 && heatmapLabels.length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-4 shadow-sm">
-          <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#6e6e73', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Agreement Matrix
           </span>
           <p style={{ fontFamily: FONT, fontSize: '11px', color: '#6e6e73', marginTop: '2px' }}>
@@ -1055,7 +1055,7 @@ export default function DebateView({ data, boundary, confidence }) {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <span style={{ fontSize: '13px' }}>📚</span>
-              <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span style={{ fontFamily: FONT, fontSize: '10px', fontWeight: 600, color: '#1c1c1e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Evidence Sources ({evidence.sources.length})
               </span>
             </div>
@@ -1149,7 +1149,7 @@ export default function DebateView({ data, boundary, confidence }) {
           <div className="grid grid-cols-3 gap-2 mb-3">
             {[
               { label: 'Quality', value: anchorPass.avg_quality_score, color: '#8b5cf6' },
-              { label: 'Confidence', value: anchorPass.avg_confidence, color: '#3b82f6' },
+              { label: 'Confidence', value: anchorPass.avg_confidence, color: '#1c1c1e' },
               { label: 'Agreement', value: anchorPass.anchor_agreement, color: '#10b981' },
             ].map(m => (
               <div key={m.label} className="rounded-xl bg-[#f5f5f7] dark:bg-[#27272a] p-2 text-center">
@@ -1224,7 +1224,7 @@ export default function DebateView({ data, boundary, confidence }) {
                         Quality: <strong style={{ color: '#8b5cf6' }}>{(ev.quality_score * 100).toFixed(0)}%</strong>
                       </span>
                       <span style={{ fontFamily: FONT, fontSize: '10px', color: '#6e6e73' }}>
-                        Confidence: <strong style={{ color: '#3b82f6' }}>{(ev.confidence * 100).toFixed(0)}%</strong>
+                        Confidence: <strong style={{ color: '#1c1c1e' }}>{(ev.confidence * 100).toFixed(0)}%</strong>
                       </span>
                     </div>
                   </div>
@@ -1240,7 +1240,7 @@ export default function DebateView({ data, boundary, confidence }) {
         <details className="group">
           <summary className="cursor-pointer flex items-center gap-2 px-1 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
             <span className="transform group-open:rotate-90 transition-transform text-xs text-[#aeaeb2]">▶</span>
-            <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 700, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 700, color: '#6e6e73', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Debate Timeline ({debateTimeline.length} entries)
             </span>
           </summary>

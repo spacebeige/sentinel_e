@@ -60,7 +60,7 @@ export default function EvidenceView({ data, boundary, confidence }) {
         <div className="flex items-center gap-2">
           <span className="px-2 py-0.5 rounded-lg" style={{
             fontFamily: FONT, fontSize: '10px', fontWeight: 700,
-            color: '#06b6d4', backgroundColor: '#ecfeff',
+            color: '#6e6e73', backgroundColor: '#ecfeff',
             letterSpacing: '0.05em', textTransform: 'uppercase',
           }}>
             Forensic Evidence
@@ -76,8 +76,8 @@ export default function EvidenceView({ data, boundary, confidence }) {
             onClick={() => setShowRaw(v => !v)}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-colors bg-[#f5f5f7] dark:bg-white/10 hover:bg-[#e8e8ed] dark:hover:bg-white/15"
           >
-            {showRaw ? <Eye size={12} className="text-[#3b82f6]" /> : <EyeOff size={12} className="text-[#6e6e73]" />}
-            <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500, color: showRaw ? '#3b82f6' : '#6e6e73' }}>
+            {showRaw ? <Eye size={12} className="text-[#1c1c1e]" /> : <EyeOff size={12} className="text-[#6e6e73]" />}
+            <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500, color: showRaw ? '#1c1c1e' : '#6e6e73' }}>
               {showRaw ? 'Raw' : 'Refined'}
             </span>
           </button>
@@ -106,7 +106,7 @@ export default function EvidenceView({ data, boundary, confidence }) {
       {/* ── Key Metrics ── */}
       <div className="grid grid-cols-3 gap-2">
         {[
-          { label: 'Bayesian Confidence', value: bayesian, color: '#06b6d4' },
+          { label: 'Bayesian Confidence', value: bayesian, color: '#6e6e73' },
           { label: 'Agreement', value: agreement, color: '#10b981' },
           { label: 'Source Reliability', value: sourceReliability, color: '#8b5cf6' },
         ].map(m => (
@@ -132,7 +132,7 @@ export default function EvidenceView({ data, boundary, confidence }) {
             className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#f5f5f7] dark:hover:bg-white/10 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <FileText size={14} className="text-[#06b6d4]" />
+              <FileText size={14} className="text-[#6e6e73]" />
               <span className="dark:text-[#f1f5f9]" style={{ fontFamily: FONT, fontSize: '13px', fontWeight: 600, color: '#1d1d1f' }}>
                 Evidence Sources ({evidenceSources.length})
               </span>
@@ -147,12 +147,12 @@ export default function EvidenceView({ data, boundary, confidence }) {
               {evidenceSources.map((src, i) => (
                 <div key={i} className="px-4 py-3">
                   <div className="flex items-start gap-2">
-                    <Globe size={12} className="text-[#3b82f6] mt-0.5 flex-shrink-0" />
+                    <Globe size={12} className="text-[#1c1c1e] mt-0.5 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         {src.url ? (
                           <a href={src.url} target="_blank" rel="noopener noreferrer"
-                            className="text-[#3b82f6] hover:underline truncate"
+                            className="text-[#1c1c1e] hover:underline truncate"
                             style={{ fontFamily: FONT, fontSize: '12px', fontWeight: 500 }}>
                             {src.title || src.url}
                           </a>
@@ -332,13 +332,13 @@ export default function EvidenceView({ data, boundary, confidence }) {
           {citations.map((cit, idx) => (
             <div key={idx} className="rounded-xl border border-black/5 dark:border-white/5 bg-white dark:bg-[#1c1c1e] shadow-sm p-3">
               <div className="flex items-start gap-2">
-                <Quote size={14} style={{ color: '#06b6d4', marginTop: '2px', flexShrink: 0 }} />
+                <Quote size={14} style={{ color: '#6e6e73', marginTop: '2px', flexShrink: 0 }} />
                 <div>
                   <p className="dark:text-[#e2e8f0]" style={{ fontFamily: FONT, fontSize: '13px', color: '#1d1d1f', fontStyle: 'italic', lineHeight: 1.5 }}>
                     "{cit.quote}"
                   </p>
                   <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                    <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500, color: '#06b6d4' }}>
+                    <span style={{ fontFamily: FONT, fontSize: '11px', fontWeight: 500, color: '#6e6e73' }}>
                       {cit.source || 'Unknown source'}
                     </span>
                     <span style={{ fontFamily: FONT, fontSize: '10px', color: '#aeaeb2' }}>
@@ -348,7 +348,7 @@ export default function EvidenceView({ data, boundary, confidence }) {
                       <span style={{ fontFamily: FONT, fontSize: '10px', color: '#aeaeb2' }}>via {cit.model_source}</span>
                     )}
                     {cit.url && (
-                      <a href={cit.url} target="_blank" rel="noopener noreferrer" className="text-[#3b82f6] hover:underline"
+                      <a href={cit.url} target="_blank" rel="noopener noreferrer" className="text-[#1c1c1e] hover:underline"
                         style={{ fontFamily: FONT, fontSize: '10px' }}>
                         Source link
                       </a>

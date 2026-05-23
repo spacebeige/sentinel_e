@@ -269,7 +269,7 @@ function canUseLocalStorage() {
  * - stale guest hydration
  * - ghost sessions
  * - invalid fallback users
- * - anonymous restores
+ * - invalid fallback users
  * ============================================================
  */
 
@@ -296,8 +296,6 @@ export function normalizeSupabaseUser(user) {
    */
 
   const invalidGuestValues = new Set([
-    'guest',
-    'anonymous',
     'fallback',
     'local',
     'temp',
@@ -376,8 +374,8 @@ export function readSupabaseSessionSnapshot() {
   }
 
   if (
-    parsed?.user?.email === 'guest' ||
-    parsed?.user?.name === 'guest'
+    parsed?.user?.email === 'fallback' ||
+    parsed?.user?.name === 'fallback'
   ) {
     clearSupabaseSessionSnapshot();
     return null;

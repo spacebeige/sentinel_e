@@ -16,7 +16,7 @@
 //       <div
 //         className="h-full rounded-full"
 //         style={{
-//           background: 'linear-gradient(90deg, transparent 0%, #3b82f6 50%, transparent 100%)',
+//           background: 'linear-gradient(90deg, transparent 0%, #1c1c1e 50%, transparent 100%)',
 //           animation: 'shimmer 1.5s ease-in-out infinite',
 //           width: '40%',
 //         }}
@@ -31,7 +31,7 @@
 //   );
 // }
 
-// export default function ThinkingAnimation({ steps = [], activeColor = '#3b82f6', thinkMode = false }) {
+// export default function ThinkingAnimation({ steps = [], activeColor = '#1c1c1e', thinkMode = false }) {
 //   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 //   const intervalRef = useRef(null);
 
@@ -228,7 +228,7 @@ function ShimmerBar() {
       <div
         className="h-full rounded-full"
         style={{
-          background: 'linear-gradient(90deg, transparent 0%, #3b82f6 50%, transparent 100%)',
+          background: 'linear-gradient(90deg, transparent 0%, #1c1c1e 50%, transparent 100%)',
           animation: 'shimmer 1.5s ease-in-out infinite',
           width: '40%',
         }}
@@ -245,7 +245,7 @@ function ShimmerBar() {
 
 export default function ThinkingAnimation({
   steps = [],
-  activeColor = '#3b82f6',
+  activeColor = '#1c1c1e',
   thinkMode = false,
 }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);

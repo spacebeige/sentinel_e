@@ -318,12 +318,12 @@ export default function GlassView({ data, boundary, confidence }) {
         }
 
         const typeColors = {
-          query: { bg: '#3b82f6', text: 'white' },
+          query: { bg: '#1c1c1e', text: 'white' },
           model: { bg: '#8b5cf6', text: 'white' },
           consensus: { bg: '#10b981', text: 'white' },
         };
         const edgeTypeStyles = {
-          responds_to: '#3b82f6',
+          responds_to: '#1c1c1e',
           contributes: '#10b981',
           audits: '#f59e0b',
         };
