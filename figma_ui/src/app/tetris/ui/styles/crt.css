@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.console-body {
+  background-color: #121110;
+  background-image: 
+    url('/src/app/tetris/assets/textures/rusty_metal_2k.blend/textures/rusty_metal_diff_2k.jpg'),
+    url('/src/app/tetris/assets/textures/Metal010_2K-JPG/Metal010_2K-JPG_Color.jpg');
+  background-blend-mode: soft-light, multiply;
+  background-size: cover, 400px 400px;
+  box-shadow: 
+    inset 0 0 140px rgba(0,0,0,0.95),
+    inset 0 -40px 120px rgba(0,0,0,0.9),
+    0 0 120px rgba(0,0,0,0.8);
+}
+
+.console-bezel {
+  background-color: #0b0b0a;
+  background-image: url('/src/app/tetris/assets/textures/rusty_metal_2k.blend/textures/rusty_metal_diff_2k.jpg');
+  background-blend-mode: overlay;
+  background-size: cover;
+  box-shadow: 
+    inset 0 0 80px rgba(0,0,0,1),
+    0 0 40px rgba(0,0,0,0.95);
+}
+
+.console-dpad {
+  background: radial-gradient(circle at center, #1c1c1c 0%, #050505 100%);
+  background-image: 
+    url('/src/app/tetris/assets/textures/rusty_metal_2k.blend/textures/rusty_metal_diff_2k.jpg'),
+    radial-gradient(circle at center, #1c1c1c 0%, #050505 100%);
+  background-blend-mode: overlay, normal;
+  background-size: 200px 200px, cover;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.9), 0 8px 15px rgba(0,0,0,0.8);
+}
+
+.console-action-btn {
+  background: radial-gradient(circle at top, #3a0c0c, #110000);
+  background-image: 
+    url('/src/app/tetris/assets/textures/SmudgesLarge001/SmudgesLarge001_OVERLAY_VAR1_4K.jpg'),
+    radial-gradient(circle at top, #3a0c0c, #110000);
+  background-blend-mode: soft-light, normal;
+  background-size: cover;
+  box-shadow: 0 0 20px rgba(255,0,0,0.05), inset 0 0 10px rgba(255,255,255,0.05);
+  border: 1px solid #1a0505;
+}
+
+.console-screen-glass {
+  position: absolute;
+  inset: 0;
+  background-image: url('/src/app/tetris/assets/textures/SmudgesLarge001/SmudgesLarge001_OVERLAY_VAR1_4K.jpg');
+  background-size: cover;
+  mix-blend-mode: screen;
+  opacity: 0.25;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.console-crt-bg {
+  background-color: #020302;
+  box-shadow: inset 0 0 120px rgba(0,0,0,1);
+}
+
+.console-phosphor-bloom {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(0,255,120,0.03), transparent 60%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.console-vignette {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 150px rgba(0,0,0,0.9);
+  pointer-events: none;
+  z-index: 50;
+}
+
+.console-panel {
+  background-color: #121110;
+  background-image: url('/src/app/tetris/assets/textures/rusty_metal_2k.blend/textures/rusty_metal_diff_2k.jpg');
+  background-blend-mode: soft-light;
+  background-size: cover;
+  border: 1px solid #2a2a2c;
+}

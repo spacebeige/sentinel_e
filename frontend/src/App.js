@@ -21,6 +21,14 @@ import api from './services/api';
 import SentinelIdentity from './components/SentinelIdentity';
 import { LoadingScreen } from './components/LoadingScreen';
 
+// Lab Imports
+import LabLandingPage from './lab/pages/LabLandingPage';
+import CouncilExperiment from './lab/pages/CouncilExperiment';
+import MissionControlExperiment from './lab/pages/MissionControlExperiment';
+import DebateExperiment from './lab/pages/DebateExperiment';
+import CognitionExperiment from './lab/pages/CognitionExperiment';
+import SemanticExperiment from './lab/pages/SemanticExperiment';
+import GovernanceExperiment from './lab/pages/GovernanceExperiment';
 function SessionInitializer({ children }) {
   const { isAuthenticated, loading, user } = useAuthContext();
   const reloadHistory = useStore(state => state.reloadHistory);
@@ -319,6 +327,16 @@ function AppContent() {
               </ProtectedRoute>
             }
           />
+
+          {/* Isolated UI Laboratory Routes */}
+          <Route path="/lab" element={<LabLandingPage />} />
+          <Route path="/lab/council" element={<CouncilExperiment />} />
+          <Route path="/lab/mission-control" element={<MissionControlExperiment />} />
+          <Route path="/lab/debate" element={<DebateExperiment />} />
+          <Route path="/lab/cognition" element={<CognitionExperiment />} />
+          <Route path="/lab/semantic" element={<SemanticExperiment />} />
+          <Route path="/lab/governance" element={<GovernanceExperiment />} />
+
           <Route element={<Layout />}>
             <Route path="/pricing" element={<PricingPageWrapper />} />
             <Route

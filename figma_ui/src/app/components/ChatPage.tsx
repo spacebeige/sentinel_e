@@ -48,6 +48,8 @@ import {
   type ConfidenceEvolution,
   type KernelStatus,
 } from "../api";
+import { OmegaInsightPanel } from "./OmegaInsightPanel";
+import { useChatInteraction } from "../context/ChatInteractionContext";
 import { SessionAnalyticsPanel } from "./SessionAnalyticsPanel";
 import { CrossAnalysisTrigger } from "./CrossAnalysisPanel";
 
@@ -131,18 +133,18 @@ export function ChatPage() {
     },
   ]);
   const [input, setInput] = useState("");
-  const [selectedModel, setSelectedModel] = useState(models[0]);
-  const [showModelPicker, setShowModelPicker] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [activeSubMode, setActiveSubMode] = useState<string | null>(null);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
   const [healthData, setHealthData] = useState<HealthStatus | null>(null);
   const [kernelData, setKernelData] = useState<KernelStatus | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Consume UI Context from Navbar
+  const { isHistoryOpen, toggleHistory, activeSubMode, setActiveSubMode, newChatTriggered, isProMode, setIsProMode } = useChatInteraction();
+
   // Chat history sidebar
-  const [showHistory, setShowHistory] = useState(false);
+  const showHistory = isHistoryOpen;
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -209,8 +211,6 @@ export function ChatPage() {
     if (saved.chatId) {
       setCurrentChatId(saved.chatId);
       // Restore model selection
-      const savedModel = models.find((m) => m.id === saved.selectedModelId);
-      if (savedModel) setSelectedModel(savedModel);
       if (saved.subMode) setActiveSubMode(saved.subMode);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -228,12 +228,12 @@ export function ChatPage() {
   useEffect(() => {
     persist({
       chatId: currentChatId,
-      mode: selectedModel.category,
+      mode: isProMode ? "experimental" : "standard",
       subMode: activeSubMode,
-      selectedModelId: selectedModel.id,
+      isProMode: isProMode,
       killOverride: glassState.killOverride,
     });
-  }, [currentChatId, selectedModel, activeSubMode, glassState.killOverride, persist]);
+  }, [currentChatId, isProMode, activeSubMode, glassState.killOverride, persist]);
 
   // Load chat history when sidebar opens
   const loadChatHistory = useCallback(async () => {
@@ -361,7 +361,7 @@ export function ChatPage() {
       try {
         let response: SentinelRunResponse;
 
-        if (selectedModel.id === "sentinel-exp" && activeSubMode) {
+        if (isProMode && activeSubMode) {
           response = await runExperimental(
             userText,
             activeSubMode,
@@ -499,7 +499,7 @@ export function ChatPage() {
       await submitFeedback({
         run_id: msg.chatId,
         feedback: vote,
-        mode: selectedModel.id === "sentinel-exp" ? "experimental" : "standard",
+        mode: isProMode ? "experimental" : "standard",
         sub_mode: msg.mode || undefined,
         confidence: msg.confidence,
         boundary_severity: msg.boundaryResult?.severity_score,
@@ -778,17 +778,32 @@ export function ChatPage() {
     );
   };
 
+  console.log("NEW CINEMATIC CHATPAGE ACTIVE");
+  
   return (
-    <div className="h-screen flex bg-[#f5f5f7] pt-14">
-      {/* Chat History Sidebar */}
+    <div className="relative flex h-[calc(100vh-64px)] w-full overflow-hidden bg-white dark:bg-[#0a0d12]" style={{ background: "hotpink" }}>
+      {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {showHistory && (
           <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 280, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-            className="h-full border-r border-black/5 bg-white/80 backdrop-blur-xl overflow-hidden flex-shrink-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => toggleHistory()}
+            className="fixed inset-0 z-30 bg-black/20 dark:bg-black/40 backdrop-blur-sm lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* History Sidebar */}
+      <AnimatePresence>
+        {showHistory && (
+          <motion.div
+            initial={{ x: -280, width: 280 }}
+            animate={{ x: 0, width: 280 }}
+            exit={{ x: -280, width: 0 }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="absolute lg:relative left-0 top-0 h-full border-r border-black/5 dark:border-white/5 bg-[#f9f9fb] dark:bg-[#0f1117] overflow-hidden flex flex-col z-40"
           >
             <div className="h-full flex flex-col">
               <div className="flex items-center justify-between px-4 py-3 border-b border-black/5">
@@ -870,35 +885,17 @@ export function ChatPage() {
       </AnimatePresence>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-full relative z-10 bg-white dark:bg-[#0a0d12]">
         {/* Chat Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-white/80 backdrop-blur-xl border-b border-black/5">
+        <div className="flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-[#0a0d12]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/5 sticky top-0 z-20">
           <div className="flex items-center gap-2">
             {/* History toggle */}
             <button
-              onClick={() => setShowHistory(!showHistory)}
+              onClick={() => toggleHistory()}
               className={`p-2 rounded-xl transition-colors ${showHistory ? "bg-[#e8e8ed]" : "hover:bg-black/5"}`}
               title="Chat History"
             >
               <History className="w-4.5 h-4.5 text-[#6e6e73]" />
-            </button>
-
-            {/* Model picker */}
-            <button
-              onClick={() => setShowModelPicker(!showModelPicker)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-black/5 transition-colors"
-            >
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: selectedModel.color }}
-              />
-              <span
-                className="text-[#1d1d1f]"
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '15px', fontWeight: 600 }}
-              >
-                {selectedModel.name}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#6e6e73]" />
             </button>
 
             {/* Connection Status */}
@@ -962,7 +959,7 @@ export function ChatPage() {
             )}
 
             {/* Kill switch (only when in Pro mode with active session) */}
-            {selectedModel.id === "sentinel-exp" && currentChatId && backendOnline && (
+            {isProMode && currentChatId && backendOnline && (
               <button
                 onClick={handleKillSwitch}
                 className="p-2 rounded-xl hover:bg-[#fef2f2] transition-colors"
@@ -1022,110 +1019,6 @@ export function ChatPage() {
                 <X className="w-3.5 h-3.5 text-[#991b1b]" />
               </button>
             </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Model Picker Dropdown */}
-        <AnimatePresence>
-          {showModelPicker && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowModelPicker(false)} />
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute top-[7.5rem] left-16 z-50 w-64 p-2 rounded-2xl bg-white/95 backdrop-blur-xl shadow-2xl shadow-black/10 border border-black/5"
-              >
-                {/* Standard Section */}
-                <div
-                  className="px-3 pt-2 pb-1 text-[#6e6e73]"
-                  style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' as const }}
-                >
-                  Standard
-                </div>
-                {models.filter(m => m.category === "standard").map((model) => (
-                  <button
-                    key={model.id}
-                    onClick={() => {
-                      setSelectedModel(model);
-                      setShowModelPicker(false);
-                      setActiveSubMode(null);
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
-                      selectedModel.id === model.id ? "bg-[#f5f5f7]" : "hover:bg-[#f5f5f7]"
-                    }`}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: model.color + "20" }}
-                    >
-                      <Sparkles className="w-4 h-4" style={{ color: model.color }} />
-                    </div>
-                    <div className="text-left">
-                      <div
-                        className="text-[#1d1d1f]"
-                        style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '14px', fontWeight: 600 }}
-                      >
-                        {model.name}
-                      </div>
-                    </div>
-                    {selectedModel.id === model.id && (
-                      <div className="ml-auto w-5 h-5 rounded-full bg-[#007aff] flex items-center justify-center">
-                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                          <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </div>
-                    )}
-                  </button>
-                ))}
-
-                {/* Divider */}
-                <div className="my-1.5 mx-3 border-t border-black/5" />
-
-                {/* Experimental Section */}
-                <div
-                  className="px-3 pt-2 pb-1 text-[#6e6e73]"
-                  style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '11px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' as const }}
-                >
-                  Experimental
-                </div>
-                {models.filter(m => m.category === "experimental").map((model) => (
-                  <button
-                    key={model.id}
-                    onClick={() => {
-                      setSelectedModel(model);
-                      setShowModelPicker(false);
-                      if (model.id !== "sentinel-exp") setActiveSubMode(null);
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
-                      selectedModel.id === model.id ? "bg-[#f5f5f7]" : "hover:bg-[#f5f5f7]"
-                    }`}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: model.color + "20" }}
-                    >
-                      <Sparkles className="w-4 h-4" style={{ color: model.color }} />
-                    </div>
-                    <div className="text-left">
-                      <div
-                        className="text-[#1d1d1f]"
-                        style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '14px', fontWeight: 600 }}
-                      >
-                        {model.name}
-                      </div>
-                    </div>
-                    {selectedModel.id === model.id && (
-                      <div className="ml-auto w-5 h-5 rounded-full bg-[#007aff] flex items-center justify-center">
-                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                          <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </motion.div>
-            </>
           )}
         </AnimatePresence>
 
@@ -1350,8 +1243,8 @@ export function ChatPage() {
           </div>
         </div>
 
-        {/* Input Area */}
-        <div className="px-4 pb-6 pt-2">
+        {/* Floating Input Dock Area */}
+        <div className="px-4 pb-6 pt-2 bg-gradient-to-t from-white via-white/80 to-transparent dark:from-[#0a0d12] dark:via-[#0a0d12]/80 z-20">
           <div className="max-w-3xl mx-auto">
             <div
               className="flex flex-col gap-0 p-2 rounded-[28px] bg-white shadow-lg transition-all duration-300"
@@ -1396,7 +1289,7 @@ export function ChatPage() {
 
               {/* Sentinel-E Pro Submodes */}
               <AnimatePresence>
-                {selectedModel.id === "sentinel-exp" && (
+                {isProMode && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}

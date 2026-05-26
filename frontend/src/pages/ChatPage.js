@@ -1,3 +1,4 @@
+console.log("OLD LEGACY CHATPAGE ACTIVE");
 /**
  * ChatPage.js — Route: /chat
  * Thin wrapper that renders the ChatEngine (logic authority).
