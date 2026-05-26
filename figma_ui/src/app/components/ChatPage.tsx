@@ -619,7 +619,7 @@ export function ChatPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 z-30 lg:hidden"
+            className="fixed inset-0 z-30 md:hidden"
             style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }}
           />
         )}
@@ -628,8 +628,8 @@ export function ChatPage() {
       {/* Sidebar panel */}
       
           <aside
-            className={`absolute lg:relative left-0 top-0 h-full z-40 flex flex-col flex-shrink-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-              sidebarOpen ? "translate-x-0 w-[260px]" : "-translate-x-full lg:translate-x-0 lg:w-[68px]"
+            className={`absolute md:relative left-0 top-0 h-full z-40 flex flex-col flex-shrink-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              sidebarOpen ? "translate-x-0 w-[260px]" : "-translate-x-full md:translate-x-0 md:w-[68px]"
             }`}
             style={{
               background: sidebarBg,
@@ -811,7 +811,7 @@ export function ChatPage() {
           </aside>
 
       {/* ── MAIN CHAT AREA ──────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 h-full relative" style={{ background: chatBg }}>
+      <div className="flex-1 flex flex-col min-w-0 h-full relative pt-[72px]" style={{ background: chatBg }}>
 
         {/* ── TOP BAR ─────────────────────────────────────────────────── */}
         <div
@@ -839,21 +839,17 @@ export function ChatPage() {
             <div className="relative">
               <button
                 onClick={() => setModeDropdownOpen(!modeDropdownOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all"
+                className="group flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-300 hover:shadow-sm"
                 style={{
-                  background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
-                  border: `1px solid ${borderColor}`,
+                  background: isDark ? "rgba(255,255,255,0.04)" : "transparent",
+                  border: isDark ? `1px solid rgba(255,255,255,0.08)` : `1px solid transparent`,
                   color: textPrimary,
                 }}
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#3b82f6]" />
-                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "13px", fontWeight: 600 }}>
-                  Sentinel
+                <span className="font-semibold text-[15px] flex items-center gap-2" style={{ fontFamily: "'Inter', sans-serif" }}>
+                  Sentinel {isProMode ? <span className="text-[#3b82f6]">Pro</span> : <span className="text-gray-500">Standard</span>}
                 </span>
-                {isProMode && (
-                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider" style={{ background: "rgba(139,92,246,0.15)", color: "#8b5cf6" }}>PRO</span>
-                )}
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${modeDropdownOpen ? "rotate-180" : ""}`} style={{ color: textSecondary }} />
+                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${modeDropdownOpen ? "rotate-180" : ""}`} style={{ color: textSecondary }} />
               </button>
 
               <AnimatePresence>
@@ -1018,16 +1014,18 @@ export function ChatPage() {
                         className="relative overflow-hidden"
                         style={message.role === "user" ? {
                           borderRadius: "20px 20px 5px 20px",
-                          background: isDark ? "#1d2030" : "#1d1d1f",
-                          color: "#ffffff",
+                          background: isDark ? "rgb(32, 32, 36)" : "rgb(240, 240, 245)",
+                          color: isDark ? "#f5f5f7" : "#1d1d1f",
                           padding: "12px 16px",
+                          boxShadow: isDark ? "0 4px 12px rgba(0,0,0,0.3)" : "0 2px 8px rgba(0,0,0,0.03)",
+                          border: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(0,0,0,0.04)",
                         } : {
                           borderRadius: "20px 20px 20px 5px",
-                          background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
+                          background: isDark ? "rgb(24, 24, 28)" : "#ffffff",
                           color: textPrimary,
                           border: `1px solid ${msgMode ? msgMode.color + "25" : borderColor}`,
                           borderLeft: msgMode ? `3px solid ${msgMode.color}` : message.mode === "kill" ? "3px solid #ef4444" : `1px solid ${borderColor}`,
-                          boxShadow: isDark ? "0 2px 12px rgba(0,0,0,0.2)" : "0 1px 8px rgba(0,0,0,0.04)",
+                          boxShadow: isDark ? "0 4px 16px rgba(0,0,0,0.4)" : "0 4px 16px rgba(0,0,0,0.04)",
                           overflow: "visible",
                         }}
                       >
@@ -1066,7 +1064,7 @@ export function ChatPage() {
                               fontSize: "15px",
                               lineHeight: 1.6,
                               fontWeight: 400,
-                              color: message.role === "user" ? "#ffffff" : textPrimary,
+                              color: message.role === "user" ? (isDark ? "#f5f5f7" : "#1d1d1f") : textPrimary,
                             }}
                           >
                             {message.content}

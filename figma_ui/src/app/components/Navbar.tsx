@@ -1,29 +1,20 @@
 import { useState, useEffect, useRef } from "react";
+import { useTheme } from "../context/ThemeContext";
 import { Link, useLocation } from "react-router";
 import { Menu, X, Moon, Sun } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isDark, setIsDark] = useState(false);
+  const { isDark, toggleTheme } = useTheme();
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
-
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  const toggleTheme = () => {
-    const next = !isDark;
-    setIsDark(next);
-    document.documentElement.classList.toggle("dark", next);
-  };
 
   const navLinks = [
     { to: "/", label: "Home" },
@@ -60,17 +51,20 @@ export function Navbar() {
         {/* LEFT — Brand */}
         <Link
           to="/"
-          className="flex items-center gap-2.5 pl-3 pr-4 h-full rounded-full transition-all duration-200 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+          className="group flex items-center gap-2.5 pl-3 pr-4 h-full rounded-full transition-all duration-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_24px_rgba(255,255,255,0.06)] -translate-y-0 hover:-translate-y-[1px]"
         >
           <img
-            src="/sentinel-e.png"
+            src="/sentinel-e(1).png"
             onError={(e) => {
               if (!e.currentTarget.src.endsWith("/logo.png"))
                 e.currentTarget.src = "/logo.png";
             }}
             alt="Sentinel-E"
-            className="h-[22px] w-auto object-contain"
-            style={{ filter: "none", WebkitFilter: "none" }}
+            className="h-[26px] w-auto object-contain transition-all duration-300 group-hover:scale-105"
+            style={{ 
+              filter: isDark ? "drop-shadow(0 0 12px rgba(255,255,255,0.15))" : "drop-shadow(0 0 8px rgba(0,0,0,0.08))",
+              WebkitFilter: isDark ? "drop-shadow(0 0 12px rgba(255,255,255,0.15))" : "drop-shadow(0 0 8px rgba(0,0,0,0.08))" 
+            }}
           />
           <span
             className="text-[#1d1d1f] dark:text-[#f5f5f7] hidden sm:block"
@@ -89,11 +83,11 @@ export function Navbar() {
               <Link
                 key={link.to}
                 to={link.to}
-                className="relative px-4 py-2 rounded-full text-[13px] font-medium transition-colors duration-200"
+                className="group relative px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-300 hover:-translate-y-[1px]"
                 style={{
                   color: isActive
                     ? isDark ? "white" : "#1d1d1f"
-                    : isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)",
+                    : isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.6)",
                 }}
               >
                 {isActive && (
