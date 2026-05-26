@@ -1,125 +1,375 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
 import { HeroSection } from "./HeroSection";
 import { Footer } from "./Footer";
 
-// ── Scroll section: AI Infrastructure ─────────────────────────────────────
 const CAPABILITIES = [
   {
     id: "orchestration",
-    badge: "01 — Orchestration",
+    badge: "01",
+    tag: "Orchestration",
     title: "Multi-model cognitive routing",
-    body: "Sentinel-E dynamically routes queries through a semantic orchestration layer, selecting the optimal model chain for each task type.",
-    accent: "rgba(59,130,246,0.06)",
+    body: "Sentinel-E dynamically routes queries through a semantic orchestration layer, selecting the optimal model chain for each task type in real time.",
+    accent: "#3b82f6",
+    icon: "⬡",
   },
   {
     id: "reasoning",
-    badge: "02 — Reasoning",
+    badge: "02",
+    tag: "Reasoning",
     title: "Multi-step inference architecture",
-    body: "Each response passes through layered reasoning checks — evidence weighting, confidence scoring, and semantic coherence validation.",
-    accent: "rgba(99,102,241,0.06)",
+    body: "Each response passes through layered reasoning checks — evidence weighting, confidence scoring, and semantic coherence validation before delivery.",
+    accent: "#8b5cf6",
+    icon: "◈",
   },
   {
     id: "memory",
-    badge: "03 — Memory",
+    badge: "03",
+    tag: "Memory",
     title: "Persistent semantic memory",
-    body: "Cross-session context retention allows the system to build a cumulative understanding of your cognitive patterns and preferences.",
-    accent: "rgba(168,85,247,0.06)",
+    body: "Cross-session context retention allows the system to build a cumulative understanding of your cognitive patterns and query architecture.",
+    accent: "#06b6d4",
+    icon: "◉",
   },
 ];
 
 const STATS = [
-  { value: "8", label: "AI Engines", sub: "Integrated" },
+  { value: "8+", label: "AI Engines", sub: "Integrated" },
   { value: "6", label: "Orchestration", sub: "Modes" },
   { value: "<1s", label: "Response", sub: "Latency" },
   { value: "∞", label: "Context", sub: "Depth" },
 ];
 
+const ARCHITECTURE_LAYERS = [
+  { label: "Semantic Parser", status: "ACTIVE", color: "#3b82f6" },
+  { label: "Omega Kernel", status: "RUNNING", color: "#8b5cf6" },
+  { label: "Evidence Engine", status: "STANDBY", color: "#06b6d4" },
+  { label: "Boundary Guard", status: "ACTIVE", color: "#10b981" },
+  { label: "Memory Matrix", status: "SYNCED", color: "#f59e0b" },
+];
+
 export default function HomePage() {
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains("dark"));
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, { attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  const textPrimary = isDark ? "#f5f5f7" : "#1d1d1f";
+  const textSecondary = isDark ? "rgba(255,255,255,0.38)" : "rgba(0,0,0,0.45)";
+  const borderColor = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
+  const surfaceBg = isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)";
+
   return (
-    <div className="w-full bg-white dark:bg-[#090b0f]">
+    <div
+      className="w-full"
+      style={{ background: isDark ? "#08090e" : "#f7f8fc" }}
+    >
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <HeroSection />
 
       {/* ── Stats bar ─────────────────────────────────────────────────── */}
-      <section className="relative border-y border-black/[0.06] dark:border-white/[0.05] py-10 px-6 overflow-hidden">
+      <section
+        className="relative py-12 px-6 overflow-hidden"
+        style={{ borderTop: `1px solid ${borderColor}`, borderBottom: `1px solid ${borderColor}` }}
+      >
         <div
-          className="absolute inset-0 dark:opacity-0 transition-opacity duration-700"
-          style={{ background: "rgba(248,250,252,0.8)" }}
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: isDark
+              ? "rgba(12,14,20,0.6)"
+              : "rgba(255,255,255,0.7)",
+            backdropFilter: "blur(8px)",
+          }}
         />
-        <div
-          className="absolute inset-0 opacity-0 dark:opacity-100 transition-opacity duration-700"
-          style={{ background: "rgba(12,14,18,0.8)" }}
-        />
-        <div className="relative max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="relative max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-10">
           {STATS.map((s, i) => (
             <motion.div
               key={s.label}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.7, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
               className="text-center"
             >
               <div
-                className="text-[#1d1d1f] dark:text-white mb-0.5"
-                style={{ fontFamily: "'Inter', sans-serif", fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}
+                style={{
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: "clamp(30px, 4.5vw, 46px)",
+                  fontWeight: 800,
+                  letterSpacing: "-0.045em",
+                  lineHeight: 1,
+                  color: textPrimary,
+                  marginBottom: "4px",
+                }}
               >
                 {s.value}
               </div>
-              <div className="text-[#8e8e93] dark:text-[#636366] text-[12px] font-medium">{s.label}</div>
-              <div className="text-[#8e8e93] dark:text-[#636366] text-[11px]">{s.sub}</div>
+              <div style={{ fontSize: "12px", fontWeight: 600, color: textSecondary }}>{s.label}</div>
+              <div style={{ fontSize: "11px", fontWeight: 400, color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.28)" }}>{s.sub}</div>
             </motion.div>
           ))}
         </div>
       </section>
 
+      {/* ── Semantic Architecture Visualization ────────────────────────── */}
+      <section className="py-24 px-6 overflow-hidden">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+
+            {/* Left: Text */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div
+                className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full"
+                style={{ background: surfaceBg, border: `1px solid ${borderColor}` }}
+              >
+                <span
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    letterSpacing: "0.2em",
+                    color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.35)",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  System Architecture
+                </span>
+              </div>
+              <h2
+                style={{
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: "clamp(32px, 4.5vw, 52px)",
+                  fontWeight: 700,
+                  letterSpacing: "-0.04em",
+                  lineHeight: 1.05,
+                  color: textPrimary,
+                  marginBottom: "20px",
+                }}
+              >
+                Hidden cognition.<br />
+                <span style={{ color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.3)" }}>
+                  Visible intelligence.
+                </span>
+              </h2>
+              <p style={{ fontSize: "16px", lineHeight: 1.65, color: textSecondary, maxWidth: "440px" }}>
+                Sentinel-E operates multiple reasoning layers simultaneously — most of which remain invisible to the user. The output you see is the surface of a deep cognitive stack.
+              </p>
+            </motion.div>
+
+            {/* Right: Architecture panel */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+            >
+              <div
+                className="rounded-3xl overflow-hidden"
+                style={{
+                  background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.9)",
+                  border: `1px solid ${borderColor}`,
+                  backdropFilter: "blur(20px)",
+                  boxShadow: isDark
+                    ? "0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)"
+                    : "0 24px 64px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)",
+                }}
+              >
+                {/* Panel header */}
+                <div
+                  className="px-5 py-3.5 flex items-center gap-2"
+                  style={{ borderBottom: `1px solid ${borderColor}` }}
+                >
+                  <div className="flex gap-1.5">
+                    {["#ef4444", "#f59e0b", "#22c55e"].map((c) => (
+                      <div key={c} className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />
+                    ))}
+                  </div>
+                  <span
+                    style={{
+                      fontFamily: "monospace",
+                      fontSize: "11px",
+                      color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.25)",
+                      marginLeft: "6px",
+                    }}
+                  >
+                    sentinel-e / cognitive-kernel
+                  </span>
+                </div>
+
+                {/* Architecture layers */}
+                <div className="p-4 space-y-2">
+                  {ARCHITECTURE_LAYERS.map((layer, i) => (
+                    <motion.div
+                      key={layer.label}
+                      initial={{ opacity: 0, x: 10 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.5, delay: 0.05 * i }}
+                      className="flex items-center justify-between px-4 py-2.5 rounded-xl"
+                      style={{
+                        background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                        border: `1px solid ${borderColor}`,
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ background: layer.color, boxShadow: `0 0 6px ${layer.color}80` }}
+                        />
+                        <span style={{ fontFamily: "monospace", fontSize: "12px", color: textPrimary, fontWeight: 500 }}>
+                          {layer.label}
+                        </span>
+                      </div>
+                      <span
+                        className="px-2 py-0.5 rounded-md"
+                        style={{
+                          fontFamily: "monospace",
+                          fontSize: "9px",
+                          fontWeight: 700,
+                          letterSpacing: "0.12em",
+                          color: layer.color,
+                          background: `${layer.color}14`,
+                        }}
+                      >
+                        {layer.status}
+                      </span>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Bottom status */}
+                <div
+                  className="px-5 py-3 flex items-center justify-between"
+                  style={{ borderTop: `1px solid ${borderColor}` }}
+                >
+                  <span style={{ fontFamily: "monospace", fontSize: "10px", color: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.2)" }}>
+                    omega.kernel v4.5
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    <span style={{ fontFamily: "monospace", fontSize: "10px", color: "#22c55e" }}>ALL SYSTEMS NOMINAL</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+          </div>
+        </div>
+      </section>
+
       {/* ── Capabilities ──────────────────────────────────────────────── */}
-      <section className="py-28 px-6">
-        <div className="max-w-5xl mx-auto">
+      <section className="py-24 px-6" style={{ borderTop: `1px solid ${borderColor}` }}>
+        <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-60px" }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="mb-20 max-w-xl"
+            className="text-center mb-16"
           >
-            <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full" style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.06)" }}>
-              <span className="text-[10px] font-bold tracking-[0.2em] text-[#8e8e93] uppercase">System Architecture</span>
+            <div
+              className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full"
+              style={{ background: surfaceBg, border: `1px solid ${borderColor}` }}
+            >
+              <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.2em", color: textSecondary, textTransform: "uppercase" }}>
+                Core Capabilities
+              </span>
             </div>
             <h2
-              className="text-[#1d1d1f] dark:text-white mb-3"
-              style={{ fontFamily: "'Inter', sans-serif", fontSize: "clamp(30px, 4.5vw, 48px)", fontWeight: 700, letterSpacing: "-0.035em", lineHeight: 1.1 }}
+              style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: "clamp(30px, 4vw, 48px)",
+                fontWeight: 700,
+                letterSpacing: "-0.04em",
+                lineHeight: 1.1,
+                color: textPrimary,
+              }}
             >
-              Hidden cognition.<br />Visible intelligence.
+              Intelligence at every layer.
             </h2>
-            <p className="text-[#8e8e93] dark:text-[#636366]" style={{ fontSize: "16px", lineHeight: 1.6 }}>
-              Sentinel-E operates multiple reasoning layers simultaneously — most of which remain invisible to the user.
-            </p>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-5">
             {CAPABILITIES.map((cap, i) => (
               <motion.div
                 key={cap.id}
-                initial={{ opacity: 0, y: 16 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.7, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                className="group p-6 rounded-3xl cursor-default transition-all duration-300 hover:scale-[1.01]"
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ duration: 0.75, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                className="group relative p-6 rounded-3xl transition-all duration-500 cursor-default overflow-hidden"
                 style={{
-                  background: cap.accent,
-                  border: "1px solid rgba(0,0,0,0.05)",
+                  background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.85)",
+                  border: `1px solid ${borderColor}`,
+                  backdropFilter: "blur(12px)",
                 }}
+                whileHover={{ scale: 1.01, y: -3 }}
               >
-                <div className="text-[10px] font-bold tracking-[0.18em] text-[#8e8e93] uppercase mb-4">{cap.badge}</div>
+                {/* Accent glow on hover */}
+                <div
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-3xl"
+                  style={{
+                    background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${cap.accent}10, transparent 70%)`,
+                  }}
+                />
+
+                {/* Badge + number */}
+                <div className="flex items-center gap-2 mb-5">
+                  <span
+                    className="text-[32px]"
+                    style={{ opacity: 0.7, lineHeight: 1 }}
+                  >
+                    {cap.icon}
+                  </span>
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: "monospace",
+                        fontSize: "9px",
+                        fontWeight: 700,
+                        letterSpacing: "0.18em",
+                        color: cap.accent,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {cap.badge} — {cap.tag}
+                    </div>
+                  </div>
+                </div>
+
                 <h3
-                  className="text-[#1d1d1f] dark:text-white mb-3"
-                  style={{ fontSize: "17px", fontWeight: 600, letterSpacing: "-0.02em", lineHeight: 1.25 }}
+                  style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    letterSpacing: "-0.025em",
+                    lineHeight: 1.25,
+                    color: textPrimary,
+                    marginBottom: "10px",
+                  }}
                 >
                   {cap.title}
                 </h3>
-                <p className="text-[#8e8e93] dark:text-[#636366] text-[14px] leading-relaxed">{cap.body}</p>
+                <p style={{ fontSize: "14px", lineHeight: 1.65, color: textSecondary }}>
+                  {cap.body}
+                </p>
+
+                {/* Bottom accent line */}
+                <div
+                  className="absolute bottom-0 left-6 right-6 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                  style={{ background: `linear-gradient(to right, transparent, ${cap.accent}40, transparent)` }}
+                />
               </motion.div>
             ))}
           </div>
@@ -127,33 +377,63 @@ export default function HomePage() {
       </section>
 
       {/* ── CTA Banner ────────────────────────────────────────────────── */}
-      <section className="px-6 pb-28">
+      <section className="px-6 pb-28 pt-8">
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="max-w-5xl mx-auto rounded-3xl overflow-hidden relative"
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          className="max-w-6xl mx-auto rounded-3xl overflow-hidden relative"
           style={{
-            background: "#1d1d1f",
-            boxShadow: "0 24px 80px rgba(0,0,0,0.2)",
+            background: isDark
+              ? "linear-gradient(135deg, #0d1117 0%, #111827 50%, #0d1117 100%)"
+              : "linear-gradient(135deg, #1d1d1f 0%, #2d2d30 50%, #1d1d1f 100%)",
+            boxShadow: "0 32px 80px rgba(0,0,0,0.25)",
           }}
         >
-          {/* Subtle grid inside CTA */}
+          {/* Subtle grid */}
           <div
-            className="absolute inset-0 pointer-events-none opacity-[0.04]"
+            className="absolute inset-0 pointer-events-none"
             style={{
               backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)",
-              backgroundSize: "40px 40px",
+              backgroundSize: "44px 44px",
+              opacity: 0.025,
               maskImage: "radial-gradient(ellipse at center, black 20%, transparent 70%)",
             }}
           />
-          <div className="relative px-10 py-16 flex flex-col md:flex-row items-center justify-between gap-8">
+          {/* Atmospheric glow */}
+          <div
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-[60%] h-32 pointer-events-none"
+            style={{
+              background: "radial-gradient(ellipse at top, rgba(99,102,241,0.15), transparent 70%)",
+              filter: "blur(20px)",
+            }}
+          />
+
+          <div className="relative px-10 py-16 flex flex-col md:flex-row items-center justify-between gap-10">
             <div>
-              <div className="text-white/40 text-[11px] font-bold tracking-[0.2em] uppercase mb-3">Ready to Initialize?</div>
+              <div
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: "rgba(255,255,255,0.3)",
+                  marginBottom: "12px",
+                  fontFamily: "monospace",
+                }}
+              >
+                Ready to Initialize?
+              </div>
               <h3
-                className="text-white"
-                style={{ fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1.15 }}
+                style={{
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: "clamp(26px, 3.5vw, 38px)",
+                  fontWeight: 700,
+                  letterSpacing: "-0.035em",
+                  lineHeight: 1.12,
+                  color: "#f5f5f7",
+                }}
               >
                 Start your first<br />cognitive session.
               </h3>
@@ -161,14 +441,19 @@ export default function HomePage() {
             <div className="flex gap-3 flex-shrink-0">
               <Link
                 to="/chat"
-                className="px-7 py-3 rounded-2xl font-semibold text-[14px] bg-white text-[#1d1d1f] transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="px-8 py-3.5 rounded-2xl font-semibold text-[14px] bg-white text-[#1d1d1f] transition-all hover:scale-[1.02] active:scale-[0.98]"
+                style={{ letterSpacing: "-0.01em" }}
               >
                 Initialize System
               </Link>
               <Link
                 to="/pricing"
-                className="px-7 py-3 rounded-2xl font-medium text-[14px] text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-                style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.12)" }}
+                className="px-8 py-3.5 rounded-2xl font-medium text-[14px] text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  letterSpacing: "-0.01em",
+                }}
               >
                 View Plans
               </Link>

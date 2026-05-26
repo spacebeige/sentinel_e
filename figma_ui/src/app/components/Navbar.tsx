@@ -63,13 +63,14 @@ export function Navbar() {
           className="flex items-center gap-2.5 pl-3 pr-4 h-full rounded-full transition-all duration-200 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
         >
           <img
-            src="/sentinel-e(1).png"
+            src="/sentinel-e.png"
             onError={(e) => {
               if (!e.currentTarget.src.endsWith("/logo.png"))
                 e.currentTarget.src = "/logo.png";
             }}
             alt="Sentinel-E"
             className="h-[22px] w-auto object-contain"
+            style={{ filter: "none", WebkitFilter: "none" }}
           />
           <span
             className="text-[#1d1d1f] dark:text-white hidden sm:block"
