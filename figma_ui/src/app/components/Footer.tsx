@@ -1,57 +1,75 @@
-import { Sigma } from "lucide-react";
+import { Github, Mail, Linkedin, BookOpen, ArrowUpRight } from "lucide-react";
+
+const LINKS = {
+  docs: "https://www.producthunt.com/products/sentinel-e?utm_source=other&utm_medium=social",
+  github: "https://github.com/spacebeige/sentinel_e",
+  email: "mailto:oomkaragarkhed0710@gmail.com",
+  linkedin: "https://www.linkedin.com/in/oomkar-agarkhed-978613277/",
+};
+
+const NAV_COLS = [
+  { title: "Product", items: [{ label: "Chat", href: "/chat" }, { label: "Engines", href: "/engines" }, { label: "Pricing", href: "/pricing" }] },
+  { title: "Resources", items: [{ label: "Documentation", href: LINKS.docs, external: true }, { label: "GitHub", href: LINKS.github, external: true }] },
+  { title: "Contact", items: [{ label: "oomkaragarkhed0710@gmail.com", href: LINKS.email, external: true }] },
+];
 
 export function Footer() {
   return (
-    <footer className="bg-[#1d1d1f] text-white py-16 px-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+    <footer className="bg-[#090b0f] text-white">
+      {/* Top */}
+      <div className="max-w-5xl mx-auto px-6 pt-16 pb-12">
+        <div className="grid grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr] gap-10">
+          {/* Brand col */}
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center">
-                <Sigma className="w-4 h-4 text-white" />
-              </div>
-              <span
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '18px', fontWeight: 600 }}
-              >Sentinel-E</span>
+              <img
+                src="/sentinel-e(1).png"
+                onError={(e) => { if (!e.currentTarget.src.endsWith("/logo.png")) e.currentTarget.src = "/logo.png"; }}
+                alt="Sentinel-E"
+                className="h-[22px] w-auto object-contain"
+              />
+              <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "14px" }}>Sentinel-E</span>
             </div>
-            <p
-              className="text-white/40"
-              style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '13px', lineHeight: 1.6, fontWeight: 400 }}
-            >
-              Intelligence, reimagined. The next generation of AI, designed for everyone.
+            <p className="text-white/35 text-[13px] leading-relaxed max-w-[220px]">
+              A cinematic cognitive operating system with hidden machine intelligence beneath glass.
             </p>
+            {/* Social icons */}
+            <div className="flex items-center gap-3 mt-6">
+              {[
+                { icon: <Github className="w-4 h-4" />, href: LINKS.github, label: "GitHub" },
+                { icon: <Linkedin className="w-4 h-4" />, href: LINKS.linkedin, label: "LinkedIn" },
+                { icon: <Mail className="w-4 h-4" />, href: LINKS.email, label: "Email" },
+                { icon: <BookOpen className="w-4 h-4" />, href: LINKS.docs, label: "Docs" },
+              ].map((s) => (
+                <a
+                  key={s.label}
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={s.label}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/8 transition-all duration-200"
+                >
+                  {s.icon}
+                </a>
+              ))}
+            </div>
           </div>
 
-          {[
-            {
-              title: "Product",
-              links: ["Chat", "Models", "API", "Pricing"],
-            },
-            {
-              title: "Company",
-              links: ["About", "Blog", "Careers", "Press"],
-            },
-            {
-              title: "Resources",
-              links: ["Documentation", "Help Center", "Community", "Status"],
-            },
-          ].map((section) => (
-            <div key={section.title}>
-              <h4
-                className="text-white/60 mb-3"
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '12px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}
-              >
-                {section.title}
-              </h4>
-              <ul className="space-y-2">
-                {section.links.map((link) => (
-                  <li key={link}>
+          {/* Link cols */}
+          {NAV_COLS.map((col) => (
+            <div key={col.title}>
+              <div className="text-[10px] font-bold tracking-[0.18em] text-white/30 uppercase mb-4">{col.title}</div>
+              <ul className="space-y-3">
+                {col.items.map((item) => (
+                  <li key={item.label}>
                     <a
-                      href="#"
-                      className="text-white/40 hover:text-white/80 transition-colors"
-                      style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '14px', fontWeight: 400 }}
+                      href={item.href}
+                      target={item.external ? "_blank" : undefined}
+                      rel={item.external ? "noopener noreferrer" : undefined}
+                      className="group inline-flex items-center gap-1 text-white/45 hover:text-white text-[13px] transition-colors duration-200"
                     >
-                      {link}
+                      {item.label}
+                      {item.external && <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />}
                     </a>
                   </li>
                 ))}
@@ -59,22 +77,18 @@ export function Footer() {
             </div>
           ))}
         </div>
+      </div>
 
-        <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p
-            className="text-white/30"
-            style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '13px', fontWeight: 400 }}
-          >© 2026 Sentinel-E. All rights reserved.</p>
-          <div className="flex items-center gap-6">
-            {["Privacy", "Terms", "Cookies"].map((link) => (
-              <a
-                key={link}
-                href="#"
-                className="text-white/30 hover:text-white/60 transition-colors"
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '13px', fontWeight: 400 }}
-              >
-                {link}
-              </a>
+      {/* Bottom bar */}
+      <div
+        className="border-t px-6 py-5"
+        style={{ borderColor: "rgba(255,255,255,0.06)" }}
+      >
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-white/25 text-[12px]">© 2026 Sentinel-E. All rights reserved.</p>
+          <div className="flex items-center gap-5">
+            {["Privacy", "Terms", "Security"].map((t) => (
+              <a key={t} href="#" className="text-white/25 hover:text-white/50 text-[12px] transition-colors">{t}</a>
             ))}
           </div>
         </div>

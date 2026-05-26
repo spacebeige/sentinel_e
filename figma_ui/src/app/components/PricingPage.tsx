@@ -1,224 +1,165 @@
-import { motion } from "motion/react";
-import { Check, Sparkles } from "lucide-react";
 import { Link } from "react-router";
+import { motion } from "motion/react";
+import { Check } from "lucide-react";
 
-const plans = [
+const PLANS = [
   {
-    name: "Free",
-    price: "$0",
-    period: "forever",
-    description: "Get started with AI — no credit card required.",
+    id: "standard",
+    name: "Standard",
+    price: "Free",
+    sub: "Forever",
+    description: "The complete Sentinel-E experience for personal use.",
+    cta: "Initialize",
+    href: "/chat",
+    primary: false,
     features: [
-      "50 messages per day",
-      "GPT-4o Mini access",
-      "Basic chat features",
-      "7-day chat history",
-      "Community support",
+      "Unlimited conversations",
+      "GPT-4o, Claude, Gemini access",
+      "Semantic memory",
+      "Conversation export",
+      "Mobile-native interface",
     ],
-    cta: "Get Started",
-    popular: false,
-    gradient: "",
   },
   {
+    id: "pro",
     name: "Pro",
-    price: "$20",
-    period: "/month",
-    description: "Unlimited access to all models and premium features.",
+    price: "$12",
+    sub: "per month",
+    description: "Advanced orchestration for power users and researchers.",
+    cta: "Initialize Pro",
+    href: "/chat",
+    primary: true,
     features: [
-      "Unlimited messages",
-      "All AI models access",
-      "Priority speed",
-      "Unlimited chat history",
-      "File uploads & analysis",
-      "Custom instructions",
-      "Priority support",
-    ],
-    cta: "Start Free Trial",
-    popular: true,
-    gradient: "from-[#3b82f6] to-[#06b6d4]",
-  },
-  {
-    name: "Team",
-    price: "$35",
-    period: "/user/month",
-    description: "Collaborate with your team using shared AI workspaces.",
-    features: [
-      "Everything in Pro",
-      "Team workspaces",
-      "Admin dashboard",
-      "Usage analytics",
-      "SSO & SAML",
+      "Everything in Standard",
+      "Multi-model orchestration",
+      "Council, Debate & Sigma modes",
+      "Glass transparency layer",
+      "Forensic evidence mode",
+      "Governance oversight",
+      "Priority inference routing",
       "API access",
-      "Dedicated support",
-      "Custom model fine-tuning",
     ],
-    cta: "Contact Sales",
-    popular: false,
-    gradient: "",
   },
 ];
 
 export function PricingPage() {
   return (
-    <div className="min-h-screen bg-[#f5f5f7] pt-14">
-      <div className="max-w-6xl mx-auto px-6 py-16">
+    <div className="min-h-screen bg-white dark:bg-[#090b0f] pt-28 pb-24 px-6">
+      <div className="max-w-3xl mx-auto">
+        {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-16"
         >
+          <div
+            className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full"
+            style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.06)" }}
+          >
+            <span className="text-[10px] font-bold tracking-[0.22em] text-[#8e8e93] uppercase">Access Layer</span>
+          </div>
           <h1
-            className="text-[#1d1d1f] mb-4"
-            style={{
-              fontFamily: "'Inter', -apple-system, sans-serif",
-              fontSize: 'clamp(36px, 5vw, 56px)',
-              fontWeight: 700,
-              letterSpacing: '-0.03em',
-              lineHeight: 1.1,
-            }}
+            className="text-[#1d1d1f] dark:text-white mb-3"
+            style={{ fontFamily: "'Inter', sans-serif", fontSize: "clamp(34px, 5.5vw, 56px)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}
           >
-            Simple,
-            <br />
-            <span className="bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] bg-clip-text text-transparent">
-              transparent pricing.
-            </span>
+            Simple pricing.
           </h1>
-          <p
-            className="text-[#6e6e73] max-w-lg mx-auto"
-            style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '17px', lineHeight: 1.6, fontWeight: 400 }}
-          >
-            Start free, upgrade when you're ready. No hidden fees, cancel anytime.
+          <p className="text-[#8e8e93] dark:text-[#636366] max-w-sm mx-auto" style={{ fontSize: "16px", lineHeight: 1.6 }}>
+            Start free. Unlock the full orchestration layer when you need it.
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          {plans.map((plan, index) => (
+        {/* Plans */}
+        <div className="grid md:grid-cols-2 gap-5">
+          {PLANS.map((plan, i) => (
             <motion.div
-              key={plan.name}
-              initial={{ opacity: 0, y: 20 }}
+              key={plan.id}
+              initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className={`relative p-6 rounded-3xl border flex flex-col ${
-                plan.popular
-                  ? "bg-[#1d1d1f] border-transparent shadow-2xl shadow-black/20 md:-mt-4 md:mb-0"
-                  : "bg-white border-black/5"
-              }`}
+              transition={{ duration: 0.7, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
+              className="p-8 rounded-3xl relative overflow-hidden"
+              style={{
+                background: plan.primary ? "#1d1d1f" : "rgba(0,0,0,0.03)",
+                border: plan.primary ? "none" : "1px solid rgba(0,0,0,0.07)",
+              }}
             >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span
-                    className="inline-flex items-center gap-1.5 px-4 py-1 rounded-full bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] text-white shadow-lg"
-                    style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '12px', fontWeight: 600 }}
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    Most Popular
-                  </span>
-                </div>
+              {/* Pro grid texture */}
+              {plan.primary && (
+                <div
+                  className="absolute inset-0 pointer-events-none opacity-[0.04]"
+                  style={{
+                    backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)",
+                    backgroundSize: "32px 32px",
+                  }}
+                />
               )}
 
-              <div className="mb-6">
-                <h3
-                  className={plan.popular ? "text-white mb-2" : "text-[#1d1d1f] mb-2"}
-                  style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '20px', fontWeight: 600 }}
-                >
+              <div className="relative">
+                {plan.primary && (
+                  <div className="inline-flex items-center gap-1.5 mb-4 px-2.5 py-1 rounded-full bg-white/10">
+                    <span className="text-[10px] font-bold tracking-[0.18em] text-white/60 uppercase">Recommended</span>
+                  </div>
+                )}
+
+                <div className={`text-[15px] font-semibold mb-1 ${plan.primary ? "text-white" : "text-[#1d1d1f] dark:text-white"}`}>
                   {plan.name}
-                </h3>
-                <div className="flex items-baseline gap-1 mb-2">
+                </div>
+                <div className="flex items-baseline gap-1.5 mb-1">
                   <span
-                    className={plan.popular ? "text-white" : "text-[#1d1d1f]"}
-                    style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '48px', fontWeight: 700, letterSpacing: '-0.03em' }}
+                    className={`font-800 ${plan.primary ? "text-white" : "text-[#1d1d1f] dark:text-white"}`}
+                    style={{ fontSize: "42px", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}
                   >
                     {plan.price}
                   </span>
-                  <span
-                    className={plan.popular ? "text-white/50" : "text-[#6e6e73]"}
-                    style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '15px', fontWeight: 400 }}
-                  >
-                    {plan.period}
+                  <span className={plan.primary ? "text-white/40 text-[13px]" : "text-[#8e8e93] text-[13px]"}>
+                    {plan.sub}
                   </span>
                 </div>
-                <p
-                  className={plan.popular ? "text-white/60" : "text-[#6e6e73]"}
-                  style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '14px', lineHeight: 1.5, fontWeight: 400 }}
-                >
+                <p className={`mb-7 text-[13px] leading-relaxed ${plan.primary ? "text-white/45" : "text-[#8e8e93]"}`}>
                   {plan.description}
                 </p>
-              </div>
 
-              <div className="space-y-3 mb-6 flex-1">
-                {plan.features.map((feature) => (
-                  <div key={feature} className="flex items-center gap-2.5">
-                    <div
-                      className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        plan.popular ? "bg-white/10" : "bg-[#34c759]/10"
-                      }`}
-                    >
+                <ul className="space-y-2.5 mb-8">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-center gap-2.5">
                       <Check
-                        className="w-3 h-3"
-                        style={{ color: plan.popular ? "#5eead4" : "#34c759" }}
+                        className="w-3.5 h-3.5 flex-shrink-0"
+                        style={{ color: plan.primary ? "rgba(255,255,255,0.5)" : "#8e8e93" }}
                       />
-                    </div>
-                    <span
-                      className={plan.popular ? "text-white/80" : "text-[#1d1d1f]"}
-                      style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '14px', fontWeight: 400 }}
-                    >
-                      {feature}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                      <span
+                        className="text-[13px]"
+                        style={{ color: plan.primary ? "rgba(255,255,255,0.75)" : "#6e6e73" }}
+                      >
+                        {f}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
 
-              <Link
-                to="/chat"
-                className={`block text-center py-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98] ${
-                  plan.popular
-                    ? `bg-gradient-to-r ${plan.gradient} text-white shadow-lg shadow-blue-500/30`
-                    : "bg-[#f5f5f7] text-[#1d1d1f] hover:bg-[#e8e8ed]"
-                }`}
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '15px', fontWeight: 600 }}
-              >
-                {plan.cta}
-              </Link>
+                <Link
+                  to={plan.href}
+                  className="flex items-center justify-center w-full py-3 rounded-2xl font-semibold text-[14px] transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
+                  style={{
+                    background: plan.primary ? "white" : "#1d1d1f",
+                    color: plan.primary ? "#1d1d1f" : "white",
+                  }}
+                >
+                  {plan.cta}
+                </Link>
+              </div>
             </motion.div>
           ))}
         </div>
 
-        {/* FAQ section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mt-20 max-w-2xl mx-auto"
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1, delay: 0.4 }}
+          className="text-center text-[12px] text-[#8e8e93] dark:text-[#636366] mt-8"
         >
-          <h2
-            className="text-center text-[#1d1d1f] mb-8"
-            style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '28px', fontWeight: 700, letterSpacing: '-0.02em' }}
-          >
-            Frequently Asked
-          </h2>
-          {[
-            { q: "Can I switch plans anytime?", a: "Yes, you can upgrade, downgrade, or cancel your plan at any time. Changes take effect at the start of your next billing cycle." },
-            { q: "Is there a free trial for Pro?", a: "Yes! All Pro features come with a 14-day free trial. No credit card required to start." },
-            { q: "What happens when I reach my message limit?", a: "On the Free plan, you'll be prompted to upgrade. We'll never cut you off mid-conversation." },
-          ].map((faq) => (
-            <div key={faq.q} className="mb-4 p-5 rounded-2xl bg-white border border-black/5">
-              <h4
-                className="text-[#1d1d1f] mb-2"
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '16px', fontWeight: 600 }}
-              >
-                {faq.q}
-              </h4>
-              <p
-                className="text-[#6e6e73]"
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '14px', lineHeight: 1.6, fontWeight: 400 }}
-              >
-                {faq.a}
-              </p>
-            </div>
-          ))}
-        </motion.div>
+          No credit card required for Standard. Cancel Pro anytime.
+        </motion.p>
       </div>
     </div>
   );
