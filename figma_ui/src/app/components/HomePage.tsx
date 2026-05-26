@@ -50,16 +50,7 @@ const ARCHITECTURE_LAYERS = [
 ];
 
 export default function HomePage() {
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-    const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains("dark"));
-    });
-    observer.observe(document.documentElement, { attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
+  const { isDark } = useTheme();
 
   const textPrimary = isDark ? "#f5f5f7" : "#1d1d1f";
   const textSecondary = isDark ? "rgba(255,255,255,0.38)" : "rgba(0,0,0,0.45)";

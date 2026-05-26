@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { Link } from "react-router";
+import { useTheme } from "../context/ThemeContext";
 import { motion, useMotionTemplate, useMotionValue, useSpring } from "motion/react";
 import type { MouseEvent } from "react";
 
@@ -29,9 +30,8 @@ const NEURAL_NODES = [
 ];
 
 export function HeroSection() {
+  const { isDark } = useTheme();
   const sectionRef = useRef<HTMLElement>(null);
-  const [isDark, setIsDark] = useState(false);
-
   // Smooth mouse tracking
   const rawX = useMotionValue(0);
   const rawY = useMotionValue(0);
@@ -43,16 +43,6 @@ export function HeroSection() {
   const rawY2 = useMotionValue(0);
   const mouse2X = useSpring(rawX2, { damping: 80, stiffness: 150 });
   const mouse2Y = useSpring(rawY2, { damping: 80, stiffness: 150 });
-
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-    const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains("dark"));
-    });
-    observer.observe(document.documentElement, { attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-
   function onMouseMove({ currentTarget, clientX, clientY }: MouseEvent<HTMLElement>) {
     const { left, top } = currentTarget.getBoundingClientRect();
     rawX.set(clientX - left);

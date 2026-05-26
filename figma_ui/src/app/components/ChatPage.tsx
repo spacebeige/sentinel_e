@@ -17,6 +17,8 @@ import {
   Brain,
   BarChart3,
   Share2,
+  Moon,
+  Sun,
   Skull,
   Loader2,
   MessageSquare,
@@ -139,8 +141,6 @@ export function ChatPage() {
   const [kernelData, setKernelData] = useState<KernelStatus | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isDark, setIsDark] = useState(false);
-
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -183,15 +183,6 @@ export function ChatPage() {
   const [evidenceState, setEvidenceState] = useState<EvidenceState>(createEvidenceState());
 
   // ── Dark mode sync ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-    const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains("dark"));
-    });
-    observer.observe(document.documentElement, { attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-
   // ── Helpers ────────────────────────────────────────────────────────────────
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -795,9 +786,29 @@ export function ChatPage() {
 
             {/* Sidebar footer */}
             <div
-              className="px-3 py-3"
+              className="px-2 py-3 space-y-0.5"
               style={{ borderTop: `1px solid ${borderColor}` }}
             >
+              <button
+                className={`w-full flex items-center transition-colors ${sidebarOpen ? 'gap-2.5 px-3 py-2.5 rounded-xl' : 'justify-center p-2.5 rounded-xl'}`}
+                style={{ color: textSecondary }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+              >
+                <Share2 className="w-4 h-4 flex-shrink-0" />
+                {sidebarOpen && <span style={{ fontSize: "13px", fontWeight: 500 }}>Share Chat</span>}
+              </button>
+              
+              <button
+                className={`w-full flex items-center transition-colors ${sidebarOpen ? 'gap-2.5 px-3 py-2.5 rounded-xl' : 'justify-center p-2.5 rounded-xl'}`}
+                style={{ color: textSecondary }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+              >
+                <Copy className="w-4 h-4 flex-shrink-0" />
+                {sidebarOpen && <span style={{ fontSize: "13px", fontWeight: 500 }}>Copy Chat</span>}
+              </button>
+
               <button
                 className={`w-full flex items-center transition-colors ${sidebarOpen ? 'gap-2.5 px-3 py-2.5 rounded-xl' : 'justify-center p-2.5 rounded-xl'}`}
                 style={{ color: textSecondary }}
@@ -811,7 +822,7 @@ export function ChatPage() {
           </aside>
 
       {/* ── MAIN CHAT AREA ──────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 h-full relative pt-[72px]" style={{ background: chatBg }}>
+      <div className="flex-1 flex flex-col min-w-0 h-full relative" style={{ background: chatBg }}>
 
         {/* ── TOP BAR ─────────────────────────────────────────────────── */}
         <div
@@ -899,7 +910,18 @@ export function ChatPage() {
           </div>
 
           {/* Right — Actions */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-xl transition-all duration-300"
+              style={{ color: textSecondary }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.transform = "translateY(0)"; }}
+              title="Toggle Theme"
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            
             {/* Connection status — subtle, not a banner */}
             <div className="hidden sm:flex items-center gap-1.5 mr-2">
               {backendOnline === true ? (

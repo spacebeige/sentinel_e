@@ -14,8 +14,8 @@ export function Layout() {
       className="min-h-screen bg-white dark:bg-[#0a0d12] transition-colors duration-500"
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" }}
     >
-      {/* Global floating cinematic navbar */}
-      <Navbar />
+      {/* Navbar hidden on /chat — chat has its own floating semantic topbar */}
+      {!isChat && <Navbar />}
       <Outlet />
     </div>
   );
