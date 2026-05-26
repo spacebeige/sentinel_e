@@ -1,3 +1,4 @@
+import { useTheme } from "next-themes";
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Send,

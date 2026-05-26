@@ -1,3 +1,5 @@
+import { useTheme } from "next-themes";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 
 const ENGINES = [
@@ -23,7 +25,7 @@ export function EnginesPage() {
         >
           <div
             className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full"
-            style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.06)" }}
+            style={{ background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.06)" }}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
             <span className="text-[10px] font-bold tracking-[0.22em] text-[#8e8e93] uppercase">Engine Layer</span>
@@ -49,8 +51,8 @@ export function EnginesPage() {
               transition={{ duration: 0.7, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] }}
               className={`group p-6 rounded-3xl cursor-default transition-all duration-300 hover:scale-[1.01] ${engine.id === "sigma" ? "md:col-span-2" : ""}`}
               style={{
-                background: `rgba(${engine.accent === "#1d1d1f" ? "29,29,31" : hexToRgb(engine.accent)},0.05)`,
-                border: "1px solid rgba(0,0,0,0.05)",
+                background: `rgba(${engine.accent === "#1d1d1f" ? (isDark ? "255,255,255" : "29,29,31") : hexToRgb(engine.accent)}, ${isDark ? "0.1" : "0.05"})`,
+                border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.05)",
               }}
             >
               <div className="flex items-start justify-between gap-4">

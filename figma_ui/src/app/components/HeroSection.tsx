@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { Link } from "react-router";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "next-themes";
 import { motion, useMotionTemplate, useMotionValue, useSpring } from "motion/react";
 import type { MouseEvent } from "react";
 
@@ -30,7 +30,14 @@ const NEURAL_NODES = [
 ];
 
 export function HeroSection() {
-  const { isDark } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const isDark = theme === "dark";
+
   const sectionRef = useRef<HTMLElement>(null);
   // Smooth mouse tracking
   const rawX = useMotionValue(0);
@@ -51,6 +58,12 @@ export function HeroSection() {
     rawY2.set((clientY - top) * 0.85 + 80);
   }
 
+
+  const maskImageTemplate = useMotionTemplate`radial-gradient(circle 450px at ${mouseX}px ${mouseY}px, black 15%, transparent 70%), radial-gradient(ellipse 70% 60% at 50% 50%, black 10%, transparent 80%)`;
+  const bgTemplate1 = useMotionTemplate`radial-gradient(800px circle at ${mouseX}px ${mouseY}px, ${isDark ? "rgba(99,102,241,0.08)" : "rgba(59,130,246,0.06)"}, transparent 60%)`;
+  const bgTemplate2 = useMotionTemplate`radial-gradient(500px circle at ${mouse2X}px ${mouse2Y}px, ${isDark ? "rgba(139,92,246,0.07)" : "rgba(99,102,241,0.05)"}, transparent 60%)`;
+
+  if (!mounted) return null;
   return (
     <section
       ref={sectionRef}
@@ -128,8 +141,8 @@ export function HeroSection() {
       <motion.div
         className="absolute inset-0 pointer-events-none overflow-hidden transition-opacity duration-1000"
         style={{
-          maskImage: useMotionTemplate`radial-gradient(circle 450px at ${mouseX}px ${mouseY}px, black 15%, transparent 70%), radial-gradient(ellipse 70% 60% at 50% 50%, black 10%, transparent 80%)`,
-          WebkitMaskImage: useMotionTemplate`radial-gradient(circle 450px at ${mouseX}px ${mouseY}px, black 15%, transparent 70%), radial-gradient(ellipse 70% 60% at 50% 50%, black 10%, transparent 80%)`,
+          maskImage: maskImageTemplate,
+          WebkitMaskImage: maskImageTemplate,
         }}
         aria-hidden
       >
@@ -234,14 +247,14 @@ export function HeroSection() {
       <motion.div
         className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
         style={{
-          background: useMotionTemplate`radial-gradient(800px circle at ${mouseX}px ${mouseY}px, ${isDark ? "rgba(99,102,241,0.08)" : "rgba(59,130,246,0.06)"}, transparent 60%)`,
+          background: bgTemplate1,
         }}
       />
       {/* Secondary orb — slightly lagged, different color */}
       <motion.div
         className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000"
         style={{
-          background: useMotionTemplate`radial-gradient(500px circle at ${mouse2X}px ${mouse2Y}px, ${isDark ? "rgba(139,92,246,0.07)" : "rgba(99,102,241,0.05)"}, transparent 60%)`,
+          background: bgTemplate2,
         }}
       />
 

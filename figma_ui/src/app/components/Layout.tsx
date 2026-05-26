@@ -1,3 +1,4 @@
+import { useTheme } from "next-themes";
 import { Outlet, useLocation } from "react-router";
 import { Navbar } from "./Navbar";
 import { useLenis } from "../hooks/useLenis";

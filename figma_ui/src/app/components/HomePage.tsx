@@ -1,3 +1,4 @@
+import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
@@ -50,13 +51,20 @@ const ARCHITECTURE_LAYERS = [
 ];
 
 export default function HomePage() {
-  const { isDark } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const isDark = theme === "dark";
 
   const textPrimary = isDark ? "#f5f5f7" : "#1d1d1f";
   const textSecondary = isDark ? "rgba(255,255,255,0.38)" : "rgba(0,0,0,0.45)";
   const borderColor = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
   const surfaceBg = isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)";
 
+  if (!mounted) return null;
   return (
     <div
       className="w-full"

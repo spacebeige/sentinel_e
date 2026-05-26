@@ -1,12 +1,20 @@
 import { useState, useEffect, useRef } from "react";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "next-themes";
 import { Link, useLocation } from "react-router";
 import { Menu, X, Moon, Sun } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isDark, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const isDark = theme === "dark";
+
+  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
 
@@ -19,8 +27,8 @@ export function Navbar() {
   const navLinks = [
     { to: "/", label: "Home" },
     { to: "/chat", label: "Chat" },
-    { to: "/engines", label: "Engines" },
-    { to: "/pricing", label: "Pricing" },
+    { to: "/models", label: "Engines" },
+    { to: "/pricing", label: "Access" },
   ];
 
   const glassBase = isDark
@@ -36,6 +44,7 @@ export function Navbar() {
       : "0 8px 32px rgba(0,0,0,0.08)"
     : "none";
 
+  if (!mounted) return null;
   return (
     <div className="fixed top-5 left-1/2 -translate-x-1/2 w-[calc(100%-32px)] max-w-4xl z-50">
       <nav

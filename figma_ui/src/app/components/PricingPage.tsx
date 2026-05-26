@@ -1,3 +1,5 @@
+import { useTheme } from "next-themes";
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
 import { Check } from "lucide-react";
@@ -55,7 +57,7 @@ export function PricingPage() {
         >
           <div
             className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full"
-            style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.06)" }}
+            style={{ background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.06)" }}
           >
             <span className="text-[10px] font-bold tracking-[0.22em] text-[#8e8e93] uppercase">Access Layer</span>
           </div>
