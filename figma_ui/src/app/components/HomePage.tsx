@@ -441,7 +441,7 @@ export default function HomePage() {
             <div className="flex gap-3 flex-shrink-0">
               <Link
                 to="/chat"
-                className="px-8 py-3.5 rounded-2xl font-semibold text-[14px] bg-white text-[#1d1d1f] transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="px-8 py-3.5 rounded-2xl font-semibold text-[14px] bg-white text-[#1d1d1f] dark:text-[#f5f5f7] transition-all hover:scale-[1.02] active:scale-[0.98]"
                 style={{ letterSpacing: "-0.01em" }}
               >
                 Initialize System

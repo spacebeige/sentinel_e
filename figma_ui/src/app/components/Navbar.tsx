@@ -73,7 +73,7 @@ export function Navbar() {
             style={{ filter: "none", WebkitFilter: "none" }}
           />
           <span
-            className="text-[#1d1d1f] dark:text-white hidden sm:block"
+            className="text-[#1d1d1f] dark:text-[#f5f5f7] hidden sm:block"
             style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "14px", letterSpacing: "-0.01em" }}
           >
             Sentinel-E
@@ -166,8 +166,8 @@ export function Navbar() {
                 transition={{ duration: 0.15 }}
               >
                 {mobileOpen
-                  ? <X className="w-5 h-5 text-[#1d1d1f] dark:text-white" />
-                  : <Menu className="w-5 h-5 text-[#1d1d1f] dark:text-white" />
+                  ? <X className="w-5 h-5 text-[#1d1d1f] dark:text-[#f5f5f7]" />
+                  : <Menu className="w-5 h-5 text-[#1d1d1f] dark:text-[#f5f5f7]" />
                 }
               </motion.div>
             </AnimatePresence>

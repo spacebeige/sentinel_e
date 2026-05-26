@@ -626,16 +626,12 @@ export function ChatPage() {
       </AnimatePresence>
 
       {/* Sidebar panel */}
-      <AnimatePresence initial={false}>
-        {sidebarOpen && (
-          <motion.aside
-            initial={{ x: -280, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -280, opacity: 0 }}
-            transition={{ type: "spring", damping: 28, stiffness: 260 }}
-            className="absolute lg:relative left-0 top-0 h-full z-40 flex flex-col flex-shrink-0 overflow-hidden"
+      
+          <aside
+            className={`absolute lg:relative left-0 top-0 h-full z-40 flex flex-col flex-shrink-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              sidebarOpen ? "translate-x-0 w-[260px]" : "-translate-x-full lg:translate-x-0 lg:w-[68px]"
+            }`}
             style={{
-              width: "260px",
               background: sidebarBg,
               borderRight: `1px solid ${borderColor}`,
             }}
@@ -645,17 +641,23 @@ export function ChatPage() {
               className="flex items-center justify-between px-4 py-3.5"
               style={{ borderBottom: `1px solid ${borderColor}` }}
             >
-              <span
-                style={{
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  color: textPrimary,
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                Sentinel-E
-              </span>
+              {sidebarOpen ? (
+                <span
+                  style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: textPrimary,
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  Sentinel-E
+                </span>
+              ) : (
+                <div className="w-6 h-6 flex-shrink-0 rounded-lg bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center">
+                  <span className="text-white text-[10px] font-bold">S</span>
+                </div>
+              )}
               <div className="flex items-center gap-1">
                 <button
                   onClick={handleNewChat}
@@ -679,50 +681,55 @@ export function ChatPage() {
 
             {/* Search */}
             <div className="px-3 py-2.5">
-              <div
-                className="flex items-center gap-2 px-3 py-2 rounded-xl"
-                style={{ background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" }}
+              <button
+                onClick={() => !sidebarOpen && setSidebarOpen(true)}
+                className={`flex items-center gap-2 rounded-xl transition-all ${sidebarOpen ? 'px-3 py-2' : 'p-2.5 justify-center'}`}
+                style={{ background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", width: "100%" }}
               >
                 <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: textSecondary }} />
-                <input
-                  type="text"
-                  placeholder="Search chats..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 bg-transparent outline-none"
-                  style={{
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: "13px",
-                    fontWeight: 400,
-                    color: textPrimary,
-                  }}
-                />
-                {searchQuery && (
-                  <button onClick={() => setSearchQuery("")}>
-                    <X className="w-3 h-3" style={{ color: textSecondary }} />
-                  </button>
+                {sidebarOpen && (
+                  <>
+                    <input
+                      type="text"
+                      placeholder="Search chats..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="flex-1 bg-transparent outline-none"
+                      style={{
+                        fontFamily: "'Inter', sans-serif",
+                        fontSize: "13px",
+                        fontWeight: 400,
+                        color: textPrimary,
+                      }}
+                    />
+                    {searchQuery && (
+                      <div onClick={(e) => { e.stopPropagation(); setSearchQuery(""); }} className="cursor-pointer">
+                        <X className="w-3 h-3" style={{ color: textSecondary }} />
+                      </div>
+                    )}
+                  </>
                 )}
-              </div>
+              </button>
             </div>
 
             {/* New Chat button */}
             <div className="px-3 pb-2">
               <button
                 onClick={handleNewChat}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all"
+                className={`w-full flex items-center transition-all ${sidebarOpen ? 'gap-2.5 px-3 py-2.5 rounded-xl' : 'justify-center p-2.5 rounded-xl'}`}
                 style={{
                   background: isDark ? "rgba(59,130,246,0.1)" : "rgba(59,130,246,0.06)",
                   border: "1px solid rgba(59,130,246,0.2)",
                   color: "#3b82f6",
                 }}
               >
-                <Plus className="w-4 h-4" />
-                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "13px", fontWeight: 600 }}>New Chat</span>
+                <Plus className="w-4 h-4 flex-shrink-0" />
+                {sidebarOpen && <span style={{ fontFamily: "'Inter', sans-serif", fontSize: "13px", fontWeight: 600 }}>New Chat</span>}
               </button>
             </div>
 
             {/* Chat history */}
-            <div className="flex-1 overflow-y-auto px-2 py-1">
+            <div className={`flex-1 overflow-y-auto py-1 ${sidebarOpen ? 'px-2' : 'px-0 opacity-0 pointer-events-none'}`}>
               {!backendOnline ? (
                 <div className="px-3 py-8 text-center">
                   <WifiOff className="w-6 h-6 mx-auto mb-2" style={{ color: textSecondary }} />
@@ -792,18 +799,16 @@ export function ChatPage() {
               style={{ borderTop: `1px solid ${borderColor}` }}
             >
               <button
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-colors"
+                className={`w-full flex items-center transition-colors ${sidebarOpen ? 'gap-2.5 px-3 py-2.5 rounded-xl' : 'justify-center p-2.5 rounded-xl'}`}
                 style={{ color: textSecondary }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
               >
-                <Settings className="w-4 h-4" />
-                <span style={{ fontSize: "13px", fontWeight: 500 }}>Settings</span>
+                <Settings className="w-4 h-4 flex-shrink-0" />
+                {sidebarOpen && <span style={{ fontSize: "13px", fontWeight: 500 }}>Settings</span>}
               </button>
             </div>
-          </motion.aside>
-        )}
-      </AnimatePresence>
+          </aside>
 
       {/* ── MAIN CHAT AREA ──────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative" style={{ background: chatBg }}>
@@ -1318,15 +1323,17 @@ export function ChatPage() {
                 {/* Left actions */}
                 <div className="flex items-center gap-0.5 pb-0.5">
                   {/* Plus — opens model selector in Pro mode */}
-                  <button
-                    onClick={() => isProMode ? setShowModelSelector(!showModelSelector) : fileInputRef.current?.click()}
-                    className="p-2 rounded-full transition-all"
-                    style={{ color: showModelSelector ? "#3b82f6" : textSecondary }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
+                  {isProMode && (
+                    <button
+                      onClick={() => setShowModelSelector(!showModelSelector)}
+                      className="p-2 rounded-full transition-all"
+                      style={{ color: showModelSelector ? "#3b82f6" : textSecondary }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                    >
+                      <Plus className="w-5 h-5 flex-shrink-0" />
+                    </button>
+                  )}
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className={`p-2 rounded-full transition-all ${attachedFile ? "text-[#3b82f6]" : ""}`}

@@ -29,7 +29,7 @@ export function EnginesPage() {
             <span className="text-[10px] font-bold tracking-[0.22em] text-[#8e8e93] uppercase">Engine Layer</span>
           </div>
           <h1
-            className="text-[#1d1d1f] dark:text-white mb-3"
+            className="text-[#1d1d1f] dark:text-[#f5f5f7] mb-3"
             style={{ fontFamily: "'Inter', sans-serif", fontSize: "clamp(36px, 6vw, 64px)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 0.95 }}
           >
             Intelligence Engines
@@ -63,7 +63,7 @@ export function EnginesPage() {
                       {engine.name[0]}
                     </div>
                     <div>
-                      <div className="text-[#1d1d1f] dark:text-white font-semibold text-[15px]" style={{ letterSpacing: "-0.015em" }}>{engine.name}</div>
+                      <div className="text-[#1d1d1f] dark:text-[#f5f5f7] font-semibold text-[15px]" style={{ letterSpacing: "-0.015em" }}>{engine.name}</div>
                       <div className="text-[#8e8e93] text-[12px]">{engine.provider}</div>
                     </div>
                   </div>

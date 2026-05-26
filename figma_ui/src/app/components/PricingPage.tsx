@@ -60,7 +60,7 @@ export function PricingPage() {
             <span className="text-[10px] font-bold tracking-[0.22em] text-[#8e8e93] uppercase">Access Layer</span>
           </div>
           <h1
-            className="text-[#1d1d1f] dark:text-white mb-3"
+            className="text-[#1d1d1f] dark:text-[#f5f5f7] mb-3"
             style={{ fontFamily: "'Inter', sans-serif", fontSize: "clamp(34px, 5.5vw, 56px)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}
           >
             Simple pricing.
@@ -102,12 +102,12 @@ export function PricingPage() {
                   </div>
                 )}
 
-                <div className={`text-[15px] font-semibold mb-1 ${plan.primary ? "text-white" : "text-[#1d1d1f] dark:text-white"}`}>
+                <div className={`text-[15px] font-semibold mb-1 ${plan.primary ? "text-white" : "text-[#1d1d1f] dark:text-[#f5f5f7]"}`}>
                   {plan.name}
                 </div>
                 <div className="flex items-baseline gap-1.5 mb-1">
                   <span
-                    className={`font-800 ${plan.primary ? "text-white" : "text-[#1d1d1f] dark:text-white"}`}
+                    className={`font-800 ${plan.primary ? "text-white" : "text-[#1d1d1f] dark:text-[#f5f5f7]"}`}
                     style={{ fontSize: "42px", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}
                   >
                     {plan.price}

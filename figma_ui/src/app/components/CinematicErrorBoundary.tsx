@@ -88,7 +88,7 @@ export class CinematicErrorBoundary extends Component<Props, State> {
                   <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
                 </div>
                 <h1
-                  className="text-[#1d1d1f] dark:text-white font-bold"
+                  className="text-[#1d1d1f] dark:text-[#f5f5f7] font-bold"
                   style={{ fontSize: "clamp(20px, 3vw, 26px)", lineHeight: 1.2 }}
                 >
                   Cognitive Layer Failure
@@ -120,7 +120,7 @@ export class CinematicErrorBoundary extends Component<Props, State> {
                 <div className="text-red-500 font-semibold mb-1 text-[13px]">
                   {this.state.error?.name || "Error"}
                 </div>
-                <div className="text-[#1d1d1f] dark:text-white text-[12px] leading-relaxed break-all">
+                <div className="text-[#1d1d1f] dark:text-[#f5f5f7] text-[12px] leading-relaxed break-all">
                   {this.state.error?.message || "Unknown rendering fault"}
                 </div>
               </div>
@@ -135,7 +135,7 @@ export class CinematicErrorBoundary extends Component<Props, State> {
                   this.setState({ hasError: false, error: null, errorInfo: null });
                   window.location.href = "/";
                 }}
-                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#1d1d1f] dark:bg-white text-white dark:text-[#1d1d1f] font-bold text-[14px] flex-1 justify-center"
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#1d1d1f] dark:bg-white text-white dark:text-[#1d1d1f] dark:text-[#f5f5f7] font-bold text-[14px] flex-1 justify-center"
               >
                 <RefreshCw className="w-4 h-4" />
                 Reinitialize Layer
@@ -144,7 +144,7 @@ export class CinematicErrorBoundary extends Component<Props, State> {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => window.location.reload()}
-                className="px-6 py-3 rounded-2xl border border-black/10 dark:border-white/10 text-[#1d1d1f] dark:text-white font-medium text-[14px]"
+                className="px-6 py-3 rounded-2xl border border-black/10 dark:border-white/10 text-[#1d1d1f] dark:text-[#f5f5f7] font-medium text-[14px]"
               >
                 Force Reload
               </motion.button>

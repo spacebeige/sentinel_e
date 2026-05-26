@@ -68,7 +68,7 @@ export function ModelsPage() {
           className="text-center mb-16"
         >
           <h1
-            className="text-[#1d1d1f] mb-4"
+            className="text-[#1d1d1f] dark:text-[#f5f5f7] mb-4"
             style={{
               fontFamily: "'Inter', -apple-system, sans-serif",
               fontSize: 'clamp(36px, 5vw, 56px)',
@@ -132,7 +132,7 @@ export function ModelsPage() {
               </div>
 
               <h3
-                className="text-[#1d1d1f] mb-1"
+                className="text-[#1d1d1f] dark:text-[#f5f5f7] mb-1"
                 style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '20px', fontWeight: 600 }}
               >
                 {model.name}
@@ -155,7 +155,7 @@ export function ModelsPage() {
                   <div key={feature} className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-[#34c759] flex-shrink-0" />
                     <span
-                      className="text-[#1d1d1f]"
+                      className="text-[#1d1d1f] dark:text-[#f5f5f7]"
                       style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '13px', fontWeight: 400 }}
                     >
                       {feature}
