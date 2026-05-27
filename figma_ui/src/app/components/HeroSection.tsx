@@ -292,22 +292,44 @@ export function HeroSection() {
         </motion.div>
 
         {/* Wordmark — massive cinematic title */}
-        <motion.h1
+        <motion.div
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
+          whileHover={{ scale: 1.015, y: -2 }}
           transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.06 }}
-          style={{
-            fontFamily: "'Inter', sans-serif",
-            fontSize: "clamp(64px, 13vw, 132px)",
-            fontWeight: 800,
-            lineHeight: 0.88,
-            letterSpacing: "-0.05em",
-            color: isDark ? "#f5f5f7" : "#1d1d1f",
-            marginBottom: "clamp(18px, 2.5vw, 28px)",
-          }}
+          className="relative cursor-default"
         >
-          Sentinel-E
-        </motion.h1>
+          {/* Ambient text glow */}
+          <div
+            className="absolute inset-0 blur-3xl opacity-40 pointer-events-none transition-opacity duration-500"
+            style={{
+              background: isDark
+                ? "radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%)"
+                : "radial-gradient(circle, rgba(0,0,0,0.1) 0%, transparent 70%)",
+            }}
+          />
+          <h1
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: "clamp(64px, 13vw, 132px)",
+              fontWeight: 800,
+              lineHeight: 0.88,
+              letterSpacing: "-0.05em",
+              color: "transparent",
+              backgroundImage: isDark
+                ? "linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.65) 100%)"
+                : "linear-gradient(180deg, #1d1d1f 0%, rgba(29,29,31,0.55) 100%)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              marginBottom: "clamp(18px, 2.5vw, 28px)",
+              filter: isDark
+                ? "drop-shadow(0px 8px 16px rgba(0,0,0,0.6)) drop-shadow(0px 0px 32px rgba(255,255,255,0.15))"
+                : "drop-shadow(0px 4px 12px rgba(0,0,0,0.15)) drop-shadow(0px 0px 24px rgba(255,255,255,0.6))",
+            }}
+          >
+            Sentinel-E
+          </h1>
+        </motion.div>
 
         {/* Tagline */}
         <motion.div
@@ -333,13 +355,14 @@ export function HeroSection() {
               fontSize: "clamp(14px, 1.8vw, 18px)",
               fontWeight: 400,
               letterSpacing: "-0.01em",
-              color: isDark ? "rgba(255,255,255,0.38)" : "rgba(0,0,0,0.4)",
-              maxWidth: "540px",
-              lineHeight: 1.55,
+              color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.5)",
+              maxWidth: "600px",
+              lineHeight: 1.6,
             }}
           >
-            A semantic machine intelligence operating beneath glass.<br />
-            Multi-model. Orchestrated. Cognitive.
+            A living architecture of orchestrated semantic intelligence.<br />
+            Experience multi-model reasoning and hidden cognition,<br />
+            where deep machine thought seamlessly breathes beneath glass.
           </p>
         </motion.div>
 

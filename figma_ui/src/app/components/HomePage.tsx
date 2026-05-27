@@ -444,10 +444,17 @@ export default function HomePage() {
             <div className="flex gap-3 flex-shrink-0">
               <Link
                 to="/chat"
-                className={`px-8 py-3.5 rounded-2xl font-semibold text-[14px] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${isDark ? "bg-[#f5f5f7] text-[#1d1d1f]" : "bg-[#1d1d1f] text-[#f5f5f7]"}`}
-                style={{ letterSpacing: "-0.01em" }}
+                className="group relative overflow-hidden px-8 py-3.5 rounded-2xl font-medium text-[14px] text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_24px_rgba(255,255,255,0.15)]"
+                style={{
+                  background: "rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  backdropFilter: "blur(16px)",
+                  WebkitBackdropFilter: "blur(16px)",
+                  letterSpacing: "-0.01em",
+                }}
               >
-                Initialize System
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: "radial-gradient(ellipse at center, rgba(255,255,255,0.15) 0%, transparent 70%)" }} />
+                <span className="relative z-10">Initialize System</span>
               </Link>
               <Link
                 to="/pricing"

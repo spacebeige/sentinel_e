@@ -62,15 +62,32 @@ export function Navbar() {
           to="/"
           className="group flex items-center gap-2.5 pl-3 pr-4 h-full rounded-full transition-all duration-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_24px_rgba(255,255,255,0.06)] -translate-y-0 hover:-translate-y-[1px]"
         >
-          <img
-            src="/logo.png"
-            alt="Sentinel-E"
-            className="h-[26px] w-auto object-contain transition-all duration-300 group-hover:scale-105"
-            style={{ 
-              filter: isDark ? "drop-shadow(0 0 12px rgba(255,255,255,0.15))" : "drop-shadow(0 0 8px rgba(0,0,0,0.08))",
-              WebkitFilter: isDark ? "drop-shadow(0 0 12px rgba(255,255,255,0.15))" : "drop-shadow(0 0 8px rgba(0,0,0,0.08))" 
+          <div
+            className="relative flex items-center justify-center rounded-full overflow-hidden transition-all duration-300 group-hover:scale-105"
+            style={{
+              width: "30px",
+              height: "30px",
+              background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+              boxShadow: isDark
+                ? "inset 0 1px 4px rgba(255,255,255,0.2), 0 0 16px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.5)"
+                : "inset 0 1px 4px rgba(255,255,255,0.8), 0 0 12px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.1)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
             }}
-          />
+          >
+            <div
+              className="absolute inset-0 opacity-50 mix-blend-overlay pointer-events-none"
+              style={{
+                background: "radial-gradient(circle at top left, rgba(255,255,255,0.4) 0%, transparent 60%)",
+              }}
+            />
+            <img
+              src="/logo.png"
+              alt="Sentinel-E"
+              className="h-[16px] w-auto object-contain relative z-10"
+              style={{ filter: isDark ? "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" : "drop-shadow(0 1px 2px rgba(0,0,0,0.2))" }}
+            />
+          </div>
           <span
             className="text-[#1d1d1f] dark:text-[#f5f5f7] hidden sm:block"
             style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "14px", letterSpacing: "-0.01em" }}
@@ -81,42 +98,24 @@ export function Navbar() {
 
         {/* CENTER — Navigation */}
         <div className="hidden md:flex items-center gap-2 px-1">
-          <Link
-            to="/"
-            className={`group relative px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-300 hover:-translate-y-[1px] ${
-              location.pathname === "/"
-                ? (isDark ? "text-white" : "text-[#1d1d1f]")
-                : "text-[#1d1d1f] dark:text-[#f5f5f7] opacity-60 hover:opacity-100"
-            }`}
-          >
-            {location.pathname === "/" && (
-              <motion.div
-                layoutId="nav-active-pill"
-                className="absolute inset-0 rounded-full"
-                style={{
-                  background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-                  zIndex: -1,
-                }}
-                transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
-              />
-            )}
-            Home
-          </Link>
-
-          {[
-            { to: "/chat", label: "Chat" },
-            { to: "/engines", label: "Engines" },
-            { to: "/pricing", label: "Access" },
-          ].map(link => (
-            <Link
-              key={link.to}
-              to={link.to}
-              className="inline-flex items-center justify-center px-5 py-2 rounded-full text-[13px] font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] bg-[#1d1d1f] text-[#f5f5f7] dark:bg-[#f5f5f7] dark:text-[#1d1d1f]"
-              style={{ letterSpacing: "-0.01em" }}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {location.pathname === "/" && (
+            <>
+              {[
+                { to: "/chat", label: "Chat" },
+                { to: "/engines", label: "Engines" },
+                { to: "/pricing", label: "Access" },
+              ].map(link => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className="inline-flex items-center justify-center px-5 py-2 rounded-full text-[13px] font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] bg-[#1d1d1f] text-[#f5f5f7] dark:bg-[#f5f5f7] dark:text-[#1d1d1f]"
+                  style={{ letterSpacing: "-0.01em" }}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </>
+          )}
         </div>
 
         {/* RIGHT — Actions */}

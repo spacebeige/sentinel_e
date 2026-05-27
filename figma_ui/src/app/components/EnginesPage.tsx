@@ -81,12 +81,27 @@ export function EnginesPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className={`w-9 h-9 rounded-2xl flex items-center justify-center font-bold text-[13px] flex-shrink-0 ${isDark ? "text-[#f5f5f7]" : "text-[#1d1d1f]"}`}
-                      style={{ background: engine.accent }}
-                    >
-                      {engine.name[0]}
-                    </div>
+                    {engine.id === "sigma" ? (
+                      <div
+                        className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 border transition-all duration-300 group-hover:shadow-[0_0_12px_rgba(255,255,255,0.2)] group-hover:scale-105"
+                        style={{
+                          background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
+                          backdropFilter: "blur(16px)",
+                          WebkitBackdropFilter: "blur(16px)",
+                          borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+                          boxShadow: "inset 0 1px 4px rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.2)"
+                        }}
+                      >
+                        <img src="/logo.png" className="w-[18px] h-auto object-contain" alt="Sentinel-E" />
+                      </div>
+                    ) : (
+                      <div
+                        className={`w-9 h-9 rounded-2xl flex items-center justify-center font-bold text-[13px] flex-shrink-0 ${isDark ? "text-[#f5f5f7]" : "text-[#1d1d1f]"}`}
+                        style={{ background: engine.accent }}
+                      >
+                        {engine.name[0]}
+                      </div>
+                    )}
                     <div>
                       <div className={`font-semibold text-[15px] ${isDark ? "text-[#f5f5f7]" : "text-[#1d1d1f]"}`} style={{ letterSpacing: "-0.015em" }}>{engine.name}</div>
                       <div className="text-[#8e8e93] text-[12px]">{engine.provider}</div>
