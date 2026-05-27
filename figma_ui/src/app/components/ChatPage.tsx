@@ -1,6 +1,8 @@
 import { useTheme } from "next-themes";
+import { AVAILABLE_MODELS } from "../../config/modelRegistry";
 import { Link } from "react-router";
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Send,
   Sparkles,
@@ -19,6 +21,7 @@ import {
   Brain,
   BarChart3,
   Share2,
+  Menu,
   Moon,
   Sun,
   Skull,
@@ -129,6 +132,19 @@ const sampleResponses = [
 
 // ── Main ChatPage ────────────────────────────────────────────────────────────
 export function ChatPage() {
+  const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0].id);
+  const [selectedMode, setSelectedMode] = useState("debate");
+  const [isPlusOpen, setIsPlusOpen] = useState(false);
+  const activeModel = AVAILABLE_MODELS.find(m => m.id === selectedModel) || AVAILABLE_MODELS[0];
+
+  const availableModels = AVAILABLE_MODELS;
+
+  const availableModes = [
+    { id: "debate", name: "Debate", color: "#ef4444" },
+    { id: "glass", name: "Glass", color: "#8b5cf6" },
+    { id: "evidence", name: "Evidence", color: "#06b6d4" },
+    { id: "synthesis", name: "Synthesis", color: "#10b981" },
+  ];
   // State
   const [messages, setMessages] = useState<Message[]>([{
     id: "welcome",
@@ -153,12 +169,10 @@ export function ChatPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   // Chat interaction context
-  const { isHistoryOpen, toggleHistory, activeSubMode, setActiveSubMode, newChatTriggered, isProMode, setIsProMode } = useChatInteraction();
+  const { isHistoryOpen, toggleHistory, newChatTriggered, isProMode, setIsProMode } = useChatInteraction();
 
   // Pro features state
-  const [showModelSelector, setShowModelSelector] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(PRO_MODELS[0]);
-  const [expandedMeta, setExpandedMeta] = useState<string | null>(null);
+      const [expandedMeta, setExpandedMeta] = useState<string | null>(null);
   const [showSessionPanel, setShowSessionPanel] = useState(false);
   const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
@@ -166,6 +180,7 @@ export function ChatPage() {
   // Share & Copy state
   const [shareSuccess, setShareSuccess] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // File upload
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -173,6 +188,27 @@ export function ChatPage() {
 
   // Mode dropdown
   const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
+  const modeTriggerRef = useRef<HTMLButtonElement>(null);
+  const [modeDropdownCoords, setModeDropdownCoords] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (modeDropdownOpen && modeTriggerRef.current) {
+      const rect = modeTriggerRef.current.getBoundingClientRect();
+      setModeDropdownCoords({ top: rect.bottom + 6, left: rect.left });
+    }
+  }, [modeDropdownOpen]);
+
+  useEffect(() => {
+    if (!modeDropdownOpen) return;
+    const updatePosition = () => {
+      if (modeTriggerRef.current) {
+        const rect = modeTriggerRef.current.getBoundingClientRect();
+        setModeDropdownCoords({ top: rect.bottom + 6, left: rect.left });
+      }
+    };
+    window.addEventListener('resize', updatePosition);
+    return () => window.removeEventListener('resize', updatePosition);
+  }, [modeDropdownOpen]);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -237,7 +273,7 @@ export function ChatPage() {
     const saved = restore();
     if (saved.chatId) {
       setCurrentChatId(saved.chatId);
-      if (saved.subMode) setActiveSubMode(saved.subMode);
+      if (saved.subMode) setSelectedMode(saved.subMode);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -253,11 +289,11 @@ export function ChatPage() {
     persist({
       chatId: currentChatId,
       mode: isProMode ? "experimental" : "standard",
-      subMode: activeSubMode,
+      subMode: selectedMode,
       isProMode,
       killOverride: glassState.killOverride,
     });
-  }, [currentChatId, isProMode, activeSubMode, glassState.killOverride, persist]);
+  }, [currentChatId, isProMode, selectedMode, glassState.killOverride, persist]);
 
   // ── Load chat history ──────────────────────────────────────────────────────
   const loadChatHistory = useCallback(async () => {
@@ -347,21 +383,29 @@ export function ChatPage() {
         if ((err as Error).name !== "AbortError") {
           navigator.clipboard.writeText(urlToShare);
           setShareSuccess(true);
-          setTimeout(() => setShareSuccess(false), 2500);
+          setToastMessage("Share link copied");
+          setTimeout(() => { setShareSuccess(false); setToastMessage(null); }, 2500);
         }
       }
     } else {
       navigator.clipboard.writeText(urlToShare);
       setShareSuccess(true);
-      setTimeout(() => setShareSuccess(false), 2500);
+      setToastMessage("Share link copied");
+      setTimeout(() => { setShareSuccess(false); setToastMessage(null); }, 2500);
     }
   };
 
   const handleCopyChat = async () => {
-    const text = messages.map(m => `${m.role === "user" ? "You" : "Sentinel-E"}: ${m.content}`).join("\n\n");
-    await navigator.clipboard.writeText(text);
-    setCopySuccess(true);
-    setTimeout(() => setCopySuccess(false), 2500);
+    try {
+      const text = messages.map(m => `${m.role === "user" ? "User" : "Assistant"}:\n${m.content}`).join("\n\n");
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(true);
+      setToastMessage("Copied conversation");
+      setTimeout(() => { setCopySuccess(false); setToastMessage(null); }, 2500);
+    } catch (e) {
+      setToastMessage("Copy failed");
+      setTimeout(() => setToastMessage(null), 2500);
+    }
   };
 
   // ── File upload ─────────────────────────────────────────────────────────────
@@ -427,8 +471,8 @@ export function ChatPage() {
       try {
         let response: SentinelRunResponse;
 
-        if (isProMode && activeSubMode) {
-          response = await runExperimental(userText, activeSubMode, 6, currentChatId || undefined, glassState.killOverride, attachedFile || undefined, ac.signal);
+        if (isProMode && selectedMode) {
+          response = await runExperimental(userText, selectedMode, 6, currentChatId || undefined, glassState.killOverride, attachedFile || undefined, ac.signal);
         } else {
           response = await runStandard(userText, currentChatId || undefined, attachedFile || undefined, ac.signal);
         }
@@ -437,16 +481,16 @@ export function ChatPage() {
 
         if (response.chat_id) setCurrentChatId(response.chat_id);
 
-        if (activeSubMode === "debate" && response.omega_metadata) setDebateState((p) => mergeDebateResult(p, response.omega_metadata));
-        if (activeSubMode === "glass" && response.omega_metadata) setGlassState((p) => mergeGlassState(p, response.omega_metadata));
-        if (activeSubMode === "evidence" && response.omega_metadata) setEvidenceState((p) => mergeEvidenceState(p, response.omega_metadata));
+        if (selectedMode === "debate" && response.omega_metadata) setDebateState((p) => mergeDebateResult(p, response.omega_metadata));
+        if (selectedMode === "glass" && response.omega_metadata) setGlassState((p) => mergeGlassState(p, response.omega_metadata));
+        if (selectedMode === "evidence" && response.omega_metadata) setEvidenceState((p) => mergeEvidenceState(p, response.omega_metadata));
 
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
           content: response.formatted_output || response.data?.priority_answer || "No response generated.",
           timestamp: new Date(),
-          mode: response.sub_mode || activeSubMode,
+          mode: response.sub_mode || selectedMode,
           chatId: response.chat_id,
           confidence: response.confidence,
           boundaryResult: response.boundary_result,
@@ -472,7 +516,7 @@ export function ChatPage() {
 
   const generateFallbackResponse = () => {
     setTimeout(() => {
-      const currentMode = activeSubMode;
+      const currentMode = selectedMode;
       let response: string;
       if (currentMode && modeResponses[currentMode]) {
         const responses = modeResponses[currentMode];
@@ -485,7 +529,7 @@ export function ChatPage() {
         role: "assistant",
         content: response,
         timestamp: new Date(),
-        mode: activeSubMode,
+        mode: selectedMode,
       };
       setMessages((prev) => [...prev, assistantMessage]);
       setIsTyping(false);
@@ -632,7 +676,7 @@ export function ChatPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div
-      className="relative flex h-screen w-full overflow-hidden"
+      className="relative flex h-screen w-full overflow-hidden overflow-x-hidden"
       style={{ background: chatBg }}
     >
 
@@ -654,12 +698,16 @@ export function ChatPage() {
       {/* Sidebar panel */}
       
           <aside
-            className={`absolute md:relative left-0 top-0 h-full z-40 flex flex-col flex-shrink-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-              sidebarOpen ? "translate-x-0 w-[280px]" : "-translate-x-full md:translate-x-0 md:w-[72px]"
-            }`}
+            className="flex flex-col flex-shrink-0 h-screen z-20"
             style={{
+              width: sidebarOpen ? "280px" : "0px",
+              transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+              opacity: sidebarOpen ? 1 : 0,
+              pointerEvents: sidebarOpen ? "auto" : "none",
+              overflow: "hidden",
+              transition: "width 300ms cubic-bezier(0.16,1,0.3,1), transform 300ms cubic-bezier(0.16,1,0.3,1), opacity 220ms ease",
               background: sidebarBg,
-              borderRight: `1px solid ${borderColor}`,
+              borderRight: sidebarOpen ? `1px solid ${borderColor}` : "none",
             }}
           >
             {/* Sidebar header */}
@@ -677,16 +725,7 @@ export function ChatPage() {
                 </Link>
               )}
               <div className="flex items-center gap-1">
-                <button
-                  onClick={handleNewChat}
-                  className="p-1.5 rounded-lg transition-colors"
-                  title="New Chat"
-                  style={{ color: textSecondary }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                >
-                  <PenSquare className="w-4 h-4" />
-                </button>
+                
               </div>
             </div>
 
@@ -801,7 +840,7 @@ export function ChatPage() {
 
             {/* Sidebar footer */}
             <div
-              className="px-2 py-3 space-y-0.5"
+              className="px-2 py-3 space-y-0.5 flex-shrink-0 relative z-20 mt-auto"
               style={{ borderTop: `1px solid ${borderColor}` }}
             >
               <button
@@ -838,12 +877,14 @@ export function ChatPage() {
             </div>
           </aside>
 
+
+
       {/* ── MAIN CHAT AREA ──────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 h-full relative" style={{ background: chatBg }}>
+      <div className="flex-1 flex flex-col min-w-0 h-full relative z-[1]" style={{ background: chatBg, transition: "margin 300ms cubic-bezier(0.16,1,0.3,1), width 300ms cubic-bezier(0.16,1,0.3,1)" }}>
 
         {/* ── TOP BAR ─────────────────────────────────────────────────── */}
         <div
-          className="flex items-center justify-between px-4 py-3 sticky top-0 z-20"
+          className="relative flex items-center justify-between w-full h-14 px-4 z-40"
           style={{
             background: isDark ? "rgba(8,9,14,0.85)" : "rgba(255,255,255,0.85)",
             backdropFilter: "blur(20px)",
@@ -851,118 +892,121 @@ export function ChatPage() {
             borderBottom: `1px solid ${borderColor}`,
           }}
         >
-          {/* Left — Collapse Button | Divider | Mode Dropdown | Sentinel Selector */}
-          <div className="flex items-center gap-2 pl-2">
-            {/* Sidebar collapse toggle — always visible */}
+          {/* LEFT */}
+          <div className="flex items-center">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200 flex-shrink-0"
+              className="flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-300"
               title="Toggle Sidebar"
-              style={{ color: textSecondary }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; e.currentTarget.style.color = textPrimary; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = textSecondary; }}
-            >
-              {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            </button>
-
-            {/* Visible vertical divider */}
-            <div
-              className="w-px h-5 flex-shrink-0"
-              style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)" }}
-            />
-
-            {/* Mode dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setModeDropdownOpen(!modeDropdownOpen)}
-                className="group flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-300 hover:shadow-sm"
-                style={{
-                  background: isDark ? "rgba(255,255,255,0.04)" : "transparent",
-                  border: isDark ? `1px solid rgba(255,255,255,0.08)` : `1px solid transparent`,
-                  color: textPrimary,
-                }}
-              >
-                <span className="font-semibold text-[15px] flex items-center gap-2" style={{ fontFamily: "'Inter', sans-serif" }}>
-                  Sentinel {isProMode ? <span className="text-[#3b82f6]">Pro</span> : <span className="text-gray-500">Standard</span>}
-                </span>
-                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${modeDropdownOpen ? "rotate-180" : ""}`} style={{ color: textSecondary }} />
-              </button>
-
-              <AnimatePresence>
-                {modeDropdownOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                    transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute left-0 top-full mt-1.5 w-52 rounded-2xl overflow-hidden z-50"
-                    style={{
-                      background: isDark ? "#0f1117" : "#ffffff",
-                      border: `1px solid ${borderColor}`,
-                      boxShadow: isDark ? "0 16px 40px rgba(0,0,0,0.5)" : "0 16px 40px rgba(0,0,0,0.1)",
-                    }}
-                  >
-                    <div className="p-1.5">
-                      {[
-                        { id: "standard", label: "Standard", sub: "Simple AI experience", pro: false },
-                        { id: "pro", label: "Pro", sub: "Full orchestration · multi-model", pro: true },
-                      ].map((m) => (
-                        <button
-                          key={m.id}
-                          onClick={() => { setIsProMode(m.pro); setModeDropdownOpen(false); if (!m.pro) setActiveSubMode(null); }}
-                          className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl transition-colors text-left"
-                          style={{
-                            background: isProMode === m.pro ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") : "transparent",
-                          }}
-                          onMouseEnter={(e) => { if (isProMode !== m.pro) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; }}
-                          onMouseLeave={(e) => { if (isProMode !== m.pro) e.currentTarget.style.background = "transparent"; }}
-                        >
-                          <div className="mt-0.5 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: m.pro ? "rgba(139,92,246,0.15)" : "rgba(59,130,246,0.15)" }}>
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.pro ? "#8b5cf6" : "#3b82f6" }} />
-                          </div>
-                          <div>
-                            <div style={{ fontSize: "13px", fontWeight: 600, color: textPrimary }}>{m.label}</div>
-                            <div style={{ fontSize: "11px", color: textSecondary, marginTop: "1px" }}>{m.sub}</div>
-                          </div>
-                          {isProMode === m.pro && <Check className="w-3.5 h-3.5 ml-auto mt-1 text-[#3b82f6]" />}
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* iOS-style Sentinel Standard / Pro glass selector */}
-            <div
-              className="flex items-center rounded-2xl overflow-hidden flex-shrink-0"
               style={{
-                background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-                border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(0,0,0,0.08)",
-                backdropFilter: "blur(20px)",
-                WebkitBackdropFilter: "blur(20px)",
+                color: textSecondary,
+                background: isDark ? "rgba(18,18,24,0.72)" : "rgba(255,255,255,0.72)",
+                backdropFilter: "blur(20px) saturate(180%)",
+                WebkitBackdropFilter: "blur(20px) saturate(180%)",
+                border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
+              }}
+              onMouseEnter={(e) => { 
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.color = textPrimary;
+              }}
+              onMouseLeave={(e) => { 
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.color = textSecondary;
               }}
             >
-              {["standard", "pro"].map((val) => (
-                <button
-                  key={val}
-                  onClick={() => setMode(val)}
-                  className="px-3.5 py-1.5 text-[12px] font-semibold transition-all duration-200"
-                  style={{
-                    background: mode === val
-                      ? isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"
-                      : "transparent",
-                    color: mode === val ? textPrimary : textSecondary,
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  {val === "standard" ? "Standard" : "Pro"}
-                </button>
-              ))}
-            </div>
+              <div className="transition-transform duration-300">
+                {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              </div>
+            </button>
           </div>
 
-          {/* Right — Actions */}
+          {/* CENTER */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3 z-50">
+            <div className="relative">
+              <button
+                ref={modeTriggerRef}
+                onClick={() => setModeDropdownOpen(!modeDropdownOpen)}
+                className="flex items-center justify-center gap-2 transition-all duration-300 pointer-events-auto"
+                style={{
+                  height: "40px",
+                  padding: "0 16px",
+                  borderRadius: "18px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  background: isDark ? "rgba(18,18,24,0.72)" : "rgba(255,255,255,0.72)",
+                  backdropFilter: "blur(24px) saturate(180%)",
+                  WebkitBackdropFilter: "blur(24px) saturate(180%)",
+                  border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
+                  boxShadow: isDark
+                    ? "0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05)"
+                    : "0 6px 20px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.7)",
+                  color: isDark ? "#f5f5f7" : "#1d1d1f",
+                }}
+              >
+                Sentinel {isProMode ? "Pro" : "Standard"}
+                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${modeDropdownOpen ? "rotate-180" : ""}`} style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }} />
+              </button>
+
+              {typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                  {modeDropdownOpen && (
+                    <motion.div
+                      key="sentinel-mode-dropdown"
+                      initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                      transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                      className="fixed w-52 z-[120] pointer-events-auto"
+                      style={{
+                        top: modeDropdownCoords.top,
+                        left: modeDropdownCoords.left,
+                        background: isDark ? "rgba(18,18,24,0.72)" : "rgba(255,255,255,0.72)",
+                        backdropFilter: "blur(30px) saturate(180%)",
+                        WebkitBackdropFilter: "blur(30px) saturate(180%)",
+                        border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
+                        borderRadius: "22px",
+                        padding: "8px",
+                        boxShadow: isDark
+                          ? "0 16px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05)"
+                          : "0 10px 30px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.7)",
+                      }}
+                    >
+                      <div className="flex flex-col gap-1">
+                        {[
+                          { id: "standard", label: "Standard", sub: "Simple AI experience", pro: false },
+                          { id: "pro", label: "Pro", sub: "Full orchestration · multi-model", pro: true },
+                        ].map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => { setMode(m.id); setIsProMode(m.pro); setModeDropdownOpen(false); if (!m.pro) setSelectedMode(null); }}
+                            className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl transition-colors text-left"
+                            style={{
+                              background: isProMode === m.pro ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") : "transparent",
+                            }}
+                            onMouseEnter={(e) => { if (isProMode !== m.pro) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; }}
+                            onMouseLeave={(e) => { if (isProMode !== m.pro) e.currentTarget.style.background = "transparent"; }}
+                          >
+                            <div className="mt-0.5 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: m.pro ? "rgba(139,92,246,0.15)" : "rgba(59,130,246,0.15)" }}>
+                              <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.pro ? "#8b5cf6" : "#3b82f6" }} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: "13px", fontWeight: 600, color: isDark ? "#fff" : "#000" }}>{m.name}</div>
+                              <div style={{ fontSize: "11px", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", marginTop: "1px" }}>{m.sub}</div>
+                            </div>
+                            {isProMode === m.pro && <Check className="w-3.5 h-3.5 ml-auto mt-1 text-[#3b82f6]" />}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>,
+                document.body
+              )}
+            </div>
+
+            </div>
+
+        {/* RIGHT */}
           <div className="flex items-center gap-2">
             <button
               onClick={toggleTheme}
@@ -972,19 +1016,7 @@ export function ChatPage() {
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.transform = "translateY(0)"; }}
               title="Toggle Theme"
             >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-
-            {/* Share */}
-            <button
-              onClick={handleShareChat}
-              className="p-2 rounded-xl transition-all"
-              title="Share Chat"
-              style={{ color: shareSuccess ? "#10b981" : textSecondary }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-            >
-              {shareSuccess ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
           </div>
         </div>
@@ -1011,7 +1043,7 @@ export function ChatPage() {
         </AnimatePresence>
 
         {/* ── MESSAGES ─────────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-4 py-8" onClick={() => { setModeDropdownOpen(false); setShowModelSelector(false); }}>
+        <div className="flex-1 overflow-y-auto px-4 py-8" onClick={() => { setModeDropdownOpen(false); setIsPlusOpen(false); }}>
           <div className="max-w-2xl mx-auto space-y-5">
             <AnimatePresence>
               {messages.map((message) => {
@@ -1032,37 +1064,21 @@ export function ChatPage() {
                       {/* Message bubble */}
                       <div
                         className="relative overflow-hidden"
-                        style={message.role === "user" ? {
-                          borderRadius: "20px 20px 5px 20px",
-                          background: isDark ? "rgba(255,255,255,0.08)" : "rgb(240,240,245)",
-                          color: isDark ? "#f5f5f7" : "#1d1d1f",
-                          padding: "12px 16px",
-                          boxShadow: isDark
-                            ? "0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10)"
-                            : "0 2px 8px rgba(0,0,0,0.03)",
-                          border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.04)",
-                          backdropFilter: isDark ? "blur(20px)" : "none",
-                          WebkitBackdropFilter: isDark ? "blur(20px)" : "none",
-                        } : {
-                          borderRadius: "20px 20px 20px 5px",
+                        style={{
+                          borderRadius: message.role === "user" ? "20px 20px 5px 20px" : "20px 20px 20px 5px",
                           background: isDark
-                            ? `rgba(255,255,255,${msgMode ? "0.06" : "0.05"})`
-                            : "#ffffff",
-                          color: textPrimary,
-                          border: isDark
-                            ? `1px solid ${msgMode ? msgMode.color + "25" : "rgba(255,255,255,0.08)"}`
-                            : `1px solid ${msgMode ? msgMode.color + "25" : "rgba(0,0,0,0.04)"}`,
-                          borderLeft: msgMode
-                            ? `3px solid ${msgMode.color}`
-                            : message.mode === "kill"
-                            ? "3px solid #ef4444"
-                            : isDark ? "3px solid rgba(255,255,255,0.08)" : `1px solid rgba(0,0,0,0.04)`,
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgb(240,240,245)",
+                          color: isDark ? "#f5f5f7" : "#1d1d1f",
+                          padding: message.role === "user" ? "12px 16px" : "0",
                           boxShadow: isDark
-                            ? `0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)`
-                            : "0 4px 16px rgba(0,0,0,0.04)",
+                            ? "inset 0 1px 0 rgba(255,255,255,0.05)"
+                            : "0 2px 8px rgba(0,0,0,0.03)",
+                          border: isDark 
+                            ? "1px solid rgba(255,255,255,0.12)"
+                            : "1px solid rgba(0,0,0,0.04)",
                           backdropFilter: isDark ? "blur(20px)" : "none",
                           WebkitBackdropFilter: isDark ? "blur(20px)" : "none",
-                          overflow: "visible",
                         }}
                       >
                         {/* Mode badge for assistant */}
@@ -1100,7 +1116,7 @@ export function ChatPage() {
                               fontSize: "15px",
                               lineHeight: 1.6,
                               fontWeight: 400,
-                              color: message.role === "user" ? (isDark ? "#f5f5f7" : "#1d1d1f") : textPrimary,
+                              color: isDark ? "#f5f5f7" : "#1d1d1f",
                             }}
                           >
                             {message.content}
@@ -1188,13 +1204,13 @@ export function ChatPage() {
                   className="px-5 py-4 rounded-[20px] rounded-bl-md"
                   style={{
                     background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-                    border: `1px solid ${activeSubMode ? proSubModes.find(m => m.id === activeSubMode)!.color + "30" : borderColor}`,
-                    borderLeft: activeSubMode ? `3px solid ${proSubModes.find(m => m.id === activeSubMode)!.color}` : `1px solid ${borderColor}`,
+                    border: `1px solid ${selectedMode ? proSubModes.find(m => m.id === selectedMode)!.color + "30" : borderColor}`,
+                    borderLeft: selectedMode ? `3px solid ${proSubModes.find(m => m.id === selectedMode)!.color}` : `1px solid ${borderColor}`,
                   }}
                 >
-                  {activeSubMode && (
-                    <div className="flex items-center gap-1 mb-2" style={{ color: proSubModes.find(m => m.id === activeSubMode)!.color }}>
-                      {proSubModes.find(m => m.id === activeSubMode)!.icon}
+                  {selectedMode && (
+                    <div className="flex items-center gap-1 mb-2" style={{ color: proSubModes.find(m => m.id === selectedMode)!.color }}>
+                      {proSubModes.find(m => m.id === selectedMode)!.icon}
                       <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                         {backendOnline ? "Processing via Omega Kernel..." : "Thinking..."}
                       </span>
@@ -1206,7 +1222,7 @@ export function ChatPage() {
                         key={delay}
                         className="w-2 h-2 rounded-full animate-bounce"
                         style={{
-                          background: activeSubMode ? proSubModes.find(m => m.id === activeSubMode)!.color : (isDark ? "#6e6e73" : "#aeaeb2"),
+                          background: selectedMode ? proSubModes.find(m => m.id === selectedMode)!.color : (isDark ? "#6e6e73" : "#aeaeb2"),
                           animationDelay: `${delay}ms`,
                         }}
                       />
@@ -1222,7 +1238,7 @@ export function ChatPage() {
 
         {/* ── FLOATING INPUT DOCK ──────────────────────────────────────────── */}
         <div
-          className="px-4 pt-3 z-20"
+          className="px-4 pt-3 z-[5] relative"
           style={{
             paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))",
             background: isDark
@@ -1230,94 +1246,18 @@ export function ChatPage() {
               : "linear-gradient(to top, rgba(255,255,255,1) 60%, rgba(255,255,255,0) 100%)",
           }}
         >
-          <div className="max-w-2xl mx-auto">
-            {/* Pro model selector popup */}
-            <AnimatePresence>
-              {showModelSelector && isProMode && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.97 }}
-                  transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                  className="mb-2 p-2 rounded-2xl grid grid-cols-2 sm:grid-cols-3 gap-1.5"
-                  style={{
-                    background: isDark ? "#0f1117" : "#ffffff",
-                    border: `1px solid ${borderColor}`,
-                    boxShadow: isDark ? "0 16px 40px rgba(0,0,0,0.5)" : "0 16px 40px rgba(0,0,0,0.1)",
-                  }}
-                >
-                  {PRO_MODELS.map((model) => (
-                    <button
-                      key={model.id}
-                      onClick={() => { setSelectedModel(model); setShowModelSelector(false); }}
-                      className="flex items-start gap-2 p-2.5 rounded-xl transition-all text-left"
-                      style={{
-                        background: selectedModel.id === model.id
-                          ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)")
-                          : "transparent",
-                        border: selectedModel.id === model.id ? `1px solid ${model.color}30` : "1px solid transparent",
-                      }}
-                      onMouseEnter={(e) => { if (selectedModel.id !== model.id) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; }}
-                      onMouseLeave={(e) => { if (selectedModel.id !== model.id) e.currentTarget.style.background = "transparent"; }}
-                    >
-                      <div className="w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: model.color + "20" }}>
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: model.color }} />
-                      </div>
-                      <div>
-                        <div style={{ fontSize: "12px", fontWeight: 600, color: textPrimary, lineHeight: 1.2 }}>{model.name}</div>
-                        <div style={{ fontSize: "10px", color: textSecondary, marginTop: "1px" }}>{model.sub}</div>
-                      </div>
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Pro submodes row */}
-            <AnimatePresence>
-              {isProMode && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.25 }}
-                  className="overflow-hidden mb-2"
-                >
-                  <div className="flex items-center gap-1.5 pb-2">
-                    {proSubModes.map((mode) => {
-                      const isActive = activeSubMode === mode.id;
-                      return (
-                        <button
-                          key={mode.id}
-                          onClick={() => setActiveSubMode(isActive ? null : mode.id)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all"
-                          style={{
-                            background: isActive ? mode.color : (isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)"),
-                            color: isActive ? "#ffffff" : textSecondary,
-                            border: `1px solid ${isActive ? mode.color : borderColor}`,
-                            boxShadow: isActive ? `0 2px 12px ${mode.color}40` : "none",
-                          }}
-                        >
-                          {mode.icon}
-                          <span style={{ fontSize: "12px", fontWeight: 600 }}>{mode.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+          <div className="max-w-2xl mx-auto relative flex flex-col gap-[10px] z-[5]">
 
             {/* Input container */}
             <div
-              className="relative rounded-[24px] transition-all duration-300"
+              className="relative rounded-[24px] transition-all duration-300 z-10 flex-shrink-0"
               style={{
                 background: inputBg,
-                border: activeSubMode
-                  ? `1px solid ${proSubModes.find(m => m.id === activeSubMode)!.color}40`
+                border: selectedMode
+                  ? `1px solid ${proSubModes.find(m => m.id === selectedMode)!.color}40`
                   : `1px solid ${borderColor}`,
-                boxShadow: activeSubMode
-                  ? `0 4px 24px -4px ${proSubModes.find(m => m.id === activeSubMode)!.color}20, ${isDark ? "0 0 0 1px rgba(255,255,255,0.04)" : "0 0 0 1px rgba(0,0,0,0.04)"}`
+                boxShadow: selectedMode
+                  ? `0 4px 24px -4px ${proSubModes.find(m => m.id === selectedMode)!.color}20, ${isDark ? "0 0 0 1px rgba(255,255,255,0.04)" : "0 0 0 1px rgba(0,0,0,0.04)"}`
                   : isDark
                     ? "0 4px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04)"
                     : "0 4px 24px rgba(0,0,0,0.07)",
@@ -1355,17 +1295,119 @@ export function ChatPage() {
               {/* Input row */}
               <div className="flex items-end gap-1 p-2">
                 {/* Left actions */}
-                <div className="flex items-center gap-0.5 pb-0.5">
-                  {/* Plus — opens model selector in Pro mode */}
-                  {mode === "pro" && isProMode && (
+                <div className="flex items-center gap-0.5 pb-0.5 relative" style={{ overflow: "visible" }}>
+                  
+                  {/* Floating Orchestration Panel attached to + button */}
+                  <AnimatePresence>
+                    {isPlusOpen && mode === "pro" && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                        className="absolute z-[140] pointer-events-auto w-[340px] p-3"
+                        style={{
+                          bottom: "calc(100% + 12px)",
+                          left: "0",
+                          background: isDark ? "rgba(18,18,24,0.78)" : "rgba(255,255,255,0.72)",
+                          backdropFilter: "blur(30px) saturate(180%)",
+                          WebkitBackdropFilter: "blur(30px) saturate(180%)",
+                          border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
+                          borderRadius: "22px",
+                          boxShadow: isDark 
+                            ? "0 18px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05)"
+                            : "0 10px 30px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.7)",
+                        }}
+                      >
+                         <div className="mb-2 px-2 text-[11px] font-semibold tracking-wider uppercase" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>Orchestration Modes</div>
+                         <div className="grid grid-cols-2 gap-1.5 mb-4">
+                           {availableModes.map((m) => {
+                             const isActive = selectedMode === m.id;
+                             return (
+                               <button
+                                 key={m.id}
+                                 onClick={() => { setSelectedMode(isActive ? "" : m.id); setIsPlusOpen(false); }}
+                                 className="flex flex-col items-start gap-1.5 p-2.5 rounded-2xl transition-all text-left"
+                                 style={{
+                                   background: isActive ? m.color : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
+                                   border: isActive ? `1px solid ${m.color}` : "1px solid transparent",
+                                   color: isActive ? "#ffffff" : (isDark ? "#fff" : "#000"),
+                                   boxShadow: isActive ? `0 4px 16px ${m.color}40` : "none",
+                                 }}
+                                 onMouseEnter={(e) => { 
+                                   if (!isActive) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; 
+                                   e.currentTarget.style.transform = "translateY(-1px)";
+                                 }}
+                                 onMouseLeave={(e) => { 
+                                   if (!isActive) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; 
+                                   e.currentTarget.style.transform = "translateY(0)";
+                                 }}
+                               >
+                                 <div className="p-1.5 rounded-xl" style={{ background: isActive ? "rgba(255,255,255,0.2)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: isActive ? "#fff" : m.color }}>
+                                   <div className="w-2.5 h-2.5 rounded-full" style={{ background: m.color }} />
+                                 </div>
+                                 <div>
+                                   <div className="text-[13px] font-semibold">{m.name}</div>
+                                 </div>
+                               </button>
+                             );
+                           })}
+                         </div>
+                         <div className="mb-2 px-2 text-[11px] font-semibold tracking-wider uppercase" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>Available Models</div>
+                         <div className="grid grid-cols-2 gap-1.5">
+                           {availableModels.map((model) => {
+                             const isSelected = selectedModel === model.id;
+                             return (
+                               <button
+                                 key={model.id}
+                                 onClick={() => { setSelectedModel(model.id); setIsPlusOpen(false); }}
+                                 className="flex items-center gap-2 p-2 rounded-xl transition-all text-left"
+                                 style={{
+                                   background: isSelected ? (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)") : (isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)"),
+                                   border: isSelected ? (isDark ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(0,0,0,0.1)") : "1px solid transparent",
+                                 }}
+                                 onMouseEnter={(e) => { if(!isSelected) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"; }}
+                                 onMouseLeave={(e) => { if(!isSelected) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)"; }}
+                               >
+                                 <div className="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)", color: isDark ? "#fff" : "#000" }}>
+                                   <div className="w-1.5 h-1.5 rounded-full" style={{ background: isSelected ? "#3b82f6" : (isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.3)") }} />
+                                 </div>
+                                 <div>
+                                   <div className="text-[12px] font-medium" style={{ color: isDark ? "#fff" : "#000" }}>{model.name}</div>
+                                   <div className="text-[9px] font-medium opacity-50 uppercase tracking-wider">{model.provider}</div>
+                                 </div>
+                               </button>
+                             );
+                           })}
+                         </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+{/* Plus — opens model selector in Pro mode */}
+                  {mode === "pro" && (
                     <button
-                      onClick={() => setShowModelSelector(!showModelSelector)}
-                      className="p-2 rounded-full transition-all"
-                      style={{ color: showModelSelector ? "#3b82f6" : textSecondary }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                      onClick={() => setIsPlusOpen(!isPlusOpen)}
+                      className="flex items-center justify-center rounded-full transition-all duration-300 flex-shrink-0"
+                      style={{ 
+                        width: "40px",
+                        height: "40px",
+                        background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+                        color: isPlusOpen ? "#3b82f6" : textSecondary,
+                        backdropFilter: "blur(12px)",
+                        WebkitBackdropFilter: "blur(12px)",
+                        boxShadow: isDark ? "inset 0 1px 0 rgba(255,255,255,0.05)" : "none",
+                      }}
+                      onMouseEnter={(e) => { 
+                        e.currentTarget.style.transform = "scale(1.04)"; 
+                        if (isDark) e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+                      }}
+                      onMouseLeave={(e) => { 
+                        e.currentTarget.style.transform = "scale(1)";
+                        e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)";
+                      }}
                     >
-                      <Plus className="w-5 h-5 flex-shrink-0" />
+                      <Plus className="w-5 h-5" />
                     </button>
                   )}
                   <button
@@ -1389,16 +1431,16 @@ export function ChatPage() {
                 {/* Pro model label */}
                 {isProMode && (
                   <button
-                    onClick={() => setShowModelSelector(!showModelSelector)}
+                    onClick={() => setIsPlusOpen(!isPlusOpen)}
                     className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl mb-0.5 flex-shrink-0 transition-all"
                     style={{
                       background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
                       border: `1px solid ${borderColor}`,
-                      color: selectedModel.color,
+                      color: activeModel.color,
                     }}
                   >
-                    <div className="w-2 h-2 rounded-full" style={{ background: selectedModel.color }} />
-                    <span style={{ fontSize: "11px", fontWeight: 600 }}>{selectedModel.name}</span>
+                    <div className="w-2 h-2 rounded-full" style={{ background: activeModel.color }} />
+                    <span style={{ fontSize: "11px", fontWeight: 600 }}>{activeModel.name}</span>
                     <ChevronDown className="w-3 h-3" style={{ color: textSecondary }} />
                   </button>
                 )}
@@ -1414,8 +1456,8 @@ export function ChatPage() {
                   }}
                   onKeyDown={handleKeyDown}
                   placeholder={
-                    activeSubMode
-                      ? proSubModes.find(m => m.id === activeSubMode)!.placeholder
+                    selectedMode
+                      ? proSubModes.find(m => m.id === selectedMode)!.placeholder
                       : "Message Sentinel-E..."
                   }
                   rows={1}
@@ -1447,8 +1489,8 @@ export function ChatPage() {
                     style={{
                       background: (!input.trim() && !attachedFile) || isTyping
                         ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)")
-                        : activeSubMode
-                          ? proSubModes.find(m => m.id === activeSubMode)!.color
+                        : selectedMode
+                          ? proSubModes.find(m => m.id === selectedMode)!.color
                           : "#1d1d1f",
                       color: (!input.trim() && !attachedFile) || isTyping ? textSecondary : "#ffffff",
                       boxShadow: (input.trim() || attachedFile) && !isTyping
@@ -1464,7 +1506,7 @@ export function ChatPage() {
 
             {/* Disclaimer */}
             <p
-              className="text-center mt-2"
+              className="text-center relative z-10 flex-shrink-0"
               style={{
                 fontFamily: "'Inter', sans-serif",
                 fontSize: "11px",
@@ -1480,6 +1522,31 @@ export function ChatPage() {
         </div>
       </div>
 
+      {/* ── TOAST ──────────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200]"
+            style={{
+              background: isDark ? "rgba(18,18,24,0.82)" : "rgba(255,255,255,0.88)",
+              backdropFilter: "blur(24px)",
+              WebkitBackdropFilter: "blur(24px)",
+              color: isDark ? "#fff" : "#000",
+              fontSize: "13px",
+              fontWeight: 500,
+              borderRadius: "999px",
+              padding: "10px 18px",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+            }}
+          >
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── SESSION ANALYTICS PANEL ──────────────────────────────────────── */}
       <AnimatePresence>
         {showSessionPanel && (
@@ -1492,10 +1559,10 @@ export function ChatPage() {
       </AnimatePresence>
 
       {/* Click outside to close dropdowns */}
-      {(modeDropdownOpen || showModelSelector) && (
+      {(modeDropdownOpen || isPlusOpen) && (
         <div
           className="fixed inset-0 z-10"
-          onClick={() => { setModeDropdownOpen(false); setShowModelSelector(false); }}
+          onClick={() => { setModeDropdownOpen(false); setIsPlusOpen(false); }}
         />
       )}
     </div>

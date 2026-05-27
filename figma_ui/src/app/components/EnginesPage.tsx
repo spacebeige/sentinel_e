@@ -1,18 +1,11 @@
 import { useTheme } from "next-themes";
+import { AVAILABLE_MODELS } from "../../config/modelRegistry";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Link } from "react-router";
 import { Moon, Sun } from "lucide-react";
 
-const ENGINES = [
-  { id: "gpt4", name: "GPT-4o", provider: "OpenAI", tag: "Flagship reasoning", accent: "#10a37f", description: "State-of-the-art multimodal reasoning with long-context capability and advanced tool use." },
-  { id: "claude", name: "Claude 3.5", provider: "Anthropic", tag: "Semantic analysis", accent: "#cc785c", description: "Exceptional long-form reasoning, nuanced writing, and safety-conscious response generation." },
-  { id: "gemini", name: "Gemini 1.5", provider: "Google", tag: "Multimodal", accent: "#4285f4", description: "Google's frontier model with native multimodal understanding and massive context window." },
-  { id: "deepseek", name: "DeepSeek-R1", provider: "DeepSeek", tag: "Deep reasoning", accent: "#7c3aed", description: "Reinforcement-trained reasoning model with chain-of-thought transparency at every step." },
-  { id: "mistral", name: "Mixtral 8×7B", provider: "Mistral", tag: "Efficient routing", accent: "#f97316", description: "Mixture-of-experts architecture delivers frontier-quality outputs at fraction of compute cost." },
-  { id: "llama", name: "Llama 3.1", provider: "Meta", tag: "Open source", accent: "#3b82f6", description: "Meta's open-weights model offering full transparency, fine-tuning capability, and on-device inference." },
-  { id: "sigma", name: "Sentinel Σ", provider: "Sentinel-E", tag: "Orchestration core", accent: "#1d1d1f", description: "Sentinel's internal orchestration engine — routes, synthesizes, and coordinates all model outputs." },
-];
+const ENGINES = AVAILABLE_MODELS;
 
 export function EnginesPage() {
   const { theme, setTheme } = useTheme();
@@ -74,7 +67,7 @@ export function EnginesPage() {
               transition={{ duration: 0.7, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] }}
               className={`group p-6 rounded-3xl cursor-default transition-all duration-300 hover:scale-[1.01] ${engine.id === "sigma" ? "md:col-span-2" : ""}`}
               style={{
-                background: `rgba(${engine.accent === "#1d1d1f" ? (isDark ? "255,255,255" : "29,29,31") : hexToRgb(engine.accent)}, ${isDark ? "0.1" : "0.05"})`,
+                background: `rgba(${engine.color === "#1d1d1f" ? (isDark ? "255,255,255" : "29,29,31") : hexToRgb(engine.color)}, ${isDark ? "0.1" : "0.05"})`,
                 border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.05)",
               }}
             >
@@ -97,7 +90,7 @@ export function EnginesPage() {
                     ) : (
                       <div
                         className={`w-9 h-9 rounded-2xl flex items-center justify-center font-bold text-[13px] flex-shrink-0 ${isDark ? "text-[#f5f5f7]" : "text-[#1d1d1f]"}`}
-                        style={{ background: engine.accent }}
+                        style={{ background: engine.color }}
                       >
                         {engine.name[0]}
                       </div>
@@ -111,9 +104,9 @@ export function EnginesPage() {
                 </div>
                 <span
                   className="flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase"
-                  style={{ background: `rgba(${hexToRgb(engine.accent)},0.1)`, color: engine.accent }}
+                  style={{ background: `rgba(${hexToRgb(engine.color)},0.1)`, color: engine.color }}
                 >
-                  {engine.tag}
+                  {engine.category}
                 </span>
               </div>
             </motion.div>

@@ -29,6 +29,76 @@ const NEURAL_NODES = [
   { cx: 500, cy: 300 }, { cx: 880, cy: 200 }, { cx: 120, cy: 200 }
 ];
 
+
+function CinematicRevealLayer({ isDark }: { isDark: boolean }) {
+  const layerRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    const layer = layerRef.current;
+    if (!layer) return;
+
+    let targetX = window.innerWidth / 2;
+    let targetY = window.innerHeight / 2;
+    let currentX = targetX;
+    let currentY = targetY;
+    let rafId: number;
+
+    const onPointerMove = (e: PointerEvent) => {
+      targetX = e.clientX;
+      targetY = e.clientY;
+    };
+
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+
+    const animate = () => {
+      currentX += (targetX - currentX) * 0.1;
+      currentY += (targetY - currentY) * 0.1;
+      
+      layer.style.setProperty("--x", `${currentX}px`);
+      layer.style.setProperty("--y", `${currentY}px`);
+      rafId = requestAnimationFrame(animate);
+    };
+    rafId = requestAnimationFrame(animate);
+
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      cancelAnimationFrame(rafId);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={layerRef}
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+      style={{ zIndex: 5 }}
+      aria-hidden
+    >
+      {/* 1. Main Ambient Illumination */}
+      <div 
+        className="absolute inset-0 transition-opacity duration-500"
+        style={{
+          background: isDark
+            ? "radial-gradient(circle 240px at var(--x, 50%) var(--y, 50%), rgba(255,255,255,0.08), rgba(120,140,255,0.05), transparent 72%)"
+            : "radial-gradient(circle 220px at var(--x, 50%) var(--y, 50%), rgba(255,255,255,0.22), rgba(240,240,255,0.12), transparent 70%)"
+        }}
+      />
+      
+      {/* 2. Hidden Semantic Mesh (Only visible near cursor) */}
+      <div 
+        className="absolute inset-0 opacity-[0.06] transition-opacity duration-500"
+        style={{
+          backgroundImage: isDark
+            ? "linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)"
+            : "linear-gradient(rgba(0,0,0,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.3) 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
+          WebkitMaskImage: "radial-gradient(circle 240px at var(--x, 50%) var(--y, 50%), black, transparent 80%)",
+          maskImage: "radial-gradient(circle 240px at var(--x, 50%) var(--y, 50%), black, transparent 80%)"
+        }}
+      />
+    </div>
+  );
+}
+
 export function HeroSection() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -71,6 +141,8 @@ export function HeroSection() {
       onMouseMove={onMouseMove}
       style={{ background: isDark ? "#08090e" : "#f7f8fc" }}
     >
+
+      <CinematicRevealLayer isDark={isDark} />
 
       {/* ── L1: ATMOSPHERIC BASE ────────────────────────────────────────── */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden>
@@ -304,8 +376,8 @@ export function HeroSection() {
             className="absolute inset-0 blur-3xl opacity-40 pointer-events-none transition-opacity duration-500"
             style={{
               background: isDark
-                ? "radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%)"
-                : "radial-gradient(circle, rgba(0,0,0,0.1) 0%, transparent 70%)",
+                ? "radial-gradient(circle, rgba(180,200,255,0.3) 0%, rgba(255,255,255,0.1) 40%, transparent 70%)"
+                : "radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(99,102,241,0.15) 40%, transparent 70%)",
             }}
           />
           <h1
@@ -323,8 +395,8 @@ export function HeroSection() {
               backgroundClip: "text",
               marginBottom: "clamp(18px, 2.5vw, 28px)",
               filter: isDark
-                ? "drop-shadow(0px 8px 16px rgba(0,0,0,0.6)) drop-shadow(0px 0px 32px rgba(255,255,255,0.15))"
-                : "drop-shadow(0px 4px 12px rgba(0,0,0,0.15)) drop-shadow(0px 0px 24px rgba(255,255,255,0.6))",
+                ? "drop-shadow(0px 12px 24px rgba(0,0,0,0.8)) drop-shadow(0px 0px 48px rgba(180,200,255,0.3)) drop-shadow(0px 0px 12px rgba(255,255,255,0.4))"
+                : "drop-shadow(0px 8px 16px rgba(0,0,0,0.2)) drop-shadow(0px 0px 36px rgba(99,102,241,0.25)) drop-shadow(0px 0px 10px rgba(255,255,255,0.8))",
             }}
           >
             Sentinel-E
