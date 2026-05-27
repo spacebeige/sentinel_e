@@ -71,7 +71,7 @@ export function FeaturesSection() {
           className="text-center mb-16"
         >
           <h2
-            className="text-[#1d1d1f] mb-4"
+            className="text-[#1d1d1f] dark:text-[#f5f5f7] mb-4"
             style={{
               fontFamily: "'Inter', -apple-system, sans-serif",
               fontSize: "clamp(32px, 5vw, 48px)",
@@ -117,7 +117,7 @@ export function FeaturesSection() {
                 {feature.icon}
               </div>
               <h3
-                className="text-[#1d1d1f] mb-2"
+                className="text-[#1d1d1f] dark:text-[#f5f5f7] mb-2"
                 style={{
                   fontFamily:
                     "'Inter', -apple-system, sans-serif",

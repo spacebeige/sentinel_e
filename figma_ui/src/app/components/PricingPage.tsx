@@ -1,224 +1,209 @@
-import { motion } from "motion/react";
-import { Check, Sparkles } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
+import { motion, AnimatePresence } from "motion/react";
+import { Check, Moon, Sun } from "lucide-react";
 
-const plans = [
+const PLANS = [
   {
-    name: "Free",
-    price: "$0",
-    period: "forever",
-    description: "Get started with AI — no credit card required.",
+    id: "standard",
+    name: "Standard",
+    price: "Free",
+    sub: "Forever",
+    description: "The complete Sentinel-E experience for personal use.",
+    cta: "Initialize",
+    href: "/chat",
     features: [
-      "50 messages per day",
-      "GPT-4o Mini access",
-      "Basic chat features",
-      "7-day chat history",
-      "Community support",
+      "Access to base models (GPT-4o mini, Llama 3.1)",
+      "Standard inference latency",
+      "Basic conversation memory",
+      "Standard context windows",
     ],
-    cta: "Get Started",
-    popular: false,
-    gradient: "",
   },
   {
-    name: "Pro",
+    id: "pro",
+    name: "Sentinel Pro",
     price: "$20",
-    period: "/month",
-    description: "Unlimited access to all models and premium features.",
+    sub: "per month",
+    description: "Unleash the full orchestration engine for advanced reasoning.",
+    cta: "Upgrade to Pro",
+    href: "#",
+    primary: true,
     features: [
-      "Unlimited messages",
-      "All AI models access",
-      "Priority speed",
-      "Unlimited chat history",
-      "File uploads & analysis",
-      "Custom instructions",
-      "Priority support",
+      "Full model suite (GPT-4o, Claude 3.5, Gemini 1.5)",
+      "Sentinel Σ orchestration routing",
+      "Debate & Synthesis modes",
+      "Extended context windows",
+      "Priority inference latency",
+      "Advanced tool use & code execution",
     ],
-    cta: "Start Free Trial",
-    popular: true,
-    gradient: "from-[#3b82f6] to-[#06b6d4]",
   },
   {
-    name: "Team",
-    price: "$35",
-    period: "/user/month",
-    description: "Collaborate with your team using shared AI workspaces.",
+    id: "enterprise",
+    name: "Enterprise",
+    price: "Custom",
+    sub: "deployment",
+    description: "Custom deployments with dedicated infrastructure.",
+    cta: "Contact Sales",
+    href: "#",
     features: [
       "Everything in Pro",
-      "Team workspaces",
-      "Admin dashboard",
-      "Usage analytics",
-      "SSO & SAML",
-      "API access",
-      "Dedicated support",
+      "Dedicated inference endpoints",
+      "Custom system prompts & rules",
+      "SAML / SSO authentication",
+      "SOC2 compliance",
       "Custom model fine-tuning",
     ],
-    cta: "Contact Sales",
-    popular: false,
-    gradient: "",
   },
 ];
 
 export function PricingPage() {
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
+
+  const toggleTheme = () => {
+    setTheme(isDark ? "light" : "dark");
+  };
+
   return (
-    <div className="min-h-screen bg-[#f5f5f7] pt-14">
-      <div className="max-w-6xl mx-auto px-6 py-16">
+    <div className={`min-h-screen transition-colors duration-500 pt-28 pb-24 px-6 ${isDark ? "bg-[#09090b] text-[#f5f5f7]" : "bg-[#f5f5f7] text-[#1d1d1f]"}`}>
+      {/* Compact Navbar */}
+      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4" style={{ background: isDark ? "rgba(9,9,11,0.8)" : "rgba(245,245,247,0.8)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(0,0,0,0.05)" }}>
+        <Link to="/" className="flex items-center transition-transform hover:scale-105">
+          <img src="/logo.png" alt="Logo" className="h-6 w-auto" />
+        </Link>
+        <button onClick={toggleTheme} className="flex items-center justify-center w-9 h-9 rounded-full transition-colors duration-200 hover:bg-black/[0.05] dark:hover:bg-white/[0.07]">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={isDark ? "sun" : "moon"} initial={{ opacity: 0, rotate: -90, scale: 0.8 }} animate={{ opacity: 1, rotate: 0, scale: 1 }} exit={{ opacity: 0, rotate: 90, scale: 0.8 }} transition={{ duration: 0.2 }}>
+              {isDark ? <Sun className="w-[15px] h-[15px] text-[rgba(255,255,255,0.55)]" /> : <Moon className="w-[15px] h-[15px] text-[rgba(0,0,0,0.4)]" />}
+            </motion.div>
+          </AnimatePresence>
+        </button>
+      </div>
+
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-16"
         >
+          <div
+            className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full"
+            style={{ background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.06)" }}
+          >
+            <span className="text-[10px] font-bold tracking-[0.22em] text-[#8e8e93] uppercase">Access Layer</span>
+          </div>
           <h1
-            className="text-[#1d1d1f] mb-4"
-            style={{
-              fontFamily: "'Inter', -apple-system, sans-serif",
-              fontSize: 'clamp(36px, 5vw, 56px)',
-              fontWeight: 700,
-              letterSpacing: '-0.03em',
-              lineHeight: 1.1,
-            }}
+            className={`mb-3 ${isDark ? "text-[#f5f5f7]" : "text-[#1d1d1f]"}`}
+            style={{ fontFamily: "'Inter', sans-serif", fontSize: "clamp(34px, 5.5vw, 56px)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}
           >
-            Simple,
-            <br />
-            <span className="bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] bg-clip-text text-transparent">
-              transparent pricing.
-            </span>
+            Simple pricing.
           </h1>
-          <p
-            className="text-[#6e6e73] max-w-lg mx-auto"
-            style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '17px', lineHeight: 1.6, fontWeight: 400 }}
-          >
-            Start free, upgrade when you're ready. No hidden fees, cancel anytime.
+          <p className={`max-w-sm mx-auto ${isDark ? "text-[#636366]" : "text-[#8e8e93]"}`} style={{ fontSize: "16px", lineHeight: 1.6 }}>
+            Start free. Unlock the full orchestration layer when you need it.
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          {plans.map((plan, index) => (
-            <motion.div
-              key={plan.name}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className={`relative p-6 rounded-3xl border flex flex-col ${
-                plan.popular
-                  ? "bg-[#1d1d1f] border-transparent shadow-2xl shadow-black/20 md:-mt-4 md:mb-0"
-                  : "bg-white border-black/5"
-              }`}
-            >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span
-                    className="inline-flex items-center gap-1.5 px-4 py-1 rounded-full bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] text-white shadow-lg"
-                    style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '12px', fontWeight: 600 }}
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    Most Popular
-                  </span>
-                </div>
+        {/* Plans */}
+        <div className="grid md:grid-cols-2 gap-5">
+          {PLANS.map((plan, i) => {
+            const cardBgClass = isDark
+              ? "bg-white/[0.04] border-white/[0.08]"
+              : "bg-black/[0.04] border-black/[0.06]";
+            
+            const textClass = isDark
+              ? "text-[#f5f5f7]"
+              : "text-[#1d1d1f]";
+
+            return (
+              <motion.div
+                key={plan.id}
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                className={`p-8 rounded-3xl relative overflow-hidden border ${cardBgClass} ${plan.primary ? (isDark ? "!border-white/20" : "!border-black/20") : ""}`}
+              >
+              {/* Pro grid texture */}
+              {plan.primary && (
+                <div
+                  className="absolute inset-0 pointer-events-none opacity-[0.04]"
+                  style={{
+                    backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)",
+                    backgroundSize: "32px 32px",
+                  }}
+                />
               )}
 
-              <div className="mb-6">
-                <h3
-                  className={plan.popular ? "text-white mb-2" : "text-[#1d1d1f] mb-2"}
-                  style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '20px', fontWeight: 600 }}
-                >
+              <div className="relative">
+                {plan.primary && (
+                  <div className={`inline-flex items-center gap-1.5 mb-4 px-2.5 py-1 rounded-full ${isDark ? "bg-white/10" : "bg-black/10"}`}>
+                    <span className={`text-[10px] font-bold tracking-[0.18em] uppercase ${isDark ? "text-[#f5f5f7]" : "text-[#1d1d1f]"}`}>Recommended</span>
+                  </div>
+                )}
+
+                <div className={`text-[15px] font-semibold mb-1 ${textClass}`}>
                   {plan.name}
-                </h3>
-                <div className="flex items-baseline gap-1 mb-2">
+                </div>
+                <div className="flex items-baseline gap-1.5 mb-1">
                   <span
-                    className={plan.popular ? "text-white" : "text-[#1d1d1f]"}
-                    style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '48px', fontWeight: 700, letterSpacing: '-0.03em' }}
+                    className={`font-800 ${textClass}`}
+                    style={{ fontSize: "42px", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}
                   >
                     {plan.price}
                   </span>
-                  <span
-                    className={plan.popular ? "text-white/50" : "text-[#6e6e73]"}
-                    style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '15px', fontWeight: 400 }}
-                  >
-                    {plan.period}
+                  <span className={isDark ? "text-[#8e8e93] text-[13px]" : "text-[#636366] text-[13px]"}>
+                    {plan.sub}
                   </span>
                 </div>
-                <p
-                  className={plan.popular ? "text-white/60" : "text-[#6e6e73]"}
-                  style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '14px', lineHeight: 1.5, fontWeight: 400 }}
-                >
+                <p className={`mb-7 text-[13px] leading-relaxed ${isDark ? "text-[#8e8e93]" : "text-[#636366]"}`}>
                   {plan.description}
                 </p>
-              </div>
 
-              <div className="space-y-3 mb-6 flex-1">
-                {plan.features.map((feature) => (
-                  <div key={feature} className="flex items-center gap-2.5">
-                    <div
-                      className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        plan.popular ? "bg-white/10" : "bg-[#34c759]/10"
-                      }`}
-                    >
+                <ul className="space-y-2.5 mb-8">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-center gap-2.5">
                       <Check
-                        className="w-3 h-3"
-                        style={{ color: plan.popular ? "#5eead4" : "#34c759" }}
+                        className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isDark ? "text-[#f5f5f7]" : "text-[#1d1d1f]"}`}
                       />
-                    </div>
-                    <span
-                      className={plan.popular ? "text-white/80" : "text-[#1d1d1f]"}
-                      style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '14px', fontWeight: 400 }}
-                    >
-                      {feature}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                      <span
+                        className={`text-[13px] ${isDark ? "text-[#8e8e93]" : "text-[#636366]"}`}
+                      >
+                        {f}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
 
-              <Link
-                to="/chat"
-                className={`block text-center py-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98] ${
-                  plan.popular
-                    ? `bg-gradient-to-r ${plan.gradient} text-white shadow-lg shadow-blue-500/30`
-                    : "bg-[#f5f5f7] text-[#1d1d1f] hover:bg-[#e8e8ed]"
-                }`}
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '15px', fontWeight: 600 }}
-              >
-                {plan.cta}
-              </Link>
+                <Link
+                  to={plan.href}
+                  className={`flex items-center justify-center w-full py-3 rounded-2xl font-semibold text-[14px] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${
+                    plan.primary
+                      ? isDark
+                        ? "bg-[#f5f5f7] text-[#1d1d1f]"
+                        : "bg-[#1d1d1f] text-[#f5f5f7]"
+                      : isDark
+                      ? "bg-white/10 text-[#f5f5f7]"
+                      : "bg-black/5 text-[#1d1d1f]"
+                  }`}
+                >
+                  {plan.cta}
+                </Link>
+              </div>
             </motion.div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* FAQ section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mt-20 max-w-2xl mx-auto"
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1, delay: 0.4 }}
+          className="text-center text-[12px] text-[#8e8e93] dark:text-[#636366] mt-8"
         >
-          <h2
-            className="text-center text-[#1d1d1f] mb-8"
-            style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '28px', fontWeight: 700, letterSpacing: '-0.02em' }}
-          >
-            Frequently Asked
-          </h2>
-          {[
-            { q: "Can I switch plans anytime?", a: "Yes, you can upgrade, downgrade, or cancel your plan at any time. Changes take effect at the start of your next billing cycle." },
-            { q: "Is there a free trial for Pro?", a: "Yes! All Pro features come with a 14-day free trial. No credit card required to start." },
-            { q: "What happens when I reach my message limit?", a: "On the Free plan, you'll be prompted to upgrade. We'll never cut you off mid-conversation." },
-          ].map((faq) => (
-            <div key={faq.q} className="mb-4 p-5 rounded-2xl bg-white border border-black/5">
-              <h4
-                className="text-[#1d1d1f] mb-2"
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '16px', fontWeight: 600 }}
-              >
-                {faq.q}
-              </h4>
-              <p
-                className="text-[#6e6e73]"
-                style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontSize: '14px', lineHeight: 1.6, fontWeight: 400 }}
-              >
-                {faq.a}
-              </p>
-            </div>
-          ))}
-        </motion.div>
+          No credit card required for Standard. Cancel Pro anytime.
+        </motion.p>
       </div>
     </div>
   );

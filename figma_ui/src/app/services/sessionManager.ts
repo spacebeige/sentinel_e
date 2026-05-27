@@ -9,7 +9,7 @@ export interface PersistedSession {
   chatId: string | null;
   mode: string;
   subMode: string | null;
-  selectedModelId: string;
+  isProMode: boolean;
   /** Debate rounds snapshot (so we don't lose rounds on refresh) */
   debateRounds: DebateRoundSnapshot[];
   /** Glass kill_override state */
@@ -33,7 +33,7 @@ const DEFAULT_SESSION: PersistedSession = {
   chatId: null,
   mode: "standard",
   subMode: null,
-  selectedModelId: "sentinel-std",
+  isProMode: false,
   debateRounds: [],
   killOverride: false,
   savedAt: new Date().toISOString(),
@@ -51,7 +51,7 @@ export function loadSession(): PersistedSession {
       chatId: parsed.chatId ?? null,
       mode: parsed.mode ?? "standard",
       subMode: parsed.subMode ?? null,
-      selectedModelId: parsed.selectedModelId ?? "sentinel-std",
+      isProMode: Boolean(parsed.isProMode),
       debateRounds: Array.isArray(parsed.debateRounds) ? parsed.debateRounds : [],
       killOverride: Boolean(parsed.killOverride),
       savedAt: parsed.savedAt ?? new Date().toISOString(),

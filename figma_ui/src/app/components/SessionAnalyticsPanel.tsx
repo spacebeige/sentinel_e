@@ -109,7 +109,7 @@ export function SessionAnalyticsPanel({
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-[#8b5cf6]" />
             <span
-              className="text-[#1d1d1f]"
+              className="text-[#1d1d1f] dark:text-[#f5f5f7]"
               style={{ fontFamily: font, fontSize: "14px", fontWeight: 600 }}
             >
               Session Analytics
@@ -163,7 +163,7 @@ export function SessionAnalyticsPanel({
               {/* Session Identity */}
               <div className="p-3 rounded-xl bg-gradient-to-br from-[#f5f5f7] to-[#eeeef0]">
                 <span
-                  className="text-[#1d1d1f] block truncate"
+                  className="text-[#1d1d1f] dark:text-[#f5f5f7] block truncate"
                   style={{ fontFamily: font, fontSize: "15px", fontWeight: 600 }}
                 >
                   {data.chat_name}
@@ -186,7 +186,7 @@ export function SessionAnalyticsPanel({
               <div className="grid grid-cols-3 gap-2">
                 <div className="p-2 rounded-xl bg-[#f5f5f7] text-center">
                   <span
-                    className="block text-[#1d1d1f]"
+                    className="block text-[#1d1d1f] dark:text-[#f5f5f7]"
                     style={{ fontFamily: font, fontSize: "18px", fontWeight: 700 }}
                   >
                     {data.message_count}
@@ -197,7 +197,7 @@ export function SessionAnalyticsPanel({
                 </div>
                 <div className="p-2 rounded-xl bg-[#f5f5f7] text-center">
                   <span
-                    className="block text-[#1d1d1f]"
+                    className="block text-[#1d1d1f] dark:text-[#f5f5f7]"
                     style={{ fontFamily: font, fontSize: "18px", fontWeight: 700 }}
                   >
                     {data.boundary_count}
@@ -208,7 +208,7 @@ export function SessionAnalyticsPanel({
                 </div>
                 <div className="p-2 rounded-xl bg-[#f5f5f7] text-center">
                   <span
-                    className="block text-[#1d1d1f]"
+                    className="block text-[#1d1d1f] dark:text-[#f5f5f7]"
                     style={{ fontFamily: font, fontSize: "18px", fontWeight: 700 }}
                   >
                     {data.error_count}
