@@ -13,6 +13,13 @@ const ENGINES = [
 ];
 
 export function EnginesPage() {
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
+
+  const toggleTheme = () => {
+    setTheme(isDark ? "light" : "dark");
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-[#090b0f] pt-28 pb-24 px-6">
       <div className="max-w-5xl mx-auto">

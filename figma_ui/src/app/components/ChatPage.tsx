@@ -184,6 +184,13 @@ export function ChatPage() {
   const [evidenceState, setEvidenceState] = useState<EvidenceState>(createEvidenceState());
 
   // ── Dark mode sync ─────────────────────────────────────────────────────────
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
+
+  const toggleTheme = () => {
+    setTheme(isDark ? "light" : "dark");
+  };
+
   // ── Helpers ────────────────────────────────────────────────────────────────
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -722,12 +729,7 @@ export function ChatPage() {
 
             {/* Chat history */}
             <div className={`flex-1 overflow-y-auto py-1 ${sidebarOpen ? 'px-2' : 'px-0 opacity-0 pointer-events-none'}`}>
-              {!backendOnline ? (
-                <div className="px-3 py-8 text-center">
-                  <WifiOff className="w-6 h-6 mx-auto mb-2" style={{ color: textSecondary }} />
-                  <p style={{ fontSize: "12px", color: textSecondary }}>Connect backend to see history</p>
-                </div>
-              ) : historyLoading ? (
+              {historyLoading ? (
                 <div className="px-3 py-8 text-center">
                   <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" style={{ color: textSecondary }} />
                   <p style={{ fontSize: "12px", color: textSecondary }}>Loading...</p>
@@ -922,21 +924,6 @@ export function ChatPage() {
             >
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
-            
-            {/* Connection status — subtle, not a banner */}
-            <div className="hidden sm:flex items-center gap-1.5 mr-2">
-              {backendOnline === true ? (
-                <>
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                  <span style={{ fontSize: "11px", color: "#10b981", fontWeight: 500 }}>Live</span>
-                </>
-              ) : backendOnline === false ? (
-                <>
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  <span style={{ fontSize: "11px", color: "#f59e0b", fontWeight: 500 }}>Offline</span>
-                </>
-              ) : null}
-            </div>
 
             {/* Share */}
             <button

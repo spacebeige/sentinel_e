@@ -25,36 +25,47 @@ def validate_production_config():
     errors = []
     
     # Check critical environment variables
-    if settings.is_production:
+    if getattr(settings, "is_production", False):
+        database_url = getattr(settings, "DATABASE_URL", "")
+        postgres_host = getattr(settings, "POSTGRES_HOST", "")
+        redis_host = getattr(settings, "REDIS_HOST", "")
+        allowed_origins = getattr(settings, "ALLOWED_ORIGINS", "")
+        jwt_secret_key = getattr(settings, "JWT_SECRET_KEY", "")
+        clerk_jwt_issuer = getattr(settings, "CLERK_JWT_ISSUER", "")
+        clerk_jwks_url = getattr(settings, "CLERK_JWKS_URL", "")
+        api_domain = getattr(settings, "API_DOMAIN", "")
+        website_domain = getattr(settings, "WEBSITE_DOMAIN", "")
+
         # Database
-        if not settings.DATABASE_URL and (not settings.POSTGRES_HOST or settings.POSTGRES_HOST == "localhost"):
+        if not database_url and (not postgres_host or postgres_host == "localhost"):
             errors.append("❌ POSTGRES_HOST must be configured for production (not localhost)")
         
         # Cache
-        if not settings.REDIS_HOST or settings.REDIS_HOST == "localhost":
+        if not redis_host or redis_host == "localhost":
             errors.append("❌ REDIS_HOST must be configured for production (not localhost)")
         
         # CORS
-        if "*" in settings.ALLOWED_ORIGINS:
+        if allowed_origins and "*" in allowed_origins:
             errors.append("❌ ALLOWED_ORIGINS cannot be '*' in production (CORS vulnerability)")
         
         # JWT Secret
-        if "CHANGE-ME" in settings.JWT_SECRET_KEY:
-            errors.append("❌ JWT_SECRET_KEY still uses default 'CHANGE-ME' value in production!")
-        
-        if len(settings.JWT_SECRET_KEY) < 32:
-            errors.append("❌ JWT_SECRET_KEY too short (must be 32+ characters)")
+        if jwt_secret_key:
+            if "CHANGE-ME" in jwt_secret_key:
+                errors.append("❌ JWT_SECRET_KEY still uses default 'CHANGE-ME' value in production!")
+            
+            if len(jwt_secret_key) < 32:
+                errors.append("❌ JWT_SECRET_KEY too short (must be 32+ characters)")
         
         # Database URL
-        if settings.DATABASE_URL and ("password_placeholder" in settings.DATABASE_URL):
+        if database_url and ("password_placeholder" in database_url):
             errors.append("❌ DATABASE_URL missing credentials or using placeholder")
 
         # Clerk
-        if not settings.CLERK_JWT_ISSUER and not settings.CLERK_JWKS_URL:
+        if not clerk_jwt_issuer and not clerk_jwks_url:
             errors.append("❌ CLERK_JWT_ISSUER or CLERK_JWKS_URL must be configured for production")
-        if not settings.API_DOMAIN.startswith("https://"):
+        if api_domain and not api_domain.startswith("https://"):
             errors.append("❌ API_DOMAIN must use https in production")
-        if not settings.WEBSITE_DOMAIN.startswith("https://"):
+        if website_domain and not website_domain.startswith("https://"):
             errors.append("❌ WEBSITE_DOMAIN must use https in production")
     
     if errors:

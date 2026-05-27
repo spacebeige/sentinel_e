@@ -63,11 +63,7 @@ export function Navbar() {
           className="group flex items-center gap-2.5 pl-3 pr-4 h-full rounded-full transition-all duration-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_24px_rgba(255,255,255,0.06)] -translate-y-0 hover:-translate-y-[1px]"
         >
           <img
-            src="/sentinel-e(1).png"
-            onError={(e) => {
-              if (!e.currentTarget.src.endsWith("/logo.png"))
-                e.currentTarget.src = "/logo.png";
-            }}
+            src="/logo.png"
             alt="Sentinel-E"
             className="h-[26px] w-auto object-contain transition-all duration-300 group-hover:scale-105"
             style={{ 
@@ -92,12 +88,7 @@ export function Navbar() {
               <Link
                 key={link.to}
                 to={link.to}
-                className="group relative px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-300 hover:-translate-y-[1px]"
-                style={{
-                  color: isActive
-                    ? isDark ? "white" : "#1d1d1f"
-                    : isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.6)",
-                }}
+                className={`group relative px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-300 hover:-translate-y-[1px] ${isActive ? (isDark ? "text-white" : "text-[#1d1d1f]") : "text-[#1d1d1f] dark:text-[#f5f5f7] opacity-60 hover:opacity-100"}`}
               >
                 {isActive && (
                   <motion.div
@@ -121,7 +112,7 @@ export function Navbar() {
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}
-            className="hidden md:flex items-center justify-center w-9 h-9 rounded-full transition-colors duration-200 hover:bg-black/[0.05] dark:hover:bg-white/[0.07]"
+            className="flex items-center justify-center w-9 h-9 rounded-full transition-colors duration-200 hover:bg-black/[0.05] dark:hover:bg-white/[0.07]"
             title="Toggle theme"
             aria-label="Toggle theme"
           >
@@ -144,10 +135,8 @@ export function Navbar() {
           {/* Initialize CTA */}
           <Link
             to="/chat"
-            className="hidden md:inline-flex items-center justify-center px-5 py-2 rounded-full text-[13px] font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            className="inline-flex items-center justify-center px-5 py-2 rounded-full text-[13px] font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] bg-[#1d1d1f] text-[#f5f5f7] dark:bg-[#f5f5f7] dark:text-[#1d1d1f]"
             style={{
-              background: isDark ? "white" : "#1d1d1f",
-              color: isDark ? "#1d1d1f" : "white",
               letterSpacing: "-0.01em",
             }}
           >
