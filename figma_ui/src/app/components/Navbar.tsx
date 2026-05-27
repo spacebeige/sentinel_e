@@ -63,29 +63,37 @@ export function Navbar() {
           className="group flex items-center gap-2.5 pl-3 pr-4 h-full rounded-full transition-all duration-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_24px_rgba(255,255,255,0.06)] -translate-y-0 hover:-translate-y-[1px]"
         >
           <div
-            className="relative flex items-center justify-center rounded-full overflow-hidden transition-all duration-300 group-hover:scale-105"
+            className="relative flex items-center justify-center rounded-full overflow-hidden transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-[1px]"
             style={{
-              width: "30px",
-              height: "30px",
-              background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+              width: "32px",
+              height: "32px",
+              background: isDark
+                ? "radial-gradient(circle at 35% 35%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 60%, rgba(0,0,0,0.2) 100%)"
+                : "radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.6) 60%, rgba(220,230,255,0.4) 100%)",
               boxShadow: isDark
-                ? "inset 0 1px 4px rgba(255,255,255,0.2), 0 0 16px rgba(255,255,255,0.15), 0 4px 12px rgba(0,0,0,0.5)"
-                : "inset 0 1px 4px rgba(255,255,255,0.8), 0 0 12px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.1)",
-              backdropFilter: "blur(8px)",
-              WebkitBackdropFilter: "blur(8px)",
+                ? "inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.3), 0 0 20px rgba(120,140,255,0.2), 0 4px 16px rgba(0,0,0,0.6), 0 1px 4px rgba(255,255,255,0.08)"
+                : "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(0,0,50,0.08), 0 0 16px rgba(99,102,241,0.12), 0 4px 12px rgba(0,0,0,0.12), 0 1px 3px rgba(255,255,255,0.8)",
+              backdropFilter: "blur(12px) saturate(180%)",
+              WebkitBackdropFilter: "blur(12px) saturate(180%)",
+              border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(255,255,255,0.8)",
             }}
           >
+            {/* Glass reflection highlight */}
             <div
-              className="absolute inset-0 opacity-50 mix-blend-overlay pointer-events-none"
+              className="absolute inset-0 pointer-events-none rounded-full"
               style={{
-                background: "radial-gradient(circle at top left, rgba(255,255,255,0.4) 0%, transparent 60%)",
+                background: "radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.55) 0%, transparent 55%)",
               }}
             />
             <img
               src="/logo.png"
               alt="Sentinel-E"
-              className="h-[16px] w-auto object-contain relative z-10"
-              style={{ filter: isDark ? "drop-shadow(0 2px 4px rgba(0,0,0,0.5))" : "drop-shadow(0 1px 2px rgba(0,0,0,0.2))" }}
+              className="h-[17px] w-auto object-contain relative z-10"
+              style={{
+                filter: isDark
+                  ? "drop-shadow(0 1px 6px rgba(0,0,0,0.7)) drop-shadow(0 0 8px rgba(180,190,255,0.3))"
+                  : "drop-shadow(0 1px 3px rgba(0,0,0,0.25)) drop-shadow(0 0 6px rgba(99,102,241,0.15))",
+              }}
             />
           </div>
           <span
@@ -97,23 +105,30 @@ export function Navbar() {
         </Link>
 
         {/* CENTER — Navigation */}
-        <div className="hidden md:flex items-center gap-2 px-1">
+        <div className="hidden md:flex items-center gap-2 px-2">
           {location.pathname === "/" && (
             <>
-              {[
-                { to: "/chat", label: "Chat" },
-                { to: "/engines", label: "Engines" },
-                { to: "/pricing", label: "Access" },
-              ].map(link => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className="inline-flex items-center justify-center px-5 py-2 rounded-full text-[13px] font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] bg-[#1d1d1f] text-[#f5f5f7] dark:bg-[#f5f5f7] dark:text-[#1d1d1f]"
-                  style={{ letterSpacing: "-0.01em" }}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              <Link
+                to="/chat"
+                className="inline-flex items-center justify-center px-5 py-2 rounded-full text-[13px] font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] bg-[#1d1d1f] text-[#f5f5f7] dark:bg-[#f5f5f7] dark:text-[#1d1d1f]"
+                style={{ letterSpacing: "-0.01em" }}
+              >
+                Chat
+              </Link>
+              <Link
+                to="/engines"
+                className="inline-flex items-center justify-center px-5 py-2 rounded-full text-[13px] font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] bg-[#1d1d1f] text-[#f5f5f7] dark:bg-[#f5f5f7] dark:text-[#1d1d1f]"
+                style={{ letterSpacing: "-0.01em" }}
+              >
+                Engines
+              </Link>
+              <Link
+                to="/pricing"
+                className="inline-flex items-center justify-center px-5 py-2 rounded-full text-[13px] font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] bg-[#1d1d1f] text-[#f5f5f7] dark:bg-[#f5f5f7] dark:text-[#1d1d1f]"
+                style={{ letterSpacing: "-0.01em" }}
+              >
+                Access
+              </Link>
             </>
           )}
         </div>
@@ -154,27 +169,29 @@ export function Navbar() {
             Initialize
           </Link>
 
-          {/* Mobile menu button */}
-          <button
-            className="md:hidden flex items-center justify-center w-9 h-9 rounded-full hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Menu"
-          >
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={mobileOpen ? "x" : "menu"}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.15 }}
-              >
-                {mobileOpen
-                  ? <X className="w-5 h-5 text-[#1d1d1f] dark:text-[#f5f5f7]" />
-                  : <Menu className="w-5 h-5 text-[#1d1d1f] dark:text-[#f5f5f7]" />
-                }
-              </motion.div>
-            </AnimatePresence>
-          </button>
+          {/* Mobile menu button — hidden on landing page */}
+          {location.pathname !== "/" && (
+            <button
+              className="md:hidden flex items-center justify-center w-9 h-9 rounded-full hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              aria-label="Menu"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={mobileOpen ? "x" : "menu"}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  {mobileOpen
+                    ? <X className="w-5 h-5 text-[#1d1d1f] dark:text-[#f5f5f7]" />
+                    : <Menu className="w-5 h-5 text-[#1d1d1f] dark:text-[#f5f5f7]" />
+                  }
+                </motion.div>
+              </AnimatePresence>
+            </button>
+          )}
         </div>
       </nav>
 

@@ -101,7 +101,7 @@ export function PricingPage() {
           >
             Simple pricing.
           </h1>
-          <p className="text-[#8e8e93] dark:text-[#636366] max-w-sm mx-auto" style={{ fontSize: "16px", lineHeight: 1.6 }}>
+          <p className={`max-w-sm mx-auto ${isDark ? "text-[#636366]" : "text-[#8e8e93]"}`} style={{ fontSize: "16px", lineHeight: 1.6 }}>
             Start free. Unlock the full orchestration layer when you need it.
           </p>
         </motion.div>

@@ -146,6 +146,9 @@ export function ChatPage() {
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Standard / Pro mode selector (simple dropdown)
+  const [mode, setMode] = useState("standard");
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -848,11 +851,12 @@ export function ChatPage() {
             borderBottom: `1px solid ${borderColor}`,
           }}
         >
-          {/* Left — Collapse Button & Mode Dropdown */}
-          <div className="flex items-center gap-3 pl-4">
+          {/* Left — Collapse Button | Divider | Mode Dropdown | Sentinel Selector */}
+          <div className="flex items-center gap-2 pl-2">
+            {/* Sidebar collapse toggle — always visible */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg transition-all duration-300 ease-out"
+              className="flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200 flex-shrink-0"
               title="Toggle Sidebar"
               style={{ color: textSecondary }}
               onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; e.currentTarget.style.color = textPrimary; }}
@@ -860,6 +864,12 @@ export function ChatPage() {
             >
               {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
+
+            {/* Visible vertical divider */}
+            <div
+              className="w-px h-5 flex-shrink-0"
+              style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)" }}
+            />
 
             {/* Mode dropdown */}
             <div className="relative">
@@ -921,6 +931,34 @@ export function ChatPage() {
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
+
+            {/* iOS-style Sentinel Standard / Pro glass selector */}
+            <div
+              className="flex items-center rounded-2xl overflow-hidden flex-shrink-0"
+              style={{
+                background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(0,0,0,0.08)",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+              }}
+            >
+              {["standard", "pro"].map((val) => (
+                <button
+                  key={val}
+                  onClick={() => setMode(val)}
+                  className="px-3.5 py-1.5 text-[12px] font-semibold transition-all duration-200"
+                  style={{
+                    background: mode === val
+                      ? isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"
+                      : "transparent",
+                    color: mode === val ? textPrimary : textSecondary,
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  {val === "standard" ? "Standard" : "Pro"}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -996,18 +1034,34 @@ export function ChatPage() {
                         className="relative overflow-hidden"
                         style={message.role === "user" ? {
                           borderRadius: "20px 20px 5px 20px",
-                          background: isDark ? "rgb(32, 32, 36)" : "rgb(240, 240, 245)",
+                          background: isDark ? "rgba(255,255,255,0.08)" : "rgb(240,240,245)",
                           color: isDark ? "#f5f5f7" : "#1d1d1f",
                           padding: "12px 16px",
-                          boxShadow: isDark ? "0 4px 12px rgba(0,0,0,0.3)" : "0 2px 8px rgba(0,0,0,0.03)",
-                          border: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(0,0,0,0.04)",
+                          boxShadow: isDark
+                            ? "0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10)"
+                            : "0 2px 8px rgba(0,0,0,0.03)",
+                          border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.04)",
+                          backdropFilter: isDark ? "blur(20px)" : "none",
+                          WebkitBackdropFilter: isDark ? "blur(20px)" : "none",
                         } : {
                           borderRadius: "20px 20px 20px 5px",
-                          background: isDark ? "rgb(24, 24, 28)" : "#ffffff",
+                          background: isDark
+                            ? `rgba(255,255,255,${msgMode ? "0.06" : "0.05"})`
+                            : "#ffffff",
                           color: textPrimary,
-                          border: `1px solid ${msgMode ? msgMode.color + "25" : borderColor}`,
-                          borderLeft: msgMode ? `3px solid ${msgMode.color}` : message.mode === "kill" ? "3px solid #ef4444" : `1px solid ${borderColor}`,
-                          boxShadow: isDark ? "0 4px 16px rgba(0,0,0,0.4)" : "0 4px 16px rgba(0,0,0,0.04)",
+                          border: isDark
+                            ? `1px solid ${msgMode ? msgMode.color + "25" : "rgba(255,255,255,0.08)"}`
+                            : `1px solid ${msgMode ? msgMode.color + "25" : "rgba(0,0,0,0.04)"}`,
+                          borderLeft: msgMode
+                            ? `3px solid ${msgMode.color}`
+                            : message.mode === "kill"
+                            ? "3px solid #ef4444"
+                            : isDark ? "3px solid rgba(255,255,255,0.08)" : `1px solid rgba(0,0,0,0.04)`,
+                          boxShadow: isDark
+                            ? `0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)`
+                            : "0 4px 16px rgba(0,0,0,0.04)",
+                          backdropFilter: isDark ? "blur(20px)" : "none",
+                          WebkitBackdropFilter: isDark ? "blur(20px)" : "none",
                           overflow: "visible",
                         }}
                       >
@@ -1303,7 +1357,7 @@ export function ChatPage() {
                 {/* Left actions */}
                 <div className="flex items-center gap-0.5 pb-0.5">
                   {/* Plus — opens model selector in Pro mode */}
-                  {isProMode && (
+                  {mode === "pro" && isProMode && (
                     <button
                       onClick={() => setShowModelSelector(!showModelSelector)}
                       className="p-2 rounded-full transition-all"

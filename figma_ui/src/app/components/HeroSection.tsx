@@ -360,9 +360,7 @@ export function HeroSection() {
               lineHeight: 1.6,
             }}
           >
-            A living architecture of orchestrated semantic intelligence.<br />
-            Experience multi-model reasoning and hidden cognition,<br />
-            where deep machine thought seamlessly breathes beneath glass.
+            A cinematic cognitive operating system with hidden machine intelligence beneath glass, orchestrating semantic reasoning, adaptive cognition, and living multi-model intelligence through a responsive architectural surface.
           </p>
         </motion.div>
 

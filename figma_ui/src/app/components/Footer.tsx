@@ -30,8 +30,11 @@ export function Footer() {
               />
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "14px" }}>Sentinel-E</span>
             </div>
-            <p className="text-white/35 text-[13px] leading-relaxed max-w-[220px]">
+            <p className="text-white/35 text-[13px] leading-relaxed max-w-[240px]">
               A cinematic cognitive operating system with hidden machine intelligence beneath glass.
+            </p>
+            <p className="text-white/20 text-[12px] leading-relaxed max-w-[240px] mt-2">
+              Layered semantic orchestration, living machine reasoning, and multi-model cognition. Designed as a living intelligence system — not merely an interface, but a cognitive environment.
             </p>
             {/* Social icons */}
             <div className="flex items-center gap-3 mt-6">
