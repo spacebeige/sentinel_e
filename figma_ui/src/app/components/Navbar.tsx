@@ -27,7 +27,7 @@ export function Navbar() {
   const navLinks = [
     { to: "/", label: "Home" },
     { to: "/chat", label: "Chat" },
-    { to: "/models", label: "Engines" },
+    { to: "/engines", label: "Engines" },
     { to: "/pricing", label: "Access" },
   ];
 
@@ -80,35 +80,47 @@ export function Navbar() {
         </Link>
 
         {/* CENTER — Navigation */}
-        <div className="hidden md:flex items-center gap-0.5 px-1">
-          {navLinks.map((link) => {
-            const isActive =
-              link.to === "/" ? location.pathname === "/" : location.pathname.startsWith(link.to);
-            return (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`group relative px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-300 hover:-translate-y-[1px] ${isActive ? (isDark ? "text-white" : "text-[#1d1d1f]") : "text-[#1d1d1f] dark:text-[#f5f5f7] opacity-60 hover:opacity-100"}`}
-              >
-                {isActive && (
-                  <motion.div
-                    layoutId="nav-active-pill"
-                    className="absolute inset-0 rounded-full"
-                    style={{
-                      background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-                      zIndex: -1,
-                    }}
-                    transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
-                  />
-                )}
-                {link.label}
-              </Link>
-            );
-          })}
+        <div className="hidden md:flex items-center gap-2 px-1">
+          <Link
+            to="/"
+            className={`group relative px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-300 hover:-translate-y-[1px] ${
+              location.pathname === "/"
+                ? (isDark ? "text-white" : "text-[#1d1d1f]")
+                : "text-[#1d1d1f] dark:text-[#f5f5f7] opacity-60 hover:opacity-100"
+            }`}
+          >
+            {location.pathname === "/" && (
+              <motion.div
+                layoutId="nav-active-pill"
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                  zIndex: -1,
+                }}
+                transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
+              />
+            )}
+            Home
+          </Link>
+
+          {[
+            { to: "/chat", label: "Chat" },
+            { to: "/engines", label: "Engines" },
+            { to: "/pricing", label: "Access" },
+          ].map(link => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className="inline-flex items-center justify-center px-5 py-2 rounded-full text-[13px] font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] bg-[#1d1d1f] text-[#f5f5f7] dark:bg-[#f5f5f7] dark:text-[#1d1d1f]"
+              style={{ letterSpacing: "-0.01em" }}
+            >
+              {link.label}
+            </Link>
+          ))}
         </div>
 
         {/* RIGHT — Actions */}
-        <div className="flex items-center gap-1.5 pr-1">
+        <div className="flex items-center gap-2 pr-1">
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}

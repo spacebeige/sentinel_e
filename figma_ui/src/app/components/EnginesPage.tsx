@@ -1,6 +1,8 @@
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
+import { Link } from "react-router";
+import { Moon, Sun } from "lucide-react";
 
 const ENGINES = [
   { id: "gpt4", name: "GPT-4o", provider: "OpenAI", tag: "Flagship reasoning", accent: "#10a37f", description: "State-of-the-art multimodal reasoning with long-context capability and advanced tool use." },
@@ -21,7 +23,21 @@ export function EnginesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#090b0f] pt-28 pb-24 px-6">
+    <div className={`min-h-screen transition-colors duration-500 pt-28 pb-24 px-6 ${isDark ? "bg-[#09090b] text-[#f5f5f7]" : "bg-[#f5f5f7] text-[#1d1d1f]"}`}>
+      {/* Compact Navbar */}
+      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4" style={{ background: isDark ? "rgba(9,9,11,0.8)" : "rgba(245,245,247,0.8)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(0,0,0,0.05)" }}>
+        <Link to="/" className="flex items-center transition-transform hover:scale-105">
+          <img src="/logo.png" alt="Logo" className="h-6 w-auto" />
+        </Link>
+        <button onClick={toggleTheme} className="flex items-center justify-center w-9 h-9 rounded-full transition-colors duration-200 hover:bg-black/[0.05] dark:hover:bg-white/[0.07]">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={isDark ? "sun" : "moon"} initial={{ opacity: 0, rotate: -90, scale: 0.8 }} animate={{ opacity: 1, rotate: 0, scale: 1 }} exit={{ opacity: 0, rotate: 90, scale: 0.8 }} transition={{ duration: 0.2 }}>
+              {isDark ? <Sun className="w-[15px] h-[15px] text-[rgba(255,255,255,0.55)]" /> : <Moon className="w-[15px] h-[15px] text-[rgba(0,0,0,0.4)]" />}
+            </motion.div>
+          </AnimatePresence>
+        </button>
+      </div>
+
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <motion.div
@@ -38,12 +54,12 @@ export function EnginesPage() {
             <span className="text-[10px] font-bold tracking-[0.22em] text-[#8e8e93] uppercase">Engine Layer</span>
           </div>
           <h1
-            className="text-[#1d1d1f] dark:text-[#f5f5f7] mb-3"
+            className={`mb-3 ${isDark ? "text-[#f5f5f7]" : "text-[#1d1d1f]"}`}
             style={{ fontFamily: "'Inter', sans-serif", fontSize: "clamp(36px, 6vw, 64px)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 0.95 }}
           >
             Intelligence Engines
           </h1>
-          <p className="text-[#8e8e93] dark:text-[#636366] max-w-lg" style={{ fontSize: "16px", lineHeight: 1.6 }}>
+          <p className={`max-w-lg ${isDark ? "text-[#8e8e93]" : "text-[#636366]"}`} style={{ fontSize: "16px", lineHeight: 1.6 }}>
             Sentinel-E routes queries through the optimal engine based on task type, complexity, and semantic intent.
           </p>
         </motion.div>
@@ -66,17 +82,17 @@ export function EnginesPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-3">
                     <div
-                      className="w-9 h-9 rounded-2xl flex items-center justify-center text-white font-bold text-[13px] flex-shrink-0"
+                      className={`w-9 h-9 rounded-2xl flex items-center justify-center font-bold text-[13px] flex-shrink-0 ${isDark ? "text-[#f5f5f7]" : "text-[#1d1d1f]"}`}
                       style={{ background: engine.accent }}
                     >
                       {engine.name[0]}
                     </div>
                     <div>
-                      <div className="text-[#1d1d1f] dark:text-[#f5f5f7] font-semibold text-[15px]" style={{ letterSpacing: "-0.015em" }}>{engine.name}</div>
+                      <div className={`font-semibold text-[15px] ${isDark ? "text-[#f5f5f7]" : "text-[#1d1d1f]"}`} style={{ letterSpacing: "-0.015em" }}>{engine.name}</div>
                       <div className="text-[#8e8e93] text-[12px]">{engine.provider}</div>
                     </div>
                   </div>
-                  <p className="text-[#8e8e93] dark:text-[#636366] text-[13px] leading-relaxed">{engine.description}</p>
+                  <p className={`text-[13px] leading-relaxed ${isDark ? "text-[#8e8e93]" : "text-[#636366]"}`}>{engine.description}</p>
                 </div>
                 <span
                   className="flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase"

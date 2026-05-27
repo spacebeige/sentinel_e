@@ -1,4 +1,5 @@
 import { useTheme } from "next-themes";
+import { Link } from "react-router";
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Send,
@@ -159,8 +160,9 @@ export function ChatPage() {
   const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
 
-  // Share state
+  // Share & Copy state
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   // File upload
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -319,22 +321,44 @@ export function ChatPage() {
 
   // ── Share chat ─────────────────────────────────────────────────────────────
   const handleShareChat = async () => {
-    if (!currentChatId || !backendOnline) {
-      // Copy current conversation as text
-      const text = messages.map(m => `${m.role === "user" ? "You" : "Sentinel-E"}: ${m.content}`).join("\n\n");
-      await navigator.clipboard.writeText(text);
+    let urlToShare = window.location.href;
+    if (currentChatId && backendOnline) {
+      try {
+        const result = await shareChat(currentChatId);
+        urlToShare = window.location.origin + "/share/" + result.share_token;
+      } catch {
+        // Fallback to current URL if backend sharing fails
+      }
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Sentinel-E Conversation',
+          url: urlToShare
+        });
+        setShareSuccess(true);
+        setTimeout(() => setShareSuccess(false), 2500);
+      } catch (err) {
+        // Fallback to clipboard if share dialog fails (and wasn't cancelled)
+        if ((err as Error).name !== "AbortError") {
+          navigator.clipboard.writeText(urlToShare);
+          setShareSuccess(true);
+          setTimeout(() => setShareSuccess(false), 2500);
+        }
+      }
+    } else {
+      navigator.clipboard.writeText(urlToShare);
       setShareSuccess(true);
       setTimeout(() => setShareSuccess(false), 2500);
-      return;
     }
-    try {
-      const result = await shareChat(currentChatId);
-      await navigator.clipboard.writeText(result.share_token);
-      setShareSuccess(true);
-      setTimeout(() => setShareSuccess(false), 2500);
-    } catch {
-      setErrorMessage("Failed to share chat");
-    }
+  };
+
+  const handleCopyChat = async () => {
+    const text = messages.map(m => `${m.role === "user" ? "You" : "Sentinel-E"}: ${m.content}`).join("\n\n");
+    await navigator.clipboard.writeText(text);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2500);
   };
 
   // ── File upload ─────────────────────────────────────────────────────────────
@@ -628,7 +652,7 @@ export function ChatPage() {
       
           <aside
             className={`absolute md:relative left-0 top-0 h-full z-40 flex flex-col flex-shrink-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-              sidebarOpen ? "translate-x-0 w-[260px]" : "-translate-x-full md:translate-x-0 md:w-[68px]"
+              sidebarOpen ? "translate-x-0 w-[280px]" : "-translate-x-full md:translate-x-0 md:w-[72px]"
             }`}
             style={{
               background: sidebarBg,
@@ -641,21 +665,13 @@ export function ChatPage() {
               style={{ borderBottom: `1px solid ${borderColor}` }}
             >
               {sidebarOpen ? (
-                <span
-                  style={{
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    color: textPrimary,
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  Sentinel-E
-                </span>
+                <Link to="/" className="flex items-center">
+                  <img src="/logo.png" alt="Logo" className="h-[22px] w-auto transition-transform hover:scale-105" />
+                </Link>
               ) : (
-                <div className="w-6 h-6 flex-shrink-0 rounded-lg bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center">
+                <Link to="/" className="w-6 h-6 flex-shrink-0 rounded-lg bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] flex items-center justify-center transition-transform hover:scale-105">
                   <span className="text-white text-[10px] font-bold">S</span>
-                </div>
+                </Link>
               )}
               <div className="flex items-center gap-1">
                 <button
@@ -667,13 +683,6 @@ export function ChatPage() {
                   onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                 >
                   <PenSquare className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="p-1.5 rounded-lg transition-colors lg:hidden"
-                  style={{ color: textSecondary }}
-                >
-                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -793,23 +802,25 @@ export function ChatPage() {
               style={{ borderTop: `1px solid ${borderColor}` }}
             >
               <button
+                onClick={handleShareChat}
                 className={`w-full flex items-center transition-colors ${sidebarOpen ? 'gap-2.5 px-3 py-2.5 rounded-xl' : 'justify-center p-2.5 rounded-xl'}`}
-                style={{ color: textSecondary }}
+                style={{ color: shareSuccess ? "#10b981" : textSecondary }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
               >
-                <Share2 className="w-4 h-4 flex-shrink-0" />
-                {sidebarOpen && <span style={{ fontSize: "13px", fontWeight: 500 }}>Share Chat</span>}
+                {shareSuccess ? <Check className="w-4 h-4 flex-shrink-0" /> : <Share2 className="w-4 h-4 flex-shrink-0" />}
+                {sidebarOpen && <span style={{ fontSize: "13px", fontWeight: 500 }}>{shareSuccess ? "Shared!" : "Share Chat"}</span>}
               </button>
               
               <button
+                onClick={handleCopyChat}
                 className={`w-full flex items-center transition-colors ${sidebarOpen ? 'gap-2.5 px-3 py-2.5 rounded-xl' : 'justify-center p-2.5 rounded-xl'}`}
-                style={{ color: textSecondary }}
+                style={{ color: copySuccess ? "#10b981" : textSecondary }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
               >
-                <Copy className="w-4 h-4 flex-shrink-0" />
-                {sidebarOpen && <span style={{ fontSize: "13px", fontWeight: 500 }}>Copy Chat</span>}
+                {copySuccess ? <Check className="w-4 h-4 flex-shrink-0" /> : <Copy className="w-4 h-4 flex-shrink-0" />}
+                {sidebarOpen && <span style={{ fontSize: "13px", fontWeight: 500 }}>{copySuccess ? "Copied!" : "Copy Chat"}</span>}
               </button>
 
               <button
@@ -837,16 +848,17 @@ export function ChatPage() {
             borderBottom: `1px solid ${borderColor}`,
           }}
         >
-          {/* Left — Sidebar toggle + Mode dropdown */}
-          <div className="flex items-center gap-2">
+          {/* Left — Collapse Button & Mode Dropdown */}
+          <div className="flex items-center gap-3 pl-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl transition-colors"
+              className="p-1.5 rounded-lg transition-all duration-300 ease-out"
+              title="Toggle Sidebar"
               style={{ color: textSecondary }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; e.currentTarget.style.color = textPrimary; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = textSecondary; }}
             >
-              {sidebarOpen ? <ChevronLeft className="w-4.5 h-4.5" /> : <MessageSquare className="w-4.5 h-4.5" />}
+              {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
 
             {/* Mode dropdown */}
@@ -935,46 +947,6 @@ export function ChatPage() {
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
             >
               {shareSuccess ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
-            </button>
-
-            {/* Session analytics */}
-            {currentChatId && backendOnline && (
-              <button
-                onClick={() => setShowSessionPanel(!showSessionPanel)}
-                className="p-2 rounded-xl transition-all"
-                title="Session Analytics"
-                style={{ color: showSessionPanel ? "#8b5cf6" : textSecondary }}
-                onMouseEnter={(e) => { if (!showSessionPanel) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; }}
-                onMouseLeave={(e) => { if (!showSessionPanel) e.currentTarget.style.background = "transparent"; }}
-              >
-                <PanelRightOpen className="w-4 h-4" />
-              </button>
-            )}
-
-            {/* Kill switch */}
-            {isProMode && currentChatId && backendOnline && (
-              <button
-                onClick={handleKillSwitch}
-                className="p-2 rounded-xl transition-colors"
-                title="Kill Diagnostic"
-                style={{ color: textSecondary }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; e.currentTarget.style.color = "#ef4444"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = textSecondary; }}
-              >
-                <Skull className="w-4 h-4" />
-              </button>
-            )}
-
-            {/* New Chat */}
-            <button
-              onClick={handleNewChat}
-              className="p-2 rounded-xl transition-colors"
-              title="New Chat"
-              style={{ color: textSecondary }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-            >
-              <Plus className="w-5 h-5" />
             </button>
           </div>
         </div>
