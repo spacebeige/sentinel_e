@@ -44,7 +44,6 @@ import {
   submitFeedback,
   getChatHistory,
   getChatMessages,
-  getKernelStatus,
   shareChat,
   runOmegaKill,
   type SentinelRunResponse,
@@ -54,11 +53,14 @@ import {
   type OmegaBoundaryResult,
   type OmegaReasoningTrace,
   type ConfidenceEvolution,
-  type KernelStatus,
 } from "../api";
 import { OmegaInsightPanel } from "./OmegaInsightPanel";
 import { useChatInteraction } from "../context/ChatInteractionContext";
+import { useSupabaseAuth } from "../hooks/useSupabaseAuth";
 import { SessionAnalyticsPanel } from "./SessionAnalyticsPanel";
+import { CinematicOrchestratorLoader } from "./CinematicOrchestratorLoader";
+import { CinematicDebatePanel } from "./CinematicDebatePanel";
+import { CinematicEvidencePanel } from "./CinematicEvidencePanel";
 import { CrossAnalysisTrigger } from "./CrossAnalysisPanel";
 import { useSessionPersistence } from "../hooks/useSessionPersistence";
 import {
@@ -133,11 +135,11 @@ const sampleResponses = [
 // ── Main ChatPage ────────────────────────────────────────────────────────────
 export function ChatPage() {
   const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0].id);
-  const [selectedMode, setSelectedMode] = useState("debate");
+  const [selectedMode, setSelectedMode] = useState("standard");
   const [isPlusOpen, setIsPlusOpen] = useState(false);
   const activeModel = AVAILABLE_MODELS.find(m => m.id === selectedModel) || AVAILABLE_MODELS[0];
-
   const availableModels = AVAILABLE_MODELS;
+  const { user } = useSupabaseAuth();
 
   const availableModes = [
     { id: "debate", name: "Debate", color: "#ef4444" },
@@ -156,7 +158,6 @@ export function ChatPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
   const [healthData, setHealthData] = useState<HealthStatus | null>(null);
-  const [kernelData, setKernelData] = useState<KernelStatus | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // Sidebar state
@@ -253,8 +254,6 @@ export function ChatPage() {
     if (health) {
       setBackendOnline(true);
       setHealthData(health);
-      const kernel = await getKernelStatus();
-      setKernelData(kernel);
     } else {
       setBackendOnline(false);
       setHealthData(null);
@@ -274,9 +273,31 @@ export function ChatPage() {
     if (saved.chatId) {
       setCurrentChatId(saved.chatId);
       if (saved.subMode) setSelectedMode(saved.subMode);
+      setIsProMode(saved.isProMode ?? false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fetch persisted chat history once user is authenticated
+  useEffect(() => {
+    if (user && currentChatId && messages.length === 0) {
+      getChatMessages(currentChatId)
+        .then(msgs => {
+          const restored: Message[] = msgs.map((m, i) => ({
+            id: `restored-${i}`,
+            role: m.role as "user" | "assistant",
+            content: m.content,
+            timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+          }));
+          if (restored.length > 0) {
+            setMessages(restored);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to restore session chat on load:", err);
+        });
+    }
+  }, [user, currentChatId]); // Only trigger when user is authenticated and we have a chat ID
 
   useEffect(() => {
     if (errorMessage) {
@@ -297,7 +318,7 @@ export function ChatPage() {
 
   // ── Load chat history ──────────────────────────────────────────────────────
   const loadChatHistory = useCallback(async () => {
-    if (!backendOnline) return;
+    if (!backendOnline || !user) return;
     setHistoryLoading(true);
     try {
       const history = await getChatHistory(50, 0);
@@ -310,14 +331,14 @@ export function ChatPage() {
   }, [backendOnline]);
 
   useEffect(() => {
-    if (sidebarOpen && backendOnline) {
+    if (sidebarOpen && backendOnline && user) {
       loadChatHistory();
     }
-  }, [sidebarOpen, backendOnline, loadChatHistory]);
+  }, [sidebarOpen, backendOnline, user, loadChatHistory]);
 
   // ── Restore chat ───────────────────────────────────────────────────────────
   const restoreChat = async (chatItem: ChatHistoryItem) => {
-    if (!backendOnline) return;
+    if (!backendOnline || !user) return;
     try {
       const msgs = await getChatMessages(chatItem.id);
       const restored: Message[] = msgs.map((m, i) => ({
@@ -635,6 +656,28 @@ export function ChatPage() {
                       {message.confidenceEvolution.post_evidence != null && renderConfidenceBar(message.confidenceEvolution.post_evidence, "Post-evid.", "#06b6d4")}
                       {message.confidenceEvolution.post_stress != null && renderConfidenceBar(message.confidenceEvolution.post_stress, "Post-stress", "#8b5cf6")}
                       {renderConfidenceBar(message.confidenceEvolution.final, "Final", "#10b981")}
+                    </div>
+                  </div>
+                )}
+                
+                {message.omegaMetadata?.orchestration_run?.event_timeline && (
+                  <div className="pt-2" style={{ borderTop: `1px solid ${borderColor}` }}>
+                    <div className="flex items-center gap-1 mb-2">
+                      <Sparkles className="w-3 h-3 text-[#8b5cf6]" />
+                      <span style={{ fontSize: "10px", fontWeight: 600, color: "#8b5cf6", textTransform: "uppercase", letterSpacing: "0.05em" }}>Orchestration Timeline</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5 pl-1">
+                      {message.omegaMetadata.orchestration_run.event_timeline.map((evt: any, i: number) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <div className="w-1 h-1 rounded-full mt-1.5 bg-indigo-500/60 shrink-0" />
+                          <div className="text-[11px] font-mono text-slate-500">
+                            {new Date(evt.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </div>
+                          <div className="text-[11px] text-slate-400 capitalize">
+                            {evt.event_type.replace(/_/g, ' ')}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1124,6 +1167,8 @@ export function ChatPage() {
 
                           {/* Omega insights */}
                           {renderOmegaInsights(message)}
+                          {message.omegaMetadata?.debate_result && <CinematicDebatePanel metadata={message.omegaMetadata} />}
+                          {message.omegaMetadata?.evidence_result && <CinematicEvidencePanel metadata={message.omegaMetadata} />}
 
                           {/* Cross-analysis trigger */}
                           {message.role === "assistant" && message.mode === "glass" && message.id !== "welcome" && backendOnline && (
@@ -1194,43 +1239,16 @@ export function ChatPage() {
             </AnimatePresence>
 
             {/* Typing indicator */}
-            {isTyping && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex justify-start"
-              >
-                <div
-                  className="px-5 py-4 rounded-[20px] rounded-bl-md"
-                  style={{
-                    background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-                    border: `1px solid ${selectedMode ? proSubModes.find(m => m.id === selectedMode)!.color + "30" : borderColor}`,
-                    borderLeft: selectedMode ? `3px solid ${proSubModes.find(m => m.id === selectedMode)!.color}` : `1px solid ${borderColor}`,
-                  }}
-                >
-                  {selectedMode && (
-                    <div className="flex items-center gap-1 mb-2" style={{ color: proSubModes.find(m => m.id === selectedMode)!.color }}>
-                      {proSubModes.find(m => m.id === selectedMode)!.icon}
-                      <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        {backendOnline ? "Processing via Omega Kernel..." : "Thinking..."}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex gap-1.5">
-                    {[0, 120, 240].map((delay) => (
-                      <div
-                        key={delay}
-                        className="w-2 h-2 rounded-full animate-bounce"
-                        style={{
-                          background: selectedMode ? proSubModes.find(m => m.id === selectedMode)!.color : (isDark ? "#6e6e73" : "#aeaeb2"),
-                          animationDelay: `${delay}ms`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
+            {/* Cinematic Typing Indicator */}
+            <div className="flex justify-start pb-4">
+              <div className="max-w-[80%]">
+                <CinematicOrchestratorLoader
+                  isLoading={isTyping}
+                  mode={isProMode ? "experimental" : "standard"}
+                  subMode={selectedMode}
+                />
+              </div>
+            </div>
 
             <div ref={messagesEndRef} />
           </div>
