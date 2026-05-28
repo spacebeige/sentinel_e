@@ -369,8 +369,25 @@ export async function getSessionStats(): Promise<SessionStats | null> {
 // RUN ENDPOINTS
 // ============================================================
 
+async function fileToBase64(file: File): Promise<{ b64: string; mime: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const [header, b64] = dataUrl.split(",");
+      const mimeMatch = header.match(/:(.*?);/);
+      resolve({
+        b64,
+        mime: mimeMatch ? mimeMatch[1] : file.type || "application/octet-stream",
+      });
+    };
+    reader.onerror = (error) => reject(error);
+    reader.readAsDataURL(file);
+  });
+}
+
 /**
- * Run Standard mode — POST /run/standard (FormData)
+ * Run Standard mode — POST /api/mco/run (JSON)
  */
 export async function runStandard(
   text: string,
@@ -378,17 +395,25 @@ export async function runStandard(
   file?: File,
   signal?: AbortSignal
 ): Promise<SentinelRunResponse> {
-  const formData = new FormData();
-  formData.append("text", text);
-  if (chatId) formData.append("chat_id", chatId);
-  if (file) formData.append("file", file);
+  const payload: Record<string, any> = {
+    query: text,
+    mode: "standard",
+  };
+  
+  if (chatId) payload.chat_id = chatId;
+  
+  if (file) {
+    const { b64, mime } = await fileToBase64(file);
+    payload.image_b64 = b64;
+    payload.image_mime = mime;
+  }
 
-  const raw = await postForm<Record<string, unknown>>("/run/standard", formData, { signal });
+  const raw = await postJson<Record<string, unknown>>("/api/mco/run", payload, { signal });
   return adaptRunResponse(raw);
 }
 
 /**
- * Run Experimental mode — POST /run/experimental (FormData)
+ * Run Experimental mode — POST /api/mco/run (JSON)
  * Sub-modes: debate, glass, evidence
  */
 export async function runExperimental(
@@ -400,16 +425,21 @@ export async function runExperimental(
   file?: File,
   signal?: AbortSignal
 ): Promise<SentinelRunResponse> {
-  const formData = new FormData();
-  formData.append("text", text);
-  formData.append("mode", "experimental");
-  formData.append("sub_mode", subMode);
-  formData.append("rounds", rounds.toString());
-  formData.append("kill_switch", killSwitch.toString());
-  if (chatId) formData.append("chat_id", chatId);
-  if (file) formData.append("file", file);
+  const payload: Record<string, any> = {
+    query: killSwitch ? "kill" : text,
+    mode: "experimental",
+    sub_mode: killSwitch ? "glass" : subMode,
+  };
+  
+  if (chatId) payload.chat_id = chatId;
+  
+  if (file) {
+    const { b64, mime } = await fileToBase64(file);
+    payload.image_b64 = b64;
+    payload.image_mime = mime;
+  }
 
-  const raw = await postForm<Record<string, unknown>>("/run/experimental", formData, { signal });
+  const raw = await postJson<Record<string, unknown>>("/api/mco/run", payload, { signal });
   return adaptRunResponse(raw);
 }
 
