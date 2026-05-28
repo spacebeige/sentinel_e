@@ -116,7 +116,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: https:",
             "font-src 'self' https://fonts.gstatic.com",
-            f"connect-src 'self' {connect_origins} https://*.supabase.co wss://*.supabase.co https://sentinel-e-backend.onrender.com",
+            f"connect-src 'self' {connect_origins} https://*.supabase.co wss://*.supabase.co https://sentinel-e.onrender.com",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",
