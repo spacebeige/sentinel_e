@@ -1,0 +1,8 @@
+@@ -161,7 +161,7 @@
+   const [messages, setMessages] = useState<Message[]>([{
+     id: "welcome",
+     role: "assistant",
+     content: "Hello! I'm Sentinel-E, your AI assistant powered by the Omega Cognitive Kernel. How can I help you today?",
+     timestamp: new Date(),
+   }]);
+   const [input, setInput] = useState("");

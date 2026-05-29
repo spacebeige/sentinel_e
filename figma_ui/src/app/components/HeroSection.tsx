@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { useTheme } from "next-themes";
 import { motion, useMotionTemplate, useMotionValue, useSpring } from "motion/react";
 import type { MouseEvent } from "react";
+import { useAuthContext } from "../providers/AuthProvider";
 
 // ── Floating glass depth planes ─────────────────────────────────────────────
 const FLOAT_PLANES = [
@@ -102,6 +103,7 @@ function CinematicRevealLayer({ isDark }: { isDark: boolean }) {
 export function HeroSection() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const { isAuthenticated } = useAuthContext();
 
   useEffect(() => {
     setMounted(true);
@@ -445,7 +447,7 @@ export function HeroSection() {
         >
           {/* Primary CTA */}
           <Link
-            to="/chat"
+            to={isAuthenticated ? "/chat" : "/signup"}
             className="relative overflow-hidden px-8 py-3.5 rounded-full font-semibold text-[15px] transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
             style={{
               background: isDark ? "#f5f5f7" : "#1d1d1f",
@@ -456,12 +458,12 @@ export function HeroSection() {
                 : "0 2px 16px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.12)",
             }}
           >
-            Initialize System
+            {isAuthenticated ? "Chat" : "Sign Up"}
           </Link>
 
           {/* Secondary CTA */}
           <Link
-            to="/engines"
+            to={isAuthenticated ? "/engines" : "/login"}
             className="px-8 py-3.5 rounded-full font-medium text-[15px] transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
             style={{
               background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
@@ -471,7 +473,7 @@ export function HeroSection() {
               backdropFilter: "blur(8px)",
             }}
           >
-            Explore Engines
+            {isAuthenticated ? "Explore Engines" : "Login"}
           </Link>
         </motion.div>
 

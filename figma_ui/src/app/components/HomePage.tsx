@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { motion } from "motion/react";
 import { HeroSection } from "./HeroSection";
 import { Footer } from "./Footer";
+import { useAuthContext } from "../providers/AuthProvider";
 
 const CAPABILITIES = [
   {
@@ -53,6 +54,7 @@ const ARCHITECTURE_LAYERS = [
 export default function HomePage() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const { isAuthenticated } = useAuthContext();
 
   useEffect(() => {
     setMounted(true);
@@ -426,7 +428,7 @@ export default function HomePage() {
                   fontFamily: "monospace",
                 }}
               >
-                Ready to Initialize?
+                Ready to start?
               </div>
               <h3
                 style={{
@@ -443,7 +445,7 @@ export default function HomePage() {
             </div>
             <div className="flex gap-3 flex-shrink-0">
               <Link
-                to="/chat"
+                to={isAuthenticated ? "/chat" : "/signup"}
                 className="group relative overflow-hidden px-8 py-3.5 rounded-2xl font-medium text-[14px] text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-[0_0_24px_rgba(255,255,255,0.15)]"
                 style={{
                   background: "rgba(255, 255, 255, 0.08)",
@@ -454,7 +456,7 @@ export default function HomePage() {
                 }}
               >
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: "radial-gradient(ellipse at center, rgba(255,255,255,0.15) 0%, transparent 70%)" }} />
-                <span className="relative z-10">Initialize System</span>
+                <span className="relative z-10">{isAuthenticated ? "Open Chat" : "Sign Up"}</span>
               </Link>
               <Link
                 to="/pricing"

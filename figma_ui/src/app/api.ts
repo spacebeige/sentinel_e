@@ -391,13 +391,17 @@ async function fileToBase64(file: File): Promise<{ b64: string; mime: string }> 
  */
 export async function runStandard(
   text: string,
+  modelId: string,
   chatId?: string,
   file?: File,
   signal?: AbortSignal
 ): Promise<SentinelRunResponse> {
+  const mappedModel = MODEL_RUNTIME_MAP[modelId]?.model || modelId;
   const payload: Record<string, any> = {
-    query: text,
+    runtime: "single-model",
+    model: mappedModel,
     mode: "standard",
+    query: text,
   };
   
   if (chatId) payload.chat_id = chatId;
@@ -409,7 +413,10 @@ export async function runStandard(
   }
 
   const raw = await postJson<Record<string, unknown>>("/api/mco/run", payload, { signal });
-  return adaptRunResponse(raw);
+  console.log("RAW MCO PAYLOAD (Standard):", raw);
+  const normalized = adaptRunResponse(raw);
+  console.log("NORMALIZED PAYLOAD (Standard):", normalized);
+  return normalized;
 }
 
 /**
@@ -425,10 +432,13 @@ export async function runExperimental(
   file?: File,
   signal?: AbortSignal
 ): Promise<SentinelRunResponse> {
+  const activeSubMode = killSwitch ? "glass" : subMode;
+  const mappedMode = ORCHESTRATION_MODE_MAP[activeSubMode]?.mode || activeSubMode;
   const payload: Record<string, any> = {
+    runtime: "mco",
+    mode: mappedMode,
+    orchestration: true,
     query: killSwitch ? "kill" : text,
-    mode: "experimental",
-    sub_mode: killSwitch ? "glass" : subMode,
   };
   
   if (chatId) payload.chat_id = chatId;
@@ -440,7 +450,10 @@ export async function runExperimental(
   }
 
   const raw = await postJson<Record<string, unknown>>("/api/mco/run", payload, { signal });
-  return adaptRunResponse(raw);
+  console.log("RAW MCO PAYLOAD (Experimental):", raw);
+  const normalized = adaptRunResponse(raw);
+  console.log("NORMALIZED PAYLOAD (Experimental):", normalized);
+  return normalized;
 }
 
 /**

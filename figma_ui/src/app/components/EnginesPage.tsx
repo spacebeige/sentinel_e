@@ -1,5 +1,5 @@
 import { useTheme } from "next-themes";
-import { AVAILABLE_MODELS } from "../../config/modelRegistry";
+import { MODELS as AVAILABLE_MODELS } from "../config/runtime";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Link } from "react-router";

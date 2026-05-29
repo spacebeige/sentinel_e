@@ -3,6 +3,7 @@
 // Ensures the UI never crashes on missing/unexpected data
 // ============================================================
 
+import { getModeConfig } from "../config/runtime";
 import type {
   SentinelRunResponse,
   OmegaMetadata,
@@ -127,7 +128,7 @@ export function adaptRunResponse(raw: Record<string, unknown>): SentinelRunRespo
   return {
     chat_id: safeString(raw.chat_id),
     chat_name: safeString(raw.chat_name),
-    mode: safeString(raw.mode, "standard"),
+    mode: getModeConfig(safeString(raw.mode)).id,
     sub_mode: safeString(raw.sub_mode),
     original_mode: safeString(raw.original_mode),
     formatted_output: safeString(raw.formatted_output),
@@ -154,7 +155,7 @@ export function adaptMetadata(raw: Partial<OmegaMetadata> | null | undefined): O
   }
   return {
     omega_version: safeString(raw.omega_version, "4.5.0"),
-    mode: safeString(raw.mode, "standard"),
+    mode: getModeConfig(safeString(raw.mode)).id,
     sub_mode: safeString(raw.sub_mode),
     original_mode: safeString(raw.original_mode),
     confidence: clamp01(raw.confidence ?? 0.5),
@@ -252,9 +253,10 @@ function adaptEvidenceSource(raw: unknown): EvidenceSource {
   const r = raw as Record<string, unknown>;
   return {
     url: safeString(r.url),
-    title: safeString(r.title),
-    content_snippet: safeString(r.content_snippet),
-    reliability_score: clamp01(r.reliability_score),
+    title: safeString(r.title, "Unknown Source"),
+    content_snippet: safeString(r.content_snippet || r.snippet, "No content available."),
+    snippet: safeString(r.snippet || r.content_snippet, "No content available."),
+    reliability_score: clamp01(r.reliability_score ?? 0.5),
     domain: safeString(r.domain),
   };
 }
@@ -278,9 +280,10 @@ export function adaptDebate(raw: unknown): DebateResult {
   return {
     positions: Array.isArray(r.positions)
       ? r.positions.map((p: Record<string, unknown>) => ({
-          model: safeString(p.model),
-          position: safeString(p.position),
+          model: safeString(p.model, "Unknown Model"),
+          position: safeString(p.position, "No position provided."),
           confidence: clamp01(p.confidence),
+          color: safeString(p.color, "#8b5cf6"),
           key_points: Array.isArray(p.key_points) ? p.key_points.map(String) : [],
         }))
       : undefined,

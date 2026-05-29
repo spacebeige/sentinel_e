@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { Check, Moon, Sun } from "lucide-react";
+import { useAuthContext } from "../providers/AuthProvider";
 
 const PLANS = [
   {
@@ -11,7 +12,7 @@ const PLANS = [
     price: "Free",
     sub: "Forever",
     description: "The complete Sentinel-E experience for personal use.",
-    cta: "Initialize",
+    cta: "Sign Up",
     href: "/chat",
     features: [
       "Access to base models (GPT-4o mini, Llama 3.1)",
@@ -60,6 +61,7 @@ const PLANS = [
 export function PricingPage() {
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
+  const { isAuthenticated } = useAuthContext();
 
   const toggleTheme = () => {
     setTheme(isDark ? "light" : "dark");
@@ -177,7 +179,7 @@ export function PricingPage() {
                 </ul>
 
                 <Link
-                  to={plan.href}
+                  to={plan.href === "/chat" && !isAuthenticated ? "/signup" : plan.href}
                   className={`flex items-center justify-center w-full py-3 rounded-2xl font-semibold text-[14px] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${
                     plan.primary
                       ? isDark
@@ -188,7 +190,7 @@ export function PricingPage() {
                       : "bg-black/5 text-[#1d1d1f]"
                   }`}
                 >
-                  {plan.cta}
+                  {plan.id === "standard" ? (isAuthenticated ? "Chat" : "Sign Up") : plan.cta}
                 </Link>
               </div>
             </motion.div>

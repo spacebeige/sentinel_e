@@ -1,5 +1,5 @@
 import { useTheme } from "next-themes";
-import { MODELS as AVAILABLE_MODELS, getModelConfig, getModeConfig, ALL_RUNTIME_MODES } from "../config/runtime";
+import { AVAILABLE_MODELS } from "../../config/modelRegistry";
 import { Link } from "react-router";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
@@ -62,6 +62,8 @@ import { CinematicOrchestratorLoader } from "./CinematicOrchestratorLoader";
 import { CinematicDebatePanel } from "./CinematicDebatePanel";
 import { CinematicEvidencePanel } from "./CinematicEvidencePanel";
 import { CrossAnalysisTrigger } from "./CrossAnalysisPanel";
+import { ModeIconRenderer } from "./ModeIconRenderer";
+import { getModeConfig, ALL_RUNTIME_MODES } from "../config/modes";
 import { useSessionPersistence } from "../hooks/useSessionPersistence";
 import {
   type DebateState,
@@ -106,6 +108,8 @@ const PRO_MODELS = [
   { id: "llama", name: "Llama 3.1", tag: "Meta", color: "#f97316", sub: "Open source" },
 ];
 
+// ── Pro orchestration sub-modes ──────────────────────────────────────────────
+
 
 // ── Fallback responses ───────────────────────────────────────────────────────
 const modeResponses: Record<string, string[]> = {
@@ -130,30 +134,10 @@ const sampleResponses = [
 export function ChatPage() {
   const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0].id);
   const [selectedMode, setSelectedMode] = useState("standard");
-  const [runtimeTier, setRuntimeTier] = useState<"standard" | "pro">("standard");
-  const [isOrchestrationExpanded, setIsOrchestrationExpanded] = useState(false);
-
-  useEffect(() => {
-    console.log({
-      runtimeTier,
-      selectedModel,
-      selectedMode,
-      resolvedModel: getModelConfig(selectedModel),
-      resolvedMode: getModeConfig(selectedMode),
-    });
-  }, [runtimeTier, selectedModel, selectedMode]);
-
-  const activeModel = getModelConfig(selectedModel);
+  const [isPlusOpen, setIsPlusOpen] = useState(false);
+  const activeModel = AVAILABLE_MODELS.find(m => m.id === selectedModel) || AVAILABLE_MODELS[0];
   const availableModels = AVAILABLE_MODELS;
-  const effectiveMode = (runtimeTier === "pro" && isOrchestrationExpanded) ? selectedMode : "standard";
   const { user } = useSupabaseAuth();
-
-  const availableModes = [
-    { id: "debate", name: "Debate", color: "#ef4444" },
-    { id: "glass", name: "Glass", color: "#8b5cf6" },
-    { id: "evidence", name: "Evidence", color: "#06b6d4" },
-    { id: "synthesis", name: "Synthesis", color: "#10b981" },
-  ];
   // State
   const [messages, setMessages] = useState<Message[]>([{
     id: "welcome",
@@ -177,7 +161,7 @@ export function ChatPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   // Chat interaction context
-  const { isHistoryOpen, toggleHistory, newChatTriggered, /* removed (runtimeTier === "pro") */ } = useChatInteraction();
+  const { isHistoryOpen, toggleHistory, newChatTriggered, isProMode, setIsProMode } = useChatInteraction();
 
   // Pro features state
       const [expandedMeta, setExpandedMeta] = useState<string | null>(null);
@@ -280,8 +264,7 @@ export function ChatPage() {
     if (saved.chatId) {
       setCurrentChatId(saved.chatId);
       if (saved.subMode) setSelectedMode(saved.subMode);
-      setRuntimeTier(saved.runtimeTier || "standard");
-      setIsOrchestrationExpanded(saved.isOrchestrationExpanded || false);
+      setIsProMode(saved.isProMode ?? false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -317,12 +300,12 @@ export function ChatPage() {
   useEffect(() => {
     persist({
       chatId: currentChatId,
-      mode: (runtimeTier === "pro") ? "experimental" : "standard",
+      mode: isProMode ? "experimental" : "standard",
       subMode: selectedMode,
-      runtimeTier, isOrchestrationExpanded,
+      isProMode,
       killOverride: glassState.killOverride,
     });
-  }, [currentChatId, runtimeTier, isOrchestrationExpanded, selectedMode, glassState.killOverride, persist]);
+  }, [currentChatId, isProMode, selectedMode, glassState.killOverride, persist]);
 
   // ── Load chat history ──────────────────────────────────────────────────────
   const loadChatHistory = useCallback(async () => {
@@ -500,7 +483,7 @@ export function ChatPage() {
       try {
         let response: SentinelRunResponse;
 
-        if ((runtimeTier === "pro") && selectedMode) {
+        if (isProMode && selectedMode) {
           response = await runExperimental(userText, selectedMode, 6, currentChatId || undefined, glassState.killOverride, attachedFile || undefined, ac.signal);
         } else {
           response = await runStandard(userText, currentChatId || undefined, attachedFile || undefined, ac.signal);
@@ -599,7 +582,7 @@ export function ChatPage() {
       await submitFeedback({
         run_id: msg.chatId,
         feedback: vote,
-        mode: (runtimeTier === "pro") ? "experimental" : "standard",
+        mode: isProMode ? "experimental" : "standard",
         sub_mode: msg.mode || undefined,
         confidence: msg.confidence,
         boundary_severity: msg.boundaryResult?.severity_score,
@@ -994,7 +977,7 @@ export function ChatPage() {
                   color: isDark ? "#f5f5f7" : "#1d1d1f",
                 }}
               >
-                Sentinel {(runtimeTier === "pro") ? "Pro" : "Standard"}
+                Sentinel {isProMode ? "Pro" : "Standard"}
                 <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${modeDropdownOpen ? "rotate-180" : ""}`} style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }} />
               </button>
 
@@ -1032,10 +1015,10 @@ export function ChatPage() {
                             onClick={() => { setMode(m.id); setIsProMode(m.pro); setModeDropdownOpen(false); if (!m.pro) setSelectedMode(null); }}
                             className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl transition-colors text-left"
                             style={{
-                              background: (runtimeTier === "pro") === m.pro ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") : "transparent",
+                              background: isProMode === m.pro ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") : "transparent",
                             }}
-                            onMouseEnter={(e) => { if ((runtimeTier === "pro") !== m.pro) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; }}
-                            onMouseLeave={(e) => { if ((runtimeTier === "pro") !== m.pro) e.currentTarget.style.background = "transparent"; }}
+                            onMouseEnter={(e) => { if (isProMode !== m.pro) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; }}
+                            onMouseLeave={(e) => { if (isProMode !== m.pro) e.currentTarget.style.background = "transparent"; }}
                           >
                             <div className="mt-0.5 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: m.pro ? "rgba(139,92,246,0.15)" : "rgba(59,130,246,0.15)" }}>
                               <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.pro ? "#8b5cf6" : "#3b82f6" }} />
@@ -1044,7 +1027,7 @@ export function ChatPage() {
                               <div style={{ fontSize: "13px", fontWeight: 600, color: isDark ? "#fff" : "#000" }}>{m.name}</div>
                               <div style={{ fontSize: "11px", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", marginTop: "1px" }}>{m.sub}</div>
                             </div>
-                            {(runtimeTier === "pro") === m.pro && <Check className="w-3.5 h-3.5 ml-auto mt-1 text-[#3b82f6]" />}
+                            {isProMode === m.pro && <Check className="w-3.5 h-3.5 ml-auto mt-1 text-[#3b82f6]" />}
                           </button>
                         ))}
                       </div>
@@ -1094,11 +1077,11 @@ export function ChatPage() {
         </AnimatePresence>
 
         {/* ── MESSAGES ─────────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-4 py-8" onClick={() => { setModeDropdownOpen(false); setIsOrchestrationExpanded(false); }}>
+        <div className="flex-1 overflow-y-auto px-4 py-8" onClick={() => { setModeDropdownOpen(false); setIsPlusOpen(false); }}>
           <div className="max-w-2xl mx-auto space-y-5">
             <AnimatePresence>
               {messages.map((message) => {
-                const msgMode = message.mode && message.mode !== "standard" ? getModeConfig(message.mode) : null;
+                const msgMode = message.mode ? getModeConfig(message.mode) : null;
                 const isHovered = hoveredMessage === message.id;
 
                 return (
@@ -1138,7 +1121,7 @@ export function ChatPage() {
                             className="flex items-center gap-1.5 px-4 py-1.5"
                             style={{ background: msgMode.color + "0c", borderBottom: `1px solid ${msgMode.color}18` }}
                           >
-                            <div style={{ color: msgMode.color }}>{msgMode.icon}</div>
+                            <div style={{ color: msgMode.color }}><ModeIconRenderer iconName={msgMode.icon} /></div>
                             <span style={{ fontSize: "10px", fontWeight: 700, color: msgMode.color, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                               {msgMode.label}
                             </span>
@@ -1252,7 +1235,7 @@ export function ChatPage() {
               <div className="max-w-[80%]">
                 <CinematicOrchestratorLoader
                   isLoading={isTyping}
-                  mode={(runtimeTier === "pro") ? "experimental" : "standard"}
+                  mode={isProMode ? "experimental" : "standard"}
                   subMode={selectedMode}
                 />
               </div>
@@ -1279,10 +1262,10 @@ export function ChatPage() {
               className="relative rounded-[24px] transition-all duration-300 z-10 flex-shrink-0"
               style={{
                 background: inputBg,
-                border: selectedMode
+                border: selectedMode && selectedMode !== "standard"
                   ? `1px solid ${getModeConfig(selectedMode).color}40`
                   : `1px solid ${borderColor}`,
-                boxShadow: selectedMode
+                boxShadow: selectedMode && selectedMode !== "standard"
                   ? `0 4px 24px -4px ${getModeConfig(selectedMode).color}20, ${isDark ? "0 0 0 1px rgba(255,255,255,0.04)" : "0 0 0 1px rgba(0,0,0,0.04)"}`
                   : isDark
                     ? "0 4px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04)"
@@ -1325,7 +1308,7 @@ export function ChatPage() {
                   
                   {/* Floating Orchestration Panel attached to + button */}
                   <AnimatePresence>
-                    {isOrchestrationExpanded && mode === "pro" && (
+                    {isPlusOpen && mode === "pro" && (
                       <motion.div
                         initial={{ opacity: 0, y: 8, scale: 0.96 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1347,12 +1330,12 @@ export function ChatPage() {
                       >
                          <div className="mb-2 px-2 text-[11px] font-semibold tracking-wider uppercase" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>Orchestration Modes</div>
                          <div className="grid grid-cols-2 gap-1.5 mb-4">
-                           {availableModes.map((m) => {
+                           {ALL_RUNTIME_MODES.map((m) => {
                              const isActive = selectedMode === m.id;
                              return (
                                <button
                                  key={m.id}
-                                 onClick={() => { setSelectedMode(isActive ? "" : m.id); setIsOrchestrationExpanded(false); }}
+                                 onClick={() => { setSelectedMode(isActive ? "" : m.id); setIsPlusOpen(false); }}
                                  className="flex flex-col items-start gap-1.5 p-2.5 rounded-2xl transition-all text-left"
                                  style={{
                                    background: isActive ? m.color : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
@@ -1373,7 +1356,7 @@ export function ChatPage() {
                                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: m.color }} />
                                  </div>
                                  <div>
-                                   <div className="text-[13px] font-semibold">{m.name}</div>
+                                   <div className="text-[13px] font-semibold">{m.label}</div>
                                  </div>
                                </button>
                              );
@@ -1386,7 +1369,7 @@ export function ChatPage() {
                              return (
                                <button
                                  key={model.id}
-                                 onClick={() => { setSelectedModel(model.id); setIsOrchestrationExpanded(false); }}
+                                 onClick={() => { setSelectedModel(model.id); setIsPlusOpen(false); }}
                                  className="flex items-center gap-2 p-2 rounded-xl transition-all text-left"
                                  style={{
                                    background: isSelected ? (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)") : (isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)"),
@@ -1413,13 +1396,13 @@ export function ChatPage() {
 {/* Plus — opens model selector in Pro mode */}
                   {mode === "pro" && (
                     <button
-                      onClick={() => setIsOrchestrationExpanded(!isOrchestrationExpanded)}
+                      onClick={() => setIsPlusOpen(!isPlusOpen)}
                       className="flex items-center justify-center rounded-full transition-all duration-300 flex-shrink-0"
                       style={{ 
                         width: "40px",
                         height: "40px",
                         background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
-                        color: isOrchestrationExpanded ? "#3b82f6" : textSecondary,
+                        color: isPlusOpen ? "#3b82f6" : textSecondary,
                         backdropFilter: "blur(12px)",
                         WebkitBackdropFilter: "blur(12px)",
                         boxShadow: isDark ? "inset 0 1px 0 rgba(255,255,255,0.05)" : "none",
@@ -1455,9 +1438,9 @@ export function ChatPage() {
                 </div>
 
                 {/* Pro model label */}
-                {runtimeTier === "pro" && !isOrchestrationExpanded && (
+                {isProMode && (
                   <button
-                    onClick={() => setIsOrchestrationExpanded(!isOrchestrationExpanded)}
+                    onClick={() => setIsPlusOpen(!isPlusOpen)}
                     className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl mb-0.5 flex-shrink-0 transition-all"
                     style={{
                       background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
@@ -1481,11 +1464,9 @@ export function ChatPage() {
                     e.target.style.height = Math.min(e.target.scrollHeight, 128) + "px";
                   }}
                   onKeyDown={handleKeyDown}
-                  placeholder={
-                    selectedMode
-                      ? getModeConfig(selectedMode).placeholder
-                      : "Message Sentinel-E..."
-                  }
+                  placeholder={selectedMode && selectedMode !== "standard"
+                    ? getModeConfig(selectedMode).placeholder
+                    : "Type your query here or drag an image..."}
                   rows={1}
                   className="flex-1 resize-none bg-transparent outline-none py-2 px-1 max-h-32 sentinel-input"
                   style={{
@@ -1515,7 +1496,7 @@ export function ChatPage() {
                     style={{
                       background: (!input.trim() && !attachedFile) || isTyping
                         ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)")
-                        : selectedMode
+                        : selectedMode && selectedMode !== "standard"
                           ? getModeConfig(selectedMode).color
                           : "#1d1d1f",
                       color: (!input.trim() && !attachedFile) || isTyping ? textSecondary : "#ffffff",
@@ -1585,10 +1566,10 @@ export function ChatPage() {
       </AnimatePresence>
 
       {/* Click outside to close dropdowns */}
-      {(modeDropdownOpen || isOrchestrationExpanded) && (
+      {(modeDropdownOpen || isPlusOpen) && (
         <div
           className="fixed inset-0 z-10"
-          onClick={() => { setModeDropdownOpen(false); setIsOrchestrationExpanded(false); }}
+          onClick={() => { setModeDropdownOpen(false); setIsPlusOpen(false); }}
         />
       )}
     </div>

@@ -1,26 +1,65 @@
-import React from "react";
-import { createBrowserRouter } from "react-router";
+import React, { Suspense } from "react";
+import { createBrowserRouter, Outlet, useRouteError } from "react-router";
 import { Layout } from "./components/Layout";
 import HomePage from "./components/HomePage";
 import { ChatPage } from "./components/ChatPage";
 import { EnginesPage } from "./components/EnginesPage";
 import { PricingPage } from "./components/PricingPage";
-import OrchestrationGame from "./orchestration/game/OrchestrationGame";
-import TetrisGame from "./tetris/game/TetrisGame";
+import { AuthProvider } from "./providers/AuthProvider";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { CinematicErrorBoundary } from "./components/CinematicErrorBoundary";
+import LoginPage from "./components/LoginPage";
+import SignupPage from "./components/SignupPage";
+import AuthCallbackPage from "./components/AuthCallbackPage";
+import AdminPage from "./components/AdminPage";
+import ForgotPasswordPage from "./components/ForgotPasswordPage";
+import ResetPasswordPage from "./components/ResetPasswordPage";
+import CompleteProfilePage from "./components/CompleteProfilePage";
 
-// ChatInteractionProvider lives in App.tsx — DO NOT add it here
+const OrchestrationGame = React.lazy(() => import("./orchestration/game/OrchestrationGame"));
+const TetrisGame = React.lazy(() => import("./tetris/game/TetrisGame"));
+
+const AuthRoot = () => (
+  <AuthProvider>
+    <Outlet />
+  </AuthProvider>
+);
+
+const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={<div className="flex h-screen items-center justify-center bg-black text-white/50 tracking-widest uppercase">Loading Application Environment...</div>}>
+    {children}
+  </Suspense>
+);
+
 export const router = createBrowserRouter([
   {
-    path: "/",
-    element: <Layout />,
+    element: <AuthRoot />,
+    errorElement: (
+      <CinematicErrorBoundary>
+        <div className="min-h-screen bg-black" />
+      </CinematicErrorBoundary>
+    ),
     children: [
-      { index: true, element: <HomePage /> },
-      { path: "chat", element: <ChatPage /> },
-      { path: "engines", element: <EnginesPage /> },
-      { path: "models", element: <EnginesPage /> }, // legacy alias
-      { path: "pricing", element: <PricingPage /> },
-    ],
-  },
-  { path: "/game", element: <OrchestrationGame /> },
-  { path: "/tetris", element: <TetrisGame /> },
+      {
+        path: "/",
+        element: <Layout />,
+        children: [
+          { index: true, element: <HomePage /> },
+          { path: "chat", element: <ProtectedRoute><ChatPage /></ProtectedRoute> },
+          { path: "engines", element: <ProtectedRoute><EnginesPage /></ProtectedRoute> },
+          { path: "models", element: <ProtectedRoute><EnginesPage /></ProtectedRoute> },
+          { path: "pricing", element: <PricingPage /> },
+          { path: "admin", element: <ProtectedRoute requireAdmin><AdminPage /></ProtectedRoute> },
+        ],
+      },
+      { path: "/login", element: <LoginPage /> },
+      { path: "/signup", element: <SignupPage /> },
+      { path: "/forgot-password", element: <ForgotPasswordPage /> },
+      { path: "/reset-password", element: <ResetPasswordPage /> },
+      { path: "/complete-profile", element: <ProtectedRoute><CompleteProfilePage /></ProtectedRoute> },
+      { path: "/auth/callback", element: <AuthCallbackPage /> },
+      { path: "/game", element: <SuspenseWrapper><OrchestrationGame /></SuspenseWrapper> },
+      { path: "/tetris", element: <SuspenseWrapper><TetrisGame /></SuspenseWrapper> },
+    ]
+  }
 ]);

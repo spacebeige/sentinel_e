@@ -4,6 +4,7 @@
 // ============================================================
 
 import ENV from "./config";
+import { readSupabaseSessionSnapshot } from "./supabaseSessionManager";
 
 export class ApiError extends Error {
   status: number;
@@ -56,6 +57,13 @@ export async function apiRequest<T = unknown>(
   const url = path.startsWith("http") ? path : `${ENV.API_BASE}${path}`;
 
   const finalHeaders: Record<string, string> = { ...headers };
+  
+  // Phase 2: Inject Supabase JWT for backend authentication
+  const snapshot = readSupabaseSessionSnapshot();
+  if (snapshot?.access_token) {
+    finalHeaders["Authorization"] = `Bearer ${snapshot.access_token}`;
+  }
+
   let finalBody: BodyInit | null = null;
 
   if (body && json) {

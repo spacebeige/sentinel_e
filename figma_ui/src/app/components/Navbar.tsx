@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { Link, useLocation } from "react-router";
-import { Menu, X, Moon, Sun } from "lucide-react";
+import { Menu, X, Moon, Sun, User, Settings, LogOut, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useAuthContext } from "../providers/AuthProvider";
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -10,6 +11,7 @@ export function Navbar() {
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const { isAuthenticated, isAdmin, signOut } = useAuthContext();
 
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
@@ -22,12 +24,9 @@ export function Navbar() {
   const toggleTheme = () => setTheme(isDark ? "light" : "dark");
   const isLanding = location.pathname === "/";
 
-  const glassBase = isDark
-    ? "rgba(12,12,16,0.80)"
-    : scrolled ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.65)";
   const borderColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
 
-  const navLinks = [
+  const mainLinks = [
     { to: "/", label: "Home" },
     { to: "/chat", label: "Chat" },
     { to: "/engines", label: "Engines" },
@@ -96,12 +95,8 @@ export function Navbar() {
 
         {/* ── CENTER: Cinematic Routing Buttons ── */}
         <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-1.5">
-          {[
-            { to: "/chat", label: "Chat" },
-            { to: "/engines", label: "Engines" },
-            { to: "/pricing", label: "Access" },
-          ].map((link) => {
-            const isActive = location.pathname.startsWith(link.to);
+          {mainLinks.map((link) => {
+            const isActive = link.to === "/" ? location.pathname === "/" : location.pathname.startsWith(link.to);
             return (
               <Link
                 key={link.to}
@@ -160,12 +155,12 @@ export function Navbar() {
           })}
         </div>
 
-        {/* ── RIGHT: Theme toggle + Initialize ─────────────────────────── */}
+        {/* ── RIGHT: Theme toggle + Auth Links ─────────────────────────── */}
         <div className="ml-auto flex items-center gap-2 pr-1 flex-shrink-0">
           
           {/* Cinematic Theme Toggle Segmented Control */}
           <div 
-            className="flex items-center p-1 rounded-full relative overflow-hidden"
+            className="flex items-center p-1 rounded-full relative overflow-hidden hidden md:flex"
             style={{
               background: isDark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.03)",
               border: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(0,0,0,0.04)",
@@ -174,31 +169,31 @@ export function Navbar() {
           >
             <button
               onClick={() => setTheme("light")}
-              className="flex items-center justify-center w-8 h-8 rounded-full z-10 transition-all duration-300"
+              className="flex items-center justify-center w-7 h-7 rounded-full z-10 transition-all duration-300"
               style={{
                 color: !isDark ? "#1d1d1f" : "rgba(255,255,255,0.4)",
               }}
               aria-label="Light theme"
             >
-              <Sun className="w-[14px] h-[14px]" />
+              <Sun className="w-[12px] h-[12px]" />
             </button>
             <button
               onClick={() => setTheme("dark")}
-              className="flex items-center justify-center w-8 h-8 rounded-full z-10 transition-all duration-300"
+              className="flex items-center justify-center w-7 h-7 rounded-full z-10 transition-all duration-300"
               style={{
                 color: isDark ? "#ffffff" : "rgba(0,0,0,0.4)",
               }}
               aria-label="Dark theme"
             >
-              <Moon className="w-[14px] h-[14px]" />
+              <Moon className="w-[12px] h-[12px]" />
             </button>
 
             {/* Active Pill Indicator */}
             <div 
-              className="absolute top-1 bottom-1 w-8 rounded-full pointer-events-none transition-transform duration-400"
+              className="absolute top-1 bottom-1 w-7 rounded-full pointer-events-none transition-transform duration-400"
               style={{
                 left: "4px",
-                transform: isDark ? "translateX(32px)" : "translateX(0)",
+                transform: isDark ? "translateX(28px)" : "translateX(0)",
                 background: isDark ? "rgba(255,255,255,0.12)" : "#ffffff",
                 boxShadow: isDark 
                   ? "inset 0 1px 1px rgba(255,255,255,0.1), 0 0 10px rgba(255,255,255,0.05)" 
@@ -210,29 +205,80 @@ export function Navbar() {
             />
           </div>
 
-          <Link
-            to="/chat"
-            className="hidden md:inline-flex items-center justify-center px-5 py-[9px] rounded-full text-[13px] font-semibold transition-all duration-300 group relative overflow-hidden ml-1"
-            style={{
-              letterSpacing: "-0.01em",
-              background: isDark ? "rgba(245,245,247,0.92)" : "#1d1d1f",
-              color: isDark ? "#1d1d1f" : "#f5f5f7",
-              boxShadow: isDark
-                ? "0 4px 20px rgba(255,255,255,0.15), inset 0 1px 1px rgba(255,255,255,0.8)"
-                : "0 4px 20px rgba(0,0,0,0.25), inset 0 1px 1px rgba(255,255,255,0.2)",
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-1px) scale(1.02)"}
-            onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0) scale(1)"}
-          >
-            <div className="absolute inset-0 pointer-events-none transition-opacity duration-300 opacity-0 group-hover:opacity-100"
-              style={{
-                background: isDark 
-                  ? "linear-gradient(to bottom, rgba(255,255,255,0.4), transparent)" 
-                  : "linear-gradient(to bottom, rgba(255,255,255,0.15), transparent)",
-              }}
-            />
-            Initialize
-          </Link>
+          <div className="hidden md:flex items-center gap-1.5 ml-1">
+            {!isAuthenticated ? (
+              <>
+                <Link
+                  to="/login"
+                  className="px-4 py-2 rounded-full text-[13px] font-medium transition-all duration-300"
+                  style={{
+                    color: isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = isDark ? "#ffffff" : "#000000";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)";
+                  }}
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-full text-[13px] font-semibold transition-all duration-300 overflow-hidden"
+                  style={{
+                    letterSpacing: "-0.01em",
+                    background: isDark ? "rgba(245,245,247,0.92)" : "#1d1d1f",
+                    color: isDark ? "#1d1d1f" : "#f5f5f7",
+                    boxShadow: isDark
+                      ? "0 4px 14px rgba(255,255,255,0.15), inset 0 1px 1px rgba(255,255,255,0.8)"
+                      : "0 4px 14px rgba(0,0,0,0.25), inset 0 1px 1px rgba(255,255,255,0.2)",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-1px) scale(1.02)"}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0) scale(1)"}
+                >
+                  Sign Up
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/profile"
+                  className="p-2 rounded-full transition-all duration-300 hover:bg-black/5 dark:hover:bg-white/5"
+                  title="Profile"
+                  style={{ color: isDark ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)" }}
+                >
+                  <User className="w-[18px] h-[18px]" />
+                </Link>
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    className="p-2 rounded-full transition-all duration-300 hover:bg-black/5 dark:hover:bg-white/5"
+                    title="Admin"
+                    style={{ color: isDark ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)" }}
+                  >
+                    <Shield className="w-[18px] h-[18px]" />
+                  </Link>
+                )}
+                <Link
+                  to="/settings"
+                  className="p-2 rounded-full transition-all duration-300 hover:bg-black/5 dark:hover:bg-white/5"
+                  title="Settings"
+                  style={{ color: isDark ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)" }}
+                >
+                  <Settings className="w-[18px] h-[18px]" />
+                </Link>
+                <button
+                  onClick={() => signOut()}
+                  className="p-2 rounded-full transition-all duration-300 hover:bg-red-500/10"
+                  title="Sign Out"
+                  style={{ color: isDark ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)" }}
+                >
+                  <LogOut className="w-[18px] h-[18px]" />
+                </button>
+              </>
+            )}
+          </div>
 
           {/* Mobile menu button */}
           <button
@@ -276,7 +322,7 @@ export function Navbar() {
             }}
           >
             <div className="flex flex-col gap-1 mb-3">
-              {navLinks.map((link) => {
+              {mainLinks.map((link) => {
                 const isActive = link.to === "/" ? location.pathname === "/" : location.pathname.startsWith(link.to);
                 return (
                   <Link
@@ -295,6 +341,70 @@ export function Navbar() {
                   </Link>
                 );
               })}
+              
+              <div className="h-px w-full my-2" style={{ background: borderColor }} />
+              
+              {!isAuthenticated ? (
+                <>
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileOpen(false)}
+                    className="px-4 py-3 rounded-2xl text-[15px] font-medium transition-colors flex items-center"
+                    style={{ color: isDark ? "white" : "#1d1d1f" }}
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/signup"
+                    onClick={() => setMobileOpen(false)}
+                    className="px-4 py-3 rounded-2xl text-[15px] font-semibold transition-colors flex items-center justify-center mt-2"
+                    style={{
+                      background: isDark ? "rgba(245,245,247,0.92)" : "#1d1d1f",
+                      color: isDark ? "#1d1d1f" : "white",
+                    }}
+                  >
+                    Sign Up
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/profile"
+                    onClick={() => setMobileOpen(false)}
+                    className="px-4 py-3 rounded-2xl text-[15px] font-medium transition-colors flex items-center gap-3"
+                    style={{ color: isDark ? "white" : "#1d1d1f" }}
+                  >
+                    <User className="w-5 h-5" /> Profile
+                  </Link>
+                  {isAdmin && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setMobileOpen(false)}
+                      className="px-4 py-3 rounded-2xl text-[15px] font-medium transition-colors flex items-center gap-3"
+                      style={{ color: isDark ? "white" : "#1d1d1f" }}
+                    >
+                      <Shield className="w-5 h-5" /> Admin
+                    </Link>
+                  )}
+                  <Link
+                    to="/settings"
+                    onClick={() => setMobileOpen(false)}
+                    className="px-4 py-3 rounded-2xl text-[15px] font-medium transition-colors flex items-center gap-3"
+                    style={{ color: isDark ? "white" : "#1d1d1f" }}
+                  >
+                    <Settings className="w-5 h-5" /> Settings
+                  </Link>
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setMobileOpen(false);
+                    }}
+                    className="px-4 py-3 rounded-2xl text-[15px] font-medium transition-colors flex items-center gap-3 text-red-500 w-full text-left"
+                  >
+                    <LogOut className="w-5 h-5" /> Sign Out
+                  </button>
+                </>
+              )}
             </div>
             <div className="flex gap-2 pt-2 border-t" style={{ borderColor }}>
               <button
@@ -308,17 +418,6 @@ export function Navbar() {
                 {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 {isDark ? "Light mode" : "Dark mode"}
               </button>
-              <Link
-                to="/chat"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center justify-center flex-1 py-2.5 rounded-2xl text-[14px] font-semibold"
-                style={{
-                  background: isDark ? "rgba(245,245,247,0.92)" : "#1d1d1f",
-                  color: isDark ? "#1d1d1f" : "white",
-                }}
-              >
-                Initialize
-              </Link>
             </div>
           </motion.div>
         )}

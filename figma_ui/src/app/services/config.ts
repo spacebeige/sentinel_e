@@ -5,7 +5,7 @@
 
 const ENV = {
   /** API base URL — override via VITE_API_BASE env var */
-  API_BASE: import.meta.env.VITE_API_BASE || "http://localhost:8000",
+  API_BASE: import.meta.env.VITE_API_BASE || "https://sentinel-e.onrender.com",
 
   /** Request timeout in milliseconds */
   REQUEST_TIMEOUT: Number(import.meta.env.VITE_REQUEST_TIMEOUT) || 30000,
