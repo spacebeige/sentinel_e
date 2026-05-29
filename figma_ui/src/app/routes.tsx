@@ -15,6 +15,8 @@ import AdminPage from "./components/AdminPage";
 import ForgotPasswordPage from "./components/ForgotPasswordPage";
 import ResetPasswordPage from "./components/ResetPasswordPage";
 import CompleteProfilePage from "./components/CompleteProfilePage";
+import ProfilePage from "./components/ProfilePage";
+import SettingsPage from "./components/SettingsPage";
 
 const OrchestrationGame = React.lazy(() => import("./orchestration/game/OrchestrationGame"));
 const TetrisGame = React.lazy(() => import("./tetris/game/TetrisGame"));
@@ -50,6 +52,8 @@ export const router = createBrowserRouter([
           { path: "models", element: <ProtectedRoute><EnginesPage /></ProtectedRoute> },
           { path: "pricing", element: <PricingPage /> },
           { path: "admin", element: <ProtectedRoute requireAdmin><AdminPage /></ProtectedRoute> },
+          { path: "profile", element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
+          { path: "settings", element: <ProtectedRoute><SettingsPage /></ProtectedRoute> },
         ],
       },
       { path: "/login", element: <LoginPage /> },

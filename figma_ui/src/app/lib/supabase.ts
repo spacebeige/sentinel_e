@@ -16,6 +16,16 @@ if (isSupabaseConfigured) {
       flowType: 'pkce',
     },
   });
+
+  if (import.meta.env.DEV) {
+    console.log('[SUPABASE CONFIG]', {
+      url: supabaseUrl,
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+    });
+  }
 } else if (typeof window !== 'undefined') {
   console.warn('Supabase auth is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
 }

@@ -4,6 +4,8 @@ import { Link, useLocation } from "react-router";
 import { Menu, X, Moon, Sun, User, Settings, LogOut, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuthContext } from "../providers/AuthProvider";
+import { useSupabaseAuth } from "../hooks/useSupabaseAuth";
+import { trackLogout } from "../services/analyticsService";
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -11,7 +13,8 @@ export function Navbar() {
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
-  const { isAuthenticated, isAdmin, signOut } = useAuthContext();
+  const { user, isAuthenticated, isAdmin } = useAuthContext();
+  const { signOut } = useSupabaseAuth();
 
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
@@ -269,7 +272,10 @@ export function Navbar() {
                   <Settings className="w-[18px] h-[18px]" />
                 </Link>
                 <button
-                  onClick={() => signOut()}
+                  onClick={() => {
+                    if (user) trackLogout(user.id);
+                    signOut();
+                  }}
                   className="p-2 rounded-full transition-all duration-300 hover:bg-red-500/10"
                   title="Sign Out"
                   style={{ color: isDark ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)" }}
@@ -371,7 +377,7 @@ export function Navbar() {
                   <Link
                     to="/profile"
                     onClick={() => setMobileOpen(false)}
-                    className="px-4 py-3 rounded-2xl text-[15px] font-medium transition-colors flex items-center gap-3"
+                    className="px-4 py-3 rounded-2xl text-[15px] font-medium transition-colors flex items-center gap-3 w-full text-left"
                     style={{ color: isDark ? "white" : "#1d1d1f" }}
                   >
                     <User className="w-5 h-5" /> Profile

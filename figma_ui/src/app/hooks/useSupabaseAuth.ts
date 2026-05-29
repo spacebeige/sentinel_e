@@ -48,10 +48,18 @@ export function useSupabaseAuth() {
   const signOut = useCallback(async () => {
     setError('');
     const { error: signOutError } = await supabase.auth.signOut();
+    
+    // Clear all local auth state and snapshots
+    localStorage.clear();
+    sessionStorage.clear();
+    
     if (signOutError) {
       setError(signOutError.message);
-      throw signOutError;
+      // Even if backend fails, force local logout and redirect
     }
+    
+    // Hard redirect to enforce unauthenticated state and clear memory
+    window.location.href = '/login';
   }, []);
 
   const resetPasswordForEmail = useCallback(async (email: string, redirectTo?: string) => {

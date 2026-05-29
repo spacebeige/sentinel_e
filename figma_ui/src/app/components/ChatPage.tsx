@@ -57,6 +57,7 @@ import {
 import { OmegaInsightPanel } from "./OmegaInsightPanel";
 import { useChatInteraction } from "../context/ChatInteractionContext";
 import { useSupabaseAuth } from "../hooks/useSupabaseAuth";
+import { trackMessageSent, trackConversationStarted } from '../services/analyticsService';
 import { SessionAnalyticsPanel } from "./SessionAnalyticsPanel";
 import { CinematicOrchestratorLoader } from "./CinematicOrchestratorLoader";
 import { CinematicDebatePanel } from "./CinematicDebatePanel";
@@ -99,7 +100,6 @@ interface Message {
 const PRO_MODELS = [
   { id: "sentinel-sigma", name: "Sentinel Σ", tag: "Sigma", color: "#8b5cf6", sub: "Full orchestration" },
   { id: "gpt4", name: "GPT-4", tag: "OpenAI", color: "#10b981", sub: "Advanced reasoning" },
-  { id: "claude", name: "Claude", tag: "Anthropic", color: "#f59e0b", sub: "Constitutional AI" },
   { id: "gemini", name: "Gemini", tag: "Google", color: "#3b82f6", sub: "Multimodal" },
   { id: "deepseek", name: "DeepSeek", tag: "DeepSeek", color: "#06b6d4", sub: "Research-grade" },
   { id: "mistral", name: "Mistral", tag: "Mistral AI", color: "#ef4444", sub: "Fast & efficient" },
@@ -128,8 +128,8 @@ const sampleResponses = [
 
 // ── Main ChatPage ────────────────────────────────────────────────────────────
 export function ChatPage() {
-  const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0].id);
-  const [selectedMode, setSelectedMode] = useState("standard");
+  const [selectedModel, setSelectedModel] = useState<string | null>("sentinel-sigma");
+  const [selectedMode, setSelectedMode] = useState<string | null>(null);
   const [runtimeTier, setRuntimeTier] = useState<"standard" | "pro">("standard");
   const [isOrchestrationExpanded, setIsOrchestrationExpanded] = useState(false);
 
@@ -138,15 +138,17 @@ export function ChatPage() {
       runtimeTier,
       selectedModel,
       selectedMode,
-      resolvedModel: getModelConfig(selectedModel),
-      resolvedMode: getModeConfig(selectedMode),
     });
   }, [runtimeTier, selectedModel, selectedMode]);
 
-  const activeModel = getModelConfig(selectedModel);
-  const availableModels = AVAILABLE_MODELS;
-  const effectiveMode = (runtimeTier === "pro" && isOrchestrationExpanded) ? selectedMode : "standard";
   const { user } = useSupabaseAuth();
+  
+  // Real subscription tier from user metadata
+  const subscriptionTier = user?.user_metadata?.subscription || "standard";
+
+  const activeModel = getModelConfig(selectedModel || "sentinel-sigma");
+  const availableModels = AVAILABLE_MODELS.filter(m => m.id !== 'claude');
+  const effectiveMode = (runtimeTier === "pro" && isOrchestrationExpanded && selectedMode) ? selectedMode : "standard";
 
   const availableModes = [
     { id: "debate", name: "Debate", color: "#ef4444" },
@@ -171,8 +173,7 @@ export function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Standard / Pro mode selector (simple dropdown)
-  const [mode, setMode] = useState("standard");
+  // Chat history state
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -264,7 +265,6 @@ export function ChatPage() {
     } else {
       setBackendOnline(false);
       setHealthData(null);
-      setKernelData(null);
     }
   }, []);
 
@@ -479,6 +479,13 @@ export function ChatPage() {
   const handleSend = async () => {
     if (!input.trim() && !attachedFile) return;
 
+    if (user && !currentChatId) {
+      trackConversationStarted(user.id);
+    }
+    if (user) {
+      trackMessageSent(user.id, effectiveMode, selectedModel);
+    }
+
     const userText = input.trim().replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "").slice(0, 10000);
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -500,7 +507,7 @@ export function ChatPage() {
       try {
         let response: SentinelRunResponse;
 
-        if ((runtimeTier === "pro") && selectedMode) {
+        if (runtimeTier === "pro" && selectedMode) {
           response = await runExperimental(userText, selectedMode, 6, currentChatId || undefined, glassState.killOverride, attachedFile || undefined, ac.signal);
         } else {
           response = await runStandard(userText, currentChatId || undefined, attachedFile || undefined, ac.signal);
@@ -930,8 +937,18 @@ export function ChatPage() {
 
 
 
-      {/* ── MAIN CHAT AREA ──────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 h-full relative z-[1]" style={{ background: chatBg, transition: "margin 300ms cubic-bezier(0.16,1,0.3,1), width 300ms cubic-bezier(0.16,1,0.3,1)" }}>
+      {/* ── Main Chat Area ── */}
+      <div className="flex-1 flex flex-col h-screen relative overflow-hidden" style={{ background: chatBg, transition: "margin 300ms cubic-bezier(0.16,1,0.3,1), width 300ms cubic-bezier(0.16,1,0.3,1)" }}>
+        {import.meta.env.DEV && (
+          <div className="absolute top-4 right-4 z-50 p-4 rounded-xl text-xs font-mono shadow-xl backdrop-blur-md" style={{ background: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)' }}>
+            <div className="font-bold mb-2">Runtime Diagnostics</div>
+            <div>Tier: {runtimeTier}</div>
+            <div>Model: {selectedModel || 'null'}</div>
+            <div>Mode: {selectedMode || 'null'}</div>
+            <div>Session: {currentChatId || 'none'}</div>
+            <div>User: {user?.email || 'none'}</div>
+          </div>
+        )}
 
         {/* ── TOP BAR ─────────────────────────────────────────────────── */}
         <div
@@ -1029,7 +1046,7 @@ export function ChatPage() {
                         ].map((m) => (
                           <button
                             key={m.id}
-                            onClick={() => { setMode(m.id); setIsProMode(m.pro); setModeDropdownOpen(false); if (!m.pro) setSelectedMode(null); }}
+                            onClick={() => { setRuntimeTier(m.pro ? "pro" : "standard"); setModeDropdownOpen(false); if (!m.pro) { setSelectedMode(null); setSelectedModel("sentinel-sigma"); } }}
                             className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl transition-colors text-left"
                             style={{
                               background: (runtimeTier === "pro") === m.pro ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") : "transparent",
@@ -1041,7 +1058,7 @@ export function ChatPage() {
                               <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.pro ? "#8b5cf6" : "#3b82f6" }} />
                             </div>
                             <div>
-                              <div style={{ fontSize: "13px", fontWeight: 600, color: isDark ? "#fff" : "#000" }}>{m.name}</div>
+                              <div style={{ fontSize: "13px", fontWeight: 600, color: isDark ? "#fff" : "#000" }}>{m.label}</div>
                               <div style={{ fontSize: "11px", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", marginTop: "1px" }}>{m.sub}</div>
                             </div>
                             {(runtimeTier === "pro") === m.pro && <Check className="w-3.5 h-3.5 ml-auto mt-1 text-[#3b82f6]" />}
@@ -1325,7 +1342,7 @@ export function ChatPage() {
                   
                   {/* Floating Orchestration Panel attached to + button */}
                   <AnimatePresence>
-                    {isOrchestrationExpanded && mode === "pro" && (
+                    {isOrchestrationExpanded && runtimeTier === "pro" && (
                       <motion.div
                         initial={{ opacity: 0, y: 8, scale: 0.96 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1345,73 +1362,89 @@ export function ChatPage() {
                             : "0 10px 30px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.7)",
                         }}
                       >
-                         <div className="mb-2 px-2 text-[11px] font-semibold tracking-wider uppercase" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>Orchestration Modes</div>
-                         <div className="grid grid-cols-2 gap-1.5 mb-4">
-                           {availableModes.map((m) => {
-                             const isActive = selectedMode === m.id;
-                             return (
-                               <button
-                                 key={m.id}
-                                 onClick={() => { setSelectedMode(isActive ? "" : m.id); setIsOrchestrationExpanded(false); }}
-                                 className="flex flex-col items-start gap-1.5 p-2.5 rounded-2xl transition-all text-left"
-                                 style={{
-                                   background: isActive ? m.color : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
-                                   border: isActive ? `1px solid ${m.color}` : "1px solid transparent",
-                                   color: isActive ? "#ffffff" : (isDark ? "#fff" : "#000"),
-                                   boxShadow: isActive ? `0 4px 16px ${m.color}40` : "none",
-                                 }}
-                                 onMouseEnter={(e) => { 
-                                   if (!isActive) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; 
-                                   e.currentTarget.style.transform = "translateY(-1px)";
-                                 }}
-                                 onMouseLeave={(e) => { 
-                                   if (!isActive) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; 
-                                   e.currentTarget.style.transform = "translateY(0)";
-                                 }}
-                               >
-                                 <div className="p-1.5 rounded-xl" style={{ background: isActive ? "rgba(255,255,255,0.2)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: isActive ? "#fff" : m.color }}>
-                                   <div className="w-2.5 h-2.5 rounded-full" style={{ background: m.color }} />
-                                 </div>
-                                 <div>
-                                   <div className="text-[13px] font-semibold">{m.name}</div>
-                                 </div>
-                               </button>
-                             );
-                           })}
-                         </div>
-                         <div className="mb-2 px-2 text-[11px] font-semibold tracking-wider uppercase" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>Available Models</div>
-                         <div className="grid grid-cols-2 gap-1.5">
-                           {availableModels.map((model) => {
-                             const isSelected = selectedModel === model.id;
-                             return (
-                               <button
-                                 key={model.id}
-                                 onClick={() => { setSelectedModel(model.id); setIsOrchestrationExpanded(false); }}
-                                 className="flex items-center gap-2 p-2 rounded-xl transition-all text-left"
-                                 style={{
-                                   background: isSelected ? (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)") : (isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)"),
-                                   border: isSelected ? (isDark ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(0,0,0,0.1)") : "1px solid transparent",
-                                 }}
-                                 onMouseEnter={(e) => { if(!isSelected) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"; }}
-                                 onMouseLeave={(e) => { if(!isSelected) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)"; }}
-                               >
-                                 <div className="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)", color: isDark ? "#fff" : "#000" }}>
-                                   <div className="w-1.5 h-1.5 rounded-full" style={{ background: isSelected ? "#3b82f6" : (isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.3)") }} />
-                                 </div>
-                                 <div>
-                                   <div className="text-[12px] font-medium" style={{ color: isDark ? "#fff" : "#000" }}>{model.name}</div>
-                                   <div className="text-[9px] font-medium opacity-50 uppercase tracking-wider">{model.provider}</div>
-                                 </div>
-                               </button>
-                             );
-                           })}
-                         </div>
+                         {selectedModel === 'sentinel-sigma' && (
+                           <>
+                             <div className="mb-2 px-2 text-[11px] font-semibold tracking-wider uppercase" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>Orchestration Modes</div>
+                             <div className="grid grid-cols-2 gap-1.5 mb-4">
+                               {availableModes.map((m) => {
+                                 const isActive = selectedMode === m.id;
+                                 return (
+                                   <button
+                                     key={m.id}
+                                     onClick={() => { 
+                                       setSelectedMode(isActive ? null : m.id); 
+                                       if (!isActive) setSelectedModel(null);
+                                       setIsOrchestrationExpanded(false); 
+                                     }}
+                                     className="flex flex-col items-start gap-1.5 p-2.5 rounded-2xl transition-all text-left"
+                                     style={{
+                                       background: isActive ? m.color : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
+                                       border: isActive ? `1px solid ${m.color}` : "1px solid transparent",
+                                       color: isActive ? "#ffffff" : (isDark ? "#fff" : "#000"),
+                                       boxShadow: isActive ? `0 4px 16px ${m.color}40` : "none",
+                                     }}
+                                     onMouseEnter={(e) => { 
+                                       if (!isActive) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; 
+                                       e.currentTarget.style.transform = "translateY(-1px)";
+                                     }}
+                                     onMouseLeave={(e) => { 
+                                       if (!isActive) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; 
+                                       e.currentTarget.style.transform = "translateY(0)";
+                                     }}
+                                   >
+                                     <div className="p-1.5 rounded-xl" style={{ background: isActive ? "rgba(255,255,255,0.2)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: isActive ? "#fff" : m.color }}>
+                                       <div className="w-2.5 h-2.5 rounded-full" style={{ background: m.color }} />
+                                     </div>
+                                     <div>
+                                       <div className="text-[13px] font-semibold">{m.name}</div>
+                                     </div>
+                                   </button>
+                                 );
+                               })}
+                             </div>
+                           </>
+                         )}
+                         {(!selectedMode || selectedMode === 'standard') && (
+                           <>
+                             <div className="mb-2 mt-4 px-2 text-[11px] font-semibold tracking-wider uppercase" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>Available Models</div>
+                             <div className="grid grid-cols-2 gap-1.5">
+                               {availableModels.map((model) => {
+                                 const isSelected = selectedModel === model.id;
+                                 return (
+                                   <button
+                                     key={model.id}
+                                     onClick={() => { 
+                                       setSelectedModel(model.id); 
+                                       setSelectedMode(null);
+                                       setIsOrchestrationExpanded(false); 
+                                     }}
+                                     className="flex items-center gap-2 p-2 rounded-xl transition-all text-left"
+                                     style={{
+                                       background: isSelected ? (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)") : (isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)"),
+                                       border: isSelected ? (isDark ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(0,0,0,0.1)") : "1px solid transparent",
+                                     }}
+                                     onMouseEnter={(e) => { if(!isSelected) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"; }}
+                                     onMouseLeave={(e) => { if(!isSelected) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)"; }}
+                                   >
+                                     <div className="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)", color: isDark ? "#fff" : "#000" }}>
+                                       <div className="w-1.5 h-1.5 rounded-full" style={{ background: isSelected ? "#3b82f6" : (isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.3)") }} />
+                                     </div>
+                                     <div>
+                                       <div className="text-[12px] font-medium" style={{ color: isDark ? "#fff" : "#000" }}>{model.name}</div>
+                                       <div className="text-[9px] font-medium opacity-50 uppercase tracking-wider">{model.provider}</div>
+                                     </div>
+                                   </button>
+                                 );
+                               })}
+                             </div>
+                           </>
+                         )}
                       </motion.div>
                     )}
                   </AnimatePresence>
 
 {/* Plus — opens model selector in Pro mode */}
-                  {mode === "pro" && (
+                  {runtimeTier === "pro" && (
                     <button
                       onClick={() => setIsOrchestrationExpanded(!isOrchestrationExpanded)}
                       className="flex items-center justify-center rounded-full transition-all duration-300 flex-shrink-0"
