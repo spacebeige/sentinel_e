@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router';
+import { Navigate, useLocation, Link } from 'react-router';
 import { useAuthContext } from '../providers/AuthProvider';
+import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { motion } from 'motion/react';
@@ -13,20 +14,25 @@ export default function LoginPage() {
   const [mounted, setMounted] = useState(false);
 
   const { theme } = useTheme();
-  const { signInWithEmail, handleSignIn, authError, setAuthError, isAuthenticated } = useAuthContext();
-  const navigate = useNavigate();
+  const { isAuthenticated } = useAuthContext();
+  const { signInWithEmail, signInWithGoogle } = useSupabaseAuth();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/chat';
+  const from = (location.state as any)?.from?.pathname || '/chat';
 
   useEffect(() => setMounted(true), []);
 
   const isDark = theme === "dark";
 
+  // Declarative redirect — re-renders when AuthProvider updates isAuthenticated.
+  // No useEffect timing race.
+  if (isAuthenticated) {
+    return <Navigate to={from} replace />;
+  }
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError('');
-    setAuthError('');
 
     if (!email || !password) {
       setLocalError('Please fill in all fields');
@@ -36,34 +42,18 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       await signInWithEmail(email, password);
-      console.log(
-        "[LOCAL STORAGE]",
-        localStorage.getItem(
-          "sb-kyqoygozcxxsmlkkraub-auth-token"
-        )
-      );
-
-      const { getSupabaseClient } = await import('../lib/supabase');
-      const supabase = getSupabaseClient();
-      const sessionData = await supabase.auth.getSession();
-      console.log("[NATIVE SUPABASE SESSION]", sessionData);
-
-      // We now rely on the useEffect below to navigate ONLY after AuthProvider updates
+      // AuthProvider picks up the session via onAuthStateChange.
+      // This component re-renders with isAuthenticated=true → <Navigate> above fires.
     } catch (err: any) {
       setLocalError(err.message || 'Failed to sign in');
-      setIsSubmitting(false); // Only reset on error. On success, keep spinner until redirect.
+      setIsSubmitting(false);
     }
   };
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate(from, { replace: true });
-    }
-  }, [isAuthenticated, navigate, from]);
-
   const handleGoogleSignIn = async () => {
+    setLocalError('');
     try {
-      await handleSignIn({ returnTo: from });
+      await signInWithGoogle({ redirectTo: `${window.location.origin}/auth/callback` });
     } catch (err: any) {
       setLocalError(err.message || 'Failed to sign in with Google');
     }
@@ -124,9 +114,9 @@ export default function LoginPage() {
             }}
           />
 
-          {(localError || authError) && (
+          {localError && (
             <div className="mb-6 rounded-xl bg-red-500/10 p-4 text-[13px] text-red-500 border border-red-500/20 relative z-10 flex items-center">
-              {localError || authError}
+              {localError}
             </div>
           )}
 

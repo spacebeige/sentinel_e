@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { useAuthContext } from '../providers/AuthProvider';
+import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 import { Mail, Lock, Loader2, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { motion } from 'motion/react';
@@ -14,9 +15,9 @@ export default function SignupPage() {
   const [mounted, setMounted] = useState(false);
 
   const { theme } = useTheme();
-  const { signUpWithEmail, handleSignIn, authError, setAuthError, isAuthenticated } = useAuthContext();
+  const { isAuthenticated } = useAuthContext();
+  const { signUpWithEmail, signInWithGoogle } = useSupabaseAuth();
   const navigate = useNavigate();
-  const [signupSuccess, setSignupSuccess] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -25,7 +26,6 @@ export default function SignupPage() {
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError('');
-    setAuthError('');
 
     if (!name || !email || !password) {
       setLocalError('Please fill in all fields');
@@ -40,14 +40,8 @@ export default function SignupPage() {
     setIsSubmitting(true);
     try {
       await signUpWithEmail(email, password, name);
-      console.log(
-        "[LOCAL STORAGE]",
-        localStorage.getItem(
-          "sb-kyqoygozcxxsmlkkraub-auth-token"
-        )
-      );
-      // Wait for authentication state to propagate
-      setSignupSuccess(true);
+      // Navigate directly in handler — no useEffect race.
+      navigate('/complete-profile', { replace: true });
     } catch (err: any) {
       setLocalError(err.message || 'Failed to create account');
       setIsSubmitting(false);
@@ -55,17 +49,16 @@ export default function SignupPage() {
   };
 
   useEffect(() => {
-    if (isAuthenticated && signupSuccess) {
-      navigate('/complete-profile', { replace: true });
-    } else if (isAuthenticated && !signupSuccess) {
+    if (isAuthenticated) {
       // If they somehow land on signup but are already authenticated, redirect to chat
       navigate('/chat', { replace: true });
     }
-  }, [isAuthenticated, signupSuccess, navigate]);
+  }, [isAuthenticated, navigate]);
 
   const handleGoogleSignIn = async () => {
+    setLocalError('');
     try {
-      await handleSignIn({ returnTo: '/complete-profile' });
+      await signInWithGoogle({ redirectTo: `${window.location.origin}/auth/callback` });
     } catch (err: any) {
       setLocalError(err.message || 'Failed to sign in with Google');
     }
@@ -124,9 +117,9 @@ export default function SignupPage() {
             }}
           />
 
-          {(localError || authError) && (
-            <div className="mb-6 rounded-xl bg-red-500/10 p-4 text-[13px] text-red-500 border border-red-500/20 relative z-10 flex items-center">
-              {localError || authError}
+          {localError && (
+            <div className="mb-6 rounded-xl bg-red-500/10 p-4 text-[13px] text-red-500 border border-red-500/20 relative z-10">
+              {localError}
             </div>
           )}
 
