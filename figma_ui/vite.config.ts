@@ -19,4 +19,15 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router'],
+          'three-vendor': ['three', '@react-three/fiber', '@react-three/drei'],
+          'supabase-vendor': ['@supabase/supabase-js'],
+        }
+      }
+    }
+  }
 })

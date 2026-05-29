@@ -11,10 +11,10 @@ export default function ForgotPasswordPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
-  
+
   const { theme } = useTheme();
   const { resetPasswordForEmail } = useAuthContext();
-  
+
   useEffect(() => setMounted(true), []);
 
   const isDark = theme === "dark";
@@ -23,7 +23,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setLocalError('');
     setSuccessMsg('');
-    
+
     if (!email) {
       setLocalError('Please enter your email address');
       return;
@@ -44,10 +44,10 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className={`min-h-screen flex flex-col items-center justify-center p-6 transition-colors duration-500 ${isDark ? "bg-[#08090e]" : "bg-[#f7f8fc]"}`}>
-      <div 
+      <div
         className="fixed inset-0 pointer-events-none"
         style={{
-          background: isDark 
+          background: isDark
             ? "radial-gradient(circle 800px at 50% 0%, rgba(139,92,246,0.08), transparent 70%)"
             : "radial-gradient(circle 800px at 50% 0%, rgba(99,102,241,0.06), transparent 70%)"
         }}
@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
         <img src="/logo.png" alt="Sentinel-E" className="h-7 w-auto" />
       </Link>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
         </Link>
 
         <div className="text-center mb-8">
-          <h1 
+          <h1
             className="text-3xl font-bold mb-2 tracking-tight"
             style={{ color: isDark ? "#f5f5f7" : "#1d1d1f", fontFamily: "'Inter', sans-serif" }}
           >
@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
           </p>
         </div>
 
-        <div 
+        <div
           className="rounded-3xl p-8 shadow-2xl relative overflow-hidden"
           style={{
             background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.7)",
@@ -88,7 +88,7 @@ export default function ForgotPasswordPage() {
             border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
           }}
         >
-          <div 
+          <div
             className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.05]"
             style={{
               backgroundImage: "linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)",
@@ -130,7 +130,7 @@ export default function ForgotPasswordPage() {
                 />
               </div>
             </div>
-            
+
             <button
               type="submit"
               disabled={isSubmitting}
@@ -138,7 +138,7 @@ export default function ForgotPasswordPage() {
               style={{
                 background: isDark ? "#f5f5f7" : "#1d1d1f",
                 color: isDark ? "#1d1d1f" : "#ffffff",
-                boxShadow: isDark 
+                boxShadow: isDark
                   ? "0 4px 14px rgba(255,255,255,0.15)"
                   : "0 4px 14px rgba(0,0,0,0.2)",
               }}

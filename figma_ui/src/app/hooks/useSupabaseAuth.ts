@@ -1,150 +1,88 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { isSupabaseConfigured } from '../lib/supabase';
-import {
-  restoreSupabaseSession,
-  readSupabaseSessionSnapshot,
-  signInWithGoogleOAuth,
-  signInWithEmail as signInWithEmailService,
-  signUpWithEmail as signUpWithEmailService,
-  signOutSupabaseSession,
-  subscribeToSupabaseSession,
-  resetPasswordForEmail as resetPasswordForEmailService,
-  updateUserPassword as updateUserPasswordService,
-} from '../services/supabaseSessionManager';
+import { useCallback, useState } from 'react';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { useAuthContext } from '../providers/AuthProvider';
 
 export function useSupabaseAuth() {
-  const [session, setSession] = useState<any>(null);
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { session, user, loading, isAuthenticated, isAdmin } = useAuthContext();
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    let unsubscribe = () => {};
-    console.log("[AUTH] useEffect mounted");
-
-    // ============================================================
-    // 1. SYNCHRONOUS OPTIMISTIC HYDRATION
-    // ============================================================
-    // We do this immediately upon effect execution, outside the async function,
-    // to unblock the UI instantly if a valid snapshot exists.
-    const snapshot = readSupabaseSessionSnapshot();
-    if (snapshot?.user?.id) {
-      console.time("OPTIMISTIC_HYDRATION");
-      setUser(snapshot.user);
-      setSession(snapshot.access_token ? { access_token: snapshot.access_token, user: snapshot.user } : null);
-      setLoading(false); 
-      console.timeEnd("OPTIMISTIC_HYDRATION");
-      console.log('[Auth] Optimistic hydration applied. UI unblocked.');
-    }
-
-    async function hydrate() {
-      console.log("[AUTH] hydrate start. cancelled:", cancelled);
-      console.time("AUTH_TOTAL");
-
-      if (!isSupabaseConfigured) {
-        if (!cancelled) {
-          console.log("[AUTH] !isSupabaseConfigured, setLoading(false)");
-          setLoading(false);
-          setError('Supabase auth environment variables are missing.');
-        }
-        return;
-      }
-
-      console.log('[Auth] Hydrating Supabase session...');
-
-      try {
-        console.time("GET_SESSION");
-        const restored = await restoreSupabaseSession();
-        console.timeEnd("GET_SESSION");
-        console.log("[AUTH] restore complete. cancelled:", cancelled);
-        
-        if (!cancelled) {
-          setSession(restored.session || null);
-          setUser(restored.user || null);
-          setError(restored.error?.message || '');
-          if (restored.session?.user?.id) {
-            console.log('[Auth] Session restored for user:', restored.session.user.id);
-          } else {
-            console.log('[Auth] No active session found during hydration.');
-          }
-        } else {
-          console.log("[AUTH] cancelled = true, skipped state update after restore");
-        }
-      } catch (restoreError) {
-        if (!cancelled) {
-          console.error('[Auth] Session restore failed:', restoreError?.message);
-          setError(restoreError?.message || 'Failed to restore auth session.');
-        }
-      } finally {
-        if (!cancelled) {
-          console.log("[AUTH] setLoading(false)");
-          setLoading(false);
-          console.log('[Auth] Hydration complete. loading=false');
-        } else {
-          console.log("[AUTH] setLoading(false) skipped due to cancelled = true!");
-        }
-        console.timeEnd("AUTH_TOTAL");
-      }
-
-      if (!cancelled) {
-        unsubscribe = subscribeToSupabaseSession(({ session: nextSession, user: nextUser }: any) => {
-          if (cancelled) return;
-          console.time("AUTH_STATE_CHANGE");
-          console.log('[Auth] Auth state changed:', nextSession?.user?.id || 'signed out');
-          setSession(nextSession || null);
-          setUser(nextUser || null);
-          console.log("[AUTH] setLoading(false) from subscribe");
-          setLoading(false);
-          setError('');
-          console.timeEnd("AUTH_STATE_CHANGE");
-        });
-      }
-    }
-
-    hydrate();
-
-    return () => {
-      console.log("[AUTH] cleanup, setting cancelled = true");
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []); // intentionally empty — runs once on mount only
 
   const signInWithGoogle = useCallback(async ({ redirectTo }: { redirectTo?: string } = {}) => {
     setError('');
-    await signInWithGoogleOAuth({ redirectTo });
+    const { error: signInError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: redirectTo ? { redirectTo } : undefined,
+    });
+    if (signInError) {
+      setError(signInError.message);
+      throw signInError;
+    }
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     setError('');
-    return await signInWithEmailService(email, password);
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (signInError) {
+      setError(signInError.message);
+      throw signInError;
+    }
+    return data;
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string, name?: string) => {
     setError('');
-    return await signUpWithEmailService(email, password, name);
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: name ? { data: { full_name: name } } : undefined,
+    });
+    if (signUpError) {
+      setError(signUpError.message);
+      throw signUpError;
+    }
+    return data;
   }, []);
 
   const signOut = useCallback(async () => {
     setError('');
-    await signOutSupabaseSession();
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      setError(signOutError.message);
+      throw signOutError;
+    }
   }, []);
 
-  const resetPasswordForEmail = useCallback(async (email: string) => {
+  const resetPasswordForEmail = useCallback(async (email: string, redirectTo?: string) => {
     setError('');
-    return await resetPasswordForEmailService(email);
+    const { data, error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email,
+      redirectTo ? { redirectTo } : undefined
+    );
+    if (resetError) {
+      setError(resetError.message);
+      throw resetError;
+    }
+    return data;
   }, []);
 
   const updateUserPassword = useCallback(async (password: string) => {
     setError('');
-    return await updateUserPasswordService(password);
+    const { data, error: updateError } = await supabase.auth.updateUser({ password });
+    if (updateError) {
+      setError(updateError.message);
+      throw updateError;
+    }
+    return data;
   }, []);
 
   return {
     session,
     user,
     loading,
+    isAuthenticated,
+    isAdmin,
     error,
     setError,
     isSupabaseConfigured,

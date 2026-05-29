@@ -44,7 +44,7 @@ export function Navbar() {
           backdropFilter: "blur(32px) saturate(200%)",
           WebkitBackdropFilter: "blur(32px) saturate(200%)",
           border: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.04)",
-          boxShadow: isDark 
+          boxShadow: isDark
             ? "0 12px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)"
             : "0 12px 40px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8)",
         }}
@@ -108,16 +108,16 @@ export function Navbar() {
                   borderRadius: "999px",
                   fontSize: "13.5px",
                   letterSpacing: "-0.01em",
-                  color: isActive 
+                  color: isActive
                     ? (isDark ? "#ffffff" : "#000000")
                     : (isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)"),
                   background: isActive
                     ? (isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.6)")
                     : "transparent",
                   boxShadow: isActive
-                    ? (isDark 
-                        ? "inset 0 1px 1px rgba(255,255,255,0.15), 0 0 12px rgba(255,255,255,0.05)"
-                        : "inset 0 1px 1px rgba(255,255,255,0.8), 0 2px 8px rgba(0,0,0,0.04)")
+                    ? (isDark
+                      ? "inset 0 1px 1px rgba(255,255,255,0.15), 0 0 12px rgba(255,255,255,0.05)"
+                      : "inset 0 1px 1px rgba(255,255,255,0.8), 0 2px 8px rgba(0,0,0,0.04)")
                     : "none",
                   border: isActive
                     ? (isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.04)")
@@ -140,7 +140,7 @@ export function Navbar() {
                 }}
               >
                 {isActive && (
-                  <div 
+                  <div
                     className="absolute inset-0 pointer-events-none rounded-full"
                     style={{
                       background: isDark
@@ -157,9 +157,9 @@ export function Navbar() {
 
         {/* ── RIGHT: Theme toggle + Auth Links ─────────────────────────── */}
         <div className="ml-auto flex items-center gap-2 pr-1 flex-shrink-0">
-          
+
           {/* Cinematic Theme Toggle Segmented Control */}
-          <div 
+          <div
             className="flex items-center p-1 rounded-full relative overflow-hidden hidden md:flex"
             style={{
               background: isDark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.03)",
@@ -189,14 +189,14 @@ export function Navbar() {
             </button>
 
             {/* Active Pill Indicator */}
-            <div 
+            <div
               className="absolute top-1 bottom-1 w-7 rounded-full pointer-events-none transition-transform duration-400"
               style={{
                 left: "4px",
                 transform: isDark ? "translateX(28px)" : "translateX(0)",
                 background: isDark ? "rgba(255,255,255,0.12)" : "#ffffff",
-                boxShadow: isDark 
-                  ? "inset 0 1px 1px rgba(255,255,255,0.1), 0 0 10px rgba(255,255,255,0.05)" 
+                boxShadow: isDark
+                  ? "inset 0 1px 1px rgba(255,255,255,0.1), 0 0 10px rgba(255,255,255,0.05)"
                   : "0 2px 8px rgba(0,0,0,0.08), inset 0 1px 1px rgba(255,255,255,0.8)",
                 border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.04)",
                 backdropFilter: "blur(12px) saturate(180%)",
@@ -341,9 +341,9 @@ export function Navbar() {
                   </Link>
                 );
               })}
-              
+
               <div className="h-px w-full my-2" style={{ background: borderColor }} />
-              
+
               {!isAuthenticated ? (
                 <>
                   <Link
