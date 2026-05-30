@@ -69,11 +69,31 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
     Verify a Supabase JWT (access_token) using the project's JWT secret.
     Returns decoded claims if valid, None otherwise.
     """
+    logger.info("JWT received: true")
+
     if not pyjwt:
-        logger.error("[Auth Diagnostic] PyJWT not installed — Supabase token verification unavailable")
+        logger.error("verification failed: PyJWT not installed")
         return None
-    if not _SUPABASE_JWT_SECRET:
-        logger.error("[Auth Diagnostic] SUPABASE_JWT_SECRET not set — cannot verify Supabase JWT")
+
+    # Log unverified token payload
+    try:
+        unverified_claims = pyjwt.decode(token, options={"verify_signature": False})
+        logger.info(f"iss={unverified_claims.get('iss', 'None')}")
+        logger.info(f"aud={unverified_claims.get('aud', 'None')}")
+        logger.info(f"sub={unverified_claims.get('sub', 'None')}")
+        logger.info(f"exp={unverified_claims.get('exp', 'None')}")
+        logger.info(f"role={unverified_claims.get('role', 'None')}")
+    except Exception as e:
+        logger.error(f"verification failed: DecodeError during unverified parse: {e}")
+        return None
+
+    # Log secret status
+    secret_exists = bool(_SUPABASE_JWT_SECRET)
+    logger.info(f"JWT secret loaded: {secret_exists}")
+    if secret_exists:
+        logger.info(f"JWT secret length: {len(_SUPABASE_JWT_SECRET)}")
+    else:
+        logger.error("verification failed: SUPABASE_JWT_SECRET not set")
         return None
 
     import base64
@@ -83,29 +103,30 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
         secret_bytes = _SUPABASE_JWT_SECRET.encode()
 
     try:
-        # Decode without verification first to inspect payload
-        unverified_claims = pyjwt.decode(token, options={"verify_signature": False})
-        logger.info(f"[Auth Diagnostic] Token received. Issuer: {unverified_claims.get('iss')}, Audience: {unverified_claims.get('aud')}")
-        
         claims = pyjwt.decode(
             token,
             secret_bytes,
             algorithms=["HS256"],
             options={"verify_aud": False},  # Supabase anon JWTs may not have aud
         )
-        logger.info(f"[Auth Diagnostic] Supabase token verified for sub={claims.get('sub')}")
         return claims
-    except pyjwt.ExpiredSignatureError:
-        logger.error("[Auth Diagnostic] Supabase JWT expired")
+    except pyjwt.ExpiredSignatureError as e:
+        logger.error(f"verification failed: ExpiredSignatureError - {e}")
         return None
-    except pyjwt.InvalidSignatureError:
-        logger.error("[Auth Diagnostic] Supabase JWT signature invalid. This means the backend SUPABASE_JWT_SECRET does NOT match the Supabase project JWT secret.")
+    except pyjwt.InvalidSignatureError as e:
+        logger.error(f"verification failed: InvalidSignatureError - {e}")
         return None
-    except pyjwt.InvalidTokenError as e:
-        logger.error(f"[Auth Diagnostic] Supabase JWT invalid: {e}")
+    except pyjwt.InvalidIssuerError as e:
+        logger.error(f"verification failed: InvalidIssuerError - {e}")
+        return None
+    except pyjwt.InvalidAudienceError as e:
+        logger.error(f"verification failed: InvalidAudienceError - {e}")
+        return None
+    except pyjwt.DecodeError as e:
+        logger.error(f"verification failed: DecodeError - {e}")
         return None
     except Exception as e:
-        logger.error(f"[Auth Diagnostic] Supabase JWT verification error: {e}")
+        logger.error(f"verification failed: Exception - {e}")
         return None
 
 
