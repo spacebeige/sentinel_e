@@ -42,7 +42,8 @@ from metacognitive.schemas import (
     OrchestratorResponse,
 )
 from metacognitive.orchestrator import MetaCognitiveOrchestrator
-from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY, resolve_model_key
+from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+import metacognitive.cognitive_gateway as cg
 from metacognitive.background_daemon import BackgroundDaemon
 
 logger = logging.getLogger("MCO-Routes")
@@ -609,7 +610,7 @@ async def _mco_run_impl(
 
     # Validate selected_model if provided
     if selected_model:
-        resolved_model = resolve_model_key(selected_model)
+        resolved_model = cg.resolve_model_key(selected_model)
         if not resolved_model:
             # Fallback to system default if setting is invalid
             selected_model = None

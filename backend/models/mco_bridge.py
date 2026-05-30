@@ -21,7 +21,8 @@ All calls flow through one gateway, one registry, one validation layer.
 import logging
 from typing import Optional, List, Dict, Any
 
-from metacognitive.cognitive_gateway import CognitiveModelGateway, COGNITIVE_MODEL_REGISTRY, resolve_model_key
+from metacognitive.cognitive_gateway import CognitiveModelGateway, COGNITIVE_MODEL_REGISTRY
+import metacognitive.cognitive_gateway as cg
 from metacognitive.schemas import CognitiveGatewayInput
 
 logger = logging.getLogger("MCOModelBridge")
@@ -83,7 +84,7 @@ class MCOModelBridge:
         Accepts: "groq", "groq-small", "llama70b", "llama-3.3", etc.
         Logs deprecation warning for legacy IDs.
         """
-        resolved_model_key = resolve_model_key(legacy_or_registry_id)
+        resolved_model_key = cg.resolve_model_key(legacy_or_registry_id)
         if resolved_model_key:
             return resolved_model_key
         # Legacy ID → registry key (with deprecation warning)
