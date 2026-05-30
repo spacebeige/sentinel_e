@@ -6,6 +6,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { useAuthContext } from "../providers/AuthProvider";
 import { useSupabaseAuth } from "../hooks/useSupabaseAuth";
 import { trackLogout } from "../services/analyticsService";
+import { LANDING_NAV } from "../config/navigation";
+import AdminModal from "./AdminModal";
+import { useNavigate } from "react-router";
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -13,8 +16,10 @@ export function Navbar() {
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
-  const { user, isAuthenticated, isAdmin } = useAuthContext();
+  const { user, isAuthenticated, isAdmin, role } = useAuthContext();
   const { signOut } = useSupabaseAuth();
+  const navigate = useNavigate();
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
@@ -31,8 +36,8 @@ export function Navbar() {
 
   const mainLinks = [
     { to: "/", label: "Home" },
-    { to: "/chat", label: "Chat" },
-    { to: "/engines", label: "Engines" },
+    { to: LANDING_NAV.PRIMARY.href, label: LANDING_NAV.PRIMARY.label },
+    { to: LANDING_NAV.SECONDARY.href, label: LANDING_NAV.SECONDARY.label },
     { to: "/pricing", label: "Access" },
   ];
 
@@ -208,6 +213,38 @@ export function Navbar() {
             />
           </div>
 
+          {/* Admin Action Button */}
+          <button
+            onClick={() => {
+              if (role === 'admin' || role === 'owner') {
+                navigate('/admin');
+              } else {
+                setIsAdminModalOpen(true);
+              }
+            }}
+            className="flex items-center justify-center w-9 h-9 rounded-full transition-all duration-300 ml-1"
+            title="Admin Portal"
+            style={{
+              background: isDark ? "rgba(139,92,246,0.1)" : "rgba(139,92,246,0.05)",
+              color: "#8b5cf6",
+              border: isDark ? "1px solid rgba(139,92,246,0.2)" : "1px solid rgba(139,92,246,0.1)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "scale(1.03)";
+              e.currentTarget.style.boxShadow = isDark 
+                ? "0 0 12px rgba(139,92,246,0.3)" 
+                : "0 2px 8px rgba(139,92,246,0.2)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.boxShadow = "none";
+            }}
+            onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.97)"}
+            onMouseUp={(e) => e.currentTarget.style.transform = "scale(1.03)"}
+          >
+            <Shield className="w-[18px] h-[18px]" />
+          </button>
+
           <div className="hidden md:flex items-center gap-1.5 ml-1">
             {!isAuthenticated ? (
               <>
@@ -253,16 +290,6 @@ export function Navbar() {
                 >
                   <User className="w-[18px] h-[18px]" />
                 </Link>
-                {isAdmin && (
-                  <Link
-                    to="/admin"
-                    className="p-2 rounded-full transition-all duration-300 hover:bg-black/5 dark:hover:bg-white/5"
-                    title="Admin"
-                    style={{ color: isDark ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.7)" }}
-                  >
-                    <Shield className="w-[18px] h-[18px]" />
-                  </Link>
-                )}
                 <Link
                   to="/settings"
                   className="p-2 rounded-full transition-all duration-300 hover:bg-black/5 dark:hover:bg-white/5"
@@ -382,16 +409,7 @@ export function Navbar() {
                   >
                     <User className="w-5 h-5" /> Profile
                   </Link>
-                  {isAdmin && (
-                    <Link
-                      to="/admin"
-                      onClick={() => setMobileOpen(false)}
-                      className="px-4 py-3 rounded-2xl text-[15px] font-medium transition-colors flex items-center gap-3"
-                      style={{ color: isDark ? "white" : "#1d1d1f" }}
-                    >
-                      <Shield className="w-5 h-5" /> Admin
-                    </Link>
-                  )}
+
                   <Link
                     to="/settings"
                     onClick={() => setMobileOpen(false)}
@@ -428,6 +446,7 @@ export function Navbar() {
           </motion.div>
         )}
       </AnimatePresence>
+      <AdminModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} />
     </div>
   );
 }

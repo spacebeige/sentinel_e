@@ -1,0 +1,143 @@
+--- src/app/components/ChatPage.tsx
++++ src/app/components/ChatPage.tsx
+@@ -161,7 +161,7 @@
+   const [messages, setMessages] = useState<Message[]>([{
+     id: "welcome",
+     role: "assistant",
+     content: "Hello! I'm Sentinel-E, your AI assistant powered by the Omega Cognitive Kernel. How can I help you today?",
+     timestamp: new Date(),
+   }]);
+   const [input, setInput] = useState("");
+   const [isTyping, setIsTyping] = useState(false);
+   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
+-  const { isHistoryOpen, toggleHistory, newChatTriggered, isProMode, setIsProMode } = useChatInteraction();
++  const { isHistoryOpen, toggleHistory, newChatTriggered } = useChatInteraction();
+   const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
+   const [attachedFile, setAttachedFile] = useState<File | null>(null);
+ 
+@@ -264,7 +264,6 @@
+     const saved = loadSession();
+     if (saved.chatId) {
+       setCurrentChatId(saved.chatId);
+-      setIsProMode(saved.isProMode ?? false);
+       if (saved.mode) setSelectedMode(saved.subMode ?? saved.mode);
+       if (saved.debateRounds?.length > 0) {
+         setDebateState(prev => ({ ...prev, rounds: saved.debateRounds }));
+       }
+@@ -300,12 +299,11 @@
+     }
+     
+     saveSession({
+       chatId: currentChatId,
+-      mode: isProMode ? "experimental" : "standard",
++      mode: getModeConfig(selectedMode).orchestrationType || "standard",
+       subMode: selectedMode,
+-      isProMode,
+       debateRounds: debateState.rounds,
+       killOverride: glassState.killOverride
+     });
+-  }, [currentChatId, isProMode, selectedMode, glassState.killOverride, persist]);
++  }, [currentChatId, selectedMode, glassState.killOverride, persist]);
+ 
+   useEffect(() => {
+     if (messagesEndRef.current) {
+@@ -483,11 +481,13 @@
+       try {
+         let response: SentinelRunResponse;
+ 
+-        if (isProMode && selectedMode) {
+-          response = await runExperimental(userText, selectedMode, 6, currentChatId || undefined, glassState.killOverride, attachedFile || undefined, ac.signal);
++        const activeConfig = getModeConfig(selectedMode);
++        console.log({ selectedMode, payloadMode: activeConfig.orchestrationType, payloadSubMode: activeConfig.id });
++        if (activeConfig.isExperimental) {
++          response = await runExperimental(userText, activeConfig.id, 6, currentChatId || undefined, glassState.killOverride, attachedFile || undefined, ac.signal);
+         } else {
+           response = await runStandard(userText, currentChatId || undefined, attachedFile || undefined, ac.signal);
+         }
+ 
+         if (ac.signal.aborted) return;
+ 
+@@ -582,7 +582,7 @@
+         role: "user",
+         content: userText,
+         timestamp: new Date(),
+-        mode: isProMode ? "experimental" : "standard",
++        mode: getModeConfig(selectedMode).orchestrationType || "standard",
+       }
+ 
+       // Start mock stream
+@@ -977,7 +977,7 @@
+               </div>
+               <div className="flex flex-col text-left">
+                 <span style={{ fontSize: "14px", fontWeight: 600, color: isDark ? "#fff" : "#000", lineHeight: "1.2" }}>
+-                  Sentinel {isProMode ? "Pro" : "Standard"}
++                  Sentinel {getModeConfig(selectedMode).isExperimental ? "Pro" : "Standard"}
+                 </span>
+                 <span style={{ fontSize: "11px", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>
+                   {activeModel.name}
+@@ -1007,27 +1007,31 @@
+                       <div className="p-1 space-y-0.5">
+                         {[
+-                          { id: "standard", label: "Standard", sub: "Simple AI experience", pro: false },
+-                          { id: "pro", label: "Pro", sub: "Full orchestration · multi-model", pro: true },
++                          { id: "standard", name: "Standard", sub: "Simple AI experience", isExp: false },
++                          { id: "pro", name: "Pro", sub: "Full orchestration · multi-model", isExp: true },
+                         ].map((m) => (
+-                          <button
++                          {
++                            const activeConfig = getModeConfig(selectedMode);
++                            const active = m.isExp ? activeConfig.isExperimental : !activeConfig.isExperimental;
++                            return (
++                            <button
+                             key={m.id}
+-                            onClick={() => { setMode(m.id); setIsProMode(m.pro); setModeDropdownOpen(false); if (!m.pro) setSelectedMode(null); }}
++                            onClick={() => { setSelectedMode(m.isExp ? "debate" : "standard"); setModeDropdownOpen(false); }}
+                             className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl transition-colors text-left"
+                             style={{
+-                              background: isProMode === m.pro ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") : "transparent",
++                              background: active ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") : "transparent",
+                             }}
+-                            onMouseEnter={(e) => { if (isProMode !== m.pro) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; }}
+-                            onMouseLeave={(e) => { if (isProMode !== m.pro) e.currentTarget.style.background = "transparent"; }}
++                            onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; }}
++                            onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+                           >
+-                            <div className="mt-0.5 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: m.pro ? "rgba(139,92,246,0.15)" : "rgba(59,130,246,0.15)" }}>
+-                              <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.pro ? "#8b5cf6" : "#3b82f6" }} />
++                            <div className="mt-0.5 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: m.isExp ? "rgba(139,92,246,0.15)" : "rgba(59,130,246,0.15)" }}>
++                              <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.isExp ? "#8b5cf6" : "#3b82f6" }} />
+                             </div>
+                             <div>
+                               <div style={{ fontSize: "13px", fontWeight: 600, color: isDark ? "#fff" : "#000" }}>{m.name}</div>
+                               <div style={{ fontSize: "11px", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", marginTop: "1px" }}>{m.sub}</div>
+                             </div>
+-                            {isProMode === m.pro && <Check className="w-3.5 h-3.5 ml-auto mt-1 text-[#3b82f6]" />}
++                            {active && <Check className="w-3.5 h-3.5 ml-auto mt-1 text-[#3b82f6]" />}
+                           </button>
+-                        ))}
++                          );
++                        })}
+                       </div>
+                     </motion.div>
+@@ -1235,7 +1237,7 @@
+               </div>
+               
+               {/* Model metadata */}
+-              <div className="flex gap-2 mb-2 px-1">
+-                <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: textSecondary }}>
+-                  mode={isProMode ? "experimental" : "standard"}
+-                </div>
++              <div className="flex gap-2 mb-2 px-1">
++                <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: textSecondary }}>
++                  mode={getModeConfig(selectedMode).orchestrationType || "standard"}
++                </div>
+               </div>
+ 
+@@ -1438,7 +1440,7 @@
+                 </div>
+ 
+-                {isProMode && (
++                {getModeConfig(selectedMode).isExperimental && (
+                   <button
+                     onClick={() => setIsPlusOpen(!isPlusOpen)}
+                     className="w-8 h-8 rounded-full flex items-center justify-center transition-colors relative z-10"

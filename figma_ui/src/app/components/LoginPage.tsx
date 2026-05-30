@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation, Link } from 'react-router';
 import { useAuthContext } from '../providers/AuthProvider';
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
-import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, Shield, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import { submitAdminRequest } from '../api';
 
 export default function LoginPage() {
+  const location = useLocation();
+  const from = (location.state as any)?.from?.pathname || '/chat';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState('');
@@ -15,17 +18,13 @@ export default function LoginPage() {
 
   const { theme } = useTheme();
   const { isAuthenticated } = useAuthContext();
-  const { signInWithEmail, signInWithGoogle } = useSupabaseAuth();
-  const location = useLocation();
+  const { signInWithEmail, signInWithGoogle, signOut } = useSupabaseAuth();
 
-  const from = (location.state as any)?.from?.pathname || '/chat';
 
   useEffect(() => setMounted(true), []);
 
   const isDark = theme === "dark";
 
-  // Declarative redirect — re-renders when AuthProvider updates isAuthenticated.
-  // No useEffect timing race.
   if (isAuthenticated) {
     return <Navigate to={from} replace />;
   }
@@ -42,8 +41,6 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       await signInWithEmail(email, password);
-      // AuthProvider picks up the session via onAuthStateChange.
-      // This component re-renders with isAuthenticated=true → <Navigate> above fires.
     } catch (err: any) {
       setLocalError(err.message || 'Failed to sign in');
       setIsSubmitting(false);
@@ -63,7 +60,6 @@ export default function LoginPage() {
 
   return (
     <div className={`min-h-screen flex flex-col items-center justify-center p-6 transition-colors duration-500 ${isDark ? "bg-[#08090e]" : "bg-[#f7f8fc]"}`}>
-      {/* Background ambient light */}
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
@@ -95,25 +91,32 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {/* User / Admin Toggle */}
+        <div className="flex justify-center mb-6">
+          <div className="flex p-1 rounded-full relative" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+            <button
+              onClick={() => { setLoginMode('user'); setLocalError(''); }}
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${loginMode === 'user' ? (isDark ? 'bg-[#1d1d1f] text-white shadow-md' : 'bg-white text-[#1d1d1f] shadow-md') : (isDark ? 'text-white/60 hover:text-white' : 'text-black/60 hover:text-black')}`}
+            >
+              <span className="flex items-center gap-2"><User size={16} /> User Login</span>
+            </button>
+            <button
+              onClick={() => { setLoginMode('admin'); setLocalError(''); }}
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${loginMode === 'admin' ? (isDark ? 'bg-[#1d1d1f] text-white shadow-md' : 'bg-white text-[#1d1d1f] shadow-md') : (isDark ? 'text-white/60 hover:text-white' : 'text-black/60 hover:text-black')}`}
+            >
+              <span className="flex items-center gap-2"><Shield size={16} /> Admin Login</span>
+            </button>
+          </div>
+        </div>
+
         <div
           className="rounded-3xl p-8 shadow-2xl relative overflow-hidden"
           style={{
             background: isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.7)",
             backdropFilter: "blur(24px) saturate(180%)",
-            WebkitBackdropFilter: "blur(24px) saturate(180%)",
             border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
           }}
         >
-          {/* Subtle grid */}
-          <div
-            className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.05]"
-            style={{
-              backgroundImage: "linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)",
-              backgroundSize: "20px 20px",
-              maskImage: "radial-gradient(circle at center, black, transparent 80%)"
-            }}
-          />
-
           {localError && (
             <div className="mb-6 rounded-xl bg-red-500/10 p-4 text-[13px] text-red-500 border border-red-500/20 relative z-10 flex items-center">
               {localError}
@@ -122,9 +125,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleEmailSubmit} className="space-y-4 relative z-10">
             <div>
-              <label className="mb-1.5 block text-[13px] font-medium" style={{ color: isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.7)" }}>
-                Email
-              </label>
+              <label className="mb-1.5 block text-[13px] font-medium" style={{ color: isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.7)" }}>Email</label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-3 h-4 w-4" style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)" }} />
                 <input
@@ -137,19 +138,15 @@ export default function LoginPage() {
                     border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(0,0,0,0.08)",
                     color: isDark ? "#f5f5f7" : "#1d1d1f",
                   }}
-                  placeholder="commander@sentinel.dev"
+                  placeholder="user@sentinel.dev"
                 />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between items-center mb-1.5">
-                <label className="block text-[13px] font-medium" style={{ color: isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.7)" }}>
-                  Password
-                </label>
-                <Link to="/forgot-password" className="text-[12px] hover:underline" style={{ color: "#8b5cf6" }}>
-                  Forgot?
-                </Link>
+                <label className="block text-[13px] font-medium" style={{ color: isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.7)" }}>Password</label>
+                <Link to="/forgot-password" className="text-[12px] hover:underline" style={{ color: "#8b5cf6" }}>Forgot?</Link>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-3 h-4 w-4" style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)" }} />
@@ -175,9 +172,7 @@ export default function LoginPage() {
               style={{
                 background: isDark ? "#f5f5f7" : "#1d1d1f",
                 color: isDark ? "#1d1d1f" : "#ffffff",
-                boxShadow: isDark
-                  ? "0 4px 14px rgba(255,255,255,0.15)"
-                  : "0 4px 14px rgba(0,0,0,0.2)",
+                boxShadow: isDark ? "0 4px 14px rgba(255,255,255,0.15)" : "0 4px 14px rgba(0,0,0,0.2)",
               }}
             >
               {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : 'Log In'}
@@ -216,6 +211,7 @@ export default function LoginPage() {
           </p>
         </div>
       </motion.div>
+
     </div>
   );
 }

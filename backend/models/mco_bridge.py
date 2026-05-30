@@ -21,7 +21,7 @@ All calls flow through one gateway, one registry, one validation layer.
 import logging
 from typing import Optional, List, Dict, Any
 
-from metacognitive.cognitive_gateway import CognitiveModelGateway, COGNITIVE_MODEL_REGISTRY
+from metacognitive.cognitive_gateway import CognitiveModelGateway, COGNITIVE_MODEL_REGISTRY, resolve_model_key
 from metacognitive.schemas import CognitiveGatewayInput
 
 logger = logging.getLogger("MCOModelBridge")
@@ -74,8 +74,8 @@ class MCOModelBridge:
         ids = bridge.get_enabled_model_ids()  # ["groq", "llama70b", "deepseek", ...]
     """
 
-    def __init__(self, gateway: CognitiveModelGateway):
-        self.gateway = gateway
+    def __init__(self, gateway: Optional[CognitiveModelGateway] = None):
+        self.gateway = gateway or CognitiveModelGateway()
 
     def _resolve_registry_key(self, legacy_or_registry_id: str) -> Optional[str]:
         """
@@ -83,9 +83,9 @@ class MCOModelBridge:
         Accepts: "groq", "groq-small", "llama70b", "llama-3.3", etc.
         Logs deprecation warning for legacy IDs.
         """
-        # Direct registry key
-        if legacy_or_registry_id in COGNITIVE_MODEL_REGISTRY:
-            return legacy_or_registry_id
+        resolved_model_key = resolve_model_key(legacy_or_registry_id)
+        if resolved_model_key:
+            return resolved_model_key
         # Legacy ID → registry key (with deprecation warning)
         if legacy_or_registry_id in LEGACY_TO_REGISTRY:
             resolved = LEGACY_TO_REGISTRY[legacy_or_registry_id]

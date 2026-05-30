@@ -1,5 +1,6 @@
 import { useTheme } from "next-themes";
 import { MODELS as AVAILABLE_MODELS, getModelConfig, getModeConfig, ALL_RUNTIME_MODES } from "../config/runtime";
+import { supabase } from "../lib/supabase";
 import { Link } from "react-router";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
@@ -46,6 +47,8 @@ import {
   getChatMessages,
   shareChat,
   runOmegaKill,
+  syncConversation,
+  syncMessage,
   type SentinelRunResponse,
   type HealthStatus,
   type ChatHistoryItem,
@@ -96,42 +99,20 @@ interface Message {
   feedbackGiven?: "up" | "down";
 }
 
-// ── Pro model selector options ─────────────────────────────────────────────
-const PRO_MODELS = [
-  { id: "sentinel-sigma", name: "Sentinel Σ", tag: "Sigma", color: "#8b5cf6", sub: "Full orchestration" },
-  { id: "gpt4", name: "GPT-4", tag: "OpenAI", color: "#10b981", sub: "Advanced reasoning" },
-  { id: "gemini", name: "Gemini", tag: "Google", color: "#3b82f6", sub: "Multimodal" },
-  { id: "deepseek", name: "DeepSeek", tag: "DeepSeek", color: "#06b6d4", sub: "Research-grade" },
-  { id: "mistral", name: "Mistral", tag: "Mistral AI", color: "#ef4444", sub: "Fast & efficient" },
-  { id: "llama", name: "Llama 3.1", tag: "Meta", color: "#f97316", sub: "Open source" },
-];
-
-
-// ── Fallback responses ───────────────────────────────────────────────────────
-const modeResponses: Record<string, string[]> = {
-  debate: [
-    "⚔️ **Debate Mode Active**\n\n**FOR:**\nThis approach has significant merit. Studies consistently show improved outcomes when applied correctly. The efficiency gains alone justify adoption — teams report 40% faster iteration cycles.\n\n**AGAINST:**\nHowever, the counterarguments are worth weighing. The upfront learning curve is steep, and not every team has the bandwidth. There's also the vendor lock-in risk.\n\n**VERDICT:** The answer depends on your team's size, timeline, and risk tolerance.",
-  ],
-  glass: [
-    "🔍 **Glass Mode — Full Reasoning Chain**\n\n**Step 1 — Parsing your question:**\nIdentifying the core intent. You're asking about a topic that touches multiple domains.\n\n**Step 2 — Retrieving relevant knowledge:**\nPulling from training data. Moderate-to-high confidence here, flagging any gaps.\n\n**Step 3 — Forming a response:**\nHere's what I'd recommend, and here's *why* I chose it over the alternatives.\n\n**Confidence level:** ~85%.",
-  ],
-  evidence: [
-    "📋 **Evidence Mode — Sources Cited**\n\nBased on available research:\n\n1. The primary mechanism works through attention layers that weigh token relationships ¹\n2. Performance scales roughly as a power law with compute and data ²\n3. Recent benchmarks show significant improvements in reasoning tasks ³\n\n---\n**Sources:**\n¹ Vaswani et al., \"Attention Is All You Need\" (2017)\n² Kaplan et al., Scaling Laws (2020)\n³ Multiple benchmark results, MMLU (2024)",
-  ],
-};
-
-const sampleResponses = [
-  "That's a great question! Let me break it down for you. The key concept here involves understanding how large language models process and generate text through a mechanism called attention. Each token in the input is compared against every other token to determine relevance, creating a rich contextual understanding.",
-  "I'd be happy to help with that! Here's a comprehensive approach:\n\n1. **Start with the fundamentals** - Understanding the core architecture\n2. **Practice with examples** - Hands-on experimentation\n3. **Iterate and refine** - Continuous improvement\n\nWould you like me to dive deeper into any of these areas?",
-  "Based on my analysis, there are several interesting perspectives to consider. The field has evolved rapidly, with new breakthroughs emerging almost weekly. The most significant recent development has been the improvement in reasoning capabilities.",
-];
-
 // ── Main ChatPage ────────────────────────────────────────────────────────────
 export function ChatPage() {
-  const [selectedModel, setSelectedModel] = useState<string | null>("sentinel-sigma");
+  const [selectedModel, setSelectedModel] = useState<string | null>("llama-3-3-70b");
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
   const [runtimeTier, setRuntimeTier] = useState<"standard" | "pro">("standard");
   const [isOrchestrationExpanded, setIsOrchestrationExpanded] = useState(false);
+  const [runtimePreferences, setRuntimePreferences] = useState({
+    responseStyle: "balanced",
+    debateDepth: 6,
+  });
+
+  useEffect(() => {
+    document.title = "Chat • Sentinel-E";
+  }, []);
 
   useEffect(() => {
     console.log({
@@ -146,8 +127,8 @@ export function ChatPage() {
   // Real subscription tier from user metadata
   const subscriptionTier = user?.user_metadata?.subscription || "standard";
 
-  const activeModel = getModelConfig(selectedModel || "sentinel-sigma");
-  const availableModels = AVAILABLE_MODELS.filter(m => m.id !== 'claude');
+  const activeModel = getModelConfig(selectedModel || "llama-3-3-70b");
+  const availableModels = AVAILABLE_MODELS;
   const effectiveMode = (runtimeTier === "pro" && isOrchestrationExpanded && selectedMode) ? selectedMode : "standard";
 
   const availableModes = [
@@ -288,7 +269,8 @@ export function ChatPage() {
 
   // Fetch persisted chat history once user is authenticated
   useEffect(() => {
-    if (user && currentChatId && messages.length === 0) {
+    const onlyWelcome = messages.length === 1 && messages[0]?.id === "welcome";
+    if (user && currentChatId && onlyWelcome) {
       getChatMessages(currentChatId)
         .then(msgs => {
           const restored: Message[] = msgs.map((m, i) => ({
@@ -306,6 +288,27 @@ export function ChatPage() {
         });
     }
   }, [user, currentChatId]); // Only trigger when user is authenticated and we have a chat ID
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("runtime_preference,favorite_model,response_style,debate_depth")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (!data) return;
+        if (data.favorite_model) setSelectedModel(data.favorite_model);
+        if (data.runtime_preference === "pro") {
+          setRuntimeTier("pro");
+          setIsOrchestrationExpanded(true);
+        }
+        setRuntimePreferences({
+          responseStyle: data.response_style || "balanced",
+          debateDepth: Number(data.debate_depth || 6),
+        });
+      });
+  }, [user]);
 
   useEffect(() => {
     if (errorMessage) {
@@ -362,6 +365,14 @@ export function ChatPage() {
         timestamp: new Date(),
       }]);
       setCurrentChatId(chatItem.id);
+      const metadata = chatItem.machine_metadata as Record<string, unknown> | undefined;
+      const restoredModel = metadata?.selected_model || metadata?.winning_model;
+      if (typeof restoredModel === "string") setSelectedModel(restoredModel);
+      if (chatItem.mode?.includes("mco") || metadata?.sub_mode) {
+        setRuntimeTier("pro");
+        setIsOrchestrationExpanded(true);
+        if (typeof metadata?.sub_mode === "string") setSelectedMode(metadata.sub_mode);
+      }
     } catch (err) {
       console.error("Failed to restore chat:", err);
       setErrorMessage("Failed to load chat messages");
@@ -508,23 +519,66 @@ export function ChatPage() {
         let response: SentinelRunResponse;
 
         if (runtimeTier === "pro" && selectedMode) {
-          response = await runExperimental(userText, selectedMode, 6, currentChatId || undefined, glassState.killOverride, attachedFile || undefined, ac.signal);
+          response = await runExperimental(
+            userText,
+            selectedMode,
+            runtimePreferences.debateDepth,
+            currentChatId || undefined,
+            glassState.killOverride,
+            attachedFile || undefined,
+            ac.signal,
+            {
+              responseStyle: runtimePreferences.responseStyle,
+              preferences: {
+                default_mode: selectedMode,
+                default_model: selectedModel,
+              },
+            }
+          );
         } else {
-          response = await runStandard(userText, currentChatId || undefined, attachedFile || undefined, ac.signal);
+          response = await runStandard(
+            userText,
+            selectedModel || "llama-3-3-70b",
+            currentChatId || undefined,
+            attachedFile || undefined,
+            ac.signal,
+            {
+              responseStyle: runtimePreferences.responseStyle,
+              preferences: {
+                default_mode: "standard",
+                default_model: selectedModel,
+              },
+            }
+          );
         }
 
         if (ac.signal.aborted) return;
 
-        if (response.chat_id) setCurrentChatId(response.chat_id);
+        let responseChatId = currentChatId || response.chat_id;
+        
+        if (!currentChatId && response.chat_id) {
+          setCurrentChatId(response.chat_id);
+          syncConversation(response.chat_id, userText.slice(0, 50) + (userText.length > 50 ? '...' : ''), selectedMode || "standard");
+        }
+        
+        if (responseChatId) {
+          syncMessage(responseChatId, "user", userText + (attachedFile ? `\n\n[Attached: ${attachedFile.name}]` : ""));
+        }
 
         if (selectedMode === "debate" && response.omega_metadata) setDebateState((p) => mergeDebateResult(p, response.omega_metadata));
         if (selectedMode === "glass" && response.omega_metadata) setGlassState((p) => mergeGlassState(p, response.omega_metadata));
         if (selectedMode === "evidence" && response.omega_metadata) setEvidenceState((p) => mergeEvidenceState(p, response.omega_metadata));
 
+        const assistantContent = response.formatted_output || response.data?.priority_answer || "No response generated.";
+
+        if (responseChatId) {
+          syncMessage(responseChatId, "assistant", assistantContent);
+        }
+
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: response.formatted_output || response.data?.priority_answer || "No response generated.",
+          content: assistantContent,
           timestamp: new Date(),
           mode: response.sub_mode || selectedMode,
           chatId: response.chat_id,
@@ -541,35 +595,14 @@ export function ChatPage() {
       } catch (err) {
         console.error("Backend request failed:", err);
         setErrorMessage(err instanceof Error ? err.message : "Request failed");
-        generateFallbackResponse();
+        setIsTyping(false);
         removeFile();
       }
     } else {
-      generateFallbackResponse();
+      setErrorMessage("Backend is offline. Real model execution is unavailable.");
+      setIsTyping(false);
       removeFile();
     }
-  };
-
-  const generateFallbackResponse = () => {
-    setTimeout(() => {
-      const currentMode = selectedMode;
-      let response: string;
-      if (currentMode && modeResponses[currentMode]) {
-        const responses = modeResponses[currentMode];
-        response = responses[Math.floor(Math.random() * responses.length)];
-      } else {
-        response = sampleResponses[Math.floor(Math.random() * sampleResponses.length)];
-      }
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: response,
-        timestamp: new Date(),
-        mode: selectedMode,
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-      setIsTyping(false);
-    }, 1200);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1046,7 +1079,7 @@ export function ChatPage() {
                         ].map((m) => (
                           <button
                             key={m.id}
-                            onClick={() => { setRuntimeTier(m.pro ? "pro" : "standard"); setModeDropdownOpen(false); if (!m.pro) { setSelectedMode(null); setSelectedModel("sentinel-sigma"); } }}
+                            onClick={() => { setRuntimeTier(m.pro ? "pro" : "standard"); setModeDropdownOpen(false); if (!m.pro) { setSelectedMode(null); setSelectedModel("llama-3-3-70b"); } }}
                             className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl transition-colors text-left"
                             style={{
                               background: (runtimeTier === "pro") === m.pro ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") : "transparent",
@@ -1340,7 +1373,7 @@ export function ChatPage() {
                 {/* Left actions */}
                 <div className="flex items-center gap-0.5 pb-0.5 relative" style={{ overflow: "visible" }}>
                   
-                  {/* Floating Orchestration Panel attached to + button */}
+                  {/* Floating Mode Panel attached to + button */}
                   <AnimatePresence>
                     {isOrchestrationExpanded && runtimeTier === "pro" && (
                       <motion.div
@@ -1348,7 +1381,7 @@ export function ChatPage() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 8, scale: 0.96 }}
                         transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                        className="absolute z-[140] pointer-events-auto w-[340px] p-3"
+                        className="absolute z-[140] pointer-events-auto w-[240px] p-3"
                         style={{
                           bottom: "calc(100% + 12px)",
                           left: "0",
@@ -1362,91 +1395,55 @@ export function ChatPage() {
                             : "0 10px 30px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.7)",
                         }}
                       >
-                         {selectedModel === 'sentinel-sigma' && (
-                           <>
-                             <div className="mb-2 px-2 text-[11px] font-semibold tracking-wider uppercase" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>Orchestration Modes</div>
-                             <div className="grid grid-cols-2 gap-1.5 mb-4">
-                               {availableModes.map((m) => {
-                                 const isActive = selectedMode === m.id;
-                                 return (
-                                   <button
-                                     key={m.id}
-                                     onClick={() => { 
-                                       setSelectedMode(isActive ? null : m.id); 
-                                       if (!isActive) setSelectedModel(null);
-                                       setIsOrchestrationExpanded(false); 
-                                     }}
-                                     className="flex flex-col items-start gap-1.5 p-2.5 rounded-2xl transition-all text-left"
-                                     style={{
-                                       background: isActive ? m.color : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
-                                       border: isActive ? `1px solid ${m.color}` : "1px solid transparent",
-                                       color: isActive ? "#ffffff" : (isDark ? "#fff" : "#000"),
-                                       boxShadow: isActive ? `0 4px 16px ${m.color}40` : "none",
-                                     }}
-                                     onMouseEnter={(e) => { 
-                                       if (!isActive) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; 
-                                       e.currentTarget.style.transform = "translateY(-1px)";
-                                     }}
-                                     onMouseLeave={(e) => { 
-                                       if (!isActive) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; 
-                                       e.currentTarget.style.transform = "translateY(0)";
-                                     }}
-                                   >
-                                     <div className="p-1.5 rounded-xl" style={{ background: isActive ? "rgba(255,255,255,0.2)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: isActive ? "#fff" : m.color }}>
-                                       <div className="w-2.5 h-2.5 rounded-full" style={{ background: m.color }} />
-                                     </div>
-                                     <div>
-                                       <div className="text-[13px] font-semibold">{m.name}</div>
-                                     </div>
-                                   </button>
-                                 );
-                               })}
-                             </div>
-                           </>
-                         )}
-                         {(!selectedMode || selectedMode === 'standard') && (
-                           <>
-                             <div className="mb-2 mt-4 px-2 text-[11px] font-semibold tracking-wider uppercase" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>Available Models</div>
-                             <div className="grid grid-cols-2 gap-1.5">
-                               {availableModels.map((model) => {
-                                 const isSelected = selectedModel === model.id;
-                                 return (
-                                   <button
-                                     key={model.id}
-                                     onClick={() => { 
-                                       setSelectedModel(model.id); 
-                                       setSelectedMode(null);
-                                       setIsOrchestrationExpanded(false); 
-                                     }}
-                                     className="flex items-center gap-2 p-2 rounded-xl transition-all text-left"
-                                     style={{
-                                       background: isSelected ? (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)") : (isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)"),
-                                       border: isSelected ? (isDark ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(0,0,0,0.1)") : "1px solid transparent",
-                                     }}
-                                     onMouseEnter={(e) => { if(!isSelected) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"; }}
-                                     onMouseLeave={(e) => { if(!isSelected) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)"; }}
-                                   >
-                                     <div className="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)", color: isDark ? "#fff" : "#000" }}>
-                                       <div className="w-1.5 h-1.5 rounded-full" style={{ background: isSelected ? "#3b82f6" : (isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.3)") }} />
-                                     </div>
-                                     <div>
-                                       <div className="text-[12px] font-medium" style={{ color: isDark ? "#fff" : "#000" }}>{model.name}</div>
-                                       <div className="text-[9px] font-medium opacity-50 uppercase tracking-wider">{model.provider}</div>
-                                     </div>
-                                   </button>
-                                 );
-                               })}
-                             </div>
-                           </>
-                         )}
+                         <div className="mb-2 px-2 text-[11px] font-semibold tracking-wider uppercase" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>Orchestration Modes</div>
+                         <div className="grid grid-cols-2 gap-1.5">
+                           {availableModes.map((m) => {
+                             const isActive = selectedMode === m.id;
+                             return (
+                               <button
+                                 key={m.id}
+                                 onClick={() => { 
+                                   setSelectedMode(isActive ? null : m.id); 
+                                   if (!isActive) setSelectedModel("llama-3-3-70b");
+                                   setIsOrchestrationExpanded(false); 
+                                 }}
+                                 className="flex flex-col items-start gap-1.5 p-2.5 rounded-2xl transition-all text-left"
+                                 style={{
+                                   background: isActive ? m.color : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
+                                   border: isActive ? `1px solid ${m.color}` : "1px solid transparent",
+                                   color: isActive ? "#ffffff" : (isDark ? "#fff" : "#000"),
+                                   boxShadow: isActive ? `0 4px 16px ${m.color}40` : "none",
+                                 }}
+                                 onMouseEnter={(e) => { 
+                                   if (!isActive) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)"; 
+                                   e.currentTarget.style.transform = "translateY(-1px)";
+                                 }}
+                                 onMouseLeave={(e) => { 
+                                   if (!isActive) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; 
+                                   e.currentTarget.style.transform = "translateY(0)";
+                                 }}
+                               >
+                                 <div className="p-1.5 rounded-xl" style={{ background: isActive ? "rgba(255,255,255,0.2)" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"), color: isActive ? "#fff" : m.color }}>
+                                   <div className="w-2.5 h-2.5 rounded-full" style={{ background: m.color }} />
+                                 </div>
+                                 <div>
+                                   <div className="text-[13px] font-semibold">{m.name}</div>
+                                 </div>
+                               </button>
+                             );
+                           })}
+                         </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
 
-{/* Plus — opens model selector in Pro mode */}
+                  {/* Plus — opens Mode selector in Pro mode */}
                   {runtimeTier === "pro" && (
                     <button
-                      onClick={() => setIsOrchestrationExpanded(!isOrchestrationExpanded)}
+                      onClick={() => {
+                        setIsOrchestrationExpanded(!isOrchestrationExpanded);
+                        setModeDropdownOpen(false);
+                      }}
                       className="flex items-center justify-center rounded-full transition-all duration-300 flex-shrink-0"
                       style={{ 
                         width: "40px",
@@ -1487,22 +1484,96 @@ export function ChatPage() {
                   />
                 </div>
 
-                {/* Pro model label */}
-                {runtimeTier === "pro" && !isOrchestrationExpanded && (
-                  <button
-                    onClick={() => setIsOrchestrationExpanded(!isOrchestrationExpanded)}
-                    className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl mb-0.5 flex-shrink-0 transition-all"
-                    style={{
-                      background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
-                      border: `1px solid ${borderColor}`,
-                      color: activeModel.color,
-                    }}
-                  >
-                    <div className="w-2 h-2 rounded-full" style={{ background: activeModel.color }} />
-                    <span style={{ fontSize: "11px", fontWeight: 600 }}>{activeModel.name}</span>
-                    <ChevronDown className="w-3 h-3" style={{ color: textSecondary }} />
-                  </button>
-                )}
+                <div className="relative">
+                  {/* Pro model label */}
+                  {runtimeTier === "pro" ? (
+                    <button
+                      disabled={!!selectedMode}
+                      onClick={() => {
+                        setModeDropdownOpen(!modeDropdownOpen);
+                        setIsOrchestrationExpanded(false);
+                      }}
+                      className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl mb-0.5 flex-shrink-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{
+                        background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+                        border: `1px solid ${borderColor}`,
+                        color: activeModel.color,
+                      }}
+                    >
+                      <div className="w-2 h-2 rounded-full" style={{ background: activeModel.color }} />
+                      <span style={{ fontSize: "11px", fontWeight: 600 }}>{activeModel.name}</span>
+                      <ChevronDown className="w-3 h-3" style={{ color: textSecondary }} />
+                    </button>
+                  ) : (
+                    <div
+                      className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl mb-0.5 flex-shrink-0"
+                      style={{
+                        background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+                        border: `1px solid ${borderColor}`,
+                        color: "#8b5cf6",
+                      }}
+                    >
+                      <div className="w-2 h-2 rounded-full" style={{ background: "#8b5cf6" }} />
+                      <span style={{ fontSize: "11px", fontWeight: 600 }}>Sentinel Standard</span>
+                    </div>
+                  )}
+
+                  {/* Floating Model Panel */}
+                  <AnimatePresence>
+                    {modeDropdownOpen && runtimeTier === "pro" && !selectedMode && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                        className="absolute z-[140] pointer-events-auto w-[240px] p-3"
+                        style={{
+                          bottom: "calc(100% + 12px)",
+                          left: "0",
+                          background: isDark ? "rgba(18,18,24,0.78)" : "rgba(255,255,255,0.72)",
+                          backdropFilter: "blur(30px) saturate(180%)",
+                          WebkitBackdropFilter: "blur(30px) saturate(180%)",
+                          border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
+                          borderRadius: "22px",
+                          boxShadow: isDark 
+                            ? "0 18px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05)"
+                            : "0 10px 30px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.7)",
+                        }}
+                      >
+                         <div className="mb-2 px-2 text-[11px] font-semibold tracking-wider uppercase" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }}>Available Models</div>
+                         <div className="grid grid-cols-1 gap-1.5">
+                           {availableModels.map((model) => {
+                             const isSelected = selectedModel === model.id;
+                             return (
+                               <button
+                                 key={model.id}
+                                 onClick={() => { 
+                                   setSelectedModel(model.id); 
+                                   setSelectedMode(null);
+                                   setModeDropdownOpen(false); 
+                                 }}
+                                 className="flex items-center gap-2 p-2 rounded-xl transition-all text-left"
+                                 style={{
+                                   background: isSelected ? (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)") : (isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)"),
+                                   border: isSelected ? (isDark ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(0,0,0,0.1)") : "1px solid transparent",
+                                 }}
+                                 onMouseEnter={(e) => { if(!isSelected) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"; }}
+                                 onMouseLeave={(e) => { if(!isSelected) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)"; }}
+                               >
+                                 <div className="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)", color: isDark ? "#fff" : "#000" }}>
+                                   <div className="w-1.5 h-1.5 rounded-full" style={{ background: isSelected ? "#3b82f6" : (isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.3)") }} />
+                                 </div>
+                                 <div>
+                                   <div className="text-[12px] font-medium" style={{ color: isDark ? "#fff" : "#000" }}>{model.name}</div>
+                                 </div>
+                               </button>
+                             );
+                           })}
+                         </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
 
                 {/* Textarea */}
                 <textarea

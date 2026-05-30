@@ -11,6 +11,10 @@ export function EnginesPage() {
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
 
+  useEffect(() => {
+    document.title = "Engines • Sentinel-E";
+  }, []);
+
   const toggleTheme = () => {
     setTheme(isDark ? "light" : "dark");
   };

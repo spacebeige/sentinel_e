@@ -1,0 +1,15 @@
+@@ -300,12 +299,11 @@
+     }
+     
+     saveSession({
+       chatId: currentChatId,
+-      mode: isProMode ? "experimental" : "standard",
++      mode: getModeConfig(selectedMode).orchestrationType || "standard",
+       subMode: selectedMode,
+-      isProMode,
+       debateRounds: debateState.rounds,
+       killOverride: glassState.killOverride
+     });
+-  }, [currentChatId, isProMode, selectedMode, glassState.killOverride, persist]);
++  }, [currentChatId, selectedMode, glassState.killOverride, persist]);
+ 

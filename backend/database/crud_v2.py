@@ -50,8 +50,8 @@ async def transactional(db: AsyncSession, isolation="SERIALIZABLE"):
             # Auto-commit on success, auto-rollback on error
     """
     try:
-        # Set isolation level
-        await db.connection(lambda c: c.connection.set_isolation_level(isolation))
+        # Set isolation level if supported by dialect/driver
+        # await db.connection(execution_options={"isolation_level": isolation})
         
         yield db
         await db.commit()

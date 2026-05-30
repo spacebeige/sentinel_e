@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
@@ -27,6 +27,7 @@ export default function AuthCallbackPage() {
   const [mounted, setMounted] = useState(false);
   const [callbackError, setCallbackError] = useState<string | null>(null);
   const [status, setStatus] = useState('Verifying credentials...');
+  const exchangeAttempted = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -81,16 +82,21 @@ export default function AuthCallbackPage() {
 
         // If there is a PKCE code, exchange it for a session.
         if (code) {
-          setStatus('Exchanging authorization code...');
-          const exchangeResult = await supabase.auth.exchangeCodeForSession(code);
-          // ── Diagnostic ──────────────────────────────────────────────
-          console.log(
-            '[RAW EXCHANGE RESULT]',
-            JSON.stringify(exchangeResult, null, 2)
-          );
-          // ─────────────────────────────────────────────────────────────
-          if (exchangeResult?.error) {
-            throw exchangeResult.error;
+          if (exchangeAttempted.current) {
+            console.log('[CALLBACK RUNTIME] Exchange already attempted (StrictMode lock). Skipping.');
+          } else {
+            exchangeAttempted.current = true;
+            setStatus('Exchanging authorization code...');
+            const exchangeResult = await supabase.auth.exchangeCodeForSession(code);
+            // ── Diagnostic ──────────────────────────────────────────────
+            console.log(
+              '[RAW EXCHANGE RESULT]',
+              JSON.stringify(exchangeResult, null, 2)
+            );
+            // ─────────────────────────────────────────────────────────────
+            if (exchangeResult?.error) {
+              throw exchangeResult.error;
+            }
           }
         }
 

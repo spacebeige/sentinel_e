@@ -222,6 +222,46 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
     ),
 }
 
+
+# Canonical model resolver. The registry above is the single source of truth;
+# this resolver only maps frontend/provider aliases onto registry keys.
+MODEL_ALIAS_REGISTRY: Dict[str, str] = {
+    "llama33-70b": "llama33-70b",
+    "llama-3-3-70b": "llama33-70b",
+    "llama-3.3-70b": "llama33-70b",
+    "llama-3.3-70b-versatile": "llama33-70b",
+    "qwen3-32b": "mixtral-8x7b",
+    "qwen/qwen3-32b": "mixtral-8x7b",
+    "mixtral-8x7b": "mixtral-8x7b",
+    "llama-4-scout-17b": "llama4-scout",
+    "llama4-scout": "llama4-scout",
+    "meta-llama/llama-4-scout-17b-16e-instruct": "llama4-scout",
+    "qwen-2-5-vl-7b": "qwen-2.5-vl",
+    "qwen-2.5-vl": "qwen-2.5-vl",
+    "qwen/qwen-2.5-vl-7b-instruct": "qwen-2.5-vl",
+    "gemini-flash-2-0": "gemini-flash",
+    "gemini-flash": "gemini-flash",
+    "gemini-2.0-flash": "gemini-flash",
+    "llama-3-1-8b-instant": "llama31-8b",
+    "llama31-8b": "llama31-8b",
+    "llama-3.1-8b-instant": "llama31-8b",
+    "mistral-large-3-675b": "mistral-large-675b",
+    "mistral-large-675b": "mistral-large-675b",
+    "mistralai/mistral-large-3-675b-instruct-2512": "mistral-large-675b",
+    "kimi-k2-thinking": "kimi-k2-thinking",
+    "moonshotai/kimi-k2-thinking": "kimi-k2-thinking",
+}
+
+
+def resolve_model_key(model_id: Optional[str]) -> Optional[str]:
+    """Resolve frontend/provider aliases to a COGNITIVE_MODEL_REGISTRY key."""
+    if not model_id:
+        return None
+    candidate = str(model_id).strip()
+    if candidate in COGNITIVE_MODEL_REGISTRY:
+        return candidate
+    return MODEL_ALIAS_REGISTRY.get(candidate)
+
 # ============================================================
 # Debate Pipeline Registry — v4 (No OpenRouter)
 # ============================================================
@@ -455,9 +495,37 @@ class CognitiveModelGateway:
         "my training only goes up to",
     ]
 
+    # ── Per-provider timeout configuration ─────────────────
+    # connect: max time to establish TCP connection
+    # read: max time to receive the full response body
+    # NVIDIA reasoning models (Kimi K2) require up to 90s read time.
+    _PROVIDER_TIMEOUTS: Dict[str, aiohttp.ClientTimeout] = {}
+
+    @classmethod
+    def _get_provider_timeout(cls, provider: str) -> aiohttp.ClientTimeout:
+        """Return the appropriate ClientTimeout for a given provider."""
+        if provider not in cls._PROVIDER_TIMEOUTS:
+            if provider == "nvidia":
+                # Kimi K2 and Mistral Large are reasoning models — need longer read time
+                cls._PROVIDER_TIMEOUTS[provider] = aiohttp.ClientTimeout(
+                    connect=10, sock_read=90, total=None
+                )
+            elif provider in ("groq", "qwen"):
+                cls._PROVIDER_TIMEOUTS[provider] = aiohttp.ClientTimeout(
+                    connect=5, sock_read=25, total=None
+                )
+            else:
+                # gemini, anthropic, openai, default
+                cls._PROVIDER_TIMEOUTS[provider] = aiohttp.ClientTimeout(
+                    connect=5, sock_read=30, total=None
+                )
+        return cls._PROVIDER_TIMEOUTS[provider]
+
     def __init__(self):
         self.settings = get_settings()
         self._session: Optional[aiohttp.ClientSession] = None
+        # Per-provider sessions keyed by provider name
+        self._provider_sessions: Dict[str, aiohttp.ClientSession] = {}
         # ── Pressure tracking for dynamic token scaling ──
         # Records timestamps of recent 402/429 failures
         self._recent_failures: List[float] = []
@@ -491,15 +559,104 @@ class CognitiveModelGateway:
         self._recent_failures.append(time.monotonic())
 
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Lazy HTTP session."""
+        """Lazy HTTP session (legacy — uses default 30s total timeout).
+        Prefer _get_session_for_provider() for all new call sites.
+        """
         if self._session is None or self._session.closed:
             timeout = aiohttp.ClientTimeout(total=30)
             self._session = aiohttp.ClientSession(timeout=timeout)
         return self._session
 
+    async def _get_session_for_provider(self, provider: str) -> aiohttp.ClientSession:
+        """Return a provider-specific aiohttp session with calibrated timeouts.
+
+        Provider timeouts:
+          groq      — connect=5s, read=25s   (typically responds in 2-5s)
+          gemini    — connect=5s, read=30s
+          qwen      — connect=5s, read=25s
+          nvidia    — connect=10s, read=90s  (Kimi K2 is a thinking model)
+          anthropic — connect=5s, read=30s
+        """
+        sess = self._provider_sessions.get(provider)
+        if sess is None or sess.closed:
+            timeout = self._get_provider_timeout(provider)
+            sess = aiohttp.ClientSession(timeout=timeout)
+            self._provider_sessions[provider] = sess
+        return sess
+
+    async def _call_with_retry(
+        self,
+        provider: str,
+        url: str,
+        headers: Dict,
+        payload: Dict,
+        model_name: str,
+    ):
+        """
+        POST to a provider URL with one retry on transient errors.
+
+        Retried on: HTTP 502, 503, 504 (transient infrastructure errors).
+        Not retried on: 4xx client errors, 401, 429 (rate limits).
+
+        Returns: (response_data: dict, status_code: int, raw_text: str)
+        """
+        import asyncio as _asyncio
+        session = await self._get_session_for_provider(provider)
+        _TRANSIENT = {502, 503, 504}
+        _MAX_ATTEMPTS = 2
+        _RETRY_BACKOFF = 1.0  # seconds before retry
+
+        last_status = 0
+        last_text = ""
+        for attempt in range(_MAX_ATTEMPTS):
+            try:
+                async with session.post(url, headers=headers, json=payload) as resp:
+                    last_status = resp.status
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return data, 200, ""
+                    last_text = await resp.text()
+                    if resp.status in _TRANSIENT and attempt < _MAX_ATTEMPTS - 1:
+                        logger.warning(
+                            f"[{model_name}] Transient error {resp.status} on attempt "
+                            f"{attempt + 1} — retrying in {_RETRY_BACKOFF}s"
+                        )
+                        await _asyncio.sleep(_RETRY_BACKOFF)
+                        # Re-create session if it was closed by the error
+                        session = await self._get_session_for_provider(provider)
+                        continue
+                    return None, last_status, last_text
+            except (aiohttp.ClientConnectorError, aiohttp.ServerDisconnectedError) as conn_err:
+                last_text = str(conn_err)
+                if attempt < _MAX_ATTEMPTS - 1:
+                    logger.warning(
+                        f"[{model_name}] Connection error on attempt {attempt + 1}: "
+                        f"{conn_err} — retrying in {_RETRY_BACKOFF}s"
+                    )
+                    await _asyncio.sleep(_RETRY_BACKOFF)
+                    # Force new session on connection failure
+                    if provider in self._provider_sessions:
+                        try:
+                            await self._provider_sessions[provider].close()
+                        except Exception:
+                            pass
+                        del self._provider_sessions[provider]
+                    session = await self._get_session_for_provider(provider)
+                    continue
+                return None, 0, last_text
+            except aiohttp.ServerTimeoutError as timeout_err:
+                logger.error(f"[{model_name}] Server timeout ({provider}): {timeout_err}")
+                return None, 0, f"Timeout: {timeout_err}"
+
+        return None, last_status, last_text
+
     async def close(self):
         if self._session and not self._session.closed:
             await self._session.close()
+        for provider, sess in list(self._provider_sessions.items()):
+            if not sess.closed:
+                await sess.close()
+        self._provider_sessions.clear()
 
     # ── Public Interface ─────────────────────────────────────
 
@@ -960,31 +1117,30 @@ class CognitiveModelGateway:
             "max_tokens": max_tokens,
         }
 
-        session = await self._get_session()
-        async with session.post(url, headers=headers, json=payload) as resp:
-            if resp.status != 200:
-                text = await resp.text()
-                logger.error(
-                    f"[GROQ ERROR] model={spec.model_id} "
-                    f"status={resp.status} body={text[:500]}"
-                )
-                if resp.status in (402, 429):
-                    self._record_failure()
-                return CognitiveGatewayOutput(
-                    model_name=spec.name, raw_output="",
-                    success=False, error=self._sanitize_provider_error(resp.status, text),
-                )
-            data = await resp.json()
-            choice = data.get("choices", [{}])[0]
-            usage = data.get("usage", {})
-            return CognitiveGatewayOutput(
-                model_name=spec.name,
-                raw_output=choice.get("message", {}).get("content") or "",
-                tokens_used=usage.get("total_tokens", 0),
-                input_tokens=usage.get("prompt_tokens", 0),
-                output_tokens=usage.get("completion_tokens", 0),
-                success=True,
+        data, status, raw_text = await self._call_with_retry(
+            "groq", url, headers, payload, spec.name
+        )
+        if data is None:
+            logger.error(
+                f"[GROQ ERROR] model={spec.model_id} "
+                f"status={status} body={raw_text[:500]}"
             )
+            if status in (402, 429):
+                self._record_failure()
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False, error=self._sanitize_provider_error(status, raw_text),
+            )
+        choice = data.get("choices", [{}])[0]
+        usage = data.get("usage", {})
+        return CognitiveGatewayOutput(
+            model_name=spec.name,
+            raw_output=choice.get("message", {}).get("content") or "",
+            tokens_used=usage.get("total_tokens", 0),
+            input_tokens=usage.get("prompt_tokens", 0),
+            output_tokens=usage.get("completion_tokens", 0),
+            success=True,
+        )
 
     async def _call_gemini(
         self,
@@ -1053,50 +1209,51 @@ class CognitiveModelGateway:
                 "responseMimeType": "text/plain",
             },
         }
+        gemini_headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
 
-        session = await self._get_session()
-        async with session.post(url, json=payload, headers={"Content-Type": "application/json", "x-goog-api-key": api_key}) as resp:
-            if resp.status != 200:
-                text = await resp.text()
-                logger.error(f"Gemini API error [{resp.status}] for {spec.model_id}: {text[:500]}")
-                if resp.status in (402, 429):
-                    self._record_failure()
-                return CognitiveGatewayOutput(
-                    model_name=spec.name, raw_output="",
-                    success=False, error=self._sanitize_provider_error(resp.status, text),
-                )
-            data = await resp.json()
-            candidates = data.get("candidates", [])
-
-            # Handle blocked or empty candidates
-            if not candidates:
-                block_reason = data.get("promptFeedback", {}).get("blockReason", "unknown")
-                return CognitiveGatewayOutput(
-                    model_name=spec.name, raw_output="",
-                    success=False, error=f"Gemini returned no candidates (block: {block_reason})",
-                )
-
-            parts = candidates[0].get("content", {}).get("parts", [])
-            text = parts[0].get("text", "") if parts else ""
-
-            # Handle finish reason SAFETY or empty text
-            finish_reason = candidates[0].get("finishReason", "")
-            if not text.strip():
-                return CognitiveGatewayOutput(
-                    model_name=spec.name, raw_output="",
-                    success=False,
-                    error=f"Gemini returned empty response (finishReason: {finish_reason})",
-                )
-
-            usage = data.get("usageMetadata", {})
+        data, status, raw_text = await self._call_with_retry(
+            "gemini", url, gemini_headers, payload, spec.name
+        )
+        if data is None:
+            logger.error(f"Gemini API error [{status}] for {spec.model_id}: {raw_text[:500]}")
+            if status in (402, 429):
+                self._record_failure()
             return CognitiveGatewayOutput(
-                model_name=spec.name,
-                raw_output=text,
-                tokens_used=usage.get("totalTokenCount", 0),
-                input_tokens=usage.get("promptTokenCount", 0),
-                output_tokens=usage.get("candidatesTokenCount", 0),
-                success=True,
+                model_name=spec.name, raw_output="",
+                success=False, error=self._sanitize_provider_error(status, raw_text),
             )
+
+        candidates = data.get("candidates", [])
+
+        # Handle blocked or empty candidates
+        if not candidates:
+            block_reason = data.get("promptFeedback", {}).get("blockReason", "unknown")
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False, error=f"Gemini returned no candidates (block: {block_reason})",
+            )
+
+        parts = candidates[0].get("content", {}).get("parts", [])
+        text = parts[0].get("text", "") if parts else ""
+
+        # Handle finish reason SAFETY or empty text
+        finish_reason = candidates[0].get("finishReason", "")
+        if not text.strip():
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False,
+                error=f"Gemini returned empty response (finishReason: {finish_reason})",
+            )
+
+        usage = data.get("usageMetadata", {})
+        return CognitiveGatewayOutput(
+            model_name=spec.name,
+            raw_output=text,
+            tokens_used=usage.get("totalTokenCount", 0),
+            input_tokens=usage.get("promptTokenCount", 0),
+            output_tokens=usage.get("candidatesTokenCount", 0),
+            success=True,
+        )
 
     async def _call_qwen(
         self,
@@ -1139,37 +1296,36 @@ class CognitiveModelGateway:
             "max_tokens": max_tokens,
         }
 
-        session = await self._get_session()
-        async with session.post(url, headers=headers, json=payload) as resp:
-            if resp.status != 200:
-                text = await resp.text()
-                logger.error(f"Qwen API error [{resp.status}] for {spec.model_id}: {text[:500]}")
-                if resp.status in (402, 429):
-                    self._record_failure()
-                return CognitiveGatewayOutput(
-                    model_name=spec.name, raw_output="",
-                    success=False, error=self._sanitize_provider_error(resp.status, text),
-                )
-            data = await resp.json()
-            choice = data.get("choices", [{}])[0]
-            usage = data.get("usage", {})
-            raw_content = choice.get("message", {}).get("content") or ""
-
-            # Handle empty or whitespace-only responses
-            if not raw_content.strip():
-                return CognitiveGatewayOutput(
-                    model_name=spec.name, raw_output="",
-                    success=False, error=f"Qwen returned empty response",
-                )
-
+        data, status, raw_text = await self._call_with_retry(
+            "qwen", url, headers, payload, spec.name
+        )
+        if data is None:
+            logger.error(f"Qwen API error [{status}] for {spec.model_id}: {raw_text[:500]}")
+            if status in (402, 429):
+                self._record_failure()
             return CognitiveGatewayOutput(
-                model_name=spec.name,
-                raw_output=raw_content,
-                tokens_used=usage.get("total_tokens", 0),
-                input_tokens=usage.get("prompt_tokens", 0),
-                output_tokens=usage.get("completion_tokens", 0),
-                success=True,
+                model_name=spec.name, raw_output="",
+                success=False, error=self._sanitize_provider_error(status, raw_text),
             )
+        choice = data.get("choices", [{}])[0]
+        usage = data.get("usage", {})
+        raw_content = choice.get("message", {}).get("content") or ""
+
+        # Handle empty or whitespace-only responses
+        if not raw_content.strip():
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False, error=f"Qwen returned empty response",
+            )
+
+        return CognitiveGatewayOutput(
+            model_name=spec.name,
+            raw_output=raw_content,
+            tokens_used=usage.get("total_tokens", 0),
+            input_tokens=usage.get("prompt_tokens", 0),
+            output_tokens=usage.get("completion_tokens", 0),
+            success=True,
+        )
 
     # ── NVIDIA Provider (Mistral Large 675B, Kimi K2) ────────
 
@@ -1180,7 +1336,11 @@ class CognitiveModelGateway:
         api_key: str = "",
         max_tokens: int = 4096,
     ) -> CognitiveGatewayOutput:
-        """Call NVIDIA API (OpenAI-compatible) for Mistral Large 675B and Kimi K2 Thinking."""
+        """Call NVIDIA API (OpenAI-compatible) for Mistral Large 675B and Kimi K2 Thinking.
+
+        Uses a 90-second read timeout — Kimi K2 is a reasoning model and
+        regularly needs 45-60 seconds to complete multi-step thinking.
+        """
         if not api_key:
             return CognitiveGatewayOutput(
                 model_name=spec.name, raw_output="",
@@ -1219,42 +1379,36 @@ class CognitiveModelGateway:
             payload["frequency_penalty"] = 0.00
             payload["presence_penalty"] = 0.00
 
-        session = await self._get_session()
-        try:
-            async with session.post(url, headers=headers, json=payload) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    logger.error(f"NVIDIA API error [{resp.status}] for {spec.model_id}: {text[:500]}")
-                    if resp.status in (402, 429):
-                        self._record_failure()
-                    return CognitiveGatewayOutput(
-                        model_name=spec.name, raw_output="",
-                        success=False, error=self._sanitize_provider_error(resp.status, text),
-                    )
-                data = await resp.json()
-                choice = data.get("choices", [{}])[0]
-                usage = data.get("usage", {})
-                raw_content = choice.get("message", {}).get("content") or ""
-
-                if not raw_content.strip():
-                    return CognitiveGatewayOutput(
-                        model_name=spec.name, raw_output="",
-                        success=False, error=f"NVIDIA model returned empty response",
-                    )
-
-                return CognitiveGatewayOutput(
-                    model_name=spec.name,
-                    raw_output=raw_content,
-                    tokens_used=usage.get("total_tokens", 0),
-                    input_tokens=usage.get("prompt_tokens", 0),
-                    output_tokens=usage.get("completion_tokens", 0),
-                    success=True,
-                )
-        except Exception as e:
+        # Uses "nvidia" provider — gets 90s read timeout (see _get_provider_timeout)
+        data, status, raw_text = await self._call_with_retry(
+            "nvidia", url, headers, payload, spec.name
+        )
+        if data is None:
+            logger.error(f"NVIDIA API error [{status}] for {spec.model_id}: {raw_text[:500]}")
+            if status in (402, 429):
+                self._record_failure()
             return CognitiveGatewayOutput(
                 model_name=spec.name, raw_output="",
-                success=False, error=f"NVIDIA API error: {str(e)}",
+                success=False, error=self._sanitize_provider_error(status, raw_text),
             )
+        choice = data.get("choices", [{}])[0]
+        usage = data.get("usage", {})
+        raw_content = choice.get("message", {}).get("content") or ""
+
+        if not raw_content.strip():
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False, error=f"NVIDIA model returned empty response",
+            )
+
+        return CognitiveGatewayOutput(
+            model_name=spec.name,
+            raw_output=raw_content,
+            tokens_used=usage.get("total_tokens", 0),
+            input_tokens=usage.get("prompt_tokens", 0),
+            output_tokens=usage.get("completion_tokens", 0),
+            success=True,
+        )
 
     # ── Anthropic Provider (Claude Sonnet 4.6 — synthesis only) ──
 
@@ -1348,48 +1502,41 @@ class CognitiveModelGateway:
         if system_text:
             payload["system"] = system_text
 
-        session = await self._get_session()
-        try:
-            async with session.post(url, headers=headers, json=payload) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    if resp.status in (402, 429):
-                        self._record_failure()
-                    return CognitiveGatewayOutput(
-                        model_name=spec.name, raw_output="",
-                        success=False, error=self._sanitize_provider_error(resp.status, text),
-                    )
-                data = await resp.json()
-                # Anthropic response: { content: [{ type: "text", text: "..." }] }
-                content_blocks = data.get("content", [])
-                raw_content = ""
-                for block in content_blocks:
-                    if block.get("type") == "text":
-                        raw_content += block.get("text", "")
-
-                if not raw_content.strip():
-                    return CognitiveGatewayOutput(
-                        model_name=spec.name, raw_output="",
-                        success=False, error="Claude returned empty response",
-                    )
-
-                usage = data.get("usage", {})
-                input_tok = usage.get("input_tokens", 0)
-                output_tok = usage.get("output_tokens", 0)
-                _track_claude_usage(input_tok, output_tok)
-                return CognitiveGatewayOutput(
-                    model_name=spec.name,
-                    raw_output=raw_content,
-                    tokens_used=input_tok + output_tok,
-                    input_tokens=input_tok,
-                    output_tokens=output_tok,
-                    success=True,
-                )
-        except Exception as e:
+        data, status, raw_text = await self._call_with_retry(
+            "anthropic", url, headers, payload, spec.name
+        )
+        if data is None:
+            if status in (402, 429):
+                self._record_failure()
             return CognitiveGatewayOutput(
                 model_name=spec.name, raw_output="",
-                success=False, error=f"Anthropic API error: {str(e)}",
+                success=False, error=self._sanitize_provider_error(status, raw_text),
             )
+        # Anthropic response: { content: [{ type: "text", text: "..." }] }
+        content_blocks = data.get("content", [])
+        raw_content = ""
+        for block in content_blocks:
+            if block.get("type") == "text":
+                raw_content += block.get("text", "")
+
+        if not raw_content.strip():
+            return CognitiveGatewayOutput(
+                model_name=spec.name, raw_output="",
+                success=False, error="Claude returned empty response",
+            )
+
+        usage = data.get("usage", {})
+        input_tok = usage.get("input_tokens", 0)
+        output_tok = usage.get("output_tokens", 0)
+        _track_claude_usage(input_tok, output_tok)
+        return CognitiveGatewayOutput(
+            model_name=spec.name,
+            raw_output=raw_content,
+            tokens_used=input_tok + output_tok,
+            input_tokens=input_tok,
+            output_tokens=output_tok,
+            success=True,
+        )
 
     # ── Legacy OpenRouter methods — DISABLED ────────────────
     # OpenRouter credits exhausted (2026-03-09).

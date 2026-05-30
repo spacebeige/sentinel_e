@@ -153,7 +153,8 @@ export function adaptMetadata(raw: Partial<OmegaMetadata> | null | undefined): O
       confidence: 0.5,
     };
   }
-  return {
+  const evidencePayload = raw.evidence_result || raw.forensic_result;
+  const adapted: OmegaMetadata = {
     omega_version: safeString(raw.omega_version, "4.5.0"),
     mode: getModeConfig(safeString(raw.mode)).id,
     sub_mode: safeString(raw.sub_mode),
@@ -165,11 +166,19 @@ export function adaptMetadata(raw: Partial<OmegaMetadata> | null | undefined): O
     confidence_evolution: raw.confidence_evolution ? adaptEvolution(raw.confidence_evolution) : undefined,
     fragility_index: raw.fragility_index != null ? clamp01(raw.fragility_index) : undefined,
     behavioral_risk: raw.behavioral_risk ? adaptBehavioral(raw.behavioral_risk) : undefined,
-    evidence_result: raw.evidence_result ? adaptEvidence(raw.evidence_result) : undefined,
+    evidence_result: evidencePayload ? adaptEvidence(evidencePayload) : undefined,
     stress_result: raw.stress_result ? adaptStress(raw.stress_result) : undefined,
     confidence_components: raw.confidence_components as Record<string, unknown> | undefined,
     debate_result: raw.debate_result ? adaptDebate(raw.debate_result) : undefined,
     kill_active: raw.kill_active ?? undefined,
+  };
+  return {
+    ...raw,
+    ...adapted,
+    forensic_result: raw.forensic_result,
+    audit_result: raw.audit_result,
+    glass_result: raw.glass_result,
+    synthesis_result: raw.synthesis_result,
   };
 }
 
@@ -277,6 +286,16 @@ export function adaptStress(raw: unknown): StressResult {
 export function adaptDebate(raw: unknown): DebateResult {
   if (!raw || typeof raw !== "object") return {};
   const r = raw as Record<string, unknown>;
+  const positionsFromRounds =
+    Array.isArray(r.rounds) && Array.isArray(r.rounds[0])
+      ? (r.rounds[0] as Record<string, unknown>[]).map((p) => ({
+          model: safeString(p.model || p.model_name || p.model_id, "Unknown Model"),
+          position: safeString(p.position || p.argument, "No position provided."),
+          confidence: clamp01(p.confidence ?? 0.5),
+          color: safeString(p.color || p.model_color, "#8b5cf6"),
+          key_points: Array.isArray(p.key_points) ? p.key_points.map(String) : [],
+        }))
+      : undefined;
   return {
     positions: Array.isArray(r.positions)
       ? r.positions.map((p: Record<string, unknown>) => ({
@@ -286,9 +305,9 @@ export function adaptDebate(raw: unknown): DebateResult {
           color: safeString(p.color, "#8b5cf6"),
           key_points: Array.isArray(p.key_points) ? p.key_points.map(String) : [],
         }))
-      : undefined,
-    rounds: safeNum(r.rounds) || undefined,
-    consensus: safeString(r.consensus) || undefined,
+      : positionsFromRounds,
+    rounds: Array.isArray(r.rounds) ? r.rounds.length : safeNum(r.rounds) || undefined,
+    consensus: safeString(r.consensus || (r.analysis as Record<string, unknown> | undefined)?.synthesis) || undefined,
   };
 }
 

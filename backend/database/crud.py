@@ -121,12 +121,9 @@ async def create_chat(
     chat_id: Optional[UUID] = None
 ) -> Chat:
     kwargs = {
-        "chat_name": chat_name,
+        "title": chat_name,
         "mode": mode,
         "user_id": user_id,
-        "session_id": session_id,
-        "rounds": 0,
-        "models_used": []
     }
     if chat_id:
         kwargs["id"] = chat_id
@@ -435,3 +432,46 @@ async def get_context_window(db: AsyncSession, user_id: str, chat_id: UUID) -> O
         select(ContextWindow).where(ContextWindow.user_id == user_id, ContextWindow.chat_id == chat_id)
     )
     return result.scalars().first()
+
+async def search_user_history(db: AsyncSession, user_id: str, q: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """Search user's chats and messages for a query."""
+    from sqlalchemy import or_, String
+    
+    stmt = (
+        select(Message, Chat)
+        .join(Chat, Message.chat_id == Chat.id)
+        .where(
+            Chat.user_id == user_id,
+            or_(
+                Message.content.ilike(f"%{q}%"),
+                Chat.title.ilike(f"%{q}%"),
+            )
+        )
+        .order_by(Message.created_at.desc())
+        .limit(limit)
+    )
+    
+    result = await db.execute(stmt)
+    rows = result.all()
+    
+    results = []
+    seen_message_ids = set()
+    
+    for msg, chat in rows:
+        if msg.id in seen_message_ids:
+            continue
+        seen_message_ids.add(msg.id)
+        
+        results.append({
+            "message_id": str(msg.id),
+            "chat_id": str(chat.id),
+            "chat_title": chat.title,
+            "role": msg.role,
+            "content": msg.content,
+            "created_at": msg.created_at.isoformat() if msg.created_at else None,
+            "mode": chat.mode,
+            "sub_mode": chat.machine_metadata.get("sub_mode") if chat.machine_metadata else None,
+            "winning_model": chat.machine_metadata.get("winning_model") if chat.machine_metadata else None,
+        })
+        
+    return results

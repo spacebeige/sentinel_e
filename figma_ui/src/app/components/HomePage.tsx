@@ -58,6 +58,7 @@ export default function HomePage() {
 
   useEffect(() => {
     setMounted(true);
+    document.title = "Sentinel-E";
   }, []);
   const isDark = theme === "dark";
 

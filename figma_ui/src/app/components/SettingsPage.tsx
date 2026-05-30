@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
-import { Settings, Moon, Sun, Monitor, Bell, Shield, Download, Trash2, Cpu, Save } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { motion } from 'framer-motion';
 import { useTheme } from 'next-themes';
+import { IOSListGroup, IOSListItem } from './ui/IOSListGroup';
+import { IOSToggle } from './ui/IOSToggle';
+import { IOSContextMenu } from './ui/IOSContextMenu';
+import { Settings, User, Monitor, Key, Shield, Download, Trash2, Cpu, Activity, MessageSquare } from 'lucide-react';
+import { MODELS as AVAILABLE_MODELS } from "../config/runtime";
 
 export default function SettingsPage() {
   const { user } = useSupabaseAuth();
@@ -10,208 +16,270 @@ export default function SettingsPage() {
   
   const [preferences, setPreferences] = useState({
     defaultMode: 'standard',
-    defaultModel: 'sentinel-sigma',
-    autoSaveChats: true,
-    conversationHistory: true,
+    defaultModel: 'llama-3-3-70b',
   });
 
   const [privacy, setPrivacy] = useState({
+    telemetryOptIn: true,
     analyticsOptIn: true,
-    storeConversations: true,
+    feedbackOptIn: true,
   });
 
-  useEffect(() => {
-    const savedPrefs = localStorage.getItem('sentinel_preferences');
-    if (savedPrefs) setPreferences(JSON.parse(savedPrefs));
-    
-    const savedPrivacy = localStorage.getItem('sentinel_privacy');
-    if (savedPrivacy) setPrivacy(JSON.parse(savedPrivacy));
-  }, []);
+  const [advanced, setAdvanced] = useState({
+    responseStyle: 'balanced',
+    debateDepth: '6',
+  });
 
-  const savePreferences = (newPrefs: any) => {
-    setPreferences(newPrefs);
-    localStorage.setItem('sentinel_preferences', JSON.stringify(newPrefs));
+  // Privacy Actions Modals
+  const handleExportData = () => {
+    if (window.confirm("Are you sure you want to export your data? This will trigger a download of your settings and history.")) {
+      alert("Data export initiated (Simulated).");
+    }
   };
 
-  const savePrivacy = (newPrivacy: any) => {
+  const handleDeleteAccount = () => {
+    if (window.confirm("WARNING: This will permanently delete your account, history, and all data. Are you sure?")) {
+      alert("Account deletion initiated (Simulated).");
+    }
+  };
+
+  useEffect(() => {
+    document.title = "Settings • Sentinel-E";
+    if (!user) return;
+    const fetchProfile = async () => {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      if (data && !error) {
+        setPreferences({
+          defaultMode: data.runtime_preference || 'standard',
+          defaultModel: data.favorite_model || 'llama-3-3-70b',
+        });
+        setAdvanced({
+          responseStyle: data.response_style || 'balanced',
+          debateDepth: String(data.debate_depth || '6'),
+        });
+        setPrivacy({
+          telemetryOptIn: data.telemetry_opt_in ?? true,
+          analyticsOptIn: data.analytics_opt_in ?? true,
+          feedbackOptIn: data.feedback_opt_in ?? true,
+        });
+        if (data.theme_preference) {
+          setTheme(data.theme_preference);
+        }
+      }
+    };
+    fetchProfile();
+  }, [user, setTheme]);
+
+  const savePreferences = async (newPrefs: any) => {
+    setPreferences(newPrefs);
+    if (user) {
+      await supabase.from('profiles').update({
+        runtime_preference: newPrefs.defaultMode,
+        favorite_model: newPrefs.defaultModel,
+        response_style: newPrefs.responseStyle ?? advanced.responseStyle,
+        debate_depth: Number(newPrefs.debateDepth ?? advanced.debateDepth),
+        updated_at: new Date().toISOString()
+      }).eq('id', user.id);
+    }
+  };
+
+  const savePrivacy = async (newPrivacy: any) => {
     setPrivacy(newPrivacy);
-    localStorage.setItem('sentinel_privacy', JSON.stringify(newPrivacy));
+    if (user) {
+      await supabase.from('profiles').update({
+        telemetry_opt_in: newPrivacy.telemetryOptIn,
+        analytics_opt_in: newPrivacy.analyticsOptIn,
+        feedback_opt_in: newPrivacy.feedbackOptIn,
+        updated_at: new Date().toISOString()
+      }).eq('id', user.id);
+    }
+  };
+
+  const handleThemeChange = async (newTheme: string) => {
+    setTheme(newTheme);
+    if (user) {
+      await supabase.from('profiles').update({
+        theme_preference: newTheme,
+        updated_at: new Date().toISOString()
+      }).eq('id', user.id);
+    }
   };
 
   if (!user) return null;
 
-  const surfaceClass = isDark ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5';
-  const textClass = isDark ? 'text-white' : 'text-black';
-  const textMutedClass = isDark ? 'text-white/60' : 'text-black/60';
-
-  const Toggle = ({ checked, onChange }: { checked: boolean, onChange: (c: boolean) => void }) => (
-    <button 
-      onClick={() => onChange(!checked)}
-      className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${checked ? 'bg-indigo-500' : 'bg-zinc-600'}`}
-    >
-      <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ${checked ? 'transform translate-x-6' : ''}`} />
-    </button>
-  );
-
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#09090b]' : 'bg-[#f5f5f7]'} p-8 md:p-12 overflow-y-auto`}>
-      <div className="max-w-4xl mx-auto space-y-8">
-        <h1 className={`text-3xl font-bold flex items-center gap-3 ${textClass}`}>
-          <Settings className="w-8 h-8 text-indigo-500" />
-          Settings Configuration
-        </h1>
+    <div className={`min-h-screen ${isDark ? 'bg-[#000000]' : 'bg-[#F2F2F7]'} font-sans pb-12`}>
+      <div className="max-w-[700px] mx-auto px-4 pt-12 md:pt-16 relative">
+        
+        {/* Clickable Top Logo */}
+        <a href="/" className="absolute top-4 left-4 flex items-center gap-2 cursor-pointer transition-opacity hover:opacity-70">
+          <img src="/logo.png" alt="Sentinel-E" className="h-6 w-auto" />
+          <span className="font-semibold text-black dark:text-white">Sentinel-E</span>
+        </a>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Left Column: Navigation/Sections */}
-          <div className="space-y-6 lg:col-span-1">
-            <div className={`p-6 rounded-3xl border ${surfaceClass} space-y-4`}>
-              <div className={`flex items-center gap-3 font-semibold ${textClass} pb-2 border-b border-white/10`}>
-                <Monitor className="w-5 h-5 text-indigo-400" /> Appearance
-              </div>
-              <div className={`flex items-center gap-3 font-semibold ${textClass} pb-2 border-b border-white/10`}>
-                <Cpu className="w-5 h-5 text-indigo-400" /> Preferences
-              </div>
-              <div className={`flex items-center gap-3 font-semibold ${textClass} pb-2 border-b border-white/10`}>
-                <Shield className="w-5 h-5 text-indigo-400" /> Privacy & Data
-              </div>
-              <div className={`flex items-center gap-3 font-semibold ${textClass}`}>
-                <User className="w-5 h-5 text-indigo-400" /> Account
-              </div>
-            </div>
-          </div>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-8"
+        >
+          <h1 className="text-[32px] font-semibold tracking-tight text-black dark:text-white leading-tight">
+            Settings
+          </h1>
+        </motion.div>
 
-          {/* Right Column: Settings Content */}
-          <div className="space-y-8 lg:col-span-2">
-            
-            {/* Appearance */}
-            <section className={`p-8 rounded-3xl border ${surfaceClass}`}>
-              <h2 className={`text-xl font-bold mb-6 ${textClass}`}>Appearance</h2>
-              <div className="grid grid-cols-3 gap-4">
-                <button 
-                  onClick={() => setTheme('light')}
-                  className={`flex flex-col items-center p-4 rounded-2xl border transition-all ${theme === 'light' ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 hover:bg-white/5'}`}
-                >
-                  <Sun className={`w-8 h-8 mb-2 ${theme === 'light' ? 'text-indigo-400' : textMutedClass}`} />
-                  <span className={`font-medium ${theme === 'light' ? textClass : textMutedClass}`}>Light</span>
-                </button>
-                <button 
-                  onClick={() => setTheme('dark')}
-                  className={`flex flex-col items-center p-4 rounded-2xl border transition-all ${theme === 'dark' ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 hover:bg-white/5'}`}
-                >
-                  <Moon className={`w-8 h-8 mb-2 ${theme === 'dark' ? 'text-indigo-400' : textMutedClass}`} />
-                  <span className={`font-medium ${theme === 'dark' ? textClass : textMutedClass}`}>Dark</span>
-                </button>
-                <button 
-                  onClick={() => setTheme('system')}
-                  className={`flex flex-col items-center p-4 rounded-2xl border transition-all ${theme === 'system' ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 hover:bg-white/5'}`}
-                >
-                  <Monitor className={`w-8 h-8 mb-2 ${theme === 'system' ? 'text-indigo-400' : textMutedClass}`} />
-                  <span className={`font-medium ${theme === 'system' ? textClass : textMutedClass}`}>System</span>
-                </button>
-              </div>
-            </section>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {/* Account Group */}
+          <IOSListGroup title="Account">
+            <IOSListItem 
+              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#8E8E93] flex items-center justify-center"><User className="w-4 h-4 text-white" /></div>}
+              title="Profile"
+              onClick={() => {}}
+            />
+            <IOSListItem 
+              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#007AFF] flex items-center justify-center"><Key className="w-4 h-4 text-white" /></div>}
+              title="Email"
+              rightContent={<span className="text-[15px]">{user.email}</span>}
+              onClick={() => {}}
+            />
+          </IOSListGroup>
 
-            {/* Preferences */}
-            <section className={`p-8 rounded-3xl border ${surfaceClass}`}>
-              <h2 className={`text-xl font-bold mb-6 ${textClass}`}>Preferences</h2>
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className={`font-semibold ${textClass}`}>Default Mode</h3>
-                    <p className={`text-sm ${textMutedClass}`}>Select your starting orchestration mode</p>
-                  </div>
-                  <select 
-                    value={preferences.defaultMode}
-                    onChange={(e) => savePreferences({ ...preferences, defaultMode: e.target.value })}
-                    className={`bg-black/20 border border-white/10 rounded-lg px-3 py-2 outline-none ${textClass}`}
-                  >
-                    <option value="standard">Standard</option>
-                    <option value="pro">Pro Orchestration</option>
-                  </select>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className={`font-semibold ${textClass}`}>Default Model</h3>
-                    <p className={`text-sm ${textMutedClass}`}>Your primary cognitive engine</p>
-                  </div>
-                  <select 
-                    value={preferences.defaultModel}
-                    onChange={(e) => savePreferences({ ...preferences, defaultModel: e.target.value })}
-                    className={`bg-black/20 border border-white/10 rounded-lg px-3 py-2 outline-none ${textClass}`}
-                  >
-                    <option value="sentinel-sigma">Sentinel Σ</option>
-                    <option value="gpt4">GPT-4</option>
-                    <option value="gemini">Gemini</option>
-                  </select>
-                </div>
+          {/* AI Preferences Group */}
+          <IOSListGroup title="AI Preferences">
+            <IOSListItem 
+              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#AF52DE] flex items-center justify-center"><Cpu className="w-4 h-4 text-white" /></div>}
+              title="Default Engine"
+              rightContent={
+                <IOSContextMenu 
+                  value={preferences.defaultModel}
+                  onChange={(val) => savePreferences({ ...preferences, defaultModel: val })}
+                  options={AVAILABLE_MODELS.map(m => ({ label: m.name, value: m.id }))}
+                />
+              }
+            />
+            <IOSListItem 
+              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#5856D6] flex items-center justify-center"><MessageSquare className="w-4 h-4 text-white" /></div>}
+              title="Orchestration Mode"
+              rightContent={
+                <IOSContextMenu 
+                  value={preferences.defaultMode}
+                  onChange={(val) => savePreferences({ ...preferences, defaultMode: val })}
+                  options={[
+                    { label: 'Standard', value: 'standard' },
+                    { label: 'Pro Orchestration', value: 'pro' }
+                  ]}
+                />
+              }
+            />
+            <IOSListItem 
+              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#FF2D55] flex items-center justify-center"><MessageSquare className="w-4 h-4 text-white" /></div>}
+              title="Response Style"
+              rightContent={
+                <IOSContextMenu 
+                  value={advanced.responseStyle}
+                  onChange={(val) => { setAdvanced({ ...advanced, responseStyle: val }); savePreferences({ ...preferences, responseStyle: val }); }}
+                  options={[
+                    { label: 'Analytical', value: 'analytical' },
+                    { label: 'Balanced', value: 'balanced' },
+                    { label: 'Executive', value: 'executive' },
+                    { label: 'Technical', value: 'technical' }
+                  ]}
+                />
+              }
+            />
+            <IOSListItem 
+              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#8E8E93] flex items-center justify-center"><Cpu className="w-4 h-4 text-white" /></div>}
+              title="Debate Depth"
+              rightContent={
+                <IOSContextMenu 
+                  value={advanced.debateDepth}
+                  onChange={(val) => { setAdvanced({ ...advanced, debateDepth: val }); savePreferences({ ...preferences, debateDepth: val }); }}
+                  options={[
+                    { label: '4 Rounds', value: '4' },
+                    { label: '6 Rounds', value: '6' },
+                    { label: '8 Rounds', value: '8' }
+                  ]}
+                />
+              }
+            />
+          </IOSListGroup>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className={`font-semibold ${textClass}`}>Auto-Save Chats</h3>
-                    <p className={`text-sm ${textMutedClass}`}>Automatically persist conversations</p>
-                  </div>
-                  <Toggle 
-                    checked={preferences.autoSaveChats} 
-                    onChange={(c) => savePreferences({ ...preferences, autoSaveChats: c })} 
-                  />
-                </div>
+          {/* Appearance Group */}
+          <IOSListGroup title="Appearance">
+            <IOSListItem 
+              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#FF9500] flex items-center justify-center"><Monitor className="w-4 h-4 text-white" /></div>}
+              title="Theme"
+              rightContent={
+                <IOSContextMenu 
+                  value={theme || 'system'}
+                  onChange={(val) => handleThemeChange(val)}
+                  options={[
+                    { label: 'System', value: 'system' },
+                    { label: 'Dark', value: 'dark' },
+                    { label: 'Light', value: 'light' }
+                  ]}
+                />
+              }
+            />
+          </IOSListGroup>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className={`font-semibold ${textClass}`}>Conversation History</h3>
-                    <p className={`text-sm ${textMutedClass}`}>Display past chats in the sidebar</p>
-                  </div>
-                  <Toggle 
-                    checked={preferences.conversationHistory} 
-                    onChange={(c) => savePreferences({ ...preferences, conversationHistory: c })} 
-                  />
-                </div>
-              </div>
-            </section>
+          {/* Privacy & Security Group */}
+          <IOSListGroup title="Privacy & Security">
+            <IOSListItem 
+              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#34C759] flex items-center justify-center"><Activity className="w-4 h-4 text-white" /></div>}
+              title="Telemetry Opt-In"
+              subtitle="Anonymous usage data to improve Sentinel-E"
+              rightContent={
+                <IOSToggle 
+                  checked={privacy.telemetryOptIn}
+                  onChange={(c) => savePrivacy({ ...privacy, telemetryOptIn: c })}
+                />
+              }
+            />
+            <IOSListItem 
+              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#00C7BE] flex items-center justify-center"><Activity className="w-4 h-4 text-white" /></div>}
+              title="Analytics Opt-In"
+              subtitle="Allow tracking of feature metrics"
+              rightContent={
+                <IOSToggle 
+                  checked={privacy.analyticsOptIn}
+                  onChange={(c) => savePrivacy({ ...privacy, analyticsOptIn: c })}
+                />
+              }
+            />
+            <IOSListItem 
+              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#5AC8FA] flex items-center justify-center"><Shield className="w-4 h-4 text-white" /></div>}
+              title="Feedback Opt-In"
+              subtitle="Allow automated quality review"
+              rightContent={
+                <IOSToggle 
+                  checked={privacy.feedbackOptIn}
+                  onChange={(c) => savePrivacy({ ...privacy, feedbackOptIn: c })}
+                />
+              }
+            />
+          </IOSListGroup>
 
-            {/* Privacy & Account */}
-            <section className={`p-8 rounded-3xl border ${surfaceClass}`}>
-              <h2 className={`text-xl font-bold mb-6 ${textClass}`}>Privacy & Account</h2>
-              <div className="space-y-6">
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className={`font-semibold ${textClass}`}>Analytics Opt-In</h3>
-                    <p className={`text-sm ${textMutedClass}`}>Help improve Sentinel-E with anonymous usage data</p>
-                  </div>
-                  <Toggle 
-                    checked={privacy.analyticsOptIn} 
-                    onChange={(c) => savePrivacy({ ...privacy, analyticsOptIn: c })} 
-                  />
-                </div>
+          {/* Data Controls */}
+          <IOSListGroup title="Data Controls">
+            <IOSListItem 
+              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#007AFF] flex items-center justify-center"><Download className="w-4 h-4 text-white" /></div>}
+              title="Export Data"
+              onClick={handleExportData}
+            />
+            <IOSListItem 
+              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#FF3B30] flex items-center justify-center"><Trash2 className="w-4 h-4 text-white" /></div>}
+              title="Delete Account"
+              destructive
+              onClick={handleDeleteAccount}
+            />
+          </IOSListGroup>
 
-                <div className="flex items-center justify-between pb-6 border-b border-white/10">
-                  <div>
-                    <h3 className={`font-semibold flex items-center gap-2 ${textClass}`}><Download className="w-4 h-4" /> Export Data</h3>
-                    <p className={`text-sm ${textMutedClass}`}>Download all your conversations as JSON</p>
-                  </div>
-                  <button className="px-4 py-2 bg-white/10 hover:bg-white/20 transition-colors rounded-lg font-medium text-white text-sm">
-                    Export
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <div>
-                    <h3 className="font-semibold text-red-500">Danger Zone</h3>
-                    <p className={`text-sm ${textMutedClass}`}>Permanently delete your account and all data</p>
-                  </div>
-                  <button className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors rounded-lg font-medium text-sm flex items-center gap-2">
-                    <Trash2 className="w-4 h-4" /> Delete Account
-                  </button>
-                </div>
-
-              </div>
-            </section>
-
-          </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

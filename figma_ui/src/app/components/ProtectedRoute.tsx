@@ -2,8 +2,8 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router';
 import { useAuthContext } from '../providers/AuthProvider';
 
-export const ProtectedRoute: React.FC<{ children: React.ReactNode; requireAdmin?: boolean }> = ({ children, requireAdmin = false }) => {
-  const { loading, isAuthenticated, isAdmin, user } = useAuthContext();
+export const ProtectedRoute: React.FC<{ children: React.ReactNode; requireAdmin?: boolean; requireOwner?: boolean }> = ({ children, requireAdmin = false, requireOwner = false }) => {
+  const { loading, isAuthenticated, role, user } = useAuthContext();
   const location = useLocation();
   const renderCount = React.useRef(0);
 
@@ -26,7 +26,11 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode; requireAdmin?
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requireAdmin && !isAdmin) {
+  if (requireOwner && role !== 'owner') {
+    return <Navigate to="/chat" replace />;
+  }
+
+  if (requireAdmin && role !== 'admin' && role !== 'owner') {
     return <Navigate to="/chat" replace />;
   }
 

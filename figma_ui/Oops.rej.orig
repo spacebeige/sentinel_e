@@ -1,0 +1,8 @@
+@@ -264,7 +264,6 @@
+     const saved = loadSession();
+     if (saved.chatId) {
+       setCurrentChatId(saved.chatId);
+-      setIsProMode(saved.isProMode ?? false);
+       if (saved.mode) setSelectedMode(saved.subMode ?? saved.mode);
+       if (saved.debateRounds?.length > 0) {
+         setDebateState(prev => ({ ...prev, rounds: saved.debateRounds }));

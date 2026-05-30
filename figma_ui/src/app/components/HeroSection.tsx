@@ -4,6 +4,7 @@ import { useTheme } from "next-themes";
 import { motion, useMotionTemplate, useMotionValue, useSpring } from "motion/react";
 import type { MouseEvent } from "react";
 import { useAuthContext } from "../providers/AuthProvider";
+import { LANDING_NAV } from "../config/navigation";
 
 // ── Floating glass depth planes ─────────────────────────────────────────────
 const FLOAT_PLANES = [
@@ -447,7 +448,7 @@ export function HeroSection() {
         >
           {/* Primary CTA */}
           <Link
-            to={isAuthenticated ? "/chat" : "/signup"}
+            to={LANDING_NAV.PRIMARY.href}
             className="relative overflow-hidden px-8 py-3.5 rounded-full font-semibold text-[15px] transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
             style={{
               background: isDark ? "#f5f5f7" : "#1d1d1f",
@@ -458,12 +459,12 @@ export function HeroSection() {
                 : "0 2px 16px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.12)",
             }}
           >
-            {isAuthenticated ? "Chat" : "Sign Up"}
+            {LANDING_NAV.PRIMARY.label}
           </Link>
 
           {/* Secondary CTA */}
           <Link
-            to={isAuthenticated ? "/engines" : "/login"}
+            to={LANDING_NAV.SECONDARY.href}
             className="px-8 py-3.5 rounded-full font-medium text-[15px] transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
             style={{
               background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
@@ -473,7 +474,7 @@ export function HeroSection() {
               backdropFilter: "blur(8px)",
             }}
           >
-            {isAuthenticated ? "Explore Engines" : "Login"}
+            {LANDING_NAV.SECONDARY.label}
           </Link>
         </motion.div>
 

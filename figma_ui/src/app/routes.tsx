@@ -12,6 +12,7 @@ import LoginPage from "./components/LoginPage";
 import SignupPage from "./components/SignupPage";
 import AuthCallbackPage from "./components/AuthCallbackPage";
 import AdminPage from "./components/AdminPage";
+import AdminRequestsPage from "./components/AdminRequestsPage";
 import ForgotPasswordPage from "./components/ForgotPasswordPage";
 import ResetPasswordPage from "./components/ResetPasswordPage";
 import CompleteProfilePage from "./components/CompleteProfilePage";
@@ -51,7 +52,8 @@ export const router = createBrowserRouter([
           { path: "engines", element: <ProtectedRoute><EnginesPage /></ProtectedRoute> },
           { path: "models", element: <ProtectedRoute><EnginesPage /></ProtectedRoute> },
           { path: "pricing", element: <PricingPage /> },
-          { path: "admin", element: <ProtectedRoute requireAdmin><AdminPage /></ProtectedRoute> },
+          { path: "admin", element: <ProtectedRoute><AdminPage /></ProtectedRoute> },
+          { path: "admin/requests", element: <ProtectedRoute><AdminRequestsPage /></ProtectedRoute> },
           { path: "profile", element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
           { path: "settings", element: <ProtectedRoute><SettingsPage /></ProtectedRoute> },
         ],

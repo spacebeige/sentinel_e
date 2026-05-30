@@ -91,13 +91,22 @@ export const MODELS: ModelDefinition[] = [
     color: "#f59e0b"
   },
   {
-    id: "mistral-large-3-675b",
+    id: "mistral-large-675b",
     name: "Mistral Large 3 675B",
     category: "Conceptual",
     description: "Large-scale conceptual and analytical reasoning model.",
     capabilities: "Deep analysis · coding · long-context reasoning",
     provider: "Mistral",
     color: "#f43f5e"
+  },
+  {
+    id: "kimi-k2-thinking",
+    name: "Kimi K2 Thinking",
+    category: "Conceptual",
+    description: "Deep analytical reasoning through NVIDIA-hosted Moonshot Kimi.",
+    capabilities: "Long-context reasoning · critique · complex analysis",
+    provider: "Moonshot AI",
+    color: "#14b8a6"
   }
 ];
 
@@ -221,34 +230,34 @@ export const ORCHESTRATION_MODE_MAP: Record<string, { endpoint: string, mode: st
 export const MODEL_RUNTIME_MAP: Record<string, { provider: string, model: string }> = {
   "llama-3-3-70b": {
     provider: "groq",
-    model: "llama-3.3-70b-versatile",
+    model: "llama33-70b",
   },
   "gemini-flash-2-0": {
     provider: "google",
-    model: "gemini-2.0-flash",
-  },
-  "deepseek": {
-    provider: "deepseek",
-    model: "deepseek-chat",
+    model: "gemini-flash",
   },
   "qwen3-32b": {
-    provider: "alibaba",
-    model: "qwen3-32b",
+    provider: "groq",
+    model: "mixtral-8x7b",
   },
   "llama-4-scout-17b": {
-    provider: "meta",
-    model: "llama-4-scout-17b",
+    provider: "groq",
+    model: "llama4-scout",
   },
   "qwen-2-5-vl-7b": {
-    provider: "alibaba",
-    model: "qwen-2.5-vl-7b",
+    provider: "qwen",
+    model: "qwen-2.5-vl",
   },
   "llama-3-1-8b-instant": {
     provider: "groq",
-    model: "llama-3.1-8b-instant",
+    model: "llama31-8b",
   },
-  "mistral-large-3-675b": {
-    provider: "mistral",
-    model: "mistral-large-3-675b",
+  "mistral-large-675b": {
+    provider: "nvidia",
+    model: "mistral-large-675b",
+  },
+  "kimi-k2-thinking": {
+    provider: "nvidia",
+    model: "kimi-k2-thinking",
   }
 };

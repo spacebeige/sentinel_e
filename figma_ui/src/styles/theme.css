@@ -380,6 +380,33 @@
     -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
 
+  /* ── IOS SPECIFIC TOKENS ──────────────────────────────────────────────── */
+  .ios-glass-panel {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+  }
+
+  .dark .ios-glass-panel {
+    background: rgba(30, 30, 32, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+  }
+
+  .ios-list-item {
+    transition: background-color 0.2s ease;
+  }
+
+  .ios-list-item:active {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .dark .ios-list-item:active {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+
   /* ── CINEMATIC SHADOW ────────────────────────────────────────────────── */
   .sentinel-shadow-dark {
     box-shadow: 0 0 0 1px rgba(255,255,255,0.05),

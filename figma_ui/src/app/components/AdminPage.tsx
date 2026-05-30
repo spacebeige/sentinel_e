@@ -2,20 +2,85 @@ import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '../providers/AuthProvider';
 import { Shield, Activity, Users, Database, MessageSquare, Clock, Cpu, BarChart3 } from 'lucide-react';
 import { getAdminAnalytics, AdminAnalytics } from '../services/analyticsService';
+import { getAdminRequestStatus } from '../api';
+import { Navigate, Link } from 'react-router';
 
 const AdminPage: React.FC = () => {
-  const { user } = useAuthContext();
+  const { user, isAdmin, role } = useAuthContext();
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
+  const [requestStatus, setRequestStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
 
   useEffect(() => {
-    setAnalytics(getAdminAnalytics());
-    
-    // Refresh every 10 seconds
-    const interval = setInterval(() => {
-      setAnalytics(getAdminAnalytics());
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    document.title = "Admin • Sentinel-E";
+    let mounted = true;
+
+    if (role === 'admin' || role === 'owner') {
+      setStatusLoading(false);
+      const fetchAnalytics = async () => {
+        const data = await getAdminAnalytics();
+        if (mounted) setAnalytics(data);
+      };
+      fetchAnalytics();
+      const interval = setInterval(fetchAnalytics, 10000);
+      return () => {
+        mounted = false;
+        clearInterval(interval);
+      };
+    } else {
+      const fetchStatus = async () => {
+        if (user?.email) {
+          const status = await getAdminRequestStatus(user.email);
+          if (mounted) setRequestStatus(status);
+        }
+        if (mounted) setStatusLoading(false);
+      };
+      fetchStatus();
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [role, user?.email]);
+
+  // Redundant email check removed: authorization is handled by ProtectedRoute
+
+
+
+  if (statusLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[#09090b]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-[#8b5cf6]"></div>
+          <span className="text-sm font-medium text-zinc-400">Verifying authorization...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (role !== 'admin' && role !== 'owner') {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#09090b] text-white">
+        <Link to="/" className="fixed top-8 left-8 z-50 transition-transform hover:scale-105">
+          <img src="/logo.png" alt="Sentinel-E" className="h-7 w-auto" />
+        </Link>
+        <div className="w-full max-w-md p-8 rounded-2xl shadow-2xl text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-white/5 border border-white/10">
+            <Shield className="h-8 w-8 text-[#8b5cf6]" />
+          </div>
+          <h2 className="text-xl font-bold mb-3 text-[#f5f5f7]">Access Denied</h2>
+          <p className="text-sm text-zinc-400 mb-8">
+            {requestStatus === 'pending' 
+              ? "Your admin request is pending approval."
+              : "Admin access has not been approved."}
+          </p>
+          <Link to="/chat" className="inline-flex w-full items-center justify-center rounded-xl py-3 text-[14px] font-medium bg-[#f5f5f7] text-[#1d1d1f] transition-all hover:scale-[1.01] active:scale-[0.99]">
+            Return to Chat
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-y-auto bg-[#09090b] text-white">
@@ -27,7 +92,7 @@ const AdminPage: React.FC = () => {
               Sentinel-E Admin Portal
             </h1>
             <p className="mt-2 text-sm text-zinc-400">
-              Welcome back, Commander {user?.email}
+              Welcome back, {user?.email}
             </p>
           </div>
           <div className="rounded-full bg-emerald-500/10 px-4 py-1 text-sm font-medium text-emerald-400 border border-emerald-500/20">

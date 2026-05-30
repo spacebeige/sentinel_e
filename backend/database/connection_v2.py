@@ -178,6 +178,11 @@ async def init_db():
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            
+            # Individual column safety for newly added fields
+            await conn.execute(text("ALTER TABLE chats ADD COLUMN IF NOT EXISTS engine VARCHAR"))
+            await conn.execute(text("ALTER TABLE chats ADD COLUMN IF NOT EXISTS search_text TEXT"))
+            
         logger.info("✓ Database tables initialized")
         return True
     except Exception as e:

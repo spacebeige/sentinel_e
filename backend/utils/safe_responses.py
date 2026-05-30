@@ -61,7 +61,8 @@ def success(
     if message:
         response["message"] = message
     
-    return response, code
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content=response, status_code=code)
 
 
 def error(
@@ -94,7 +95,8 @@ def error(
         "error": error_obj,
     }
     
-    return response, code
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content=response, status_code=code)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -207,7 +209,7 @@ def user_to_dict(user) -> Dict[str, Any]:
         return empty_user_structure()
     
     return {
-        "id": user.id,
+        "id": str(user.id),
         "email": user.email or "",
         "name": user.name or "",
         "provider": user.provider or "clerk",
@@ -224,11 +226,11 @@ def session_to_dict(session) -> Dict[str, Any]:
     
     return {
         "id": str(session.id),
-        "user_id": session.user_id,
+        "user_id": str(session.user_id),
         "client": session.client or "web",
         "created_at": session.created_at.isoformat() if session.created_at else None,
         "last_active_at": session.last_active_at.isoformat() if session.last_active_at else None,
-        "metadata": getattr(session, "metadata_json", None) or getattr(session, "metadata", None) or {},
+        "metadata": getattr(session, "metadata_json", None) or {},
     }
 
 
@@ -248,7 +250,7 @@ def chat_to_dict(chat, messages: Optional[List[Any]] = None) -> Dict[str, Any]:
     
     return {
         "id": str(chat.id),
-        "user_id": chat.user_id,
+        "user_id": str(chat.user_id),
         "title": chat.title or "Untitled Chat",
         "mode": chat.mode or "conversational",
         "messages": messages or [],
@@ -271,11 +273,11 @@ def message_to_dict(message) -> Dict[str, Any]:
     return {
         "id": str(message.id),
         "chat_id": str(message.chat_id),
-        "user_id": message.user_id,
+        "user_id": str(message.user_id),
         "role": message.role or "user",
         "content": message.content or "",
         "reasoning_json": message.reasoning_json,
-        "metadata": getattr(message, "metadata_json", None) or getattr(message, "metadata", None) or {},
+        "metadata": getattr(message, "metadata_json", None) or {},
         "image_url": message.image_url,
         "created_at": message.created_at.isoformat() if message.created_at else None,
     }
@@ -296,7 +298,7 @@ def memory_to_dict(memory) -> Dict[str, Any]:
     
     return {
         "id": str(memory.id),
-        "user_id": memory.user_id,
+        "user_id": str(memory.user_id),
         "key": memory.key,
         "value": memory.value,
         "weight": memory.weight,

@@ -261,6 +261,8 @@ async def ensure_user_exists(
         logger.info(f"User ensured in DB: {user_id}")
         return user_id
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         logger.error(f"Failed to ensure user: {e}")
         raise HTTPException(status_code=500, detail="Failed to initialize user")
 

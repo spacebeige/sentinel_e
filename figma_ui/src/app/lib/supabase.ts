@@ -12,7 +12,7 @@ if (isSupabaseConfigured) {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true,
+      detectSessionInUrl: false,
       flowType: 'pkce',
     },
   });
@@ -22,7 +22,7 @@ if (isSupabaseConfigured) {
       url: supabaseUrl,
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true,
+      detectSessionInUrl: false,
       flowType: 'pkce',
     });
   }
