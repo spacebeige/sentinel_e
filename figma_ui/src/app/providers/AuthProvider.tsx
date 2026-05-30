@@ -1,14 +1,12 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { getCurrentUser } from '../api';
 
 interface AuthContextType {
   session: any;
   user: any;
-  profile: any;
-  role: 'user' | 'admin' | 'owner' | null;
   loading: boolean;
   isAuthenticated: boolean;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -16,13 +14,11 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [role, setRole] = useState<'user' | 'admin' | 'owner' | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
-    let unsubscribe = () => { };
+    let unsubscribe = () => {};
 
     const initialize = async () => {
       if (!isSupabaseConfigured) {
@@ -34,52 +30,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      const fetchProfile = async (userId: string) => {
-        try {
-          const userData = await getCurrentUser();
-          if (isMounted) {
-            if (userData && userData.user) {
-              setProfile(userData.user);
-              setRole(userData.user.role || 'user');
-            } else {
-              setProfile({ id: userId });
-              setRole('user');
-            }
-          }
-        } catch (err) {
-          console.error('[AUTH PROVIDER] Error fetching profile:', err);
-          if (isMounted) {
-            setRole('user');
-          }
-        }
-      };
-
       try {
         const { data } = await supabase.auth.getSession();
         if (!isMounted) return;
         setSession(data?.session ?? null);
         setUser(data?.session?.user ?? null);
-        if (data?.session?.user?.id) {
-          await fetchProfile(data.session.user.id);
-        }
       } finally {
         if (isMounted) {
           setLoading(false);
         }
       }
 
-      const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
         if (!isMounted) return;
         setSession(nextSession ?? null);
         setUser(nextSession?.user ?? null);
-        
-        if (nextSession?.user?.id) {
-          await fetchProfile(nextSession.user.id);
-        } else {
-          setProfile(null);
-          setRole(null);
-        }
-        
         setLoading(false);
       });
 
@@ -94,16 +59,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  const adminAllowlist = useMemo(() => {
+    const raw = (import.meta.env.VITE_RUNTIME_ADMIN_EMAILS || '') as string;
+    return raw
+      .split(',')
+      .map((entry) => entry.trim().toLowerCase())
+      .filter(Boolean);
+  }, []);
+
   const isAuthenticated = Boolean(session?.user?.id);
+  const isAdmin = Boolean(
+    session?.user?.email &&
+    adminAllowlist.includes(session.user.email.toLowerCase())
+  );
 
   const value = useMemo(() => ({
     session,
     user,
-    profile,
-    role,
     loading,
     isAuthenticated,
-  }), [session, user, profile, role, loading, isAuthenticated]);
+    isAdmin,
+  }), [session, user, loading, isAuthenticated, isAdmin]);
 
   return (
     <AuthContext.Provider value={value}>
