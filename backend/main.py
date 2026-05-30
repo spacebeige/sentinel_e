@@ -836,9 +836,12 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     """Production health check."""
     health = {
         "status": "healthy",
-        "version": "5.0.0",
+        "version": "5.0.2-cors-check",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+    
+    # Log allowed origins for diagnostic verification
+    logger.info(f"CORS Check: settings.cors_origins={settings.cors_origins}")
     
     # Check DB
     try:
