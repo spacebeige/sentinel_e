@@ -62,7 +62,12 @@ export async function apiRequest<T = unknown>(
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.access_token) {
     finalHeaders["Authorization"] = `Bearer ${session.access_token}`;
+    console.log(`[Auth Diagnostic] JWT Present for ${path}: true`, { tokenPreview: session.access_token.substring(0, 15) + "..." });
+  } else {
+    console.log(`[Auth Diagnostic] JWT Present for ${path}: false`);
   }
+  
+  console.log(`[Auth Diagnostic] Final Headers for ${path}:`, finalHeaders);
 
   let finalBody: BodyInit | null = null;
 

@@ -70,10 +70,10 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
     Returns decoded claims if valid, None otherwise.
     """
     if not pyjwt:
-        logger.warning("[Auth] PyJWT not installed — Supabase token verification unavailable")
+        logger.error("[Auth Diagnostic] PyJWT not installed — Supabase token verification unavailable")
         return None
     if not _SUPABASE_JWT_SECRET:
-        logger.warning("[Auth] SUPABASE_JWT_SECRET not set — cannot verify Supabase JWT")
+        logger.error("[Auth Diagnostic] SUPABASE_JWT_SECRET not set — cannot verify Supabase JWT")
         return None
 
     import base64
@@ -83,22 +83,29 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
         secret_bytes = _SUPABASE_JWT_SECRET.encode()
 
     try:
+        # Decode without verification first to inspect payload
+        unverified_claims = pyjwt.decode(token, options={"verify_signature": False})
+        logger.info(f"[Auth Diagnostic] Token received. Issuer: {unverified_claims.get('iss')}, Audience: {unverified_claims.get('aud')}")
+        
         claims = pyjwt.decode(
             token,
             secret_bytes,
             algorithms=["HS256"],
             options={"verify_aud": False},  # Supabase anon JWTs may not have aud
         )
-        logger.debug(f"[Auth] Supabase token verified for sub={claims.get('sub')}")
+        logger.info(f"[Auth Diagnostic] Supabase token verified for sub={claims.get('sub')}")
         return claims
     except pyjwt.ExpiredSignatureError:
-        logger.warning("[Auth] Supabase JWT expired")
+        logger.error("[Auth Diagnostic] Supabase JWT expired")
+        return None
+    except pyjwt.InvalidSignatureError:
+        logger.error("[Auth Diagnostic] Supabase JWT signature invalid. This means the backend SUPABASE_JWT_SECRET does NOT match the Supabase project JWT secret.")
         return None
     except pyjwt.InvalidTokenError as e:
-        logger.warning(f"[Auth] Supabase JWT invalid: {e}")
+        logger.error(f"[Auth Diagnostic] Supabase JWT invalid: {e}")
         return None
     except Exception as e:
-        logger.warning(f"[Auth] Supabase JWT verification error: {e}")
+        logger.error(f"[Auth Diagnostic] Supabase JWT verification error: {e}")
         return None
 
 
