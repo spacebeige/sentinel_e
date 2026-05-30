@@ -14,11 +14,12 @@ async def try_conn(password):
         return False
 
 async def main():
-    passwords = [
-        "***REMOVED***",
-        "password123",
-        "sentinel-e-dev-secret-change-in-production-a3f8b2c1d4e5f6"
-    ]
+    import os
+    test_password = os.getenv("SUPABASE_TEST_PASSWORD")
+    if not test_password:
+        print("Please set SUPABASE_TEST_PASSWORD environment variable.")
+        return
+    passwords = [test_password]
     for p in passwords:
         if await try_conn(p):
             break

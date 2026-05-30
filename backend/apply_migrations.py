@@ -2,7 +2,11 @@ import asyncio
 import asyncpg
 import os
 
-POSTGRES_URL = "postgresql://neondb_owner:***REMOVED***@ep-noisy-morning-a10vt6me-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+import os
+
+POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://localhost/neondb")
+if "neondb_owner" in POSTGRES_URL and "npg_" in POSTGRES_URL:
+    raise ValueError("Hardcoded production credentials detected. Please use .env")
 
 async def run():
     conn = await asyncpg.connect(POSTGRES_URL)
