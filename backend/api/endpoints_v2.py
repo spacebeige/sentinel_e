@@ -538,28 +538,38 @@ async def upsert_user_memory(
 # ─────────────────────────────────────────────────────────────
 # USER SETTINGS ENDPOINTS
 # ─────────────────────────────────────────────────────────────
+# SETTINGS & PREFERENCES
+# ─────────────────────────────────────────────────────────────
+
+SETTINGS_SCHEMA: Dict[str, Any] = {
+    "theme": {"type": str, "allowed": ["dark", "light", "system"], "default": "dark"},
+    "language": {"type": str, "allowed": ["en", "es", "fr", "de", "zh"], "default": "en"},
+    "response_style": {"type": str, "allowed": ["concise", "balanced", "detailed"], "default": "balanced"},
+    "default_mode": {"type": str, "allowed": ["standard", "debate", "evidence", "glass", "synthesis"], "default": "standard"},
+    "default_model": {"type": str, "default": "llama-3-3-70b"},
+    "notifications_enabled": {"type": bool, "default": True},
+    "debate_rounds": {"type": int, "min": 1, "max": 10, "default": 3},
+    "auto_save": {"type": bool, "default": True},
+}
 
 @router.get("/user/settings")
 async def get_user_settings_endpoint(
     payload: tuple = Depends(get_current_user_with_db),
 ) -> Dict[str, Any]:
     """
-    Get user interface preferences.
-    
-    Response:
-        {
-            success: true,
-            data: {
-                settings: {theme: ..., language: ..., ...},
-                count: int
-            },
-            error: null
-        }
+    Get user interface preferences. Merges with defaults.
     """
     try:
         _, user_id, db = payload
         
-        settings = await get_user_settings(db, user_id)
+        db_settings = await get_user_settings(db, user_id)
+        
+        # Merge DB settings over schema defaults
+        settings = {k: v.get("default") for k, v in SETTINGS_SCHEMA.items()}
+        for k, v in db_settings.items():
+            if k in settings:
+                settings[k] = v
+                
         return success({
             "settings": settings,
             "count": len(settings),
@@ -567,7 +577,9 @@ async def get_user_settings_endpoint(
     
     except Exception as e:
         logger.error(f"Error loading settings: {e}")
-        return success({"settings": {}, "count": 0})
+        # Return defaults on error
+        default_settings = {k: v.get("default") for k, v in SETTINGS_SCHEMA.items()}
+        return success({"settings": default_settings, "count": len(default_settings)})
 
 
 @router.put("/user/settings")
@@ -576,28 +588,50 @@ async def update_user_settings_endpoint(
     payload: tuple = Depends(get_current_user_with_db),
 ) -> Dict[str, Any]:
     """
-    Update user settings.
-    
-    Request:
-        PUT /api/user/settings
-        {
-            theme: "dark" | "light",
-            language: "en" | "es",
-            notifications_enabled: true,
-            ...
-        }
+    Update user settings with schema validation.
     """
     try:
         _, user_id, db = payload
         
-        # Upsert each setting
+        validated = {}
+        # Validate each incoming setting against schema
         for key, value in settings.items():
+            if key not in SETTINGS_SCHEMA:
+                return error(f"Invalid setting key: {key}", 400)
+                
+            schema = SETTINGS_SCHEMA[key]
+            
+            # Type check
+            if not isinstance(value, schema["type"]):
+                return error(f"Invalid type for {key}. Expected {schema['type'].__name__}", 400)
+                
+            # Allowed values check
+            if "allowed" in schema and value not in schema["allowed"]:
+                return error(f"Invalid value for {key}. Allowed: {schema['allowed']}", 400)
+                
+            # Range check for ints
+            if schema["type"] is int:
+                if "min" in schema and value < schema["min"]:
+                    return error(f"Value for {key} below minimum {schema['min']}", 400)
+                if "max" in schema and value > schema["max"]:
+                    return error(f"Value for {key} above maximum {schema['max']}", 400)
+                    
+            validated[key] = value
+        
+        # Upsert validated settings
+        for key, value in validated.items():
             await upsert_user_setting(db, user_id=user_id, key=key, value=value)
         
-        updated_settings = await get_user_settings(db, user_id)
+        # Fetch updated and merged settings
+        db_settings = await get_user_settings(db, user_id)
+        merged_settings = {k: v.get("default") for k, v in SETTINGS_SCHEMA.items()}
+        for k, v in db_settings.items():
+            if k in merged_settings:
+                merged_settings[k] = v
+                
         return success({
-            "settings": updated_settings,
-            "count": len(updated_settings),
+            "settings": merged_settings,
+            "count": len(merged_settings),
         })
     
     except Exception as e:
@@ -694,7 +728,80 @@ async def get_current_user_info(
             "user": user_to_dict(user_obj),
             "stats": stats,
         })
-    
     except Exception as e:
-        logger.error(f"Error loading user: {e}")
-        return error("Failed to load user", 500)
+        logger.error(f"Error getting user info: {e}")
+        return error("Failed to get user info", 500)
+
+
+@router.get("/user/search")
+async def search_history(
+    q: str,
+    limit: int = 50,
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Search user's history for messages, artifacts, modes, and models.
+    """
+    try:
+        from database.crud import search_user_history
+        _, user_id, db = payload
+        
+        if not q or len(q.strip()) < 2:
+            return error("Query too short", 400)
+            
+        results = await search_user_history(db, user_id, q.strip(), limit)
+        return success({"results": results, "count": len(results)})
+    except Exception as e:
+        logger.error(f"Error searching history: {e}")
+        return error("Failed to search history", 500)
+
+
+@router.get("/user/analytics")
+async def get_analytics(
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Aggregate session, message, and mode usage statistics for the user.
+    """
+    try:
+        from database.models import Chat, Message
+        from sqlalchemy.future import select
+        from collections import Counter
+        
+        _, user_id, db = payload
+        
+        # Fetch all user chats to aggregate
+        chats_result = await db.execute(select(Chat).where(Chat.user_id == user_id))
+        chats = chats_result.scalars().all()
+        
+        # Fetch all messages to get total count
+        msgs_result = await db.execute(select(Message).where(Message.user_id == user_id))
+        messages = msgs_result.scalars().all()
+        
+        mode_usage = Counter()
+        model_usage = Counter()
+        
+        for chat in chats:
+            mode = chat.mode or "conversational"
+            mode_usage[mode] += 1
+            
+            if chat.machine_metadata:
+                model = chat.machine_metadata.get("winning_model")
+                if model:
+                    model_usage[model] += 1
+                
+                # Also capture sub_mode usage as part of mode usage if desired, but mode is enough
+                sub_mode = chat.machine_metadata.get("sub_mode")
+                if sub_mode:
+                    mode_usage[f"{mode}:{sub_mode}"] += 1
+        
+        return success({
+            "total_sessions": len(chats),
+            "total_messages": len(messages),
+            "mode_usage": dict(mode_usage),
+            "model_usage": dict(model_usage),
+        })
+    except Exception as e:
+        logger.error(f"Error fetching analytics: {e}")
+        return error("Failed to fetch analytics", 500)
+

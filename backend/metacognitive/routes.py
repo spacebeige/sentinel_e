@@ -42,7 +42,7 @@ from metacognitive.schemas import (
     OrchestratorResponse,
 )
 from metacognitive.orchestrator import MetaCognitiveOrchestrator
-from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY
+from metacognitive.cognitive_gateway import COGNITIVE_MODEL_REGISTRY, resolve_model_key
 from metacognitive.background_daemon import BackgroundDaemon
 
 logger = logging.getLogger("MCO-Routes")
@@ -475,9 +475,12 @@ async def mco_run(
         chat_id = payload.get("chat_id")
         session_id = payload.get("session_id")
         force_retrieval = bool(payload.get("force_retrieval", False))
-        selected_model = payload.get("selected_model")
+        selected_model = payload.get("selected_model") or payload.get("model")
         image_b64 = payload.get("image_b64")
         image_mime = payload.get("image_mime")
+        rounds = int(payload.get("rounds") or 3)
+        response_style = payload.get("response_style")
+        preferences = payload.get("preferences") if isinstance(payload.get("preferences"), dict) else {}
 
         safe_user = user or {
             "user_id": "anonymous",
@@ -496,6 +499,9 @@ async def mco_run(
             selected_model=selected_model,
             image_b64=image_b64,
             image_mime=image_mime,
+            rounds=rounds,
+            response_style=response_style,
+            preferences=preferences,
             db=db,
             user=safe_user,
         )
@@ -517,8 +523,12 @@ async def mco_run(
         logger.error("/api/mco/run HTTPException: %s", http_exc.detail)
         return JSONResponse(status_code=http_exc.status_code, content={"detail": str(http_exc.detail)})
     except Exception as exc:
+        print("MCO RUN ERROR:", repr(exc))
+        import traceback
+        tb = traceback.format_exc()
+        print("TRACEBACK:", tb)
         logger.error("Unhandled error in /api/mco/run: %s", exc)
-        logger.error(traceback.format_exc())
+        logger.error(tb)
         fallback_text = (
             "I’m still available and your session is intact. "
             "A temporary backend issue occurred, so this is a safe fallback response. "
@@ -549,6 +559,9 @@ async def _mco_run_impl(
     selected_model: Optional[str] = Body(None),
     image_b64: Optional[str] = Body(None),
     image_mime: Optional[str] = Body(None),
+    rounds: int = Body(3),
+    response_style: Optional[str] = Body(None),
+    preferences: Optional[Dict[str, Any]] = Body(None),
     db: AsyncSession = Depends(get_db),
     user: Optional[Dict] = None,
 ):
@@ -562,19 +575,49 @@ async def _mco_run_impl(
     """
     orch = _get_orchestrator()
 
+    # Load and apply user settings
+    from api.endpoints_v2 import SETTINGS_SCHEMA
+    from database.crud import get_user_preferences
+    
+    user_settings = {}
+    if user and user.get("user_id"):
+        db_settings = await get_user_preferences(db, user.get("user_id"))
+        user_settings = {k: v.get("default") for k, v in SETTINGS_SCHEMA.items()}
+        for k, v in db_settings.items():
+            if k in user_settings:
+                user_settings[k] = v
+
+    # Apply defaults if parameters are missing or set to basic defaults
+    if not selected_model and user_settings.get("default_model"):
+        selected_model = user_settings.get("default_model")
+        
+    # The frontend usually sends "standard" if no mode is selected.
+    if mode == "standard" and user_settings.get("default_mode") and user_settings.get("default_mode") != "standard":
+        # Check if the default mode is a sub_mode (like debate, pro, evidence)
+        default_m = user_settings.get("default_mode")
+        if default_m in ["debate", "evidence", "glass", "synthesis", "pro"]:
+            mode = "experimental"
+            sub_mode = default_m
+        else:
+            mode = default_m
+            
+    if rounds == 3 and user_settings.get("debate_rounds"):
+        rounds = user_settings.get("debate_rounds")
+        
+    if not response_style and user_settings.get("response_style"):
+        response_style = user_settings.get("response_style")
+
     # Validate selected_model if provided
     if selected_model:
-        if selected_model not in COGNITIVE_MODEL_REGISTRY:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unknown model: {selected_model}",
-            )
-        spec = COGNITIVE_MODEL_REGISTRY[selected_model]
-        if not spec.enabled:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Model not enabled: {selected_model}",
-            )
+        resolved_model = resolve_model_key(selected_model)
+        if not resolved_model:
+            # Fallback to system default if setting is invalid
+            selected_model = None
+        else:
+            selected_model = resolved_model
+            spec = COGNITIVE_MODEL_REGISTRY.get(selected_model)
+            if not spec or not spec.enabled:
+                selected_model = None
 
     # Resolve operating mode
     try:
@@ -587,6 +630,8 @@ async def _mco_run_impl(
     if chat_id:
         try:
             chat = await get_chat(db, UUID(chat_id), user_id=user.get("user_id"))
+            if chat:
+                db.expunge(chat)
         except (ValueError, Exception):
             pass
 
@@ -596,6 +641,7 @@ async def _mco_run_impl(
             db, chat_name, f"mco-{mode}",
             user_id=user["user_id"],
         )
+        db.expunge(chat)
 
     orch_run, orch_bus = _start_runtime_run(
         str(chat.id),
@@ -697,6 +743,26 @@ async def _mco_run_impl(
         logger.warning(f"Context build skipped: {ctx_err}")
         context_meta = {"context_applied": False, "error": str(ctx_err)[:200]}
 
+    runtime_preferences = dict(preferences or {})
+    if response_style:
+        runtime_preferences["response_style"] = response_style
+    if runtime_preferences:
+        preference_lines = []
+        style = runtime_preferences.get("response_style")
+        if style:
+            preference_lines.append(f"Response style: {style}.")
+        default_mode = runtime_preferences.get("default_mode")
+        if default_mode:
+            preference_lines.append(f"Default mode preference: {default_mode}.")
+        if preference_lines:
+            contextual_query = (
+                "[USER RUNTIME PREFERENCES]\n"
+                + "\n".join(preference_lines)
+                + "\n\n"
+                + contextual_query
+            )
+            context_meta["runtime_preferences"] = runtime_preferences
+
     if document_cognition.get("semantic_context"):
         contextual_query = (
             f"[DOCUMENT COGNITION]\n{document_cognition['semantic_context']}"
@@ -722,17 +788,17 @@ async def _mco_run_impl(
     # Skip debate for trivial queries even if debate mode is requested.
     # ══════════════════════════════════════════════════════════
     effective_sub_mode = sub_mode
-    if effective_sub_mode == "debate" and query_complexity == "trivial":
+    if effective_sub_mode in ("debate", "pro") and query_complexity == "trivial":
         logger.info(f"Trivial query in debate mode — skipping debate for chat {chat.id}")
         effective_sub_mode = None  # Fall through to standard MCO pipeline
 
     # If user selected a specific model, never route to debate engine
-    if selected_model and effective_sub_mode == "debate":
+    if selected_model and effective_sub_mode in ("debate", "pro"):
         logger.info(f"Single model '{selected_model}' selected — skipping debate")
         effective_sub_mode = None
 
     predicted_execution_path = (
-        "ensemble" if effective_sub_mode == "debate" else
+        "ensemble" if effective_sub_mode in ("debate", "pro") else
         "fast_standard" if query_complexity == "trivial" and not selected_model and not image_b64 else
         "single_model" if selected_model else
         "standard_mco"
@@ -741,21 +807,24 @@ async def _mco_run_impl(
         orch_run,
         orch_bus,
         execution_path=predicted_execution_path,
-        reason="debate_sub_mode" if effective_sub_mode == "debate" else "mco_standard_pipeline",
+        reason="debate_sub_mode" if effective_sub_mode in ("debate", "pro") else "mco_standard_pipeline",
         query_complexity=query_complexity,
         selected_model=selected_model,
-        debate_requested=effective_sub_mode == "debate",
+        debate_requested=effective_sub_mode in ("debate", "pro"),
     )
 
-    if effective_sub_mode == "debate" and _cognitive_engine is not None:
+    skip_mco = False
+    
+    if effective_sub_mode in ("debate", "pro") and _cognitive_engine is not None:
         logger.info(f"Debate mode: delegating to CognitiveOrchestrator for chat {chat.id}")
         _transition_runtime(orch_run, orch_bus, CognitivePhase.SPAWN_AGENTS, {"path": "ensemble"})
         try:
             from core.ensemble_schemas import EnsembleFailure
+            debate_rounds = max(1, min(int(rounds or 3), 10))
             ensemble_response = await _cognitive_engine.process(
                 query=contextual_query,
                 chat_id=str(chat.id),
-                rounds=3,
+                rounds=debate_rounds,
                 image_b64=image_b64,
                 image_mime=image_mime,
             )
@@ -817,13 +886,7 @@ async def _mco_run_impl(
             await update_chat_metadata(
                 db, chat.id,
                 priority_answer=formatted_output,
-                machine_metadata={
-                    "engine": "CognitiveCoreEngine",
-                    "mode": "debate",
-                    "sub_mode": "debate",
-                    "models_executed": ensemble_response.models_executed,
-                    "debate_rounds": ensemble_response.debate_result.total_rounds,
-                },
+                machine_metadata=omega_metadata,
                 rounds=ensemble_response.debate_result.total_rounds,
             )
 
@@ -964,14 +1027,80 @@ async def _mco_run_impl(
                 "models_failed": ensemble_response.models_failed,
             }
 
-            debate_result = _attach_runtime_metadata(
-                debate_result,
-                orch_run,
-                omega_metadata.get("cognitive_artifact"),
-            )
-            # Sanitize before returning
-            debate_result = _sanitize_mco_response(debate_result)
-            return debate_result
+            if effective_sub_mode == "debate":
+                debate_result = _attach_runtime_metadata(
+                    debate_result,
+                    orch_run,
+                    omega_metadata.get("cognitive_artifact"),
+                )
+                # Sanitize before returning
+                debate_result = _sanitize_mco_response(debate_result)
+                return debate_result
+                
+            elif effective_sub_mode == "pro":
+                # Adapt EnsembleResponse into OrchestratorResponse for chaining
+                class DummyOutput:
+                    def __init__(self, raw, name):
+                        self.raw_output = raw
+                        self.model_name = name
+                        self.success = True
+                        self.error = None
+                        self.latency_ms = 0
+                        
+                class DummyScore:
+                    def __init__(self, score):
+                        self.final_score = score
+                        self.topic_alignment = score
+                        self.knowledge_grounding = score
+                        self.specificity = score
+                        self.confidence_calibration = score
+                        self.drift_penalty = 0
+
+                class DummyResult:
+                    def __init__(self, out, sc):
+                        self.output = out
+                        self.score = sc
+
+                class DummyBreakdown:
+                    def __init__(self, name, score):
+                        self.model_name = name
+                        self.final_score = score
+                        self.topic_alignment = score
+                        self.knowledge_grounding = score
+                        self.specificity = score
+                        self.confidence_calibration = score
+                        self.drift_penalty = 0
+                        self.score = score
+
+                adapted_results = []
+                adapted_scoring = []
+                for m in (ensemble_response.model_outputs or []):
+                    name = getattr(m, "model_name", "unknown")
+                    raw = getattr(m, "raw_output", "") or getattr(m, "position", "")
+                    conf = getattr(m, "confidence", 0.8)
+                    adapted_results.append(DummyResult(DummyOutput(raw, name), DummyScore(conf)))
+                    adapted_scoring.append(DummyBreakdown(name, conf))
+                
+                class AdaptedResponse:
+                    def __init__(self):
+                        self.all_results = adapted_results
+                        self.scoring_breakdown = adapted_scoring
+                        self.divergence_metrics = {"max_divergence": ens_entropy, "convergence": "high" if ens_entropy < 0.3 else "low"}
+                        self.aggregated_answer = formatted_output
+                        self.winning_model = getattr(ensemble_response.debate_result, "winning_model", "ensemble")
+                        self.drift_score = getattr(ensemble_response.debate_result, "drift_index", 0.0)
+                        self.volatility_score = ens_fragility
+                        self.mode = OperatingMode.EXPERIMENTAL
+                        self.sub_mode = "pro"
+                        self.session_id = str(chat.id)
+                        self.refinement_cycles = getattr(ensemble_response.debate_result, "total_rounds", 1)
+                        self.winning_score = confidence
+                        self.latency_ms = 0
+                
+                # Expose adapted response to the rest of the pipeline
+                response = AdaptedResponse()
+                skip_mco = True
+                pro_omega_metadata = omega_metadata
 
     # ══════════════════════════════════════════════════════════
     # FAST-PATH: Trivial queries bypass the full 10-step protocol
@@ -1118,17 +1247,18 @@ async def _mco_run_impl(
     )
 
     # Execute 10-step protocol
-    try:
-        _transition_runtime(orch_run, orch_bus, CognitivePhase.SPAWN_AGENTS, {"path": predicted_execution_path})
-        response = await orch.process(request)
-    except RuntimeError as e:
-        logger.error(f"MCO execution error: {e}")
-        _fail_runtime_run(orch_run, orch_bus, str(e), "MCO_RUNTIME_ERROR")
-        raise HTTPException(status_code=502, detail="Model processing failed. Please try again.")
-    except Exception as e:
-        logger.error(f"MCO execution failed: {e}", exc_info=True)
-        _fail_runtime_run(orch_run, orch_bus, str(e), "MCO_EXECUTION_ERROR")
-        raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
+    if not skip_mco:
+        try:
+            _transition_runtime(orch_run, orch_bus, CognitivePhase.SPAWN_AGENTS, {"path": predicted_execution_path})
+            response = await orch.process(request)
+        except RuntimeError as e:
+            logger.error(f"MCO execution error: {e}")
+            _fail_runtime_run(orch_run, orch_bus, str(e), "MCO_RUNTIME_ERROR")
+            raise HTTPException(status_code=502, detail="Model processing failed. Please try again.")
+        except Exception as e:
+            logger.error(f"MCO execution failed: {e}", exc_info=True)
+            _fail_runtime_run(orch_run, orch_bus, str(e), "MCO_EXECUTION_ERROR")
+            raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
 
     # Guard: no blank responses
     if not response.aggregated_answer or not response.aggregated_answer.strip():
@@ -1175,7 +1305,10 @@ async def _mco_run_impl(
 
     divergence = response.divergence_metrics or {}
 
-    omega_metadata = {
+    if skip_mco:
+        omega_metadata = pro_omega_metadata
+    else:
+        omega_metadata = {
         "mode": response.mode.value,
         "sub_mode": response.sub_mode or sub_mode,
         "confidence": round(response.winning_score, 4),
@@ -1195,6 +1328,7 @@ async def _mco_run_impl(
         "scoring_breakdown": scoring_serialized,
         "divergence_metrics": divergence,
         "context_builder": context_meta,
+        "runtime_preferences": runtime_preferences,
     }
 
     if orch_run is not None:
@@ -1252,63 +1386,58 @@ async def _mco_run_impl(
         "confidence": round(response.winning_score, 4),
     }
 
-    # ── Build omega_metadata (unified frontend contract) ────
-    all_outputs_serialized = [
-        {
-            "model_name": r.output.model_name,
-            "raw_output": r.output.raw_output,
-            "tokens_used": r.output.tokens_used,
-            "latency_ms": round(r.output.latency_ms, 1),
-            "success": r.output.success,
-            "error": r.output.error,
-            "score": {
-                "topic_alignment": round(r.score.topic_alignment, 4),
-                "knowledge_grounding": round(r.score.knowledge_grounding, 4),
-                "specificity": round(r.score.specificity, 4),
-                "confidence_calibration": round(r.score.confidence_calibration, 4),
-                "drift_penalty": round(r.score.drift_penalty, 4),
-                "final_score": round(r.score.final_score, 4),
-            },
-        }
-        for r in response.all_results
-    ]
+    # Build visualizations if possible
+    omega_metadata["visualizations"] = {}
+    try:
+        from viz.battle_visualization import BattleVisualizationEngine
+        from core.ensemble_schemas import StructuredModelOutput
+        viz_engine = BattleVisualizationEngine()
+        
+        # We need StructuredModelOutputs for the viz engine
+        structured_outputs = []
+        for r in response.all_results:
+            if r.output.success and r.output.raw_output:
+                structured_outputs.append(StructuredModelOutput(
+                    model_id=r.output.model_name,
+                    position=r.output.raw_output[:500],
+                    reasoning=r.output.raw_output,
+                ))
+        
+        if structured_outputs:
+            sim_matrix, model_labels = viz_engine._build_similarity_matrix(structured_outputs)
+            
+            if sim_matrix and model_labels:
+                # 1. Heatmap
+                from viz.conflict_visualizer import ConflictVisualizer
+                cv = ConflictVisualizer()
+                heatmap_b64 = cv.plot_similarity_heatmap(model_labels, sim_matrix)
+                if heatmap_b64:
+                    omega_metadata["visualizations"]["heatmap_png"] = heatmap_b64
+                
+                # 2. Conflict Graph
+                from viz.conflict_graph import build_conflict_edges, plot_conflict_graph
+                similarities = {}
+                n = len(structured_outputs)
+                for i in range(n):
+                    for j in range(i + 1, n):
+                        key = (structured_outputs[i].model_id, structured_outputs[j].model_id)
+                        similarities[key] = sim_matrix[i][j]
+                
+                conflict_png = plot_conflict_graph(
+                    models=model_labels,
+                    similarities=similarities,
+                    threshold=0.6,
+                    display=False,
+                )
+                if conflict_png:
+                    omega_metadata["visualizations"]["conflict_graph_png"] = conflict_png
 
-    scoring_serialized = [
-        {
-            "model": s.model_name,
-            "T": round(s.topic_alignment, 4),
-            "K": round(s.knowledge_grounding, 4),
-            "S": round(s.specificity, 4),
-            "C": round(s.confidence_calibration, 4),
-            "D": round(s.drift_penalty, 4),
-            "final": round(s.final_score, 4),
-        }
-        for s in (response.scoring_breakdown or [])
-    ]
+                # Also save the raw sim matrix for the frontend to render interactively
+                omega_metadata["visualizations"]["similarity_matrix"] = sim_matrix
+                omega_metadata["visualizations"]["model_labels"] = model_labels
 
-    divergence = response.divergence_metrics or {}
-
-    omega_metadata = {
-        "mode": response.mode.value,
-        "sub_mode": response.sub_mode or sub_mode,
-        "confidence": round(response.winning_score, 4),
-        "winning_model": response.winning_model,
-        "model_count": len(response.all_results),
-        "latency_ms": round(response.latency_ms, 1),
-        "drift_score": round(response.drift_score, 4),
-        "volatility_score": round(response.volatility_score, 4),
-        "session_state": {
-            "session_id": response.session_id,
-            "refinement_cycles": response.refinement_cycles,
-            "drift_score": round(response.drift_score, 4),
-            "volatility_score": round(response.volatility_score, 4),
-            "inferred_domain": divergence.get("domain_classification", None),
-        },
-        "all_outputs": all_outputs_serialized,
-        "scoring_breakdown": scoring_serialized,
-        "divergence_metrics": divergence,
-        "context_builder": context_meta,
-    }
+    except Exception as viz_err:
+        logger.warning(f"Failed to generate visualizations for chat {chat.id}: {viz_err}")
 
     # Build sub-mode-specific structured results for frontend components
     effective_sub_mode = response.sub_mode or sub_mode
@@ -1320,54 +1449,57 @@ async def _mco_run_impl(
             r for r in response.all_results
             if r.output.success and r.output.raw_output and r.output.raw_output.strip()
         ]
-        omega_metadata["debate_result"] = {
-            "rounds": [[
-                {
-                    "model_id": r.output.model_name,
-                    "model_label": r.output.model_name,
-                    "model_name": r.output.model_name,
-                    "model_color": "",
-                    "round_num": 1,
-                    "position": r.output.raw_output[:300] if r.output.raw_output else "",
-                    "argument": r.output.raw_output,
-                    "assumptions": [],
-                    "risks": [],
-                    "rebuttals": "",
-                    "position_shift": "none",
-                    "weaknesses_found": "",
-                    "confidence": round(r.score.final_score, 4),
-                    "latency_ms": round(r.output.latency_ms, 2) if hasattr(r.output, 'latency_ms') else 0.0,
-                    "role": r.output.model_name,
-                }
-                for r in _valid_results
-            ]],
-            "models_used": [r.output.model_name for r in _valid_results],
-            "scores": {
-                s.model_name: round(s.final_score, 4)
-                for s in (response.scoring_breakdown or [])
-            },
-            "analysis": {
-                "synthesis": response.aggregated_answer[:500] if response.aggregated_answer else "",
-                "conflict_axes": [],
-                "disagreement_strength": divergence.get("max_divergence", 0),
-                "convergence_level": divergence.get("convergence", "moderate"),
-                "convergence_detail": "",
-                "logical_stability": 0.5,
-                "strongest_argument": response.winning_model or "",
-                "weakest_argument": "",
-                "confidence_recalibration": round(response.winning_score, 4) if response.winning_score else 0.5,
-                "drift_index": round(response.drift_score, 4),
-                "rift_index": 0.0,
-                "confidence_spread": 0.0,
-                "fragility_score": 0.0,
-                "per_model_drift": {},
-                "per_round_rift": [],
-                "per_round_disagreement": [],
-                "overall_confidence": round(
-                    sum(r.score.final_score for r in _valid_results) / len(_valid_results), 4
-                ) if _valid_results else 0.5,
-            },
-        }
+        
+        # Only override debate_result if it wasn't already generated by Pro Mode's CognitiveCoreEngine
+        if "debate_result" not in omega_metadata:
+            omega_metadata["debate_result"] = {
+                "rounds": [[
+                    {
+                        "model_id": r.output.model_name,
+                        "model_label": r.output.model_name,
+                        "model_name": r.output.model_name,
+                        "model_color": "",
+                        "round_num": 1,
+                        "position": r.output.raw_output[:300] if r.output.raw_output else "",
+                        "argument": r.output.raw_output,
+                        "assumptions": [],
+                        "risks": [],
+                        "rebuttals": "",
+                        "position_shift": "none",
+                        "weaknesses_found": "",
+                        "confidence": round(r.score.final_score, 4),
+                        "latency_ms": round(r.output.latency_ms, 2) if hasattr(r.output, 'latency_ms') else 0.0,
+                        "role": r.output.model_name,
+                    }
+                    for r in _valid_results
+                ]],
+                "models_used": [r.output.model_name for r in _valid_results],
+                "scores": {
+                    s.model_name: round(s.final_score, 4)
+                    for s in (response.scoring_breakdown or [])
+                },
+                "analysis": {
+                    "synthesis": response.aggregated_answer[:500] if response.aggregated_answer else "",
+                    "conflict_axes": [],
+                    "disagreement_strength": divergence.get("max_divergence", 0),
+                    "convergence_level": divergence.get("convergence", "moderate"),
+                    "convergence_detail": "",
+                    "logical_stability": 0.5,
+                    "strongest_argument": response.winning_model or "",
+                    "weakest_argument": "",
+                    "confidence_recalibration": round(response.winning_score, 4) if response.winning_score else 0.5,
+                    "drift_index": round(response.drift_score, 4),
+                    "rift_index": 0.0,
+                    "confidence_spread": 0.0,
+                    "fragility_score": 0.0,
+                    "per_model_drift": {},
+                    "per_round_rift": [],
+                    "per_round_disagreement": [],
+                    "overall_confidence": round(
+                        sum(r.score.final_score for r in _valid_results) / len(_valid_results), 4
+                    ) if _valid_results else 0.5,
+                },
+            }
 
         # Build aggregation_result (standard structured display)
         omega_metadata["aggregation_result"] = {
@@ -1381,8 +1513,7 @@ async def _mco_run_impl(
         }
 
         # Build forensic_result (EvidenceView consumes this)
-        # Use real evidence pipeline when in evidence sub-mode
-        if effective_sub_mode == "evidence":
+        if effective_sub_mode in ("evidence", "pro"):
             try:
                 from core.evidence_pipeline import build_evidence_result
                 omega_metadata["forensic_result"] = await build_evidence_result(
@@ -1392,6 +1523,7 @@ async def _mco_run_impl(
                     aggregated_answer=response.aggregated_answer,
                     winning_model=response.winning_model,
                 )
+                omega_metadata["evidence_result"] = omega_metadata["forensic_result"]
             except Exception as ev_err:
                 logger.error(f"Evidence pipeline failed, using fallback: {ev_err}")
                 omega_metadata["forensic_result"] = {
@@ -1401,6 +1533,7 @@ async def _mco_run_impl(
                     "winning_model": response.winning_model,
                     "winning_score": round(response.winning_score, 4),
                 }
+                omega_metadata["evidence_result"] = omega_metadata["forensic_result"]
         else:
             omega_metadata["forensic_result"] = {
                 "models_analyzed": len(response.all_results),
@@ -1411,8 +1544,7 @@ async def _mco_run_impl(
             }
 
         # Build audit_result (GlassView consumes this)
-        # Use Glass pipeline for real reasoning transparency data
-        if effective_sub_mode == "glass":
+        if effective_sub_mode in ("glass", "pro"):
             try:
                 from core.glass_pipeline import build_glass_result
                 omega_metadata["audit_result"] = build_glass_result(
@@ -1424,6 +1556,7 @@ async def _mco_run_impl(
                     drift_score=response.drift_score,
                     volatility_score=response.volatility_score,
                 )
+                omega_metadata["glass_result"] = omega_metadata["audit_result"]
             except Exception as gl_err:
                 logger.error(f"Glass pipeline failed, using fallback: {gl_err}")
                 omega_metadata["audit_result"] = {
@@ -1434,6 +1567,7 @@ async def _mco_run_impl(
                     "volatility_score": round(response.volatility_score, 4),
                     "refinement_cycles": response.refinement_cycles,
                 }
+                omega_metadata["glass_result"] = omega_metadata["audit_result"]
         else:
             omega_metadata["audit_result"] = {
                 "all_outputs": all_outputs_serialized,
@@ -1445,7 +1579,7 @@ async def _mco_run_impl(
             }
 
         # Build synthesis_result (SynthesisView consumes this)
-        if effective_sub_mode == "synthesis":
+        if effective_sub_mode in ("synthesis", "pro"):
             try:
                 from core.synthesis_engine import build_synthesis_result
                 synthesis_result = build_synthesis_result(
@@ -1499,6 +1633,12 @@ async def _mco_run_impl(
                     synthesis_result["claude_active"] = False
 
                 omega_metadata["synthesis_result"] = synthesis_result
+                
+                # In Pro Mode, the Unified Response is the output of the synthesis engine
+                if effective_sub_mode == "pro":
+                    unified_response = synthesis_result.get("refined_output") or synthesis_result.get("final_answer") or response.aggregated_answer
+                    response.aggregated_answer = unified_response
+
             except Exception as syn_err:
                 logger.error(f"Synthesis pipeline failed: {syn_err}")
                 omega_metadata["synthesis_result"] = None
@@ -1526,7 +1666,6 @@ async def _mco_run_impl(
     )
     await update_chat_metadata(
         db, chat.id,
-        priority_answer=response.aggregated_answer,
         machine_metadata={
             "mco_version": "1.0.0",
             "mode": response.mode.value,
@@ -1537,8 +1676,10 @@ async def _mco_run_impl(
             "refinement_cycles": response.refinement_cycles,
             "latency_ms": response.latency_ms,
             "model_count": len(response.all_results),
-        },
-        rounds=1,
+            "sub_mode": effective_sub_mode,
+            "runtime_preferences": runtime_preferences,
+            **omega_metadata,  # Embed all runtime artifacts for history hydration
+        }
     )
 
     result["omega_metadata"] = omega_metadata
@@ -1622,13 +1763,19 @@ async def mco_experimental(
     All models run in parallel. No arbitration override.
     All outputs displayed. Full scoring metrics exposed.
     """
-    return await mco_run(
+    return await _mco_run_impl(
         query=query,
         mode="experimental",
         sub_mode=sub_mode,
         chat_id=chat_id,
         session_id=session_id,
         force_retrieval=force_retrieval,
+        selected_model=None,
+        image_b64=None,
+        image_mime=None,
+        rounds=3,
+        response_style=None,
+        preferences=None,
         db=db,
         user=user,
     )

@@ -49,11 +49,11 @@ class User(Base):
     """
     __tablename__ = "users"
 
-    # Auth provider ID (Clerk, Firebase, etc) — NOT UUID
-    id = Column(String, primary_key=True, nullable=False)
+    # Auth provider ID (Clerk, Firebase, etc) — Since Supabase is used, it's a UUID
+    id = Column(UUID(as_uuid=True), primary_key=True, nullable=False)
     
     # Email — always required, always unique
-    email = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, nullable=False)
     
     # Human-readable name
     name = Column(String, nullable=True)
@@ -102,7 +102,7 @@ class Session(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     
     # Foreign key to users.id (auth provider ID)
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
     # Client type: web, mobile, api
     client = Column(String, nullable=False, default="web")
@@ -148,13 +148,19 @@ class Chat(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     
     # Foreign key to users.id (auth provider ID)
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
     # Conversation title
     title = Column(String, nullable=False, default="Untitled Chat")
     
     # Chat mode (optional): conversational, forensic, experimental, etc.
     mode = Column(String, nullable=True, default="conversational")
+    
+    # Engine/Model selection (for Pro Mode capability)
+    engine = Column(String, nullable=True)
+    
+    # Semantic search preparedness
+    search_text = Column(Text, nullable=True)
     
     # Machine metadata: model used, tokens spent, priority_answer
     machine_metadata = Column(JSONB, nullable=True, default={})
@@ -196,10 +202,10 @@ class Message(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     
     # Foreign key to chats.id
-    chat_id = Column(UUID(as_uuid=True), ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True)
+    chat_id = Column(UUID(as_uuid=True), ForeignKey("chats.id", ondelete="CASCADE"), nullable=False)
     
     # Foreign key to users.id (auth provider ID)
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
     # Role: user | assistant | system
     role = Column(String, nullable=False)
@@ -248,10 +254,8 @@ class Memory(Base):
     """
     __tablename__ = "memory"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
-    
-    # Foreign key to users.id
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
     # Key: unique per user, type of fact (e.g., "preferred_model", "writing_style")
     key = Column(String, nullable=False)
@@ -299,7 +303,7 @@ class Embedding(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     
     # Foreign key to users.id
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
     # Reference type: message | memory | custom
     ref_type = Column(String, nullable=False)
@@ -338,7 +342,7 @@ class UserSettings(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     
     # Foreign key to users.id
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
     # Setting key
     key = Column(String, nullable=False)

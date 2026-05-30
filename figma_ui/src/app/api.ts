@@ -17,6 +17,8 @@ import {
   adaptCrossAnalysis,
 } from "./services/adapter";
 import ENV from "./services/config";
+import { supabase } from "./lib/supabase";
+import { MODEL_RUNTIME_MAP, ORCHESTRATION_MODE_MAP } from "./config/runtime";
 
 export { ApiError };
 
@@ -138,6 +140,10 @@ export interface OmegaMetadata {
   stress_result?: StressResult;
   confidence_components?: Record<string, unknown>;
   debate_result?: DebateResult;
+  forensic_result?: EvidenceResult;
+  audit_result?: Record<string, unknown>;
+  glass_result?: Record<string, unknown>;
+  synthesis_result?: Record<string, unknown>;
   kill_active?: boolean;
 }
 
@@ -394,15 +400,18 @@ export async function runStandard(
   modelId: string,
   chatId?: string,
   file?: File,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: { responseStyle?: string; preferences?: Record<string, unknown> }
 ): Promise<SentinelRunResponse> {
   const mappedModel = MODEL_RUNTIME_MAP[modelId]?.model || modelId;
   const payload: Record<string, any> = {
     runtime: "single-model",
-    model: mappedModel,
+    selected_model: mappedModel,
     mode: "standard",
     query: text,
   };
+  if (options?.responseStyle) payload.response_style = options.responseStyle;
+  if (options?.preferences) payload.preferences = options.preferences;
   
   if (chatId) payload.chat_id = chatId;
   
@@ -430,16 +439,21 @@ export async function runExperimental(
   chatId?: string,
   killSwitch: boolean = false,
   file?: File,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: { responseStyle?: string; preferences?: Record<string, unknown> }
 ): Promise<SentinelRunResponse> {
   const activeSubMode = killSwitch ? "glass" : subMode;
   const mappedMode = ORCHESTRATION_MODE_MAP[activeSubMode]?.mode || activeSubMode;
   const payload: Record<string, any> = {
     runtime: "mco",
-    mode: mappedMode,
+    mode: "experimental",
+    sub_mode: mappedMode,
     orchestration: true,
+    rounds,
     query: killSwitch ? "kill" : text,
   };
+  if (options?.responseStyle) payload.response_style = options.responseStyle;
+  if (options?.preferences) payload.preferences = options.preferences;
   
   if (chatId) payload.chat_id = chatId;
   
@@ -550,44 +564,97 @@ export async function getChatHistory(
   limit: number = 50,
   offset: number = 0
 ): Promise<ChatHistoryItem[]> {
-  const raw = await apiRequest<Record<string, unknown>[]>(
-    `/api/chats?limit=${limit}&offset=${offset}`
-  );
-  return Array.isArray(raw) ? raw.map(adaptChatHistoryItem) : [];
+  try {
+    const res = await apiRequest<{ success: boolean; data: any }>(
+      `/api/v2/history?limit=${limit}&offset=${offset}`,
+      { retries: 1 }
+    );
+    if (!res || !res.success || !res.data?.chats) return [];
+    
+    return res.data.chats.map(adaptChatHistoryItem);
+  } catch (err) {
+    console.error('getChatHistory fallback error:', err);
+    return [];
+  }
 }
 
 /**
- * Get full chat details — GET /api/chat/{chat_id}
+ * Get full chat details
  */
 export async function getChatDetails(
   chatId: string
 ): Promise<{ chat: ChatHistoryItem; messages: ChatMessage[] }> {
-  const raw = await apiRequest<Record<string, unknown>>(`/api/chat/${chatId}`);
-  return {
-    chat: adaptChatHistoryItem((raw.chat || raw) as Record<string, unknown>),
-    messages: Array.isArray(raw.messages)
-      ? raw.messages.map((m: Record<string, unknown>) => adaptChatMessage(m))
-      : [],
-  };
+  try {
+    const chatRes = await apiRequest<{ success: boolean; data: any }>(`/api/v2/chat/${chatId}`);
+    if (!chatRes || !chatRes.success || !chatRes.data) throw new Error('Chat not found');
+
+    const chatData = chatRes.data.chat || {};
+    const chat: ChatHistoryItem = {
+      id: chatData.id || chatId,
+      name: chatData.chat_name || chatData.name || 'Untitled Chat',
+      mode: chatData.mode || 'standard',
+      created_at: chatData.created_at,
+      updated_at: chatData.updated_at || chatData.created_at,
+      priority_answer: chatData.priority_answer,
+      machine_metadata: chatData.machine_metadata,
+      rounds: chatData.rounds,
+    };
+
+    const messages: ChatMessage[] = (chatRes.data.messages || []).map(adaptChatMessage);
+
+    return { chat, messages };
+  } catch (err) {
+    console.error('getChatDetails error:', err);
+    return {
+      chat: { id: chatId, name: 'Unknown', mode: 'standard', created_at: '', updated_at: '' },
+      messages: []
+    };
+  }
 }
 
 /**
- * Get messages for a chat — GET /api/chat/{chat_id}/messages
+ * Get messages for a chat
  */
 export async function getChatMessages(
   chatId: string
 ): Promise<ChatMessage[]> {
-  const raw = await apiRequest<Record<string, unknown>[]>(`/api/chat/${chatId}/messages`);
-  return Array.isArray(raw) ? raw.map(adaptChatMessage) : [];
+  try {
+    const res = await apiRequest<{ success: boolean; data: any[] }>(`/api/v2/chat/${chatId}/messages`);
+    if (!res || !res.success || !res.data) return [];
+    
+    return res.data.map(adaptChatMessage);
+  } catch (err) {
+    console.error('getChatMessages error:', err);
+    return [];
+  }
 }
 
 /**
- * Share a chat — POST /api/chat/share
+ * Sync a new or updated conversation.
+ * The live backend runtime persists conversations during /api/mco/run.
+ */
+export async function syncConversation(chatId: string, title: string, mode: string): Promise<void> {
+  void chatId;
+  void title;
+  void mode;
+}
+
+/**
+ * Sync a message to Supabase (Now via v2 API)
+ */
+export async function syncMessage(chatId: string, role: string, content: string): Promise<void> {
+  // NO-OP: Phase 1 architecture dictates that the backend API routes 
+  // (e.g. /api/chat/...) automatically persist both user and assistant messages.
+  // Frontend no longer needs to explicitly sync individual messages to the DB.
+}
+
+/**
+ * Share a chat
  */
 export async function shareChat(
   chatId: string
 ): Promise<{ share_token: string }> {
-  return postJson<{ share_token: string }>("/api/chat/share", { chat_id: chatId });
+  return postJson<{ share_token: string }>("/api/v2/chat/share", { chat_id: chatId });
 }
 
 // ============================================================
@@ -595,7 +662,7 @@ export async function shareChat(
 // ============================================================
 
 /**
- * Submit feedback — POST /feedback (FormData)
+ * Submit feedback to the backend runtime so it is stored on the conversation.
  */
 export async function submitFeedback(params: {
   run_id: string;
@@ -609,26 +676,25 @@ export async function submitFeedback(params: {
   disagreement_score?: number;
   confidence?: number;
 }): Promise<{ status: string; feedback_id?: string; storage?: string; learning?: boolean }> {
-  const formData = new FormData();
-  formData.append("run_id", params.run_id);
-  formData.append("feedback", params.feedback);
-  if (params.rating != null) formData.append("rating", params.rating.toString());
-  if (params.reason) formData.append("reason", params.reason);
-  if (params.mode) formData.append("mode", params.mode);
-  if (params.sub_mode) formData.append("sub_mode", params.sub_mode);
-  if (params.boundary_severity != null)
-    formData.append("boundary_severity", params.boundary_severity.toString());
-  if (params.fragility_index != null)
-    formData.append("fragility_index", params.fragility_index.toString());
-  if (params.disagreement_score != null)
-    formData.append("disagreement_score", params.disagreement_score.toString());
-  if (params.confidence != null)
-    formData.append("confidence", params.confidence.toString());
+  try {
+    const formData = new FormData();
+    formData.append("run_id", params.run_id);
+    formData.append("feedback", params.feedback);
+    if (params.rating != null) formData.append("rating", String(params.rating));
+    if (params.reason) formData.append("reason", params.reason);
+    if (params.mode) formData.append("mode", params.mode);
+    if (params.sub_mode) formData.append("sub_mode", params.sub_mode);
+    if (params.boundary_severity != null) formData.append("boundary_severity", String(params.boundary_severity));
+    if (params.fragility_index != null) formData.append("fragility_index", String(params.fragility_index));
+    if (params.disagreement_score != null) formData.append("disagreement_score", String(params.disagreement_score));
+    if (params.confidence != null) formData.append("confidence", String(params.confidence));
 
-  return postForm<{ status: string; feedback_id?: string; storage?: string; learning?: boolean }>(
-    "/feedback",
-    formData
-  );
+    const result = await postForm<{ status: string; feedback_id?: string }>("/feedback", formData);
+    return { ...result, storage: "backend" };
+  } catch (err) {
+    console.error('submitFeedback fallback error:', err);
+    return { status: "error" };
+  }
 }
 
 // ============================================================
@@ -642,7 +708,7 @@ export async function getOmegaSession(
   chatId: string
 ): Promise<OmegaSessionResponse | null> {
   try {
-    return await apiRequest<OmegaSessionResponse>(`/api/omega/session/${chatId}`, { retries: 0 });
+    return await apiRequest<OmegaSessionResponse>(`/api/v2/omega/session/${chatId}`, { retries: 0 });
   } catch {
     return null;
   }
@@ -655,7 +721,7 @@ export async function getSessionDescriptive(
   chatId: string
 ): Promise<SessionDescriptive | null> {
   try {
-    const raw = await apiRequest<Record<string, unknown>>(`/api/session/${chatId}/descriptive`, { retries: 0 });
+    const raw = await apiRequest<Record<string, unknown>>(`/api/v2/session/${chatId}/descriptive`, { retries: 0 });
     return adaptSessionDescriptive(raw);
   } catch {
     return null;
@@ -714,6 +780,83 @@ export async function getLearningRiskProfiles(): Promise<Record<string, unknown>
   try {
     return await apiRequest<Record<string, unknown>>("/api/learning/risk-profiles", { retries: 0 });
   } catch {
+    return null;
+  }
+}
+
+// ============================================================
+// ADMIN WORKFLOWS
+// ============================================================
+
+export interface AdminRequestData {
+  name: string;
+  email: string;
+  organization: string;
+  reason: string;
+}
+
+/**
+ * Get current user profile and stats from backend
+ */
+export async function getCurrentUser(): Promise<any> {
+  try {
+    const res = await apiRequest<{ success: boolean; data: any }>("/api/v2/user", { retries: 1 });
+    if (res && res.success) {
+      return res.data;
+    }
+    return null;
+  } catch (err) {
+    console.error('getCurrentUser error:', err);
+    return null;
+  }
+}
+
+/**
+ * Submit a request for admin access. Does not require authentication.
+ */
+export async function submitAdminRequest(data: AdminRequestData): Promise<{ status: "success" | "error", message?: string }> {
+  try {
+    const { error } = await supabase.from('admin_requests').insert({
+      name: data.name,
+      email: data.email,
+      organization: data.organization,
+      reason: data.reason,
+      status: 'pending'
+    });
+
+    if (error) {
+      console.error("submitAdminRequest error:", error);
+      return { status: "error", message: error.message };
+    }
+    return { status: "success" };
+  } catch (err) {
+    console.error("submitAdminRequest exception:", err);
+    return { status: "error", message: "Failed to submit request" };
+  }
+}
+
+/**
+ * Check the status of a user's admin request.
+ */
+export async function getAdminRequestStatus(email: string): Promise<'pending' | 'approved' | 'rejected' | null> {
+  try {
+    const { data, error } = await supabase
+      .from('admin_requests')
+      .select('status')
+      .eq('email', email)
+      .order('submitted_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null; // Not found
+      console.error("getAdminRequestStatus error:", error);
+      return null;
+    }
+
+    return data?.status as 'pending' | 'approved' | 'rejected' | null;
+  } catch (err) {
+    console.error("getAdminRequestStatus exception:", err);
     return null;
   }
 }

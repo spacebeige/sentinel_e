@@ -139,6 +139,9 @@ from api.browser_runtime_routes import router as browser_runtime_router
 from gateway.admin_routes import router as admin_router
 from gateway.workflow_admin_routes import router as workflow_admin_router
 
+# ── Persistence Routes (RESTful v2) ───────────────────────────
+from api.persistence_routes import router as persistence_v2_router
+
 # ── Critical Security & Stability Fixes ───────────────────
 from fixes.session_cache_manager import SessionCacheManager
 from fixes.exception_handling import log_unhandled_exceptions, safe_execute
@@ -652,7 +655,7 @@ app.add_middleware(InputValidationMiddleware)
 # Includes https://sentinel-e.vercel.app and localhost by default.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "https://sentinel-e.vercel.app"] + settings.cors_origins,
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000", "https://sentinel-e.vercel.app"] + settings.cors_origins,
     allow_origin_regex=r"https://sentinel-[a-z0-9-]+\.vercel\.app",  # Vercel preview branches
     allow_credentials=True,
     allow_methods=["*"],
@@ -664,7 +667,10 @@ app.add_middleware(
 app.include_router(mco_router)
 
 # ── Persistent API v2 Router (Neon-based persistence) ───────
-app.include_router(api_v2, prefix="/api")
+# Disabled duplicate v2 persistence API at /api. The authoritative runtime
+# persistence path is database.connection/crud/models via the routes below.
+# Disabled duplicate RESTful v2 persistence routes; frontend now uses the
+# live runtime conversation endpoints backed by database.crud.
 
 # ── Embedded Browser Runtime Router ─────────────────────────
 app.include_router(browser_runtime_router)
@@ -683,6 +689,7 @@ app.include_router(workflow_admin_router)
 
 # ── Standard Mode Router (POST /chat/{model_id}) ──────────────
 app.include_router(chat_router)
+app.include_router(api_v2, prefix="/api/v2")
 
 
 # ============================================================
@@ -825,13 +832,25 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
+async def health_check(db: AsyncSession = Depends(get_db)):
     """Production health check."""
     health = {
         "status": "healthy",
         "version": "5.0.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+    
+    # Check DB
+    try:
+        from sqlalchemy import text
+        await db.execute(text("SELECT 1"))
+        health["db"] = "connected"
+    except Exception as e:
+        health["db"] = "disconnected"
+        health["status"] = "unhealthy"
+        logger.error(f"DB health check failed: {e}")
+
+    # Check Redis
     try:
         if redis_client:
             await redis_client.ping()
@@ -843,6 +862,7 @@ async def health_check():
             health["redis"] = "not_configured"
     except Exception:
         health["redis"] = "disconnected"
+        
     return health
 
 
@@ -2638,6 +2658,8 @@ async def feedback_endpoint(
     reason: Optional[str] = Form(None),
     mode: Optional[str] = Form(None),
     sub_mode: Optional[str] = Form(None),
+    message_id: Optional[str] = Form(None),
+    model_id: Optional[str] = Form(None),
     boundary_severity: Optional[float] = Form(None),
     fragility_index: Optional[float] = Form(None),
     disagreement_score: Optional[float] = Form(None),
@@ -2669,6 +2691,8 @@ async def feedback_endpoint(
         "reason": reason,
         "mode": mode,
         "sub_mode": sub_mode,
+        "message_id": message_id,
+        "model_id": model_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     if isinstance(metadata.get("feedback"), list):
@@ -2677,6 +2701,23 @@ async def feedback_endpoint(
         metadata["feedback"] = [feedback_entry]
 
     await update_chat_metadata(db, chat.id, priority_answer=chat.priority_answer, machine_metadata=metadata, rounds=chat.rounds)
+
+    if message_id:
+        try:
+            from database.models import Message
+            from sqlalchemy.future import select
+            msg_uuid = UUID(message_id)
+            result = await db.execute(select(Message).where(Message.id == msg_uuid))
+            message = result.scalars().first()
+            if message:
+                msg_meta = message.metadata_json or {}
+                if "feedback" not in msg_meta:
+                    msg_meta["feedback"] = []
+                msg_meta["feedback"].append(feedback_entry)
+                message.metadata_json = msg_meta
+                await db.commit()
+        except Exception as e:
+            logger.warning(f"Failed to correlate feedback to message_id {message_id}: {e}")
 
     # Memory learning
     memory = memory_sessions.get(str(chat.id))

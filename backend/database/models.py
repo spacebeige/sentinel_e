@@ -34,17 +34,13 @@ class Chat(Base):
     __tablename__ = "chats"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(String, index=True, nullable=False)
-    session_id = Column(UUID(as_uuid=True), index=True, nullable=True)
-    chat_name = Column(String, nullable=False) # title
-    mode = Column(String, nullable=False) # conversational | forensic | experimental
+    user_id = Column(UUID(as_uuid=True), index=True, nullable=False)
+    title = Column(String, nullable=False) 
+    mode = Column(String, nullable=False) 
     
-    priority_answer = Column(Text, nullable=True)
+    is_archived = Column(Boolean, default=False, nullable=False)
     machine_metadata = Column(JSONB, nullable=True) 
-    shadow_metadata = Column(JSONB, nullable=True)
-    
-    rounds = Column(Integer, default=1)
-    models_used = Column(ARRAY(String), nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -53,7 +49,7 @@ class Message(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     chat_id = Column(UUID(as_uuid=True), index=True, nullable=False)
-    user_id = Column(String, index=True, nullable=False)
+    user_id = Column(UUID(as_uuid=True), index=True, nullable=False)
     role = Column(String, nullable=False) # user | assistant | etc
     content = Column(Text, nullable=False)
     reasoning_json = Column(JSONB, nullable=True)
