@@ -76,8 +76,16 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
         logger.warning("[Auth] SUPABASE_JWT_SECRET not set — cannot verify Supabase JWT")
         return None
 
-    # Supabase JWT secret must be used as plain UTF-8 bytes, NOT base64-decoded.
-    secret_bytes = _SUPABASE_JWT_SECRET.encode("utf-8")
+    # Supabase JWT secret is base64 encoded. We must decode it.
+    import base64
+    # Ensure correct padding for base64 decoding
+    b64_secret = _SUPABASE_JWT_SECRET
+    b64_secret += "=" * ((4 - len(b64_secret) % 4) % 4)
+    try:
+        secret_bytes = base64.b64decode(b64_secret)
+    except Exception as e:
+        logger.error(f"[Auth] Failed to decode base64 SUPABASE_JWT_SECRET: {e}")
+        secret_bytes = _SUPABASE_JWT_SECRET.encode("utf-8") # Fallback just in case it wasn't base64
 
     try:
         claims = pyjwt.decode(
@@ -221,6 +229,20 @@ async def get_current_user(
 
     logger.warning("[Auth] No valid auth token — returning 401")
     raise HTTPException(status_code=401, detail="Missing or invalid auth token")
+
+async def get_optional_user(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    db: AsyncSession = Depends(lambda: None),
+) -> Optional[Dict[str, Any]]:
+    """
+    FastAPI dependency to optionally get current authenticated user.
+    Returns None if no valid token is provided.
+    """
+    try:
+        return await get_current_user(request, authorization, db)
+    except HTTPException:
+        return None
 
 
 # ─────────────────────────────────────────────────────────────

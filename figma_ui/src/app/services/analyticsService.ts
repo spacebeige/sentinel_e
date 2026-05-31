@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { postJson } from './apiClient';
 
 export interface UserAnalytics {
   conversations: number;
@@ -21,41 +22,54 @@ let currentSessionId: string | null = null;
 
 export async function trackLogin(userId: string) {
   currentSessionId = `session_${Date.now()}`;
-  if (!supabase) return;
-  await supabase.from('analytics_events').insert({
-    user_id: userId,
-    event_type: 'LOGIN',
-    metadata: { sessionId: currentSessionId }
-  });
+  try {
+    await postJson('/api/v2/analytics/events', {
+      user_id: userId,
+      event_type: 'LOGIN',
+      metadata: { sessionId: currentSessionId }
+    });
+  } catch (e) {
+    console.warn("Analytics error", e);
+  }
 }
 
 export async function trackLogout(userId: string) {
-  if (!currentSessionId || !supabase) return;
-  await supabase.from('analytics_events').insert({
-    user_id: userId,
-    event_type: 'LOGOUT',
-    metadata: { sessionId: currentSessionId }
-  });
+  if (!currentSessionId) return;
+  try {
+    await postJson('/api/v2/analytics/events', {
+      user_id: userId,
+      event_type: 'LOGOUT',
+      metadata: { sessionId: currentSessionId }
+    });
+  } catch (e) {
+    console.warn("Analytics error", e);
+  }
   currentSessionId = null;
 }
 
 export async function trackMessageSent(userId: string, mode: string, model: string, conversationId?: string) {
-  if (!supabase) return;
-  await supabase.from('analytics_events').insert({
-    user_id: userId,
-    conversation_id: conversationId || null,
-    event_type: 'MESSAGE_SENT',
-    metadata: { mode, model, sessionId: currentSessionId }
-  });
+  try {
+    await postJson('/api/v2/analytics/events', {
+      user_id: userId,
+      conversation_id: conversationId || null,
+      event_type: 'MESSAGE_SENT',
+      metadata: { mode, model, sessionId: currentSessionId }
+    });
+  } catch (e) {
+    console.warn("Analytics error", e);
+  }
 }
 
 export async function trackConversationStarted(userId: string) {
-  if (!supabase) return;
-  await supabase.from('analytics_events').insert({
-    user_id: userId,
-    event_type: 'CONVERSATION_STARTED',
-    metadata: { sessionId: currentSessionId }
-  });
+  try {
+    await postJson('/api/v2/analytics/events', {
+      user_id: userId,
+      event_type: 'CONVERSATION_STARTED',
+      metadata: { sessionId: currentSessionId }
+    });
+  } catch (e) {
+    console.warn("Analytics error", e);
+  }
 }
 
 export async function getUserAnalytics(userId: string): Promise<UserAnalytics> {

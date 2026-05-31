@@ -312,7 +312,13 @@ import os
 from datetime import datetime
 
 from database.models import User, Chat as DBSession
-from gateway.auth import require_admin
+from gateway.auth_v2 import get_current_user
+from fastapi import HTTPException
+
+async def require_admin(user: dict = Depends(get_current_user)):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    return user
 from database.connection import get_db
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])

@@ -312,9 +312,14 @@ class MetaCognitiveOrchestrator:
         """
         knowledge_bundle: List[KnowledgeBlock] = []
 
+        from retrieval.cognitive_rag import QueryClassifier
+        clf = QueryClassifier().classify(request.query)
+        retrieval_prob = clf.retrieval_probability
+
         should_retrieve = (
             vol_score > VOLATILITY_THRESHOLD
             or request.force_retrieval
+            or retrieval_prob > 0.6
         )
 
         if should_retrieve:
