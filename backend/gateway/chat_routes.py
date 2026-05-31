@@ -15,7 +15,7 @@ from metacognitive.cognitive_gateway import (
 )
 from metacognitive.schemas import CognitiveGatewayInput, QueryMode
 from utils.output_sanitizer import sanitize_output
-from gateway.auth import get_user_id
+from gateway.auth_v2 import get_optional_user
 from database.connection import get_db
 from database.crud import create_chat, get_chat, add_message, get_chat_messages
 from core.context_builder import get_context_builder
@@ -93,7 +93,8 @@ async def chat_with_model(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        user_id = await get_user_id(request)
+        user = await get_optional_user(request)
+        user_id = user.get("id") if user else None
         if not user_id:
             return api_error("Authentication required", status_code=401)
 

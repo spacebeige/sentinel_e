@@ -453,7 +453,12 @@ export async function runExperimental(
     query: killSwitch ? "kill" : text,
   };
   if (options?.responseStyle) payload.response_style = options.responseStyle;
-  if (options?.preferences) payload.preferences = options.preferences;
+  if (options?.preferences) {
+    payload.preferences = options.preferences;
+    if (options.preferences.default_model) {
+      payload.selected_model = options.preferences.default_model;
+    }
+  }
   
   if (chatId) payload.chat_id = chatId;
   

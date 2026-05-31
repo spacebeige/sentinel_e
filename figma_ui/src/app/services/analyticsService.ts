@@ -1,3 +1,4 @@
+
 import { apiRequest } from './apiClient';
 
 export interface UserAnalytics {
@@ -22,6 +23,7 @@ let currentSessionId: string | null = null;
 export async function trackLogin(userId: string) {
   currentSessionId = `session_${Date.now()}`;
   try {
+
     await apiRequest('/api/v2/analytics/events', {
       method: 'POST',
       body: {
@@ -38,6 +40,7 @@ export async function trackLogin(userId: string) {
 export async function trackLogout(userId: string) {
   if (!currentSessionId) return;
   try {
+
     await apiRequest('/api/v2/analytics/events', {
       method: 'POST',
       body: {
@@ -54,6 +57,7 @@ export async function trackLogout(userId: string) {
 
 export async function trackMessageSent(userId: string, mode: string, model: string, conversationId?: string) {
   try {
+
     await apiRequest('/api/v2/analytics/events', {
       method: 'POST',
       body: {
@@ -69,6 +73,7 @@ export async function trackMessageSent(userId: string, mode: string, model: stri
 
 export async function trackConversationStarted(userId: string) {
   try {
+
     await apiRequest('/api/v2/analytics/events', {
       method: 'POST',
       body: {

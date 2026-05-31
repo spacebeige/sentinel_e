@@ -26,7 +26,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from gateway.auth import get_current_user, get_optional_user
+from gateway.auth_v2 import get_current_user, get_optional_user
 from database.connection import get_db
 from database.crud import (
     create_chat, get_chat, add_message, update_chat_metadata, get_chat_messages,
@@ -483,15 +483,12 @@ async def mco_run(
         response_style = payload.get("response_style")
         preferences = payload.get("preferences") if isinstance(payload.get("preferences"), dict) else {}
 
-        safe_user = user or {
-            "id": "00000000-0000-0000-0000-000000000000",
-            "user_id": "00000000-0000-0000-0000-000000000000",
-            "email": "anonymous@local",
-            "name": "Anonymous User",
-            "role": "guest",
-            "provider": "system",
-            "authenticated": False,
-        }
+
+        if not user or not user.get("id"):
+            raise HTTPException(status_code=401, detail="Authentication required")
+            
+        safe_user = user
+
 
         if not user:
             try:
@@ -730,7 +727,9 @@ async def _mco_run_impl(
         builder = get_context_builder(max_tokens=2048, model=(selected_model or "llama33-70b"))
         built = await builder.build_context(
             db=db,
-            user_id=user.get("user_id", "00000000-0000-0000-0000-000000000000"),
+
+            user_id=user.get("id") or user.get("user_id") if user else "00000000-0000-0000-0000-000000000000",
+
             query=query,
             recent_messages=recent_payload,
             semantic_search_results=None,
@@ -1183,7 +1182,9 @@ async def _mco_run_impl(
                     await add_message(
                         db,
                         chat.id,
-                        user.get("user_id", "00000000-0000-0000-0000-000000000000"),
+
+                        str(user.get("user_id", "00000000-0000-0000-0000-000000000000")),
+
                         "assistant",
                         answer,
                         reasoning_json=omega_metadata,

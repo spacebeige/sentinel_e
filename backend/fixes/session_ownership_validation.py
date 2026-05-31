@@ -142,7 +142,7 @@ Fixes: Session hijacking by ensuring per-request ownership verification
 from fastapi import Request, HTTPException, status
 from sqlalchemy.orm import Session as DBSession
 from database.models import User, Chat as SessionModel
-from gateway.auth import get_current_user
+from gateway.auth_v2 import get_current_user
 from typing import Optional
 import logging
 
