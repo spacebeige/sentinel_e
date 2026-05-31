@@ -486,16 +486,13 @@ async def mco_run(
 
         if not user or not user.get("id"):
             raise HTTPException(status_code=401, detail="Authentication required")
-            
+
         safe_user = user
-
-
-        if not user:
-            try:
-                from gateway.auth_v2 import ensure_user_exists
-                await ensure_user_exists(safe_user, db)
-            except Exception as e:
-                logger.error(f"Failed to ensure anonymous user: {e}")
+        try:
+            from gateway.auth_v2 import ensure_user_exists
+            await ensure_user_exists(safe_user, db)
+        except Exception as e:
+            logger.error(f"Failed to ensure user: {e}")
 
         result_payload = await _mco_run_impl(
             query=query,
@@ -514,15 +511,15 @@ async def mco_run(
             user=safe_user,
         )
 
-        if BehavioralMemoryManager and safe_user.get("user_id") != "00000000-0000-0000-0000-000000000000":
+        if BehavioralMemoryManager and safe_user.get("id"):
             background_tasks.add_task(
                 BehavioralMemoryManager.update_profile_async,
                 db=db,
-                user_id=safe_user["user_id"],
+                user_id=safe_user["id"],
                 interaction_metrics={
                     "model": result_payload.get("data", {}).get("machine_metadata", {}).get("mode", mode),
                     "query_complexity": "complex" if len(query) > 100 else "simple",
-                    "latency_ms": 0, # Could extract actual latency from omega_metadata if available
+                    "latency_ms": 0,
                 }
             )
 
@@ -587,13 +584,16 @@ async def _mco_run_impl(
     """
     orch = _get_orchestrator()
 
+    # Normalize user_id — auth_v2 sets user["id"], some paths also set user["user_id"]
+    uid = (user or {}).get("id") or (user or {}).get("user_id", "")
+
     # Load and apply user settings
     from api.endpoints_v2 import SETTINGS_SCHEMA
     from database.crud import get_user_preferences
-    
+
     user_settings = {}
-    if user and user.get("user_id"):
-        db_settings = await get_user_preferences(db, user.get("user_id"))
+    if user and uid:
+        db_settings = await get_user_preferences(db, uid)
         user_settings = {k: v.get("default") for k, v in SETTINGS_SCHEMA.items()}
         for k, v in db_settings.items():
             if k in user_settings:
@@ -641,7 +641,7 @@ async def _mco_run_impl(
     chat = None
     if chat_id:
         try:
-            chat = await get_chat(db, UUID(chat_id), user_id=user.get("user_id"))
+            chat = await get_chat(db, UUID(chat_id), user_id=uid)
             if chat:
                 db.expunge(chat)
         except (ValueError, Exception):
@@ -651,13 +651,13 @@ async def _mco_run_impl(
         chat_name = generate_chat_name(query, f"mco-{mode}")
         chat = await create_chat(
             db, chat_name, f"mco-{mode}",
-            user_id=user["user_id"],
+            user_id=uid,
         )
         db.expunge(chat)
 
     orch_run, orch_bus = _start_runtime_run(
         str(chat.id),
-        user.get("user_id", "00000000-0000-0000-0000-000000000000"),
+        uid,
         query,
     )
 
@@ -700,7 +700,7 @@ async def _mco_run_impl(
     await add_message(
         db,
         chat.id,
-        user.get("user_id", "00000000-0000-0000-0000-000000000000"),
+        uid,
         "user",
         query,
         image_b64=image_b64,
@@ -717,7 +717,7 @@ async def _mco_run_impl(
         }
     } if document_cognition.get("available") else {}
     try:
-        recent_messages = await get_chat_messages(db, chat.id, user_id=user.get("user_id"))
+        recent_messages = await get_chat_messages(db, chat.id, user_id=uid)
         recent_payload = [
             {"role": m.role, "content": m.content}
             for m in (recent_messages[-12:] if recent_messages else [])
@@ -727,8 +727,7 @@ async def _mco_run_impl(
         builder = get_context_builder(max_tokens=2048, model=(selected_model or "llama33-70b"))
         built = await builder.build_context(
             db=db,
-
-            user_id=user.get("id") or user.get("user_id") if user else "00000000-0000-0000-0000-000000000000",
+            user_id=uid,
 
             query=query,
             recent_messages=recent_payload,
@@ -892,7 +891,7 @@ async def _mco_run_impl(
             await add_message(
                 db,
                 chat.id,
-                user.get("user_id", "00000000-0000-0000-0000-000000000000"),
+                uid,
                 "assistant",
                 formatted_output,
                 reasoning_json=omega_metadata,
@@ -1182,9 +1181,7 @@ async def _mco_run_impl(
                     await add_message(
                         db,
                         chat.id,
-
-                        str(user.get("user_id", "00000000-0000-0000-0000-000000000000")),
-
+                        uid,
                         "assistant",
                         answer,
                         reasoning_json=omega_metadata,
@@ -1675,7 +1672,7 @@ async def _mco_run_impl(
     await add_message(
         db,
         chat.id,
-        user.get("user_id", "00000000-0000-0000-0000-000000000000"),
+        uid,
         "assistant",
         response.aggregated_answer,
         reasoning_json=omega_metadata,

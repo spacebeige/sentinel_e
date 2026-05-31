@@ -96,17 +96,9 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
         logger.error("verification failed: SUPABASE_JWT_SECRET not set in environment")
         raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not set in environment")
 
-    # Supabase JWT secret is base64 encoded. We must decode it.
-    import base64
-
-    # Ensure correct padding for base64 decoding
-    b64_secret = _SUPABASE_JWT_SECRET
-    b64_secret += "=" * ((4 - len(b64_secret) % 4) % 4)
-    try:
-        secret_bytes = base64.b64decode(b64_secret)
-    except Exception as e:
-        logger.error(f"[Auth] Failed to decode base64 SUPABASE_JWT_SECRET: {e}")
-        secret_bytes = _SUPABASE_JWT_SECRET.encode("utf-8") # Fallback just in case it wasn't base64
+    # Supabase signs JWTs using the raw secret string as UTF-8 bytes.
+    # Do NOT base64-decode the secret — that produces a different key.
+    secret_bytes = _SUPABASE_JWT_SECRET.encode("utf-8")
 
 
     try:
