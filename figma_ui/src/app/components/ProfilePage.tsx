@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { IOSListGroup, IOSListItem } from './ui/IOSListGroup';
 import { Mail, Calendar, Key, Bell, Shield, Edit2, LogOut } from 'lucide-react';
+import { apiRequest } from '../services/apiClient';
 
 export default function ProfilePage() {
   const { user, isAdmin, signOut } = useSupabaseAuth();
@@ -35,10 +36,14 @@ export default function ProfilePage() {
       // 2. Get public URL
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
       
-      // 3. Update profile
-      await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+      // 3. Update profile via API
+      await apiRequest('/v2/user/settings', { 
+        method: 'PUT',
+        body: { avatar_url: publicUrl },
+        json: true
+      });
       
-      alert("Avatar updated! (Simulated state update)");
+      alert("Avatar updated!");
       // Note: In real app, we'd sync this with context or fetch again
     } catch (error) {
       console.error('Error uploading avatar:', error);
@@ -62,30 +67,25 @@ export default function ProfilePage() {
     if (!user) return;
 
     const fetchProfileAndStats = async () => {
-      // 1. Fetch Profile
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      const name = profile?.display_name || user.email?.split('@')[0] || 'Sentinel User';
+      // 1. Fetch Profile Settings
+      const settingsRes = await apiRequest<{success: boolean, data: any}>('/v2/user/settings', { method: 'GET' });
+      const settings = settingsRes?.data?.settings || {};
+      
+      const name = settings.display_name || user.email?.split('@')[0] || 'Sentinel User';
       setCustomName(name);
       setTempName(name);
 
-      // 2. Fetch Conversations Count
-      const { count: conversationsCount } = await supabase
-        .from('conversations')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+      // 2 & 3. Fetch Analytics Counts
+      const analyticsRes = await apiRequest<{success: boolean, data: any}>('/v2/user/analytics', { method: 'GET' });
+      const conversationsCount = analyticsRes?.data?.chat_count || 0;
+      const messagesCount = analyticsRes?.data?.message_count || 0;
 
-      // 3. Fetch Messages Count
-      const { count: messagesCount } = await supabase
-        .from('messages')
-        .select('*, conversations!inner(*)', { count: 'exact', head: true })
-        .eq('conversations.user_id', user.id);
-
-      // 4. Fetch Favorite Mode/Model from profile
+      // 4. Fetch Favorite Mode/Model from settings
       setStats({
-        conversations: conversationsCount || 0,
-        messages: messagesCount || 0,
-        favoriteMode: profile?.favorite_mode || 'Standard',
-        favoriteModel: profile?.favorite_model || 'Sentinel Σ'
+        conversations: conversationsCount,
+        messages: messagesCount,
+        favoriteMode: settings.favorite_mode || 'Standard',
+        favoriteModel: settings.favorite_model || 'Sentinel Σ'
       });
     };
 
@@ -96,7 +96,11 @@ export default function ProfilePage() {
     if (e) e.preventDefault();
     if (!user) return;
     try {
-      await supabase.from('profiles').update({ display_name: tempName, updated_at: new Date().toISOString() }).eq('id', user.id);
+      await apiRequest('/v2/user/settings', { 
+        method: 'PUT',
+        body: { display_name: tempName },
+        json: true
+      });
       setCustomName(tempName);
       setIsEditingName(false);
     } catch (error) {

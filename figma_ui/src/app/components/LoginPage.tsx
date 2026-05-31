@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [localError, setLocalError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [loginMode, setLoginMode] = useState<'user' | 'admin'>('user');
 
   const { theme } = useTheme();
   const { isAuthenticated } = useAuthContext();

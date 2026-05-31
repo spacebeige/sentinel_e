@@ -8,6 +8,7 @@ import { IOSToggle } from './ui/IOSToggle';
 import { IOSContextMenu } from './ui/IOSContextMenu';
 import { Settings, User, Monitor, Key, Shield, Download, Trash2, Cpu, Activity, MessageSquare } from 'lucide-react';
 import { MODELS as AVAILABLE_MODELS } from "../config/runtime";
+import { apiRequest } from '../services/apiClient';
 
 export default function SettingsPage() {
   const { user } = useSupabaseAuth();
@@ -47,24 +48,29 @@ export default function SettingsPage() {
     document.title = "Settings • Sentinel-E";
     if (!user) return;
     const fetchProfile = async () => {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      if (data && !error) {
-        setPreferences({
-          defaultMode: data.runtime_preference || 'standard',
-          defaultModel: data.favorite_model || 'llama-3-3-70b',
-        });
-        setAdvanced({
-          responseStyle: data.response_style || 'balanced',
-          debateDepth: String(data.debate_depth || '6'),
-        });
-        setPrivacy({
-          telemetryOptIn: data.telemetry_opt_in ?? true,
-          analyticsOptIn: data.analytics_opt_in ?? true,
-          feedbackOptIn: data.feedback_opt_in ?? true,
-        });
-        if (data.theme_preference) {
-          setTheme(data.theme_preference);
+      try {
+        const res = await apiRequest<{success: boolean, data: any}>('/v2/user/settings', { method: 'GET' });
+        const data = res?.data?.settings;
+        if (data) {
+          setPreferences({
+            defaultMode: data.runtime_preference || 'standard',
+            defaultModel: data.favorite_model || 'llama-3-3-70b',
+          });
+          setAdvanced({
+            responseStyle: data.response_style || 'balanced',
+            debateDepth: String(data.debate_depth || '6'),
+          });
+          setPrivacy({
+            telemetryOptIn: data.telemetry_opt_in ?? true,
+            analyticsOptIn: data.analytics_opt_in ?? true,
+            feedbackOptIn: data.feedback_opt_in ?? true,
+          });
+          if (data.theme_preference) {
+            setTheme(data.theme_preference);
+          }
         }
+      } catch (err) {
+        console.error('Error fetching settings:', err);
       }
     };
     fetchProfile();
@@ -73,35 +79,42 @@ export default function SettingsPage() {
   const savePreferences = async (newPrefs: any) => {
     setPreferences(newPrefs);
     if (user) {
-      await supabase.from('profiles').update({
-        runtime_preference: newPrefs.defaultMode,
-        favorite_model: newPrefs.defaultModel,
-        response_style: newPrefs.responseStyle ?? advanced.responseStyle,
-        debate_depth: Number(newPrefs.debateDepth ?? advanced.debateDepth),
-        updated_at: new Date().toISOString()
-      }).eq('id', user.id);
+      await apiRequest('/v2/user/settings', {
+        method: 'PUT',
+        body: {
+          runtime_preference: newPrefs.defaultMode,
+          favorite_model: newPrefs.defaultModel,
+          response_style: newPrefs.responseStyle ?? advanced.responseStyle,
+          debate_depth: Number(newPrefs.debateDepth ?? advanced.debateDepth),
+        },
+        json: true
+      });
     }
   };
 
   const savePrivacy = async (newPrivacy: any) => {
     setPrivacy(newPrivacy);
     if (user) {
-      await supabase.from('profiles').update({
-        telemetry_opt_in: newPrivacy.telemetryOptIn,
-        analytics_opt_in: newPrivacy.analyticsOptIn,
-        feedback_opt_in: newPrivacy.feedbackOptIn,
-        updated_at: new Date().toISOString()
-      }).eq('id', user.id);
+      await apiRequest('/v2/user/settings', {
+        method: 'PUT',
+        body: {
+          telemetry_opt_in: newPrivacy.telemetryOptIn,
+          analytics_opt_in: newPrivacy.analyticsOptIn,
+          feedback_opt_in: newPrivacy.feedbackOptIn,
+        },
+        json: true
+      });
     }
   };
 
   const handleThemeChange = async (newTheme: string) => {
     setTheme(newTheme);
     if (user) {
-      await supabase.from('profiles').update({
-        theme_preference: newTheme,
-        updated_at: new Date().toISOString()
-      }).eq('id', user.id);
+      await apiRequest('/v2/user/settings', { 
+        method: 'PUT', 
+        body: { theme_preference: newTheme },
+        json: true 
+      });
     }
   };
 

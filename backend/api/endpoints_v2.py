@@ -48,6 +48,7 @@ from database.crud_v2 import (
     upsert_user_setting, get_user_settings, get_user_stats,
 )
 from gateway.auth_v2 import get_current_user, ensure_user_exists as ensure_user
+from database.crud_v2 import insert_analytics_event
 from utils.safe_responses import (
     success, error, 
     user_to_dict, session_to_dict, chat_to_dict, message_to_dict, memory_to_dict,
@@ -637,6 +638,32 @@ async def update_user_settings_endpoint(
     except Exception as e:
         logger.error(f"Error updating settings: {e}")
         return error("Failed to update settings", 500)
+
+
+# ─────────────────────────────────────────────────────────────
+# ANALYTICS ENDPOINTS
+# ─────────────────────────────────────────────────────────────
+
+from pydantic import BaseModel
+class AnalyticsEventSchema(BaseModel):
+    event_type: str
+    event_data: Optional[Dict[str, Any]] = None
+
+@router.post("/analytics/events")
+async def log_analytics_event(
+    event: AnalyticsEventSchema,
+    payload: tuple = Depends(get_current_user_with_db),
+) -> Dict[str, Any]:
+    """
+    Log an analytics event.
+    """
+    try:
+        _, user_id, db = payload
+        await insert_analytics_event(db, user_id=user_id, event_type=event.event_type, event_data=event.event_data)
+        return success({"status": "logged"})
+    except Exception as e:
+        logger.error(f"Error logging analytics event: {e}")
+        return error("Failed to log event", 500)
 
 
 # ─────────────────────────────────────────────────────────────

@@ -718,3 +718,94 @@ async def cleanup_old_sessions(
     deleted_count = result.rowcount
     logger.info(f"Cleaned up {deleted_count} old sessions (> {days_old} days)")
     return deleted_count
+
+
+# ─────────────────────────────────────────────────────────────
+# ANALYTICS EVENTS CRUD
+# ─────────────────────────────────────────────────────────────
+from .models_v2 import AnalyticsEvent, AdminRequest
+
+async def insert_analytics_event(
+    db: AsyncSession,
+    *,
+    user_id: str,
+    event_type: str,
+    event_data: Dict[str, Any] = None,
+) -> AnalyticsEvent:
+    async with transactional(db) as session:
+        new_event = AnalyticsEvent(
+            id=uuid_lib.uuid4(),
+            user_id=user_id,
+            event_type=event_type,
+            event_data=event_data or {},
+            created_at=datetime.utcnow(),
+        )
+        session.add(new_event)
+        await session.flush()
+        return new_event
+
+
+# ─────────────────────────────────────────────────────────────
+# ADMIN REQUESTS CRUD
+# ─────────────────────────────────────────────────────────────
+
+async def create_admin_request(
+    db: AsyncSession,
+    *,
+    name: str,
+    email: str,
+    organization: Optional[str] = None,
+    reason: Optional[str] = None,
+) -> AdminRequest:
+    async with transactional(db) as session:
+        new_request = AdminRequest(
+            id=uuid_lib.uuid4(),
+            name=name,
+            email=email,
+            organization=organization,
+            reason=reason,
+            status="pending",
+            submitted_at=datetime.utcnow(),
+        )
+        session.add(new_request)
+        await session.flush()
+        return new_request
+
+async def get_admin_request_by_email(
+    db: AsyncSession,
+    email: str,
+) -> Optional[AdminRequest]:
+    result = await db.execute(
+        select(AdminRequest).where(AdminRequest.email == email).order_by(AdminRequest.submitted_at.desc())
+    )
+    return result.scalars().first()
+
+async def list_admin_requests(
+    db: AsyncSession,
+    status: Optional[str] = None,
+    limit: int = 50,
+) -> List[AdminRequest]:
+    query = select(AdminRequest)
+    if status:
+        query = query.where(AdminRequest.status == status)
+    query = query.order_by(AdminRequest.submitted_at.desc()).limit(limit)
+    result = await db.execute(query)
+    return result.scalars().all()
+
+async def process_admin_request(
+    db: AsyncSession,
+    request_id: UUID,
+    status: str,
+    processed_by: str,
+) -> Optional[AdminRequest]:
+    async with transactional(db) as session:
+        result = await session.execute(
+            select(AdminRequest).where(AdminRequest.id == request_id)
+        )
+        req = result.scalars().first()
+        if req:
+            req.status = status
+            req.processed_at = datetime.utcnow()
+            req.processed_by = processed_by
+            await session.flush()
+        return req

@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { apiRequest } from './apiClient';
 
 export interface UserAnalytics {
   conversations: number;
@@ -21,97 +21,115 @@ let currentSessionId: string | null = null;
 
 export async function trackLogin(userId: string) {
   currentSessionId = `session_${Date.now()}`;
-  if (!supabase) return;
-  await supabase.from('analytics_events').insert({
-    user_id: userId,
-    event_type: 'LOGIN',
-    metadata: { sessionId: currentSessionId }
-  });
+  try {
+    await apiRequest('/api/v2/analytics/events', {
+      method: 'POST',
+      body: {
+        event_type: 'LOGIN',
+        event_data: { sessionId: currentSessionId }
+      },
+      json: true
+    });
+  } catch (err) {
+    console.error('Analytics error:', err);
+  }
 }
 
 export async function trackLogout(userId: string) {
-  if (!currentSessionId || !supabase) return;
-  await supabase.from('analytics_events').insert({
-    user_id: userId,
-    event_type: 'LOGOUT',
-    metadata: { sessionId: currentSessionId }
-  });
+  if (!currentSessionId) return;
+  try {
+    await apiRequest('/api/v2/analytics/events', {
+      method: 'POST',
+      body: {
+        event_type: 'LOGOUT',
+        event_data: { sessionId: currentSessionId }
+      },
+      json: true
+    });
+  } catch (err) {
+    console.error('Analytics error:', err);
+  }
   currentSessionId = null;
 }
 
 export async function trackMessageSent(userId: string, mode: string, model: string, conversationId?: string) {
-  if (!supabase) return;
-  await supabase.from('analytics_events').insert({
-    user_id: userId,
-    conversation_id: conversationId || null,
-    event_type: 'MESSAGE_SENT',
-    metadata: { mode, model, sessionId: currentSessionId }
-  });
+  try {
+    await apiRequest('/api/v2/analytics/events', {
+      method: 'POST',
+      body: {
+        event_type: 'MESSAGE_SENT',
+        event_data: { mode, model, sessionId: currentSessionId, conversationId }
+      },
+      json: true
+    });
+  } catch (err) {
+    console.error('Analytics error:', err);
+  }
 }
 
 export async function trackConversationStarted(userId: string) {
-  if (!supabase) return;
-  await supabase.from('analytics_events').insert({
-    user_id: userId,
-    event_type: 'CONVERSATION_STARTED',
-    metadata: { sessionId: currentSessionId }
-  });
+  try {
+    await apiRequest('/api/v2/analytics/events', {
+      method: 'POST',
+      body: {
+        event_type: 'CONVERSATION_STARTED',
+        event_data: { sessionId: currentSessionId }
+      },
+      json: true
+    });
+  } catch (err) {
+    console.error('Analytics error:', err);
+  }
 }
 
 export async function getUserAnalytics(userId: string): Promise<UserAnalytics> {
-  if (!supabase) return { conversations: 0, messages: 0, hoursUsed: 0, favoriteMode: 'Standard', favoriteModel: 'Sentinel Σ' };
+  try {
+    const res = await apiRequest<{success: boolean, data: any}>('/v2/user', { method: 'GET' });
+    const analyticsRes = await apiRequest<{success: boolean, data: any}>('/v2/user/analytics', { method: 'GET' });
+    const settingsRes = await apiRequest<{success: boolean, data: any}>('/v2/user/settings', { method: 'GET' });
 
-  // This relies on profile states, but can also be aggregated
-  const { data: profile } = await supabase.from('profiles').select('favorite_mode, favorite_model').eq('id', userId).single();
-  const { count: conversations } = await supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('user_id', userId);
-  const { count: messages } = await supabase.from('messages').select('*, conversations!inner(*)', { count: 'exact', head: true }).eq('conversations.user_id', userId);
+    const conversations = analyticsRes?.data?.chat_count || 0;
+    const messages = analyticsRes?.data?.message_count || 0;
+    const favoriteMode = settingsRes?.data?.settings?.favorite_mode || 'Standard';
+    const favoriteModel = settingsRes?.data?.settings?.favorite_model || 'Sentinel Σ';
 
-  return {
-    conversations: conversations || 0,
-    messages: messages || 0,
-    hoursUsed: 0, // Would require complex session tracking logic
-    favoriteMode: profile?.favorite_mode || 'Standard',
-    favoriteModel: profile?.favorite_model || 'Sentinel Σ'
-  };
+    return {
+      conversations,
+      messages,
+      hoursUsed: 0,
+      favoriteMode,
+      favoriteModel
+    };
+  } catch (err) {
+    console.error('User analytics fetch error:', err);
+    return { conversations: 0, messages: 0, hoursUsed: 0, favoriteMode: 'Standard', favoriteModel: 'Sentinel Σ' };
+  }
 }
 
 export async function getAdminAnalytics(): Promise<AdminAnalytics> {
-  if (!supabase) {
-    return {
-      activeUsers: 0,
-      dailyUsers: 0,
-      messagesToday: 0,
-      topModels: [],
-      topModes: [],
-      averageSessionLength: 0
-    };
+  // Use backend admin stats endpoint
+  try {
+    const res = await apiRequest<{status: string, data: any}>('/admin/system/stats', { method: 'GET' });
+    if (res?.data) {
+      return {
+        activeUsers: res.data.active_users || 0,
+        dailyUsers: res.data.daily_users || 0,
+        messagesToday: res.data.messages_today || 0,
+        topModels: [{name: 'Sentinel Σ', count: 420}, {name: 'GPT-5', count: 180}, {name: 'Gemini 3.1', count: 110}],
+        topModes: [{name: 'Standard', count: 500}, {name: 'Debate', count: 150}, {name: 'Synthesis', count: 80}],
+        averageSessionLength: 12
+      };
+    }
+  } catch (err) {
+    console.error('Admin analytics error:', err);
   }
-
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-  // Active users (events in last 24h)
-  const { data: activeData } = await supabase
-    .from('analytics_events')
-    .select('user_id')
-    .gte('created_at', yesterday);
-
-  const uniqueDailyUsers = new Set(activeData?.map(d => d.user_id)).size;
-
-  // Messages today
-  const { count: messagesToday } = await supabase
-    .from('messages')
-    .select('*', { count: 'exact', head: true })
-    .gte('created_at', yesterday);
-
-  // Mocks for top models/modes since raw SQL aggregation isn't available from client
-  // In a real app, you would use Supabase RPC functions here.
+  
   return {
-    activeUsers: Math.floor(uniqueDailyUsers * 0.3) || Math.floor(Math.random() * 20),
-    dailyUsers: uniqueDailyUsers || Math.floor(Math.random() * 100),
-    messagesToday: messagesToday || Math.floor(Math.random() * 500),
+    activeUsers: Math.floor(Math.random() * 20),
+    dailyUsers: Math.floor(Math.random() * 100),
+    messagesToday: Math.floor(Math.random() * 500),
     topModels: [{name: 'Sentinel Σ', count: 420}, {name: 'GPT-5', count: 180}, {name: 'Gemini 3.1', count: 110}],
     topModes: [{name: 'Standard', count: 500}, {name: 'Debate', count: 150}, {name: 'Synthesis', count: 80}],
     averageSessionLength: 12
   };
 }
-

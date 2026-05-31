@@ -378,3 +378,38 @@ class UserSettings(Base):
 # LEFT JOIN messages m ON u.id = m.user_id
 # LEFT JOIN sessions s ON u.id = s.user_id
 # GROUP BY u.id;
+
+
+# ─────────────────────────────────────────────────────────────
+# TABLE: analytics_events (User telemetry)
+# ─────────────────────────────────────────────────────────────
+class AnalyticsEvent(Base):
+    __tablename__ = "analytics_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    event_type = Column(String, nullable=False)
+    event_data = Column(JSONB, nullable=True, default={})
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_analytics_events_user_id", "user_id"),
+        Index("ix_analytics_events_event_type", "event_type"),
+    )
+
+
+# ─────────────────────────────────────────────────────────────
+# TABLE: admin_requests (Access requests)
+# ─────────────────────────────────────────────────────────────
+class AdminRequest(Base):
+    __tablename__ = "admin_requests"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    organization = Column(String, nullable=True)
+    reason = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="pending") # pending, approved, rejected
+    submitted_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    processed_at = Column(DateTime, nullable=True)
+    processed_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

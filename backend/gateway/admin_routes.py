@@ -20,6 +20,15 @@ from gateway.admin_access import is_runtime_admin_email, require_runtime_admin
 from database.connection import get_db
 from database.models import User, Chat, Message
 from database.crud import list_chats, get_chat_messages
+from database.connection_v2 import get_db as get_db_v2
+from database.crud_v2 import (
+    create_admin_request,
+    get_admin_request_by_email,
+    list_admin_requests,
+    process_admin_request
+)
+from pydantic import BaseModel
+from typing import Optional
 
 logger = logging.getLogger("admin_routes")
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -81,8 +90,85 @@ async def make_user_admin(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error promoting user: {e}")
-        raise HTTPException(status_code=500, detail="Unable to update user role.")
+        logger.error(f"Error making user admin: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class AdminRequestPayload(BaseModel):
+    name: str
+    email: str
+    organization: Optional[str] = None
+    reason: Optional[str] = None
+
+@router.post("/requests")
+async def request_admin_access(
+    payload: AdminRequestPayload,
+    db: AsyncSession = Depends(get_db_v2),
+):
+    try:
+        # Check if they already have a pending or approved request
+        existing = await get_admin_request_by_email(db, payload.email)
+        if existing and existing.status in ["pending", "approved"]:
+            return {"status": "success", "message": f"Request already {existing.status}"}
+            
+        req = await create_admin_request(
+            db, 
+            name=payload.name, 
+            email=payload.email, 
+            organization=payload.organization, 
+            reason=payload.reason
+        )
+        return {"status": "success", "request_id": str(req.id)}
+    except Exception as e:
+        logger.error(f"Error creating admin request: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/requests")
+async def get_admin_requests(
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db_v2),
+    admin: dict = Depends(require_admin),
+):
+    try:
+        reqs = await list_admin_requests(db, status=status)
+        return {"status": "success", "data": [
+            {
+                "id": str(r.id),
+                "name": r.name,
+                "email": r.email,
+                "organization": r.organization,
+                "reason": r.reason,
+                "status": r.status,
+                "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None,
+            } for r in reqs
+        ]}
+    except Exception as e:
+        logger.error(f"Error getting admin requests: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class AdminRequestProcessPayload(BaseModel):
+    status: str
+
+@router.put("/requests/{request_id}")
+async def process_admin_req(
+    request_id: str,
+    payload: AdminRequestProcessPayload,
+    db: AsyncSession = Depends(get_db_v2),
+    admin: dict = Depends(require_admin),
+):
+    try:
+        req = await process_admin_request(
+            db, 
+            request_id=request_id, 
+            status=payload.status, 
+            processed_by=admin.get("user_id", "system")
+        )
+        if not req:
+            raise HTTPException(status_code=404, detail="Request not found")
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error processing admin request: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/system/stats")

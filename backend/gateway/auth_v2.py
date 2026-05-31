@@ -73,7 +73,7 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
 
     if not pyjwt:
         logger.error("verification failed: PyJWT not installed")
-        return None
+        raise HTTPException(status_code=500, detail="PyJWT not installed")
 
     # Log unverified token payload
     try:
@@ -85,22 +85,21 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
         logger.info(f"role={unverified_claims.get('role', 'None')}")
     except Exception as e:
         logger.error(f"verification failed: DecodeError during unverified parse: {e}")
-        return None
+        raise HTTPException(status_code=401, detail=f"DecodeError (Unverified): {e}")
 
     # Log secret status
     secret_exists = bool(_SUPABASE_JWT_SECRET)
     logger.info(f"JWT secret loaded: {secret_exists}")
     if secret_exists:
         logger.info(f"JWT secret length: {len(_SUPABASE_JWT_SECRET)}")
-    else:
-        logger.error("verification failed: SUPABASE_JWT_SECRET not set")
-        return None
+    if not _SUPABASE_JWT_SECRET:
+        logger.error("verification failed: SUPABASE_JWT_SECRET not set in environment")
+        raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not set in environment")
 
     import base64
-    try:
-        secret_bytes = base64.b64decode(_SUPABASE_JWT_SECRET + "=" * (-len(_SUPABASE_JWT_SECRET) % 4))
-    except Exception:
-        secret_bytes = _SUPABASE_JWT_SECRET.encode()
+    # Use the plain string encoded as UTF-8, exactly as Supabase expects.
+    # Do NOT try to base64 decode it, even if it looks like a base64 string.
+    secret_bytes = _SUPABASE_JWT_SECRET.encode("utf-8")
 
     try:
         claims = pyjwt.decode(
@@ -112,22 +111,22 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
         return claims
     except pyjwt.ExpiredSignatureError as e:
         logger.error(f"verification failed: ExpiredSignatureError - {e}")
-        return None
+        raise HTTPException(status_code=401, detail=f"ExpiredSignatureError: {e}")
     except pyjwt.InvalidSignatureError as e:
         logger.error(f"verification failed: InvalidSignatureError - {e}")
-        return None
+        raise HTTPException(status_code=401, detail=f"InvalidSignatureError: {e}")
     except pyjwt.InvalidIssuerError as e:
         logger.error(f"verification failed: InvalidIssuerError - {e}")
-        return None
+        raise HTTPException(status_code=401, detail=f"InvalidIssuerError: {e}")
     except pyjwt.InvalidAudienceError as e:
         logger.error(f"verification failed: InvalidAudienceError - {e}")
-        return None
+        raise HTTPException(status_code=401, detail=f"InvalidAudienceError: {e}")
     except pyjwt.DecodeError as e:
         logger.error(f"verification failed: DecodeError - {e}")
-        return None
+        raise HTTPException(status_code=401, detail=f"DecodeError: {e}")
     except Exception as e:
         logger.error(f"verification failed: Exception - {e}")
-        return None
+        raise HTTPException(status_code=401, detail=f"Exception: {e}")
 
 
 # ─────────────────────────────────────────────────────────────

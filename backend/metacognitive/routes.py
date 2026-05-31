@@ -484,11 +484,21 @@ async def mco_run(
         preferences = payload.get("preferences") if isinstance(payload.get("preferences"), dict) else {}
 
         safe_user = user or {
-            "user_id": "anonymous",
-            "email": None,
+            "id": "00000000-0000-0000-0000-000000000000",
+            "user_id": "00000000-0000-0000-0000-000000000000",
+            "email": "anonymous@local",
+            "name": "Anonymous User",
             "role": "guest",
+            "provider": "system",
             "authenticated": False,
         }
+
+        if not user:
+            try:
+                from gateway.auth_v2 import ensure_user_exists
+                await ensure_user_exists(safe_user, db)
+            except Exception as e:
+                logger.error(f"Failed to ensure anonymous user: {e}")
 
         result_payload = await _mco_run_impl(
             query=query,
@@ -507,7 +517,7 @@ async def mco_run(
             user=safe_user,
         )
 
-        if BehavioralMemoryManager and safe_user.get("user_id") != "anonymous":
+        if BehavioralMemoryManager and safe_user.get("user_id") != "00000000-0000-0000-0000-000000000000":
             background_tasks.add_task(
                 BehavioralMemoryManager.update_profile_async,
                 db=db,
@@ -530,24 +540,28 @@ async def mco_run(
         print("TRACEBACK:", tb)
         logger.error("Unhandled error in /api/mco/run: %s", exc)
         logger.error(tb)
-        fallback_text = (
-            "I’m still available and your session is intact. "
-            "A temporary backend issue occurred, so this is a safe fallback response. "
-            "Please retry your request."
+        
+        exc_str = str(exc).lower() + " " + repr(exc).lower()
+        error_type = "orchestration exception"
+        
+        if "timeout" in exc_str:
+            error_type = "provider timeout"
+        elif "api key" in exc_str:
+            error_type = "missing API key"
+        elif "auth" in exc_str and "provider" in exc_str:
+            error_type = "provider auth failure"
+        elif "resolve" in exc_str and "model" in exc_str:
+            error_type = "resolver failure"
+        elif "sqlalchemy" in exc_str or "asyncpg" in exc_str or "database" in exc_str or "password" in exc_str or "connection" in exc_str:
+            error_type = "persistence exception"
+            
+        return JSONResponse(
+            status_code=500, 
+            content={
+                "detail": error_type,
+                "error": str(exc)
+            }
         )
-        safe_payload = {
-            "mode": payload.get("mode", "standard") if isinstance(payload, dict) else "standard",
-            "sub_mode": payload.get("sub_mode") if isinstance(payload, dict) else None,
-            "formatted_output": fallback_text,
-            "aggregated_answer": fallback_text,
-            "confidence": 0.0,
-            "data": {"priority_answer": fallback_text},
-            "omega_metadata": {
-                "fallback": True,
-                "error": "runtime_error",
-            },
-        }
-        return JSONResponse(status_code=200, content=safe_payload)
 
 
 async def _mco_run_impl(
@@ -646,7 +660,7 @@ async def _mco_run_impl(
 
     orch_run, orch_bus = _start_runtime_run(
         str(chat.id),
-        user.get("user_id", "anonymous"),
+        user.get("user_id", "00000000-0000-0000-0000-000000000000"),
         query,
     )
 
@@ -689,7 +703,7 @@ async def _mco_run_impl(
     await add_message(
         db,
         chat.id,
-        user.get("user_id", "anonymous"),
+        user.get("user_id", "00000000-0000-0000-0000-000000000000"),
         "user",
         query,
         image_b64=image_b64,
@@ -716,7 +730,7 @@ async def _mco_run_impl(
         builder = get_context_builder(max_tokens=2048, model=(selected_model or "llama33-70b"))
         built = await builder.build_context(
             db=db,
-            user_id=user.get("user_id", "anonymous"),
+            user_id=user.get("user_id", "00000000-0000-0000-0000-000000000000"),
             query=query,
             recent_messages=recent_payload,
             semantic_search_results=None,
@@ -879,7 +893,7 @@ async def _mco_run_impl(
             await add_message(
                 db,
                 chat.id,
-                user.get("user_id", "anonymous"),
+                user.get("user_id", "00000000-0000-0000-0000-000000000000"),
                 "assistant",
                 formatted_output,
                 reasoning_json=omega_metadata,
@@ -1169,7 +1183,7 @@ async def _mco_run_impl(
                     await add_message(
                         db,
                         chat.id,
-                        user.get("user_id", "anonymous"),
+                        user.get("user_id", "00000000-0000-0000-0000-000000000000"),
                         "assistant",
                         answer,
                         reasoning_json=omega_metadata,
@@ -1660,7 +1674,7 @@ async def _mco_run_impl(
     await add_message(
         db,
         chat.id,
-        user.get("user_id", "anonymous"),
+        user.get("user_id", "00000000-0000-0000-0000-000000000000"),
         "assistant",
         response.aggregated_answer,
         reasoning_json=omega_metadata,

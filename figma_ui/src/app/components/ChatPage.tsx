@@ -141,7 +141,7 @@ export function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([{
     id: "welcome",
     role: "assistant",
-    content: "Hello! I'm Sentinel-E, your AI assistant powered by the Omega Cognitive Kernel. How can I help you today?",
+    content: "Hello! How can I help you today?",
     timestamp: new Date(),
   }]);
   const [input, setInput] = useState("");
@@ -625,7 +625,7 @@ export function ChatPage() {
     setMessages([{
       id: "welcome",
       role: "assistant",
-      content: "Hello! I'm Sentinel-E, your AI assistant powered by the Omega Cognitive Kernel. How can I help you today?",
+      content: "Hello! How can I help you today?",
       timestamp: new Date(),
     }]);
   };

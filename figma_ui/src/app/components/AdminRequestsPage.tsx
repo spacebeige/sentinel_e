@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { apiRequest } from '../services/apiClient';
 import { Shield, Check, X, Loader2, AlertCircle } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { motion } from 'motion/react';
@@ -31,13 +31,12 @@ export default function AdminRequestsPage() {
 
   const fetchRequests = async () => {
     try {
-      const { data, error } = await supabase
-        .from('admin_requests')
-        .select('*')
-        .order('submitted_at', { ascending: false });
-
-      if (error) throw error;
-      setRequests(data || []);
+      const res = await apiRequest<{status: string, data: AdminRequest[]}>('/admin/requests', { method: 'GET' });
+      if (res && res.status === 'success') {
+        setRequests(res.data || []);
+      } else {
+        throw new Error("Failed to load");
+      }
     } catch (err: any) {
       console.error('Error fetching admin requests:', err);
       setError('Failed to load admin requests. Ensure you have owner permissions.');
@@ -50,29 +49,23 @@ export default function AdminRequestsPage() {
     setActionLoading(requestId);
     try {
       if (action === 'approve') {
-        // 1. Insert into admin_users
-        const { error: insertError } = await supabase.from('admin_users').insert({
-          email: email,
-          role: 'admin',
-          created_by: user?.id
+        // 1. Give admin role
+        await apiRequest('/admin/users/make-admin', { 
+          method: 'POST',
+          body: { email: email },
+          json: true
         });
-        
-        if (insertError) throw insertError;
-        
-        // 2. Update profiles to admin if profile exists
-        // This is optional but good for syncing roles
-        await supabase.from('profiles').update({ role: 'admin' }).eq('email', email);
       }
       
-      // 3. Update request status
-      const { error: updateError } = await supabase
-        .from('admin_requests')
-        .update({ status: action === 'approve' ? 'approved' : 'rejected' })
-        .eq('id', requestId);
-
-      if (updateError) throw updateError;
+      // 2. Update request status
+      const res = await apiRequest<{status: string}>(`/admin/requests/${requestId}`, { 
+        method: 'PUT',
+        body: { status: action === 'approve' ? 'approved' : 'rejected' },
+        json: true
+      });
+      if (res?.status !== 'success') throw new Error("Failed to update status");
       
-      // 4. Update local state
+      // 3. Update local state
       setRequests(prev => prev.map(req => 
         req.id === requestId 
           ? { ...req, status: action === 'approve' ? 'approved' : 'rejected' } 

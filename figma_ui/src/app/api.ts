@@ -812,26 +812,29 @@ export async function getCurrentUser(): Promise<any> {
 }
 
 /**
- * Submit a request for admin access. Does not require authentication.
+ * Submit a request for admin access.
  */
 export async function submitAdminRequest(data: AdminRequestData): Promise<{ status: "success" | "error", message?: string }> {
   try {
-    const { error } = await supabase.from('admin_requests').insert({
-      name: data.name,
-      email: data.email,
-      organization: data.organization,
-      reason: data.reason,
-      status: 'pending'
+    const res = await apiRequest<{ status: string, message?: string }>('/admin/requests', {
+      method: 'POST',
+      body: {
+        name: data.name,
+        email: data.email,
+        organization: data.organization,
+        reason: data.reason
+      },
+      json: true
     });
 
-    if (error) {
-      console.error("submitAdminRequest error:", error);
-      return { status: "error", message: error.message };
+    if (res && res.status === "success") {
+      return { status: "success" };
+    } else {
+      return { status: "error", message: res?.message || "Failed to submit request" };
     }
-    return { status: "success" };
-  } catch (err) {
+  } catch (err: any) {
     console.error("submitAdminRequest exception:", err);
-    return { status: "error", message: "Failed to submit request" };
+    return { status: "error", message: err.message || "Failed to submit request" };
   }
 }
 
@@ -840,21 +843,14 @@ export async function submitAdminRequest(data: AdminRequestData): Promise<{ stat
  */
 export async function getAdminRequestStatus(email: string): Promise<'pending' | 'approved' | 'rejected' | null> {
   try {
-    const { data, error } = await supabase
-      .from('admin_requests')
-      .select('status')
-      .eq('email', email)
-      .order('submitted_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') return null; // Not found
-      console.error("getAdminRequestStatus error:", error);
-      return null;
+    const res = await apiRequest<{ status: string, data: any[] }>('/admin/requests', { method: 'GET' });
+    if (res && res.status === "success" && res.data) {
+      const myRequest = res.data.find((r: any) => r.email === email);
+      if (myRequest) {
+        return myRequest.status as 'pending' | 'approved' | 'rejected';
+      }
     }
-
-    return data?.status as 'pending' | 'approved' | 'rejected' | null;
+    return null;
   } catch (err) {
     console.error("getAdminRequestStatus exception:", err);
     return null;
