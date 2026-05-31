@@ -76,11 +76,8 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
         logger.warning("[Auth] SUPABASE_JWT_SECRET not set — cannot verify Supabase JWT")
         return None
 
-    import base64
-    try:
-        secret_bytes = base64.b64decode(_SUPABASE_JWT_SECRET + "=" * (-len(_SUPABASE_JWT_SECRET) % 4))
-    except Exception:
-        secret_bytes = _SUPABASE_JWT_SECRET.encode()
+    # Supabase JWT secret must be used as plain UTF-8 bytes, NOT base64-decoded.
+    secret_bytes = _SUPABASE_JWT_SECRET.encode("utf-8")
 
     try:
         claims = pyjwt.decode(

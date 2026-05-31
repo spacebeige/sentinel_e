@@ -484,7 +484,7 @@ async def mco_run(
         preferences = payload.get("preferences") if isinstance(payload.get("preferences"), dict) else {}
 
         safe_user = user or {
-            "user_id": "anonymous",
+            "user_id": "00000000-0000-0000-0000-000000000000",
             "email": None,
             "role": "guest",
             "authenticated": False,
