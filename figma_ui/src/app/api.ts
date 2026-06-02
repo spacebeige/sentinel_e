@@ -624,10 +624,11 @@ export async function getChatMessages(
   chatId: string
 ): Promise<ChatMessage[]> {
   try {
-    const res = await apiRequest<{ success: boolean; data: any[] }>(`/api/v2/chat/${chatId}/messages`);
+    const res = await apiRequest<{ success: boolean; data: any }>(`/api/v2/chat/${chatId}/messages`);
     if (!res || !res.success || !res.data) return [];
     
-    return res.data.map(adaptChatMessage);
+    const messages = Array.isArray(res.data) ? res.data : (res.data.messages || []);
+    return messages.map(adaptChatMessage);
   } catch (err) {
     console.error('getChatMessages error:', err);
     return [];

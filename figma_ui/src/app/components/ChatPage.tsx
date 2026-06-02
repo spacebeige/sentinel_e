@@ -150,6 +150,7 @@ export function ChatPage() {
   const [healthData, setHealthData] = useState<HealthStatus | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -247,11 +248,17 @@ export function ChatPage() {
       setBackendOnline(false);
       setHealthData(null);
     }
+    return health;
   }, []);
 
   useEffect(() => {
-    performHealthCheck();
-    healthCheckRef.current = setInterval(performHealthCheck, 15000);
+    const bootstrap = async () => {
+      await performHealthCheck();
+      setIsBootstrapping(false);
+    };
+    bootstrap();
+
+    healthCheckRef.current = setInterval(performHealthCheck, 60000);
     return () => { if (healthCheckRef.current) clearInterval(healthCheckRef.current); };
   }, [performHealthCheck]);
 
@@ -368,10 +375,15 @@ export function ChatPage() {
       const metadata = chatItem.machine_metadata as Record<string, unknown> | undefined;
       const restoredModel = metadata?.selected_model || metadata?.winning_model;
       if (typeof restoredModel === "string") setSelectedModel(restoredModel);
-      if (chatItem.mode?.includes("mco") || metadata?.sub_mode) {
+      
+      if (chatItem.mode === "standard") {
+        setRuntimeTier("standard");
+        setSelectedMode(null);
+        setIsOrchestrationExpanded(false);
+      } else {
         setRuntimeTier("pro");
         setIsOrchestrationExpanded(true);
-        if (typeof metadata?.sub_mode === "string") setSelectedMode(metadata.sub_mode);
+        setSelectedMode(chatItem.mode || (typeof metadata?.sub_mode === "string" ? metadata.sub_mode : null));
       }
     } catch (err) {
       console.error("Failed to restore chat:", err);
@@ -518,10 +530,11 @@ export function ChatPage() {
       try {
         let response: SentinelRunResponse;
 
-        if (runtimeTier === "pro" && selectedMode) {
+        if (runtimeTier === "pro") {
+          const effectiveMode = selectedMode || "pro";
           response = await runExperimental(
             userText,
-            selectedMode,
+            effectiveMode,
             runtimePreferences.debateDepth,
             currentChatId || undefined,
             glassState.killOverride,
@@ -972,6 +985,33 @@ export function ChatPage() {
 
       {/* ── Main Chat Area ── */}
       <div className="flex-1 flex flex-col h-screen relative overflow-hidden" style={{ background: chatBg, transition: "margin 300ms cubic-bezier(0.16,1,0.3,1), width 300ms cubic-bezier(0.16,1,0.3,1)" }}>
+        
+        {/* Cat Loading Screen */}
+        <AnimatePresence>
+          {isBootstrapping && (
+            <motion.div
+              initial={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0 z-[100] flex flex-col items-center justify-center backdrop-blur-xl"
+              style={{ background: isDark ? "rgba(8,9,14,0.85)" : "rgba(255,255,255,0.85)" }}
+            >
+              <div className="relative w-64 h-16 overflow-hidden mb-4">
+                <motion.div
+                  initial={{ x: -60 }}
+                  animate={{ x: 260 }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                  className="absolute bottom-0 text-4xl"
+                >
+                  🐈
+                </motion.div>
+              </div>
+              <h2 className="text-xl font-bold mb-2 tracking-tight" style={{ color: textPrimary }}>Connecting to Sentinel Database...</h2>
+              <p className="text-[13px]" style={{ color: textSecondary }}>Please wait while your session environment is prepared.</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {import.meta.env.DEV && (
           <div className="absolute top-4 right-4 z-50 p-4 rounded-xl text-xs font-mono shadow-xl backdrop-blur-md" style={{ background: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)' }}>
             <div className="font-bold mb-2">Runtime Diagnostics</div>

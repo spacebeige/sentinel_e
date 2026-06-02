@@ -94,8 +94,9 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl p-6 shadow-2xl relative"
+            className="w-[calc(100vw-32px)] sm:max-w-[480px] rounded-2xl p-6 shadow-2xl relative overflow-y-auto"
             style={{
+              maxHeight: "90vh",
               background: isDark ? "#1d1d1f" : "#ffffff",
               border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(0,0,0,0.1)",
             }}

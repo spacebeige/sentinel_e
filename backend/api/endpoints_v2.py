@@ -560,6 +560,8 @@ SETTINGS_SCHEMA: Dict[str, Any] = {
     "notifications_enabled": {"type": bool, "default": True},
     "debate_rounds": {"type": int, "min": 1, "max": 10, "default": 3},
     "auto_save": {"type": bool, "default": True},
+    "display_name": {"type": str, "default": ""},
+    "avatar_url": {"type": str, "default": ""},
 }
 
 @router.get("/user/settings")
