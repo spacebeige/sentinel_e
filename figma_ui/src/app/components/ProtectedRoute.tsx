@@ -12,7 +12,7 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode; requireAdmin?
 
   if (loading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#09090b]">
+      <div className="flex h-screen w-full items-center justify-center bg-[#09090b]">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-[#8b5cf6]"></div>
           <span className="text-sm font-medium text-zinc-400">Authenticating Sentinel-E...</span>

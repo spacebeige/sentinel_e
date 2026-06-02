@@ -49,7 +49,7 @@ const AdminPage: React.FC = () => {
 
   if (statusLoading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#09090b]">
+      <div className="flex h-screen w-full items-center justify-center bg-[#09090b]">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-[#8b5cf6]"></div>
           <span className="text-sm font-medium text-zinc-400">Verifying authorization...</span>
@@ -60,7 +60,7 @@ const AdminPage: React.FC = () => {
 
   if (role !== 'admin' && role !== 'owner') {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#09090b] text-white">
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-[#09090b] text-white">
         <Link to="/" className="fixed top-8 left-8 z-50 transition-transform hover:scale-105">
           <img src="/logo.png" alt="Sentinel-E" className="h-7 w-auto" />
         </Link>
@@ -83,7 +83,7 @@ const AdminPage: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-y-auto bg-[#09090b] text-white">
+    <div className="flex h-screen w-full flex-col overflow-y-auto bg-[#09090b] text-white">
       <div className="mx-auto w-full max-w-7xl p-8">
         <div className="mb-10 flex items-center justify-between">
           <div>
