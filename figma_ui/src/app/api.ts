@@ -596,7 +596,7 @@ export async function getChatDetails(
     const chatData = chatRes.data.chat || {};
     const chat: ChatHistoryItem = {
       id: chatData.id || chatId,
-      name: chatData.chat_name || chatData.name || 'Untitled Chat',
+      name: chatData.chat_name || chatData.name || 'New Chat',
       mode: chatData.mode || 'standard',
       created_at: chatData.created_at,
       updated_at: chatData.updated_at || chatData.created_at,

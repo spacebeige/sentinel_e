@@ -336,8 +336,8 @@ export function adaptSessionState(raw: unknown): OmegaSessionState | undefined {
 
 export function adaptChatHistoryItem(raw: Record<string, unknown>): ChatHistoryItem {
   return {
-    id: safeString(raw.id),
-    name: safeString(raw.name || raw.chat_name, "Untitled Chat"),
+    id: safeString(raw.id || raw.chat_id, "unknown-id"),
+    name: safeString(raw.name || raw.chat_name, "New Chat"),
     mode: safeString(raw.mode, "standard"),
     created_at: safeString(raw.created_at),
     updated_at: safeString(raw.updated_at || raw.created_at),

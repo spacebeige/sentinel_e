@@ -11,62 +11,32 @@ STOP_WORDS = {
 
 def generate_chat_name(text: str, mode: str) -> str:
     """
-    Generates a deterministic chat name based on the first meaningful 6 words.
+    Generates a deterministic chat name using lightweight extraction.
     """
-    # Clean valid characters only (alphanumeric + spaces)
-    text_clean = re.sub(r'[^\w\s]', '', text).strip()
-    
-    # Tokenize
-    words = text_clean.split()
-    
-    # Filter stop words and take first 6 meaningful words
-    meaningful = [w for w in words if w.lower() not in STOP_WORDS]
-    
-    # Fallback if no meaningful words
-    if not meaningful:
-        meaningful = words
+    if not text:
+        return "New Chat"
         
-    # Take first 6
-    selected = meaningful[:6]
+    text_clean = re.sub(r'[^\w\s\-]', '', text).strip()
     
-    # Construct name
-    name = " ".join(selected).title()
+    starters = [
+        "how do i ", "how to ", "can you ", "could you ", "what is ", 
+        "what are ", "explain ", "tell me about ", "help me with ", 
+        "i need ", "write a ", "create a ", "build a ", "show me "
+    ]
     
-    # Truncate if too long (backup safety)
-    if len(name) > 60:
-        name = name[:57] + "..."
-        
-    if not name:
-        name = "New Analysis"
-        
-    return name
-    
-    # Filter stop words
-    keywords = [w for w in words if w not in STOP_WORDS and len(w) > 2]
-    
-    # Take top 3 unique keywords, preserving order
-    seen = set()
-    top_keywords = []
-    for w in keywords:
-        if w not in seen:
-            seen.add(w)
-            top_keywords.append(w.title())
-        if len(top_keywords) >= 3:
+    lower_text = text_clean.lower()
+    for s in starters:
+        if lower_text.startswith(s):
+            text_clean = text_clean[len(s):].strip()
             break
             
-    if not top_keywords:
-        base_name = "New Chat"
-    else:
-        base_name = " ".join(top_keywords)
+    words = text_clean.split()
+    if not words:
+        return "New Chat"
+        
+    title = " ".join(words[:4]).title()
     
-    # Mode suffix mapping
-    mode_map = {
-        "conversational": "", # Default, no suffix
-        "experimental": "— Experimental",
-        "forensic": "— Forensic", 
-        "shadow": "— Shadow"
-    }
-    
-    suffix = mode_map.get(mode, "")
-    
-    return f"{base_name} {suffix}".strip()
+    if len(title) > 40:
+        title = title[:37] + "..."
+        
+    return title

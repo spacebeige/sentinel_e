@@ -262,39 +262,61 @@ export function ChatPage() {
     return () => { if (healthCheckRef.current) clearInterval(healthCheckRef.current); };
   }, [performHealthCheck]);
 
+  // ── Load full chat state ───────────────────────────────────────────────────
+  const loadFullChatState = useCallback(async (chatId: string) => {
+    if (!backendOnline || !user) return;
+    setIsBootstrapping(true);
+    try {
+      // Get chat history to ensure sidebar is updated and we have metadata
+      const history = await getChatHistory(50, 0);
+      setChatHistory(history);
+      const chatItem = history.find(c => c.id === chatId);
+
+      const msgs = await getChatMessages(chatId);
+      const restored: Message[] = msgs.map((m, i) => ({
+        id: `restored-${i}`,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+      }));
+      setMessages(restored.length > 0 ? restored : [{
+        id: "welcome",
+        role: "assistant" as const,
+        content: "Chat restored but no messages found.",
+        timestamp: new Date(),
+      }]);
+      setCurrentChatId(chatId);
+
+      if (chatItem) {
+        const metadata = chatItem.machine_metadata as Record<string, unknown> | undefined;
+        const restoredModel = metadata?.selected_model || metadata?.winning_model;
+        if (typeof restoredModel === "string") setSelectedModel(restoredModel);
+        
+        if (chatItem.mode === "standard") {
+          setRuntimeTier("standard");
+          setSelectedMode(null);
+          setIsOrchestrationExpanded(false);
+        } else {
+          setRuntimeTier("pro");
+          setIsOrchestrationExpanded(true);
+          setSelectedMode(chatItem.mode || (typeof metadata?.sub_mode === "string" ? metadata.sub_mode : null));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to restore session chat on load:", err);
+    } finally {
+      setIsBootstrapping(false);
+    }
+  }, [backendOnline, user]);
+
   // ── Session restore ────────────────────────────────────────────────────────
   useEffect(() => {
     const saved = restore();
-    if (saved.chatId) {
-      setCurrentChatId(saved.chatId);
-      if (saved.subMode) setSelectedMode(saved.subMode);
-      setRuntimeTier(saved.runtimeTier || "standard");
-      setIsOrchestrationExpanded(saved.isOrchestrationExpanded || false);
+    if (saved.chatId && backendOnline && user) {
+      loadFullChatState(saved.chatId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Fetch persisted chat history once user is authenticated
-  useEffect(() => {
-    const onlyWelcome = messages.length === 1 && messages[0]?.id === "welcome";
-    if (user && currentChatId && onlyWelcome) {
-      getChatMessages(currentChatId)
-        .then(msgs => {
-          const restored: Message[] = msgs.map((m, i) => ({
-            id: `restored-${i}`,
-            role: m.role as "user" | "assistant",
-            content: m.content,
-            timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
-          }));
-          if (restored.length > 0) {
-            setMessages(restored);
-          }
-        })
-        .catch(err => {
-          console.error("Failed to restore session chat on load:", err);
-        });
-    }
-  }, [user, currentChatId]); // Only trigger when user is authenticated and we have a chat ID
+  }, [backendOnline, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -356,39 +378,7 @@ export function ChatPage() {
 
   // ── Restore chat ───────────────────────────────────────────────────────────
   const restoreChat = async (chatItem: ChatHistoryItem) => {
-    if (!backendOnline || !user) return;
-    try {
-      const msgs = await getChatMessages(chatItem.id);
-      const restored: Message[] = msgs.map((m, i) => ({
-        id: `restored-${i}`,
-        role: m.role,
-        content: m.content,
-        timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
-      }));
-      setMessages(restored.length > 0 ? restored : [{
-        id: "welcome",
-        role: "assistant" as const,
-        content: "Chat restored but no messages found.",
-        timestamp: new Date(),
-      }]);
-      setCurrentChatId(chatItem.id);
-      const metadata = chatItem.machine_metadata as Record<string, unknown> | undefined;
-      const restoredModel = metadata?.selected_model || metadata?.winning_model;
-      if (typeof restoredModel === "string") setSelectedModel(restoredModel);
-      
-      if (chatItem.mode === "standard") {
-        setRuntimeTier("standard");
-        setSelectedMode(null);
-        setIsOrchestrationExpanded(false);
-      } else {
-        setRuntimeTier("pro");
-        setIsOrchestrationExpanded(true);
-        setSelectedMode(chatItem.mode || (typeof metadata?.sub_mode === "string" ? metadata.sub_mode : null));
-      }
-    } catch (err) {
-      console.error("Failed to restore chat:", err);
-      setErrorMessage("Failed to load chat messages");
-    }
+    await loadFullChatState(chatItem.id);
   };
 
   // ── Copy to clipboard ──────────────────────────────────────────────────────
@@ -605,6 +595,10 @@ export function ChatPage() {
         setMessages((prev) => [...prev, assistantMessage]);
         setIsTyping(false);
         removeFile();
+        
+        if (responseChatId) {
+          await loadChatHistory();
+        }
       } catch (err) {
         console.error("Backend request failed:", err);
         setErrorMessage(err instanceof Error ? err.message : "Request failed");
@@ -923,9 +917,9 @@ export function ChatPage() {
                                 if (currentChatId !== chat.id) e.currentTarget.style.background = "transparent";
                               }}
                             >
-                              <div className="truncate" style={{ fontSize: "13px", fontWeight: 500, color: textPrimary }}>
-                                {chat.name || "Untitled Chat"}
-                              </div>
+                              <span className="truncate text-[13px] font-medium opacity-90 transition-opacity group-hover:opacity-100 flex-1">
+                                {chat.name || "New Chat"}
+                              </span>
                               <div
                                 className="mt-0.5"
                                 style={{ fontSize: "10px", color: textSecondary }}
