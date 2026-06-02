@@ -64,9 +64,12 @@ def extract_token_from_header(authorization: Optional[str]) -> Optional[str]:
 # SUPABASE JWT VERIFICATION
 # ─────────────────────────────────────────────────────────────
 
+_jwk_client = None
+
 async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
     """
-    Verify a Supabase JWT (access_token) using the project's JWT secret.
+    Verify a Supabase JWT (access_token) using Supabase JWKS (Public Keys).
+    Falls back to legacy HS256 for local dev if symmetric secret is used.
     Returns decoded claims if valid, None otherwise.
     """
     logger.info("JWT received: true")
@@ -78,43 +81,57 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
     try:
         header = pyjwt.get_unverified_header(token)
         alg = header.get("alg", "unknown")
-        logger.info(f"JWT Header: alg={alg}, kid={header.get('kid')}, typ={header.get('typ')}")
-        
-        # Security: Do not blindly trust the header's algorithm.
-        # Supabase symmetric secrets always use HS256.
-        if alg != "HS256":
-            logger.warning(f"Unexpected JWT algorithm '{alg}'. Enforcing HS256.")
-
-        unverified_claims = pyjwt.decode(token, options={"verify_signature": False})
-        logger.info(f"iss={unverified_claims.get('iss', 'None')}")
-        logger.info(f"aud={unverified_claims.get('aud', 'None')}")
-        logger.info(f"sub={unverified_claims.get('sub', 'None')}")
-        logger.info(f"exp={unverified_claims.get('exp', 'None')}")
-        logger.info(f"role={unverified_claims.get('role', 'None')}")
+        kid = header.get("kid", "none")
+        logger.info(f"JWT Header: alg={alg}, kid={kid}, typ={header.get('typ')}")
     except Exception as e:
         logger.error(f"verification failed: DecodeError during unverified parse: {e}")
         raise HTTPException(status_code=401, detail=f"DecodeError (Unverified): {e}")
 
-    # Log secret status
-    secret_exists = bool(_SUPABASE_JWT_SECRET)
-    logger.info(f"JWT secret loaded: {secret_exists}")
-    if secret_exists:
-        logger.info(f"JWT secret length: {len(_SUPABASE_JWT_SECRET)}")
-    if not _SUPABASE_JWT_SECRET:
-        logger.error("verification failed: SUPABASE_JWT_SECRET not set in environment")
-        raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not set in environment")
+    # 1. HS256 Legacy Fallback (Development Only)
+    if alg == "HS256" and not _IS_PRODUCTION:
+        logger.info("Using legacy HS256 symmetric fallback (Development only)")
+        if not _SUPABASE_JWT_SECRET:
+            raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not set in environment")
+        try:
+            return pyjwt.decode(
+                token,
+                _SUPABASE_JWT_SECRET.encode("utf-8"),
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+        except Exception as e:
+            logger.error(f"HS256 fallback failed: {e}")
+            raise HTTPException(status_code=401, detail=f"HS256 Error: {e}")
 
-    # Supabase signs JWTs using the raw secret string as UTF-8 bytes.
-    secret_bytes = _SUPABASE_JWT_SECRET.encode("utf-8")
+    # 2. Modern Asymmetric JWKS Verification
+    global _jwk_client
+    if not _jwk_client:
+        supabase_url = os.getenv("SUPABASE_URL", "")
+        if not supabase_url:
+            logger.error("verification failed: SUPABASE_URL not set in environment (required for JWKS)")
+            raise HTTPException(status_code=500, detail="SUPABASE_URL not set in environment")
+        
+        jwks_url = f"{supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+        logger.info(f"Initializing PyJWKClient with URL: {jwks_url}")
+        _jwk_client = pyjwt.PyJWKClient(jwks_url, cache_keys=True)
 
     try:
+        signing_key = _jwk_client.get_signing_key_from_jwt(token)
+        allowed_algs = ["ES256", "RS256"]
+        if alg not in allowed_algs:
+            allowed_algs.append(alg)
+
         claims = pyjwt.decode(
             token,
-            secret_bytes,
-            algorithms=["HS256"],  # SECURE: Explicitly enforce HS256
-            options={"verify_aud": False},  # Supabase anon JWTs may not have aud
+            signing_key.key,
+            algorithms=allowed_algs,
+            options={"verify_aud": False},
         )
         return claims
+
+    except pyjwt.PyJWKClientError as e:
+        logger.error(f"verification failed: JWKS Fetch Error - {e}")
+        raise HTTPException(status_code=401, detail=f"JWKS Fetch Error: {e}")
     except pyjwt.ExpiredSignatureError as e:
         logger.error(f"verification failed: ExpiredSignatureError - {e}")
         raise HTTPException(status_code=401, detail=f"ExpiredSignatureError: {e}")
@@ -133,6 +150,7 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"verification failed: Exception - {e}")
         raise HTTPException(status_code=401, detail=f"Exception: {e}")
+
 
 
 # ─────────────────────────────────────────────────────────────

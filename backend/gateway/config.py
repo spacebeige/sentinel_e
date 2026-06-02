@@ -182,6 +182,7 @@ class Settings(BaseSettings):
     RAG_TAVILY_MAX_RESULTS: int = 5
     JWT_SECRET_KEY: str = "CHANGE-ME"
     JWT_ALGORITHM: str = "HS256"
+    SUPABASE_URL: str = ""
 
     # CORS — comma-separated list of allowed origins
     # Override in production via ALLOWED_ORIGINS env var on Render:
