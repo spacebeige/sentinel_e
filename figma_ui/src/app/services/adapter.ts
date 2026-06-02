@@ -335,9 +335,10 @@ export function adaptSessionState(raw: unknown): OmegaSessionState | undefined {
 // --- Chat History ---
 
 export function adaptChatHistoryItem(raw: Record<string, unknown>): ChatHistoryItem {
+  const resolvedName = safeString(raw.title || raw.name || raw.chat_name, "New Chat");
   return {
     id: safeString(raw.id || raw.chat_id, "unknown-id"),
-    name: safeString(raw.name || raw.chat_name, "New Chat"),
+    name: resolvedName === "Untitled Chat" ? "New Chat" : resolvedName,
     mode: safeString(raw.mode, "standard"),
     created_at: safeString(raw.created_at),
     updated_at: safeString(raw.updated_at || raw.created_at),
@@ -349,9 +350,11 @@ export function adaptChatHistoryItem(raw: Record<string, unknown>): ChatHistoryI
 
 export function adaptChatMessage(raw: Record<string, unknown>): ChatMessage {
   return {
+    id: safeString(raw.id, crypto.randomUUID()),
     role: (raw.role === "user" ? "user" : "assistant") as "user" | "assistant",
     content: safeString(raw.content),
     timestamp: typeof raw.timestamp === "string" ? raw.timestamp : null,
+    reasoning_json: raw.reasoning_json ? adaptMetadata(raw.reasoning_json as Partial<OmegaMetadata>) : undefined,
   };
 }
 

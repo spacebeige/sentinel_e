@@ -7,6 +7,8 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isOwner: boolean;
+  role: "user" | "admin" | "owner";
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -68,11 +70,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const isAuthenticated = Boolean(session?.user?.id);
+  const normalizedEmail = session?.user?.email?.toLowerCase?.() || "";
+  const isOwner = normalizedEmail === "oomkaragarkhed0710@gmail.com";
   const isAdmin = Boolean(
-    session?.user?.email &&
-    (adminAllowlist.includes(session.user.email.toLowerCase()) || 
-     session.user.email.toLowerCase() === 'oomkaragarkhed0710@gmail.com')
+    normalizedEmail && (isOwner || adminAllowlist.includes(normalizedEmail))
   );
+  const role: "user" | "admin" | "owner" = isOwner ? "owner" : isAdmin ? "admin" : "user";
 
   const value = useMemo(() => ({
     session,
@@ -80,7 +83,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     isAuthenticated,
     isAdmin,
-  }), [session, user, loading, isAuthenticated, isAdmin]);
+    isOwner,
+    role,
+  }), [session, user, loading, isAuthenticated, isAdmin, isOwner, role]);
 
   return (
     <AuthContext.Provider value={value}>

@@ -1,5 +1,5 @@
 import { useTheme } from "next-themes";
-import { MODELS as AVAILABLE_MODELS, getModelConfig, getModeConfig, ALL_RUNTIME_MODES } from "../config/runtime";
+import { MODELS as AVAILABLE_MODELS, getModelConfig, getModeConfig, ALL_RUNTIME_MODES, resolveFrontendModelId } from "../config/runtime";
 import { supabase } from "../lib/supabase";
 import { Link } from "react-router";
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -44,11 +44,9 @@ import {
   runExperimental,
   submitFeedback,
   getChatHistory,
-  getChatMessages,
+  getChatDetails,
   shareChat,
   runOmegaKill,
-  syncConversation,
-  syncMessage,
   type SentinelRunResponse,
   type HealthStatus,
   type ChatHistoryItem,
@@ -99,6 +97,118 @@ interface Message {
   feedbackGiven?: "up" | "down";
 }
 
+function formatMessageContent(content: string) {
+  const lines = content.split("\n");
+  const blocks: Array<{ type: string; value: string | string[] }> = [];
+  let inCodeBlock = false;
+  let codeBuffer: string[] = [];
+  let paragraphBuffer: string[] = [];
+  let listBuffer: string[] = [];
+  let orderedListBuffer: string[] = [];
+  let tableBuffer: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraphBuffer.length > 0) {
+      blocks.push({ type: "paragraph", value: paragraphBuffer.join("\n") });
+      paragraphBuffer = [];
+    }
+  };
+
+  const flushList = () => {
+    if (listBuffer.length > 0) {
+      blocks.push({ type: "list", value: [...listBuffer] });
+      listBuffer = [];
+    }
+  };
+
+  const flushOrderedList = () => {
+    if (orderedListBuffer.length > 0) {
+      blocks.push({ type: "ordered-list", value: [...orderedListBuffer] });
+      orderedListBuffer = [];
+    }
+  };
+
+  const flushTable = () => {
+    if (tableBuffer.length > 0) {
+      blocks.push({ type: "table", value: [...tableBuffer] });
+      tableBuffer = [];
+    }
+  };
+
+  for (const line of lines) {
+    if (line.trim().startsWith("```")) {
+      flushParagraph();
+      flushList();
+      flushOrderedList();
+      flushTable();
+      if (inCodeBlock) {
+        blocks.push({ type: "code", value: codeBuffer.join("\n") });
+        codeBuffer = [];
+      }
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeBuffer.push(line);
+      continue;
+    }
+
+    if (!line.trim()) {
+      flushParagraph();
+      flushList();
+      flushOrderedList();
+      flushTable();
+      continue;
+    }
+
+    if (/^#{1,3}\s/.test(line.trim())) {
+      flushParagraph();
+      flushList();
+      flushOrderedList();
+      flushTable();
+      blocks.push({ type: "heading", value: line.trim() });
+      continue;
+    }
+
+    if (/^\|.+\|$/.test(line.trim())) {
+      flushParagraph();
+      flushList();
+      flushOrderedList();
+      tableBuffer.push(line.trim());
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(line.trim())) {
+      flushParagraph();
+      flushOrderedList();
+      flushTable();
+      listBuffer.push(line.trim().replace(/^[-*]\s+/, ""));
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(line.trim())) {
+      flushParagraph();
+      flushList();
+      flushTable();
+      orderedListBuffer.push(line.trim().replace(/^\d+\.\s+/, ""));
+      continue;
+    }
+
+    flushList();
+    flushOrderedList();
+    flushTable();
+    paragraphBuffer.push(line);
+  }
+
+  flushParagraph();
+  flushList();
+  flushOrderedList();
+  flushTable();
+
+  return blocks;
+}
+
 // ── Main ChatPage ────────────────────────────────────────────────────────────
 export function ChatPage() {
   const [selectedModel, setSelectedModel] = useState<string | null>("llama-3-3-70b");
@@ -114,14 +224,6 @@ export function ChatPage() {
     document.title = "Chat • Sentinel-E";
   }, []);
 
-  useEffect(() => {
-    console.log({
-      runtimeTier,
-      selectedModel,
-      selectedMode,
-    });
-  }, [runtimeTier, selectedModel, selectedMode]);
-
   const { user } = useSupabaseAuth();
   
   // Real subscription tier from user metadata
@@ -129,7 +231,7 @@ export function ChatPage() {
 
   const activeModel = getModelConfig(selectedModel || "llama-3-3-70b");
   const availableModels = AVAILABLE_MODELS;
-  const effectiveMode = (runtimeTier === "pro" && selectedMode) ? selectedMode : "standard";
+  const effectiveMode = runtimeTier === "pro" ? (selectedMode || "pro") : "standard";
 
   const availableModes = [
     { id: "debate", name: "Debate", color: "#ef4444" },
@@ -151,6 +253,7 @@ export function ChatPage() {
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [isMobileModePicker, setIsMobileModePicker] = useState(false);
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -200,6 +303,19 @@ export function ChatPage() {
     window.addEventListener('resize', updatePosition);
     return () => window.removeEventListener('resize', updatePosition);
   }, [modeDropdownOpen]);
+
+  useEffect(() => {
+    const syncViewportMode = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobileModePicker(mobile);
+      if (mobile) {
+        setModeDropdownCoords({ top: 0, left: 0 });
+      }
+    };
+    syncViewportMode();
+    window.addEventListener("resize", syncViewportMode);
+    return () => window.removeEventListener("resize", syncViewportMode);
+  }, []);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -267,17 +383,25 @@ export function ChatPage() {
     if (!backendOnline || !user) return;
     setIsBootstrapping(true);
     try {
-      // Get chat history to ensure sidebar is updated and we have metadata
-      const history = await getChatHistory(50, 0);
-      setChatHistory(history);
-      const chatItem = history.find(c => c.id === chatId);
+      const [{ chat, messages: chatMessages }, history] = await Promise.all([
+        getChatDetails(chatId),
+        getChatHistory(50, 0),
+      ]);
 
-      const msgs = await getChatMessages(chatId);
-      const restored: Message[] = msgs.map((m, i) => ({
-        id: `restored-${i}`,
+      setChatHistory(history);
+
+      const restored: Message[] = chatMessages.map((m, i) => ({
+        id: m.id || `restored-${i}`,
         role: m.role as "user" | "assistant",
         content: m.content,
         timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+        mode: m.reasoning_json?.sub_mode || m.reasoning_json?.mode || null,
+        chatId,
+        confidence: m.reasoning_json?.confidence,
+        omegaMetadata: m.reasoning_json,
+        confidenceEvolution: m.reasoning_json?.confidence_evolution,
+        reasoningTrace: m.reasoning_json?.reasoning_trace,
+        boundaryResult: m.reasoning_json?.boundary_result,
       }));
       setMessages(restored.length > 0 ? restored : [{
         id: "welcome",
@@ -287,19 +411,25 @@ export function ChatPage() {
       }]);
       setCurrentChatId(chatId);
 
-      if (chatItem) {
-        const metadata = chatItem.machine_metadata as Record<string, unknown> | undefined;
+      if (chat) {
+        const metadata = chat.machine_metadata as Record<string, unknown> | undefined;
         const restoredModel = metadata?.selected_model || metadata?.winning_model;
-        if (typeof restoredModel === "string") setSelectedModel(restoredModel);
-        
-        if (chatItem.mode === "standard") {
+        const restoredSubMode = metadata?.sub_mode || chat.mode;
+        const runtimeTierFromMetadata = metadata?.runtime_tier;
+
+        const resolvedFrontendModel = typeof restoredModel === "string" ? resolveFrontendModelId(restoredModel) : null;
+        if (resolvedFrontendModel) {
+          setSelectedModel(resolvedFrontendModel);
+        }
+
+        if (runtimeTierFromMetadata === "pro" || (typeof restoredSubMode === "string" && restoredSubMode !== "standard")) {
+          setRuntimeTier("pro");
+          setIsOrchestrationExpanded(true);
+          setSelectedMode(typeof restoredSubMode === "string" && restoredSubMode !== "standard" ? restoredSubMode : "pro");
+        } else {
           setRuntimeTier("standard");
           setSelectedMode(null);
           setIsOrchestrationExpanded(false);
-        } else {
-          setRuntimeTier("pro");
-          setIsOrchestrationExpanded(true);
-          setSelectedMode(chatItem.mode || (typeof metadata?.sub_mode === "string" ? metadata.sub_mode : null));
         }
       }
     } catch (err) {
@@ -351,10 +481,14 @@ export function ChatPage() {
       chatId: currentChatId,
       mode: (runtimeTier === "pro") ? "experimental" : "standard",
       subMode: selectedMode,
-      runtimeTier, isOrchestrationExpanded,
+      selectedModel,
+      runtimeTier,
+      metadata: {
+        killOverride: glassState.killOverride,
+      },
       killOverride: glassState.killOverride,
     });
-  }, [currentChatId, runtimeTier, isOrchestrationExpanded, selectedMode, glassState.killOverride, persist]);
+  }, [currentChatId, runtimeTier, selectedMode, selectedModel, glassState.killOverride, persist]);
 
   // ── Load chat history ──────────────────────────────────────────────────────
   const loadChatHistory = useCallback(async () => {
@@ -368,7 +502,7 @@ export function ChatPage() {
     } finally {
       setHistoryLoading(false);
     }
-  }, [backendOnline]);
+  }, [backendOnline, user]);
 
   useEffect(() => {
     if (sidebarOpen && backendOnline && user) {
@@ -520,7 +654,7 @@ export function ChatPage() {
       try {
         let response: SentinelRunResponse;
 
-        if (runtimeTier === "pro") {
+    if (runtimeTier === "pro") {
           const effectiveMode = selectedMode || "pro";
           response = await runExperimental(
             userText,
@@ -557,15 +691,10 @@ export function ChatPage() {
 
         if (ac.signal.aborted) return;
 
-        let responseChatId = currentChatId || response.chat_id;
+        const responseChatId = currentChatId || response.chat_id;
         
         if (!currentChatId && response.chat_id) {
           setCurrentChatId(response.chat_id);
-          syncConversation(response.chat_id, userText.slice(0, 50) + (userText.length > 50 ? '...' : ''), selectedMode || "standard");
-        }
-        
-        if (responseChatId) {
-          syncMessage(responseChatId, "user", userText + (attachedFile ? `\n\n[Attached: ${attachedFile.name}]` : ""));
         }
 
         if (selectedMode === "debate" && response.omega_metadata) setDebateState((p) => mergeDebateResult(p, response.omega_metadata));
@@ -573,10 +702,6 @@ export function ChatPage() {
         if (selectedMode === "evidence" && response.omega_metadata) setEvidenceState((p) => mergeEvidenceState(p, response.omega_metadata));
 
         const assistantContent = response.formatted_output || response.data?.priority_answer || "No response generated.";
-
-        if (responseChatId) {
-          syncMessage(responseChatId, "assistant", assistantContent);
-        }
 
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
@@ -635,6 +760,7 @@ export function ChatPage() {
       content: "Hello! How can I help you today?",
       timestamp: new Date(),
     }]);
+    setModeDropdownOpen(false);
   };
 
   const handleFeedback = async (messageId: string, vote: "up" | "down") => {
@@ -980,7 +1106,7 @@ export function ChatPage() {
       {/* ── Main Chat Area ── */}
       <div className="flex-1 flex flex-col h-screen relative overflow-hidden" style={{ background: chatBg, transition: "margin 300ms cubic-bezier(0.16,1,0.3,1), width 300ms cubic-bezier(0.16,1,0.3,1)" }}>
         
-        {/* Cat Loading Screen */}
+        {/* Sentinel Loading Screen */}
         <AnimatePresence>
           {isBootstrapping && (
             <motion.div
@@ -990,18 +1116,24 @@ export function ChatPage() {
               className="absolute inset-0 z-[100] flex flex-col items-center justify-center backdrop-blur-xl"
               style={{ background: isDark ? "rgba(8,9,14,0.85)" : "rgba(255,255,255,0.85)" }}
             >
-              <div className="relative w-64 h-16 overflow-hidden mb-4">
-                <motion.div
-                  initial={{ x: -60 }}
-                  animate={{ x: 260 }}
-                  transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                  className="absolute bottom-0 text-4xl"
-                >
-                  🐈
-                </motion.div>
+              <div
+                className="mb-6 flex h-20 w-20 items-center justify-center rounded-[28px]"
+                style={{
+                  background: isDark
+                    ? "radial-gradient(circle at 35% 35%, rgba(59,130,246,0.2), rgba(8,9,14,0.4))"
+                    : "radial-gradient(circle at 35% 35%, rgba(59,130,246,0.14), rgba(255,255,255,0.9))",
+                  border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
+                  boxShadow: isDark ? "0 20px 60px rgba(0,0,0,0.45)" : "0 20px 60px rgba(0,0,0,0.08)",
+                }}
+              >
+                <Loader2 className="h-8 w-8 animate-spin text-[#3b82f6]" />
               </div>
-              <h2 className="text-xl font-bold mb-2 tracking-tight" style={{ color: textPrimary }}>Connecting to Sentinel Database...</h2>
-              <p className="text-[13px]" style={{ color: textSecondary }}>Please wait while your session environment is prepared.</p>
+              <h2 className="text-xl font-bold mb-2 tracking-tight" style={{ color: textPrimary }}>Connecting to User History</h2>
+              <div className="space-y-1 text-center">
+                <p className="text-[13px]" style={{ color: textSecondary }}>Preparing conversations...</p>
+                <p className="text-[13px]" style={{ color: textSecondary }}>Loading memory...</p>
+                <p className="text-[13px]" style={{ color: textSecondary }}>Synchronizing session...</p>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1085,54 +1217,70 @@ export function ChatPage() {
               {typeof document !== 'undefined' && createPortal(
                 <AnimatePresence>
                   {modeDropdownOpen && (
-                    <motion.div
-                      key="sentinel-mode-dropdown"
-                      initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                      transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                      className="fixed w-52 z-[120] pointer-events-auto"
-                      style={{
-                        top: modeDropdownCoords.top,
-                        left: modeDropdownCoords.left,
-                        background: isDark ? "rgba(18,18,24,0.72)" : "rgba(255,255,255,0.72)",
-                        backdropFilter: "blur(30px) saturate(180%)",
-                        WebkitBackdropFilter: "blur(30px) saturate(180%)",
-                        border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
-                        borderRadius: "22px",
-                        padding: "8px",
-                        boxShadow: isDark
-                          ? "0 16px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05)"
-                          : "0 10px 30px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.7)",
-                      }}
-                    >
-                      <div className="flex flex-col gap-1">
-                        {[
-                          { id: "standard", label: "Standard", sub: "Simple AI experience", pro: false },
-                          { id: "pro", label: "Pro", sub: "Full orchestration · multi-model", pro: true },
-                        ].map((m) => (
-                          <button
-                            key={m.id}
-                            onClick={() => { setRuntimeTier(m.pro ? "pro" : "standard"); setModeDropdownOpen(false); if (!m.pro) { setSelectedMode(null); setSelectedModel("llama-3-3-70b"); } }}
-                            className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl transition-colors text-left"
-                            style={{
-                              background: (runtimeTier === "pro") === m.pro ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") : "transparent",
-                            }}
-                            onMouseEnter={(e) => { if ((runtimeTier === "pro") !== m.pro) e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; }}
-                            onMouseLeave={(e) => { if ((runtimeTier === "pro") !== m.pro) e.currentTarget.style.background = "transparent"; }}
-                          >
-                            <div className="mt-0.5 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: m.pro ? "rgba(139,92,246,0.15)" : "rgba(59,130,246,0.15)" }}>
-                              <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.pro ? "#8b5cf6" : "#3b82f6" }} />
-                            </div>
-                            <div>
-                              <div style={{ fontSize: "13px", fontWeight: 600, color: isDark ? "#fff" : "#000" }}>{m.label}</div>
-                              <div style={{ fontSize: "11px", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", marginTop: "1px" }}>{m.sub}</div>
-                            </div>
-                            {(runtimeTier === "pro") === m.pro && <Check className="w-3.5 h-3.5 ml-auto mt-1 text-[#3b82f6]" />}
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
+                    <>
+                      {isMobileModePicker && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="fixed inset-0 z-[119] bg-black/50 backdrop-blur-sm md:hidden"
+                          onClick={() => setModeDropdownOpen(false)}
+                        />
+                      )}
+                      <motion.div
+                        key="sentinel-mode-dropdown"
+                        initial={isMobileModePicker ? { opacity: 0, y: 24 } : { opacity: 0, y: -6, scale: 0.97 }}
+                        animate={isMobileModePicker ? { opacity: 1, y: 0 } : { opacity: 1, y: 0, scale: 1 }}
+                        exit={isMobileModePicker ? { opacity: 0, y: 24 } : { opacity: 0, y: -6, scale: 0.97 }}
+                        transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                        className={`pointer-events-auto ${isMobileModePicker ? "fixed inset-x-0 bottom-0 z-[120] rounded-t-[28px] p-4 md:hidden" : "fixed w-52 z-[120]"}`}
+                        style={isMobileModePicker ? {
+                          background: isDark ? "rgba(18,18,24,0.96)" : "rgba(255,255,255,0.98)",
+                          borderTop: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
+                          boxShadow: "0 -20px 50px rgba(0,0,0,0.24)",
+                        } : {
+                          top: modeDropdownCoords.top,
+                          left: modeDropdownCoords.left,
+                          background: isDark ? "rgba(18,18,24,0.72)" : "rgba(255,255,255,0.72)",
+                          backdropFilter: "blur(30px) saturate(180%)",
+                          WebkitBackdropFilter: "blur(30px) saturate(180%)",
+                          border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
+                          borderRadius: "22px",
+                          padding: "8px",
+                          boxShadow: isDark
+                            ? "0 16px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05)"
+                            : "0 10px 30px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.7)",
+                        }}
+                      >
+                        {isMobileModePicker && (
+                          <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-white/15" />
+                        )}
+                        <div className="flex flex-col gap-1">
+                          {[
+                            { id: "standard", label: "Standard", sub: "Standard pipeline", pro: false },
+                            { id: "pro", label: "Pro", sub: "MCO orchestration", pro: true },
+                          ].map((m) => (
+                            <button
+                              key={m.id}
+                              onClick={() => { setRuntimeTier(m.pro ? "pro" : "standard"); setModeDropdownOpen(false); if (!m.pro) { setSelectedMode(null); setSelectedModel("llama-3-3-70b"); } }}
+                              className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl transition-colors text-left"
+                              style={{
+                                background: (runtimeTier === "pro") === m.pro ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)") : "transparent",
+                              }}
+                            >
+                              <div className="mt-0.5 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: m.pro ? "rgba(139,92,246,0.15)" : "rgba(59,130,246,0.15)" }}>
+                                <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.pro ? "#8b5cf6" : "#3b82f6" }} />
+                              </div>
+                              <div>
+                                <div style={{ fontSize: "13px", fontWeight: 600, color: isDark ? "#fff" : "#000" }}>{m.label}</div>
+                                <div style={{ fontSize: "11px", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", marginTop: "1px" }}>{m.sub}</div>
+                              </div>
+                              {(runtimeTier === "pro") === m.pro && <Check className="w-3.5 h-3.5 ml-auto mt-1 text-[#3b82f6]" />}
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    </>
                   )}
                 </AnimatePresence>,
                 document.body
@@ -1244,18 +1392,117 @@ export function ChatPage() {
 
                         {/* Content */}
                         <div className={message.role === "assistant" ? "px-4 py-3" : ""}>
-                          <p
-                            className="whitespace-pre-wrap"
-                            style={{
-                              fontFamily: "'Inter', sans-serif",
-                              fontSize: "15px",
-                              lineHeight: 1.6,
-                              fontWeight: 400,
-                              color: isDark ? "#f5f5f7" : "#1d1d1f",
-                            }}
-                          >
-                            {message.content}
-                          </p>
+                          <div className="space-y-3">
+                            {formatMessageContent(message.content).map((block, index) => {
+                              if (block.type === "heading") {
+                                const text = String(block.value).replace(/^#{1,3}\s*/, "");
+                                return (
+                                  <h3
+                                    key={`${message.id}-heading-${index}`}
+                                    style={{
+                                      fontFamily: "'Inter', sans-serif",
+                                      fontSize: "16px",
+                                      lineHeight: 1.4,
+                                      fontWeight: 700,
+                                      color: isDark ? "#f5f5f7" : "#111827",
+                                    }}
+                                  >
+                                    {text}
+                                  </h3>
+                                );
+                              }
+
+                              if (block.type === "code") {
+                                return (
+                                  <pre
+                                    key={`${message.id}-code-${index}`}
+                                    className="overflow-x-auto rounded-2xl p-3"
+                                    style={{
+                                      background: isDark ? "rgba(15,23,42,0.92)" : "rgba(15,23,42,0.06)",
+                                      color: isDark ? "#e5e7eb" : "#0f172a",
+                                      fontSize: "13px",
+                                      lineHeight: 1.6,
+                                    }}
+                                  >
+                                    <code>{String(block.value)}</code>
+                                  </pre>
+                                );
+                              }
+
+                              if (block.type === "list") {
+                                return (
+                                  <ul key={`${message.id}-list-${index}`} className="list-disc pl-5 space-y-1">
+                                    {(block.value as string[]).map((item, itemIndex) => (
+                                      <li key={itemIndex} style={{ fontSize: "15px", lineHeight: 1.6, color: isDark ? "#f5f5f7" : "#1d1d1f" }}>
+                                        {item}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                );
+                              }
+
+                              if (block.type === "ordered-list") {
+                                return (
+                                  <ol key={`${message.id}-olist-${index}`} className="list-decimal pl-5 space-y-1">
+                                    {(block.value as string[]).map((item, itemIndex) => (
+                                      <li key={itemIndex} style={{ fontSize: "15px", lineHeight: 1.6, color: isDark ? "#f5f5f7" : "#1d1d1f" }}>
+                                        {item}
+                                      </li>
+                                    ))}
+                                  </ol>
+                                );
+                              }
+
+                              if (block.type === "table") {
+                                const rows = (block.value as string[]).map((row) =>
+                                  row.split("|").map((cell) => cell.trim()).filter(Boolean)
+                                ).filter((row) => row.length > 0);
+                                const [header, ...body] = rows;
+                                return (
+                                  <div key={`${message.id}-table-${index}`} className="overflow-x-auto rounded-2xl border" style={{ borderColor }}>
+                                    <table className="min-w-full text-left text-[13px]">
+                                      {header && (
+                                        <thead style={{ background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)" }}>
+                                          <tr>
+                                            {header.map((cell, cellIndex) => (
+                                              <th key={cellIndex} className="px-3 py-2 font-semibold">{cell}</th>
+                                            ))}
+                                          </tr>
+                                        </thead>
+                                      )}
+                                      {body.length > 0 && (
+                                        <tbody>
+                                          {body.map((row, rowIndex) => (
+                                            <tr key={rowIndex} style={{ borderTop: `1px solid ${borderColor}` }}>
+                                              {row.map((cell, cellIndex) => (
+                                                <td key={cellIndex} className="px-3 py-2 align-top">{cell}</td>
+                                              ))}
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      )}
+                                    </table>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <p
+                                  key={`${message.id}-paragraph-${index}`}
+                                  className="whitespace-pre-wrap"
+                                  style={{
+                                    fontFamily: "'Inter', sans-serif",
+                                    fontSize: "15px",
+                                    lineHeight: 1.6,
+                                    fontWeight: 400,
+                                    color: isDark ? "#f5f5f7" : "#1d1d1f",
+                                  }}
+                                >
+                                  {String(block.value)}
+                                </p>
+                              );
+                            })}
+                          </div>
 
                           {/* Omega insights */}
                           {renderOmegaInsights(message)}

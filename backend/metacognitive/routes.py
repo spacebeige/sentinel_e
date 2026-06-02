@@ -788,27 +788,12 @@ async def _mco_run_impl(
         }
 
     # ══════════════════════════════════════════════════════════
-    # QUERY COMPLEXITY CHECK — Skip debate for trivial queries
+    # QUERY COMPLEXITY CHECK — used for telemetry only
     # ══════════════════════════════════════════════════════════
     from core.query_router import classify_query_complexity
     query_complexity = classify_query_complexity(query)
 
-    # ══════════════════════════════════════════════════════════
-    # DEBATE MODE DELEGATION
-    # When sub_mode is "debate" and CognitiveOrchestrator is available,
-    # delegate to it for multi-round structured debate (StructuredDebateEngine).
-    # This produces real rounds with rebuttals, drift/rift metrics, etc.
-    # Skip debate for trivial queries even if debate mode is requested.
-    # ══════════════════════════════════════════════════════════
     effective_sub_mode = sub_mode
-    if effective_sub_mode in ("debate", "pro") and query_complexity == "trivial":
-        logger.info(f"Trivial query in debate mode — skipping debate for chat {chat.id}")
-        effective_sub_mode = None  # Fall through to standard MCO pipeline
-
-    # If user selected a specific model, never route to debate engine
-    if selected_model and effective_sub_mode in ("debate", "pro"):
-        logger.info(f"Single model '{selected_model}' selected — skipping debate")
-        effective_sub_mode = None
 
     predicted_execution_path = (
         "ensemble" if effective_sub_mode in ("debate", "pro") else
@@ -849,6 +834,7 @@ async def _mco_run_impl(
             ensemble_response = None
 
         if ensemble_response is not None:
+            requested_runtime_mode = "pro" if effective_sub_mode == "pro" else "debate"
             payload = ensemble_response.to_frontend_payload()
             formatted_output = ensemble_response.formatted_output
 
@@ -859,8 +845,10 @@ async def _mco_run_impl(
             omega_metadata = payload.get("omega_metadata", {})
             omega_metadata.update({
                 "version": "7.1.0-cognitive",
-                "mode": "debate",
-                "sub_mode": "debate",
+                "mode": requested_runtime_mode,
+                "sub_mode": effective_sub_mode,
+                "runtime_tier": "pro" if effective_sub_mode == "pro" else "standard",
+                "selected_model": selected_model,
                 "confidence": confidence,
                 "entropy": ens_entropy,
                 "fragility": ens_fragility,
@@ -906,8 +894,10 @@ async def _mco_run_impl(
             omega_metadata = payload.get("omega_metadata", {})
             omega_metadata.update({
                 "version": "7.1.0-cognitive",
-                "mode": "debate",
-                "sub_mode": "debate",
+                "mode": requested_runtime_mode,
+                "sub_mode": effective_sub_mode,
+                "runtime_tier": "pro" if effective_sub_mode == "pro" else "standard",
+                "selected_model": selected_model,
                 "confidence": confidence,
                 "entropy": ens_entropy,
                 "fragility": ens_fragility,
@@ -1012,8 +1002,8 @@ async def _mco_run_impl(
             debate_result = {
                 "chat_id": str(chat.id),
                 "session_id": str(chat.id),
-                "mode": "debate",
-                "sub_mode": "debate",
+                "mode": requested_runtime_mode,
+                "sub_mode": effective_sub_mode,
                 "formatted_output": formatted_output,
                 "aggregated_answer": formatted_output,
                 "confidence": round(confidence, 4),
@@ -1324,6 +1314,8 @@ async def _mco_run_impl(
         omega_metadata = {
         "mode": response.mode.value,
         "sub_mode": response.sub_mode or sub_mode,
+        "runtime_tier": "pro" if (response.sub_mode or sub_mode) == "pro" else "standard",
+        "selected_model": selected_model,
         "confidence": round(response.winning_score, 4),
         "winning_model": response.winning_model,
         "model_count": len(response.all_results),
@@ -1682,6 +1674,8 @@ async def _mco_run_impl(
         machine_metadata={
             "mco_version": "1.0.0",
             "mode": response.mode.value,
+            "runtime_tier": "pro" if effective_sub_mode == "pro" else "standard",
+            "selected_model": selected_model,
             "winning_model": response.winning_model,
             "winning_score": response.winning_score,
             "drift_score": response.drift_score,

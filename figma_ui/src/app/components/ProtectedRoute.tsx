@@ -5,10 +5,6 @@ import { useAuthContext } from '../providers/AuthProvider';
 export const ProtectedRoute: React.FC<{ children: React.ReactNode; requireAdmin?: boolean; requireOwner?: boolean }> = ({ children, requireAdmin = false, requireOwner = false }) => {
   const { loading, isAuthenticated, isAdmin, user } = useAuthContext();
   const location = useLocation();
-  const renderCount = React.useRef(0);
-
-  renderCount.current += 1;
-  console.log(`[PROTECTED_ROUTE] Render ${renderCount.current} | loading=${loading} | auth=${isAuthenticated} | user=${user?.id} | path=${location.pathname}`);
 
   if (loading) {
     return (

@@ -3,7 +3,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuthContext } from '../providers/AuthProvider';
 
 export function useSupabaseAuth() {
-  const { session, user, loading, isAuthenticated, isAdmin } = useAuthContext();
+  const { session, user, loading, isAuthenticated, isAdmin, isOwner, role } = useAuthContext();
   const [error, setError] = useState('');
 
   const signInWithGoogle = useCallback(async ({ redirectTo }: { redirectTo?: string } = {}) => {
@@ -83,6 +83,8 @@ export function useSupabaseAuth() {
     loading,
     isAuthenticated,
     isAdmin,
+    isOwner,
+    role,
     error,
     setError,
     isSupabaseConfigured,

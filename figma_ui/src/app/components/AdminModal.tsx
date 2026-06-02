@@ -14,11 +14,11 @@ interface AdminModalProps {
 export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const { isAuthenticated, role } = useAuthContext();
+  const { isAuthenticated, isAdmin, role } = useAuthContext();
   const { signInWithEmail } = useSupabaseAuth();
 
   // Mode: 'login' | 'request' | 'denied'
-  const defaultMode = !isAuthenticated ? 'login' : 'denied';
+  const defaultMode = !isAuthenticated ? 'login' : isAdmin ? 'denied' : 'denied';
   const [mode, setMode] = useState<'login' | 'request' | 'denied'>(defaultMode);
 
   // Login State
@@ -35,7 +35,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   // Reset state when opened/closed
   React.useEffect(() => {
     if (isOpen) {
-      setMode(!isAuthenticated ? 'login' : 'denied');
+      setMode(!isAuthenticated ? 'login' : isAdmin ? 'denied' : 'denied');
       setReqStatus('idle');
       setReqError('');
       setLoginError('');
@@ -45,6 +45,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   }, [isOpen, isAuthenticated]);
 
   if (!isOpen) return null;
+  if (isAdmin || role === "owner") return null;
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -136,6 +136,18 @@ export const DEFAULT_MODE_CONFIG: OrchestrationMode = {
 export const ALL_RUNTIME_MODES: OrchestrationMode[] = [
   DEFAULT_MODE_CONFIG,
   {
+    id: "pro",
+    label: "Pro",
+    description: "Full MCO orchestration across active runtime pipelines",
+    color: "#8b5cf6",
+    placeholder: "Run a full Sentinel-E orchestration...",
+    icon: "sparkles",
+    orchestrationType: "experimental",
+    isExperimental: true,
+    borderClass: "border-violet-500/40",
+    showProIndicator: true,
+  },
+  {
     id: "debate",
     label: "Debate",
     description: "Argues both sides so you can decide",
@@ -205,6 +217,11 @@ export const PRO_ACTIVATION_RULES: ProActivationRules = {
 };
 
 export const ORCHESTRATION_MODE_MAP: Record<string, { endpoint: string, mode: string, orchestration: boolean }> = {
+  pro: {
+    endpoint: "/api/mco/run",
+    mode: "pro",
+    orchestration: true,
+  },
   debate: {
     endpoint: "/api/mco/run",
     mode: "debate",
@@ -261,3 +278,13 @@ export const MODEL_RUNTIME_MAP: Record<string, { provider: string, model: string
     model: "kimi-k2-thinking",
   }
 };
+
+export function resolveFrontendModelId(runtimeModelId?: string | null): string | null {
+  if (!runtimeModelId) return null;
+
+  const directMatch = MODELS.find((model) => model.id === runtimeModelId);
+  if (directMatch) return directMatch.id;
+
+  const mappedEntry = Object.entries(MODEL_RUNTIME_MAP).find(([, value]) => value.model === runtimeModelId);
+  return mappedEntry ? mappedEntry[0] : null;
+}

@@ -176,9 +176,11 @@ export interface ChatHistoryItem {
 }
 
 export interface ChatMessage {
+  id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: string | null;
+  reasoning_json?: OmegaMetadata;
 }
 
 export interface HealthStatus {
@@ -422,10 +424,7 @@ export async function runStandard(
   }
 
   const raw = await postJson<Record<string, unknown>>("/api/mco/run", payload, { signal });
-  console.log("RAW MCO PAYLOAD (Standard):", raw);
-  const normalized = adaptRunResponse(raw);
-  console.log("NORMALIZED PAYLOAD (Standard):", normalized);
-  return normalized;
+  return adaptRunResponse(raw);
 }
 
 /**
@@ -455,9 +454,6 @@ export async function runExperimental(
   if (options?.responseStyle) payload.response_style = options.responseStyle;
   if (options?.preferences) {
     payload.preferences = options.preferences;
-    if (options.preferences.default_model) {
-      payload.selected_model = options.preferences.default_model;
-    }
   }
   
   if (chatId) payload.chat_id = chatId;
@@ -469,10 +465,7 @@ export async function runExperimental(
   }
 
   const raw = await postJson<Record<string, unknown>>("/api/mco/run", payload, { signal });
-  console.log("RAW MCO PAYLOAD (Experimental):", raw);
-  const normalized = adaptRunResponse(raw);
-  console.log("NORMALIZED PAYLOAD (Experimental):", normalized);
-  return normalized;
+  return adaptRunResponse(raw);
 }
 
 /**
@@ -571,7 +564,7 @@ export async function getChatHistory(
 ): Promise<ChatHistoryItem[]> {
   try {
     const res = await apiRequest<{ success: boolean; data: any }>(
-      `/api/v2/history?limit=${limit}&offset=${offset}`,
+      `/api/history?limit=${limit}&offset=${offset}`,
       { retries: 1 }
     );
     if (!res || !res.success || !res.data?.chats) return [];
@@ -590,18 +583,18 @@ export async function getChatDetails(
   chatId: string
 ): Promise<{ chat: ChatHistoryItem; messages: ChatMessage[] }> {
   try {
-    const chatRes = await apiRequest<{ success: boolean; data: any }>(`/api/v2/chat/${chatId}`);
+    const chatRes = await apiRequest<{ success: boolean; data: any }>(`/api/chat/${chatId}`);
     if (!chatRes || !chatRes.success || !chatRes.data) throw new Error('Chat not found');
 
     const chatData = chatRes.data.chat || {};
     const chat: ChatHistoryItem = {
       id: chatData.id || chatId,
-      name: chatData.chat_name || chatData.name || 'New Chat',
+      name: chatData.title || chatData.chat_name || chatData.name || 'New Chat',
       mode: chatData.mode || 'standard',
       created_at: chatData.created_at,
       updated_at: chatData.updated_at || chatData.created_at,
       priority_answer: chatData.priority_answer,
-      machine_metadata: chatData.machine_metadata,
+      machine_metadata: chatData.machine_metadata ? adaptMetadata(chatData.machine_metadata) : undefined,
       rounds: chatData.rounds,
     };
 
@@ -624,7 +617,7 @@ export async function getChatMessages(
   chatId: string
 ): Promise<ChatMessage[]> {
   try {
-    const res = await apiRequest<{ success: boolean; data: any }>(`/api/v2/chat/${chatId}/messages`);
+    const res = await apiRequest<{ success: boolean; data: any }>(`/api/chat/${chatId}/messages`);
     if (!res || !res.success || !res.data) return [];
     
     const messages = Array.isArray(res.data) ? res.data : (res.data.messages || []);

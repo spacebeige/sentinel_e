@@ -6,7 +6,7 @@ import { getAdminRequestStatus } from '../api';
 import { Navigate, Link } from 'react-router';
 
 const AdminPage: React.FC = () => {
-  const { user, isAdmin, role } = useAuthContext();
+  const { user, isAdmin } = useAuthContext();
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
   const [requestStatus, setRequestStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
@@ -15,7 +15,7 @@ const AdminPage: React.FC = () => {
     document.title = "Admin • Sentinel-E";
     let mounted = true;
 
-    if (role === 'admin' || role === 'owner') {
+    if (isAdmin) {
       setStatusLoading(false);
       const fetchAnalytics = async () => {
         const data = await getAdminAnalytics();
@@ -41,7 +41,7 @@ const AdminPage: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [role, user?.email]);
+  }, [isAdmin, user?.email]);
 
   // Redundant email check removed: authorization is handled by ProtectedRoute
 
@@ -58,7 +58,7 @@ const AdminPage: React.FC = () => {
     );
   }
 
-  if (role !== 'admin' && role !== 'owner') {
+  if (!isAdmin) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-[#09090b] text-white">
         <Link to="/" className="fixed top-8 left-8 z-50 transition-transform hover:scale-105">
