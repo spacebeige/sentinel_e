@@ -3,7 +3,7 @@ import { Navigate, useLocation } from 'react-router';
 import { useAuthContext } from '../providers/AuthProvider';
 
 export const ProtectedRoute: React.FC<{ children: React.ReactNode; requireAdmin?: boolean; requireOwner?: boolean }> = ({ children, requireAdmin = false, requireOwner = false }) => {
-  const { loading, isAuthenticated, role, user } = useAuthContext();
+  const { loading, isAuthenticated, isAdmin, user } = useAuthContext();
   const location = useLocation();
   const renderCount = React.useRef(0);
 
@@ -26,11 +26,12 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode; requireAdmin?
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requireOwner && role !== 'owner') {
+  // Owner concept not supported in AuthProvider currently, mapping to admin temporarily
+  if (requireOwner && !isAdmin) {
     return <Navigate to="/chat" replace />;
   }
 
-  if (requireAdmin && role !== 'admin' && role !== 'owner') {
+  if (requireAdmin && !isAdmin) {
     return <Navigate to="/chat" replace />;
   }
 
