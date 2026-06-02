@@ -75,8 +75,16 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
         logger.error("verification failed: PyJWT not installed")
         raise HTTPException(status_code=500, detail="PyJWT not installed")
 
-    # Log unverified token payload
     try:
+        header = pyjwt.get_unverified_header(token)
+        alg = header.get("alg", "unknown")
+        logger.info(f"JWT Header: alg={alg}, kid={header.get('kid')}, typ={header.get('typ')}")
+        
+        # Security: Do not blindly trust the header's algorithm.
+        # Supabase symmetric secrets always use HS256.
+        if alg != "HS256":
+            logger.warning(f"Unexpected JWT algorithm '{alg}'. Enforcing HS256.")
+
         unverified_claims = pyjwt.decode(token, options={"verify_signature": False})
         logger.info(f"iss={unverified_claims.get('iss', 'None')}")
         logger.info(f"aud={unverified_claims.get('aud', 'None')}")
@@ -97,15 +105,13 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
         raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not set in environment")
 
     # Supabase signs JWTs using the raw secret string as UTF-8 bytes.
-    # Do NOT base64-decode the secret — that produces a different key.
     secret_bytes = _SUPABASE_JWT_SECRET.encode("utf-8")
-
 
     try:
         claims = pyjwt.decode(
             token,
             secret_bytes,
-            algorithms=["HS256"],
+            algorithms=["HS256"],  # SECURE: Explicitly enforce HS256
             options={"verify_aud": False},  # Supabase anon JWTs may not have aud
         )
         return claims

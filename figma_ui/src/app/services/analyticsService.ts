@@ -89,9 +89,9 @@ export async function trackConversationStarted(userId: string) {
 
 export async function getUserAnalytics(userId: string): Promise<UserAnalytics> {
   try {
-    const res = await apiRequest<{success: boolean, data: any}>('/v2/user', { method: 'GET' });
-    const analyticsRes = await apiRequest<{success: boolean, data: any}>('/v2/user/analytics', { method: 'GET' });
-    const settingsRes = await apiRequest<{success: boolean, data: any}>('/v2/user/settings', { method: 'GET' });
+    const res = await apiRequest<{success: boolean, data: any}>('/api/v2/user', { method: 'GET' });
+    const analyticsRes = await apiRequest<{success: boolean, data: any}>('/api/v2/user/analytics', { method: 'GET' });
+    const settingsRes = await apiRequest<{success: boolean, data: any}>('/api/v2/user/settings', { method: 'GET' });
 
     const conversations = analyticsRes?.data?.chat_count || 0;
     const messages = analyticsRes?.data?.message_count || 0;
@@ -114,7 +114,7 @@ export async function getUserAnalytics(userId: string): Promise<UserAnalytics> {
 export async function getAdminAnalytics(): Promise<AdminAnalytics> {
   // Use backend admin stats endpoint
   try {
-    const res = await apiRequest<{status: string, data: any}>('/admin/system/stats', { method: 'GET' });
+    const res = await apiRequest<{status: string, data: any}>('/api/admin/system/stats', { method: 'GET' });
     if (res?.data) {
       return {
         activeUsers: res.data.active_users || 0,

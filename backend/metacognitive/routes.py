@@ -641,7 +641,7 @@ async def _mco_run_impl(
     chat = None
     if chat_id:
         try:
-            chat = await get_chat(db, UUID(chat_id), user_id=uid)
+            chat = await get_chat(db, UUID(chat_id))
             if chat:
                 db.expunge(chat)
         except (ValueError, Exception):
@@ -717,7 +717,7 @@ async def _mco_run_impl(
         }
     } if document_cognition.get("available") else {}
     try:
-        recent_messages = await get_chat_messages(db, chat.id, user_id=uid)
+        recent_messages = await get_chat_messages(db, chat.id)
         recent_payload = [
             {"role": m.role, "content": m.content}
             for m in (recent_messages[-12:] if recent_messages else [])

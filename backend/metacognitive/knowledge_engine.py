@@ -103,10 +103,10 @@ class KnowledgeRetrievalEngine:
         bundles.extend(local_results)
         sources_queried += 1
 
-        # 2. If volatile, mandatory web retrieval
-        if inp.volatility_score > VOLATILITY_THRESHOLD:
+        # 2. If volatile or forced, mandatory web retrieval
+        if inp.volatility_score > VOLATILITY_THRESHOLD or getattr(inp, 'force_search', False):
             logger.info(
-                f"Volatility {inp.volatility_score:.3f} > threshold {VOLATILITY_THRESHOLD}. "
+                f"Volatility {inp.volatility_score:.3f} > threshold {VOLATILITY_THRESHOLD} or force_search=True. "
                 "Web retrieval mandatory."
             )
             web_results = await self._web_search(inp.query_text, inp.domain)

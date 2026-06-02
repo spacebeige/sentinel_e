@@ -77,6 +77,7 @@ class KnowledgeRetrievalInput(BaseModel):
     volatility_score: float = 0.0
     domain: str = ""
     concept_expansion_depth: int = 1
+    force_search: bool = False
 
 
 class KnowledgeRetrievalOutput(BaseModel):

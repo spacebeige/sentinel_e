@@ -314,7 +314,7 @@ async def get_chat_detail(
             return error("Chat not found", 404)
         
         # Verify ownership
-        if chat.user_id != user_id:
+        if str(chat.user_id) != str(user_id):
             return error("Access denied", 403)
         
         # Get messages
@@ -341,7 +341,7 @@ async def update_chat_detail(
         
         chat_uuid = UUID(chat_id)
         chat = await get_chat(db, chat_uuid)
-        if not chat or chat.user_id != user_id:
+        if not chat or str(chat.user_id) != str(user_id):
             return error("Chat not found or access denied", 404)
         
         if title:
@@ -401,7 +401,7 @@ async def add_chat_message(
         # Verify chat exists and belongs to user
         chat_uuid = UUID(chat_id)
         chat = await get_chat(db, chat_uuid)
-        if not chat or chat.user_id != user_id:
+        if not chat or str(chat.user_id) != str(user_id):
             return error("Chat not found or access denied", 404)
         
         # Add message (transactionally)
@@ -433,17 +433,26 @@ async def get_chat_messages_endpoint(
     payload: tuple = Depends(get_current_user_with_db),
 ) -> Dict[str, Any]:
     """Get messages for chat."""
+    import time
+    start_time = time.time()
+    logger.info(f"START get_chat_messages_endpoint {chat_id}")
     try:
         _, user_id, db = payload
         
         chat_uuid = UUID(chat_id)
         chat = await get_chat(db, chat_uuid)
-        if not chat or chat.user_id != user_id:
+        if not chat or str(chat.user_id) != str(user_id):
             return error("Chat not found or access denied", 404)
         
+        logger.info("QUERY START")
         messages = await get_chat_messages(db, chat_uuid, limit=limit)
-        message_dicts = [message_to_dict(m) for m in messages]
+        logger.info(f"QUERY END - elapsed: {time.time() - start_time:.3f}s")
         
+        logger.info("SERIALIZE START")
+        message_dicts = [message_to_dict(m) for m in messages]
+        logger.info(f"SERIALIZE END - elapsed: {time.time() - start_time:.3f}s")
+        
+        logger.info(f"REQUEST COMPLETE - elapsed: {time.time() - start_time:.3f}s")
         return success({
             "messages": message_dicts,
             "count": len(message_dicts),
@@ -657,9 +666,15 @@ async def log_analytics_event(
     """
     Log an analytics event.
     """
+    import time
+    start_time = time.time()
+    logger.info(f"START log_analytics_event {event.event_type}")
     try:
         _, user_id, db = payload
+        logger.info("QUERY START")
         await insert_analytics_event(db, user_id=user_id, event_type=event.event_type, event_data=event.event_data)
+        logger.info(f"QUERY END - elapsed: {time.time() - start_time:.3f}s")
+        logger.info(f"REQUEST COMPLETE - elapsed: {time.time() - start_time:.3f}s")
         return success({"status": "logged"})
     except Exception as e:
         logger.error(f"Error logging analytics event: {e}")
@@ -701,7 +716,7 @@ async def get_context_window(
         
         chat_uuid = UUID(chat_id)
         chat = await get_chat(db, chat_uuid)
-        if not chat or chat.user_id != user_id:
+        if not chat or str(chat.user_id) != str(user_id):
             return error("Chat not found", 404)
         
         # Get recent messages

@@ -179,6 +179,7 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
     RAG_MAX_SOURCES: int = 5
+    RAG_TAVILY_MAX_RESULTS: int = 5
     JWT_SECRET_KEY: str = "CHANGE-ME"
     JWT_ALGORITHM: str = "HS256"
 

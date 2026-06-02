@@ -334,6 +334,7 @@ class MetaCognitiveOrchestrator:
                 volatility_score=vol_score,
                 domain=self._detect_domain(request.query),
                 concept_expansion_depth=1 if vol_score > 0.6 else 0,
+                force_search=should_retrieve,
             )
 
             result = await self.knowledge_engine.retrieve(retrieval_input)

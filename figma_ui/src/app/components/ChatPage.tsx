@@ -129,7 +129,7 @@ export function ChatPage() {
 
   const activeModel = getModelConfig(selectedModel || "llama-3-3-70b");
   const availableModels = AVAILABLE_MODELS;
-  const effectiveMode = (runtimeTier === "pro" && isOrchestrationExpanded && selectedMode) ? selectedMode : "standard";
+  const effectiveMode = (runtimeTier === "pro" && selectedMode) ? selectedMode : "standard";
 
   const availableModes = [
     { id: "debate", name: "Debate", color: "#ef4444" },

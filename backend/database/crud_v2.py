@@ -101,11 +101,12 @@ async def upsert_user(
         existing_user = result.scalars().first()
         
         if existing_user:
-            # Update mutable fields
-            existing_user.name = name or existing_user.name
-            existing_user.updated_at = datetime.utcnow()
-            await session.flush()
-            logger.info(f"User updated: {user_id}")
+            # Only update if fields actually changed to prevent row lock contention
+            if name and existing_user.name != name:
+                existing_user.name = name
+                existing_user.updated_at = datetime.utcnow()
+                await session.flush()
+                logger.info(f"User updated: {user_id}")
             return existing_user
         
         # Create new user
