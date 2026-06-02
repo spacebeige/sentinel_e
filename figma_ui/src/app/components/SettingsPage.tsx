@@ -49,7 +49,7 @@ export default function SettingsPage() {
     if (!user) return;
     const fetchProfile = async () => {
       try {
-        const res = await apiRequest<{success: boolean, data: any}>('/v2/user/settings', { method: 'GET' });
+        const res = await apiRequest<{success: boolean, data: any}>('/api/v2/user/settings', { method: 'GET' });
         const data = res?.data?.settings;
         if (data) {
           setPreferences({
@@ -79,7 +79,7 @@ export default function SettingsPage() {
   const savePreferences = async (newPrefs: any) => {
     setPreferences(newPrefs);
     if (user) {
-      await apiRequest('/v2/user/settings', {
+      await apiRequest('/api/v2/user/settings', {
         method: 'PUT',
         body: {
           runtime_preference: newPrefs.defaultMode,
@@ -95,7 +95,7 @@ export default function SettingsPage() {
   const savePrivacy = async (newPrivacy: any) => {
     setPrivacy(newPrivacy);
     if (user) {
-      await apiRequest('/v2/user/settings', {
+      await apiRequest('/api/v2/user/settings', {
         method: 'PUT',
         body: {
           telemetry_opt_in: newPrivacy.telemetryOptIn,
@@ -110,7 +110,7 @@ export default function SettingsPage() {
   const handleThemeChange = async (newTheme: string) => {
     setTheme(newTheme);
     if (user) {
-      await apiRequest('/v2/user/settings', { 
+      await apiRequest('/api/v2/user/settings', { 
         method: 'PUT', 
         body: { theme_preference: newTheme },
         json: true 

@@ -186,7 +186,7 @@ class Settings(BaseSettings):
     # CORS — comma-separated list of allowed origins
     # Override in production via ALLOWED_ORIGINS env var on Render:
     #   https://sentinel-e.vercel.app,http://localhost:3000
-    ALLOWED_ORIGINS: str = "https://sentinel-e.vercel.app,https://sentinel-igvzu7opo-spacebeiges-projects.vercel.app,http://localhost:3000,http://localhost:8000"
+    ALLOWED_ORIGINS: str = "https://sentinel-e.vercel.app,https://sentinel-e-evo.vercel.app,http://localhost:3000,http://localhost:8000"
 
     # Rate limiting
     RATE_LIMIT_REQUESTS: int = 60

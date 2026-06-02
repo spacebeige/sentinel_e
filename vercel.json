@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://sentinel-e.onrender.com/api/$1"
+      "destination": "https://sentinel-e-evo.onrender.com/run/$1"
     },
     {
       "source": "/run/(.*)",
-      "destination": "https://sentinel-e.onrender.com/run/$1"
+      "destination": "https://sentinel-e-evo.onrender.com/run/$1"
     },
     {
       "source": "/(.*)",

@@ -37,7 +37,7 @@ export default function ProfilePage() {
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
       
       // 3. Update profile via API
-      await apiRequest('/v2/user/settings', { 
+      await apiRequest('/api/v2/user/settings', { 
         method: 'PUT',
         body: { avatar_url: publicUrl },
         json: true
@@ -68,7 +68,7 @@ export default function ProfilePage() {
 
     const fetchProfileAndStats = async () => {
       // 1. Fetch Profile Settings
-      const settingsRes = await apiRequest<{success: boolean, data: any}>('/v2/user/settings', { method: 'GET' });
+      const settingsRes = await apiRequest<{success: boolean, data: any}>('/api/v2/user/settings', { method: 'GET' });
       const settings = settingsRes?.data?.settings || {};
       
       const name = settings.display_name || user.email?.split('@')[0] || 'Sentinel User';
@@ -76,7 +76,7 @@ export default function ProfilePage() {
       setTempName(name);
 
       // 2 & 3. Fetch Analytics Counts
-      const analyticsRes = await apiRequest<{success: boolean, data: any}>('/v2/user/analytics', { method: 'GET' });
+      const analyticsRes = await apiRequest<{success: boolean, data: any}>('/api/v2/user/analytics', { method: 'GET' });
       const conversationsCount = analyticsRes?.data?.chat_count || 0;
       const messagesCount = analyticsRes?.data?.message_count || 0;
 
@@ -96,7 +96,7 @@ export default function ProfilePage() {
     if (e) e.preventDefault();
     if (!user) return;
     try {
-      await apiRequest('/v2/user/settings', { 
+      await apiRequest('/api/v2/user/settings', { 
         method: 'PUT',
         body: { display_name: tempName },
         json: true
