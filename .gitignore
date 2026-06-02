@@ -106,3 +106,14 @@ PRODUCTION_VALIDATION_REPORT.js
 FIREBASE_VALIDATION_CHECKLIST.js
 PR_OUTPUT.json
 dump.rdb
+########################################
+# Figma UI Environment Files
+########################################
+figma_ui/.env
+figma_ui/.env.local
+figma_ui/.env.development
+figma_ui/.env.development.local
+figma_ui/.env.production
+figma_ui/.env.production.local
+figma_ui/.env.test
+figma_ui/.env.test.local
