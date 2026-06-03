@@ -1,0 +1,65 @@
+{
+  "name": "sentinel-e-ui",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": "20.x",
+    "npm": "10.x"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
+    "axios": "^1.7.7",
+    "d3": "^7.9.0",
+    "firebase": "^12.12.1",
+    "framer-motion": "^12.34.3",
+    "jwt-decode": "^4.0.0",
+    "lucide-react": "^0.400.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.1.0",
+    "react-router-dom": "^7.13.0",
+    "react-scripts": "5.0.1",
+    "recharts": "^3.7.0",
+    "remark-gfm": "^4.0.1",
+    "supertokens-auth-react": "^0.51.2",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@jridgewell/sourcemap-codec": "^1.5.0",
+    "@rollup/plugin-terser": "^0.4.4",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.57.1",
+    "postcss": "^8.4.31",
+    "rimraf": "^5.0.5",
+    "tailwindcss": "^3.3.5"
+  },
+  "overrides": {
+    "rimraf": "^5.0.5"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "node ./node_modules/react-scripts/scripts/build.js",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "predeploy": "npm run build"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "proxy": "http://localhost:8000"
+}
