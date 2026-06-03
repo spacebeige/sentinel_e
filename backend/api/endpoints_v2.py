@@ -37,12 +37,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
 
 from database.connection_v2 import get_db
 from database.crud_v2 import (
     upsert_user, get_user_by_id,
     create_session, update_session_activity, get_session, list_user_sessions,
-    create_chat, get_chat, list_user_chats, update_chat_title, archive_chat,
+    create_chat, get_chat, list_user_chats, update_chat_title, update_chat_metadata, archive_chat,
     add_message, get_chat_messages, get_message, soft_delete_message,
     upsert_memory, get_user_memory, get_memory_by_key,
     upsert_user_setting, get_user_settings, get_user_stats,
@@ -329,25 +330,35 @@ async def get_chat_detail(
         return error("Failed to load chat", 500)
 
 
+class ChatUpdatePayload(BaseModel):
+    title: Optional[str] = None
+    mode: Optional[str] = None
+    machine_metadata: Optional[Dict[str, Any]] = None
+
 @router.put("/chat/{chat_id}")
 async def update_chat_detail(
     chat_id: str,
-    title: Optional[str] = None,
-    payload: tuple = Depends(get_current_user_with_db),
+    payload: ChatUpdatePayload,
+    auth: tuple = Depends(get_current_user_with_db),
 ) -> Dict[str, Any]:
-    """Update chat title."""
+    """Update chat metadata."""
     try:
-        _, user_id, db = payload
+        _, user_id, db = auth
         
         chat_uuid = UUID(chat_id)
         chat = await get_chat(db, chat_uuid)
         if not chat or str(chat.user_id) != str(user_id):
             return error("Chat not found or access denied", 404)
         
-        if title:
-            await update_chat_title(db, chat_uuid, title)
-            chat.title = title
+        await update_chat_metadata(
+            db, 
+            chat_uuid, 
+            title=payload.title, 
+            mode=payload.mode, 
+            machine_metadata=payload.machine_metadata
+        )
         
+        chat = await get_chat(db, chat_uuid) # refresh
         messages = await get_chat_messages(db, chat_uuid)
         data = chat_to_dict(chat, messages=[message_to_dict(m) for m in messages])
         return success(data)
@@ -553,12 +564,20 @@ async def upsert_user_memory(
 
 SETTINGS_SCHEMA: Dict[str, Any] = {
     "theme": {"type": str, "allowed": ["dark", "light", "system"], "default": "dark"},
+    "theme_preference": {"type": str, "allowed": ["dark", "light", "system"], "default": "dark"},
     "language": {"type": str, "allowed": ["en", "es", "fr", "de", "zh"], "default": "en"},
     "response_style": {"type": str, "allowed": ["concise", "balanced", "detailed"], "default": "balanced"},
     "default_mode": {"type": str, "allowed": ["standard", "debate", "evidence", "glass", "synthesis"], "default": "standard"},
     "default_model": {"type": str, "default": "llama-3-3-70b"},
+    "runtime_preference": {"type": str, "allowed": ["standard", "pro"], "default": "standard"},
+    "favorite_model": {"type": str, "default": "llama-3-3-70b"},
+    "favorite_mode": {"type": str, "default": "standard"},
     "notifications_enabled": {"type": bool, "default": True},
+    "telemetry_opt_in": {"type": bool, "default": True},
+    "analytics_opt_in": {"type": bool, "default": True},
+    "feedback_opt_in": {"type": bool, "default": True},
     "debate_rounds": {"type": int, "min": 1, "max": 10, "default": 3},
+    "debate_depth": {"type": int, "min": 1, "max": 10, "default": 6},
     "auto_save": {"type": bool, "default": True},
     "display_name": {"type": str, "default": ""},
     "avatar_url": {"type": str, "default": ""},

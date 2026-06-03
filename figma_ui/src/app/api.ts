@@ -173,14 +173,30 @@ export interface ChatHistoryItem {
   priority_answer?: string;
   machine_metadata?: OmegaMetadata;
   rounds?: number;
+  messages?: ChatMessage[];
 }
 
 export interface ChatMessage {
   id: string;
+  chat_id?: string;
   role: "user" | "assistant";
   content: string;
   timestamp: string | null;
   reasoning_json?: OmegaMetadata;
+}
+
+export interface ChatHistoryBundle {
+  chats: ChatHistoryItem[];
+  messages: ChatMessage[];
+}
+
+export interface RuntimeModelStatus {
+  id: string;
+  name: string;
+  provider?: string;
+  enabled: boolean;
+  active?: boolean;
+  disable_reason?: string | null;
 }
 
 export interface HealthStatus {
@@ -561,18 +577,45 @@ export async function runSentinel(params: {
 export async function getChatHistory(
   limit: number = 50,
   offset: number = 0
-): Promise<ChatHistoryItem[]> {
+): Promise<ChatHistoryBundle> {
   try {
     const res = await apiRequest<{ success: boolean; data: any }>(
       `/api/history?limit=${limit}&offset=${offset}`,
       { retries: 1 }
     );
-    if (!res || !res.success || !res.data?.chats) return [];
-    
-    return res.data.chats.map(adaptChatHistoryItem);
+    if (!res || !res.success || !res.data?.chats) return { chats: [], messages: [] };
+
+    const rawMessages = Array.isArray(res.data.messages)
+      ? res.data.messages
+      : [];
+    const messages = rawMessages.map(adaptChatMessage);
+
+    const messagesByChat = new Map<string, ChatMessage[]>();
+    for (const msg of messages) {
+      const chatId = (msg as any).chat_id || null;
+      if (!chatId) continue;
+      const list = messagesByChat.get(chatId) || [];
+      list.push(msg);
+      messagesByChat.set(chatId, list);
+    }
+
+    const chats = res.data.chats.map((raw: Record<string, unknown>) => {
+      const chat = adaptChatHistoryItem(raw);
+      const embedded = Array.isArray((raw as any).messages)
+        ? (raw as any).messages.map(adaptChatMessage)
+        : [];
+      const byChat = messagesByChat.get(chat.id) || [];
+      const mergedMessages = embedded.length > 0 ? embedded : byChat;
+      return {
+        ...chat,
+        messages: mergedMessages,
+      };
+    });
+
+    return { chats, messages };
   } catch (err) {
     console.error('getChatHistory fallback error:', err);
-    return [];
+    return { chats: [], messages: [] };
   }
 }
 
@@ -654,6 +697,54 @@ export async function shareChat(
   chatId: string
 ): Promise<{ share_token: string }> {
   return postJson<{ share_token: string }>("/api/v2/chat/share", { chat_id: chatId });
+}
+
+/**
+ * Update chat title / metadata
+ */
+export async function updateChatMetadata(
+  chatId: string,
+  payload: { title?: string; mode?: string; machine_metadata?: Record<string, unknown> }
+): Promise<void> {
+  await apiRequest(`/api/v2/chat/${chatId}`, {
+    method: "PUT",
+    body: payload,
+    json: true,
+  });
+}
+
+/**
+ * Update user settings
+ */
+export async function updateUserSettings(
+  settings: Record<string, any>
+): Promise<void> {
+  await apiRequest("/api/v2/user/settings", {
+    method: "PUT",
+    body: settings,
+    json: true,
+  });
+}
+
+/**
+ * Get backend model registry
+ */
+export async function getModelRegistry(): Promise<RuntimeModelStatus[]> {
+  try {
+    const res = await apiRequest<{ success: boolean; data: any }>("/api/models/status", { retries: 1 });
+    if (!res?.success || !Array.isArray(res.data?.models)) return [];
+    return res.data.models.map((m: any) => ({
+      id: String(m.id || ""),
+      name: String(m.name || m.id || "Unknown"),
+      provider: m.provider ? String(m.provider) : undefined,
+      enabled: Boolean(m.enabled),
+      active: Boolean(m.active),
+      disable_reason: m.disable_reason ? String(m.disable_reason) : null,
+    }));
+  } catch (err) {
+    console.error("getModelRegistry error:", err);
+    return [];
+  }
 }
 
 // ============================================================

@@ -260,7 +260,7 @@ def chat_to_dict(chat, messages: Optional[List[Any]] = None) -> Dict[str, Any]:
         "is_archived": chat.is_archived,
         "metadata": {
             "machine": chat.machine_metadata or {},
-            "user": chat.user_metadata or {},
+            "user": getattr(chat, "user_metadata", None) or {},
         },
     }
 
@@ -278,7 +278,7 @@ def message_to_dict(message) -> Dict[str, Any]:
         "content": message.content or "",
         "reasoning_json": message.reasoning_json,
         "metadata": getattr(message, "metadata_json", None) or {},
-        "image_url": message.image_url,
+        "image_url": getattr(message, "image_url", None),
         "created_at": message.created_at.isoformat() if message.created_at else None,
     }
 

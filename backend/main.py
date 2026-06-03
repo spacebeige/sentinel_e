@@ -2774,8 +2774,8 @@ async def history_alias(
     logger.info("/api/history user authenticated=%s", bool(user))
 
     try:
-        from database.schemas import ChatSchema, MessageSchema
         from database.models import Message
+        from utils.safe_responses import chat_history_response, message_to_dict
 
         user_id = user.get("user_id")
         if not user_id:
@@ -2806,63 +2806,28 @@ async def history_alias(
                 logger.warning("history status db=fail op=list_messages user_id=%s", user_id)
                 messages = []
 
-        # Serialize chats safely
-        serialized_chats = []
-        for c in chats:
-            try:
-                serialized_chats.append(ChatSchema.model_validate(c).model_dump(mode="json"))
-            except Exception as e:
-                logger.warning(f"/api/history: failed to serialize chat {getattr(c, 'id', '?')}: {e}")
-                # Minimal safe fallback
-                try:
-                    serialized_chats.append({
-                        "id": str(c.id),
-                        "chat_name": c.chat_name or "Untitled",
-                        "mode": c.mode or "standard",
-                        "user_id": c.user_id,
-                        "created_at": c.created_at.isoformat() if c.created_at else None,
-                        "updated_at": c.updated_at.isoformat() if c.updated_at else None,
-                        "rounds": c.rounds or 0,
-                    })
-                except Exception:
-                    pass
-
-        # Serialize messages safely
+        # Serialize messages safely (no image blobs)
+        messages_by_chat = {}
         serialized_messages = []
         for m in messages:
             try:
-                msg_payload = MessageSchema.model_validate(m).model_dump(mode="json")
-                # Never return base64 blobs in history list payloads.
-                msg_payload.pop("image_b64", None)
-                msg_payload.pop("image_mime", None)
-                msg_payload["image_url"] = ((m.metadata_json or {}).get("image_url") if isinstance(m.metadata_json, dict) else None)
+                msg_payload = message_to_dict(m)
+                msg_payload.pop("metadata", None)
                 serialized_messages.append(msg_payload)
+                messages_by_chat.setdefault(str(m.chat_id), []).append(msg_payload)
             except Exception as e:
                 logger.warning(f"/api/history: failed to serialize message {getattr(m, 'id', '?')}: {e}")
-                try:
-                    serialized_messages.append({
-                        "id": str(m.id),
-                        "chat_id": str(m.chat_id),
-                        "user_id": m.user_id,
-                        "role": m.role,
-                        "content": m.content or "",
-                        "image_url": (m.metadata_json or {}).get("image_url") if isinstance(m.metadata_json, dict) else None,
-                        "reasoning_json": m.reasoning_json,
-                        "metadata_json": m.metadata_json,
-                        "created_at": m.created_at.isoformat() if m.created_at else None,
-                    })
-                except Exception:
-                    pass
 
-        return api_success({
-            "chats": serialized_chats,
-            "messages": serialized_messages,
-            "metadata": {
-                "total_chats": len(serialized_chats),
-                "total_messages": len(serialized_messages),
-                "fetched_at": datetime.utcnow().isoformat(),
-            },
-        })
+        # Build chats with embedded messages for instant restore/search
+        data = chat_history_response(chats, messages_by_chat)
+        data["messages"] = serialized_messages
+        data["metadata"] = {
+            "total_chats": data.get("chat_count", 0),
+            "total_messages": data.get("total_messages", len(serialized_messages)),
+            "fetched_at": datetime.utcnow().isoformat(),
+        }
+
+        return api_success(data)
     except Exception as exc:
         logger.error(f"Unhandled /api/history error: {exc}", exc_info=True)
         logger.warning("history status db=fail op=history_alias")

@@ -18,6 +18,7 @@ export default function ProfilePage() {
   const [showPhoneSheet, setShowPhoneSheet] = useState(false);
   const [showRoleSheet, setShowRoleSheet] = useState(false);
   const [phone, setPhone] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   
   // Avatar upload
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -43,6 +44,7 @@ export default function ProfilePage() {
         json: true
       });
       
+      setAvatarUrl(publicUrl);
       alert("Avatar updated!");
       // Note: In real app, we'd sync this with context or fetch again
     } catch (error) {
@@ -74,6 +76,9 @@ export default function ProfilePage() {
       const name = settings.display_name || user.email?.split('@')[0] || 'Sentinel User';
       setCustomName(name);
       setTempName(name);
+      if (settings.avatar_url) {
+        setAvatarUrl(settings.avatar_url);
+      }
 
       // 2 & 3. Fetch Analytics Counts
       const analyticsRes = await apiRequest<{success: boolean, data: any}>('/api/v2/user/analytics', { method: 'GET' });
@@ -133,8 +138,11 @@ export default function ProfilePage() {
         >
           <div className="relative group cursor-pointer mb-5" onClick={() => fileInputRef.current?.click()}>
             <div className="w-[120px] h-[120px] md:w-[140px] md:h-[140px] rounded-full bg-gradient-to-b from-[#8E8E93] to-[#48484A] flex items-center justify-center text-white text-5xl md:text-6xl font-medium shadow-lg ring-4 ring-white/10 dark:ring-white/5 transition-transform duration-300 group-hover:scale-105 overflow-hidden">
-               {/* Display avatar_url if exists, else initial */}
-               {customName.charAt(0).toUpperCase()}
+               {avatarUrl ? (
+                 <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+               ) : (
+                 customName.charAt(0).toUpperCase()
+               )}
             </div>
             <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px]">
               <span className="text-white text-sm font-medium">Edit Photo</span>

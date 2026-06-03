@@ -8,6 +8,7 @@ import { IOSToggle } from './ui/IOSToggle';
 import { IOSContextMenu } from './ui/IOSContextMenu';
 import { Settings, User, Monitor, Key, Shield, Download, Trash2, Cpu, Activity, MessageSquare } from 'lucide-react';
 import { MODELS as AVAILABLE_MODELS } from "../config/runtime";
+import { getModelRegistry } from "../api";
 import { apiRequest } from '../services/apiClient';
 
 export default function SettingsPage() {
@@ -19,6 +20,8 @@ export default function SettingsPage() {
     defaultMode: 'standard',
     defaultModel: 'llama-3-3-70b',
   });
+
+  const [modelOptions, setModelOptions] = useState(AVAILABLE_MODELS);
 
   const [privacy, setPrivacy] = useState({
     telemetryOptIn: true,
@@ -53,20 +56,20 @@ export default function SettingsPage() {
         const data = res?.data?.settings;
         if (data) {
           setPreferences({
-            defaultMode: data.runtime_preference || 'standard',
-            defaultModel: data.favorite_model || 'llama-3-3-70b',
+            defaultMode: data.runtime_preference || data.default_mode || 'standard',
+            defaultModel: data.favorite_model || data.default_model || 'llama-3-3-70b',
           });
           setAdvanced({
             responseStyle: data.response_style || 'balanced',
-            debateDepth: String(data.debate_depth || '6'),
+            debateDepth: String(data.debate_rounds || data.debate_depth || '6'),
           });
           setPrivacy({
             telemetryOptIn: data.telemetry_opt_in ?? true,
             analyticsOptIn: data.analytics_opt_in ?? true,
             feedbackOptIn: data.feedback_opt_in ?? true,
           });
-          if (data.theme_preference) {
-            setTheme(data.theme_preference);
+          if (data.theme_preference || data.theme) {
+            setTheme(data.theme_preference || data.theme);
           }
         }
       } catch (err) {
@@ -76,6 +79,32 @@ export default function SettingsPage() {
     fetchProfile();
   }, [user, setTheme]);
 
+  useEffect(() => {
+    if (!user) return;
+    let mounted = true;
+    const loadModels = async () => {
+      const registry = await getModelRegistry();
+      if (!mounted) return;
+      const enabled = registry.filter((m) => m.enabled);
+      if (enabled.length === 0) return;
+      setModelOptions(
+        enabled.map((m) => ({
+          id: m.id,
+          name: m.name || m.id,
+          category: m.provider ? m.provider.toUpperCase() : 'Model',
+          description: m.provider ? `${m.provider} model` : 'Runtime model',
+          capabilities: 'Runtime model',
+          provider: m.provider || 'Unknown',
+          color: '#8b5cf6',
+        }))
+      );
+    };
+    loadModels();
+    return () => {
+      mounted = false;
+    };
+  }, [user]);
+
   const savePreferences = async (newPrefs: any) => {
     setPreferences(newPrefs);
     if (user) {
@@ -83,8 +112,11 @@ export default function SettingsPage() {
         method: 'PUT',
         body: {
           runtime_preference: newPrefs.defaultMode,
+          default_mode: newPrefs.defaultMode,
           favorite_model: newPrefs.defaultModel,
+          default_model: newPrefs.defaultModel,
           response_style: newPrefs.responseStyle ?? advanced.responseStyle,
+          debate_rounds: Number(newPrefs.debateDepth ?? advanced.debateDepth),
           debate_depth: Number(newPrefs.debateDepth ?? advanced.debateDepth),
         },
         json: true
@@ -112,7 +144,7 @@ export default function SettingsPage() {
     if (user) {
       await apiRequest('/api/v2/user/settings', { 
         method: 'PUT', 
-        body: { theme_preference: newTheme },
+        body: { theme_preference: newTheme, theme: newTheme },
         json: true 
       });
     }
@@ -170,7 +202,7 @@ export default function SettingsPage() {
                 <IOSContextMenu 
                   value={preferences.defaultModel}
                   onChange={(val) => savePreferences({ ...preferences, defaultModel: val })}
-                  options={AVAILABLE_MODELS.map(m => ({ label: m.name, value: m.id }))}
+                  options={modelOptions.map(m => ({ label: m.name, value: m.id }))}
                 />
               }
             />
@@ -196,10 +228,9 @@ export default function SettingsPage() {
                   value={advanced.responseStyle}
                   onChange={(val) => { setAdvanced({ ...advanced, responseStyle: val }); savePreferences({ ...preferences, responseStyle: val }); }}
                   options={[
-                    { label: 'Analytical', value: 'analytical' },
+                    { label: 'Concise', value: 'concise' },
                     { label: 'Balanced', value: 'balanced' },
-                    { label: 'Executive', value: 'executive' },
-                    { label: 'Technical', value: 'technical' }
+                    { label: 'Detailed', value: 'detailed' }
                   ]}
                 />
               }

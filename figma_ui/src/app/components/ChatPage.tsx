@@ -1,5 +1,5 @@
 import { useTheme } from "next-themes";
-import { MODELS as AVAILABLE_MODELS, getModelConfig, getModeConfig, ALL_RUNTIME_MODES, resolveFrontendModelId } from "../config/runtime";
+import { MODELS as AVAILABLE_MODELS, getModelConfig, getModeConfig, ALL_RUNTIME_MODES, resolveFrontendModelId, MODEL_RUNTIME_MAP } from "../config/runtime";
 import { supabase } from "../lib/supabase";
 import { Link } from "react-router";
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -45,11 +45,15 @@ import {
   submitFeedback,
   getChatHistory,
   getChatDetails,
+  getModelRegistry,
+  updateChatMetadata,
+  updateUserSettings,
   shareChat,
   runOmegaKill,
   type SentinelRunResponse,
   type HealthStatus,
   type ChatHistoryItem,
+  type ChatMessage,
   type OmegaMetadata,
   type OmegaBoundaryResult,
   type OmegaReasoningTrace,
@@ -65,6 +69,7 @@ import { CinematicDebatePanel } from "./CinematicDebatePanel";
 import { CinematicEvidencePanel } from "./CinematicEvidencePanel";
 import { CrossAnalysisTrigger } from "./CrossAnalysisPanel";
 import { useSessionPersistence } from "../hooks/useSessionPersistence";
+import { apiRequest } from "../services/apiClient";
 import {
   type DebateState,
   createDebateState,
@@ -209,6 +214,42 @@ function formatMessageContent(content: string) {
   return blocks;
 }
 
+function generateChatTitleFromPrompt(text: string): string {
+  if (!text) return "New Chat";
+
+  const cleaned = text
+    .replace(/[\x00-\x1F]/g, "")
+    .replace(/[^\w\s\-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) return "New Chat";
+
+  const starters = [
+    "how do i ", "how to ", "can you ", "could you ", "what is ",
+    "what are ", "explain ", "tell me about ", "help me with ",
+    "i need ", "write a ", "create a ", "build a ", "show me ",
+  ];
+
+  let normalized = cleaned.toLowerCase();
+  let trimmed = cleaned;
+  for (const starter of starters) {
+    if (normalized.startsWith(starter)) {
+      trimmed = cleaned.slice(starter.length).trim();
+      normalized = trimmed.toLowerCase();
+      break;
+    }
+  }
+
+  const words = trimmed.split(" ").filter(Boolean);
+  if (words.length === 0) return "New Chat";
+
+  let title = words.slice(0, 4).join(" ");
+  title = title.replace(/\b\w/g, (c) => c.toUpperCase());
+  if (title.length > 40) title = `${title.slice(0, 37)}...`;
+  return title;
+}
+
 // ── Main ChatPage ────────────────────────────────────────────────────────────
 export function ChatPage() {
   const [selectedModel, setSelectedModel] = useState<string | null>("llama-3-3-70b");
@@ -229,8 +270,8 @@ export function ChatPage() {
   // Real subscription tier from user metadata
   const subscriptionTier = user?.user_metadata?.subscription || "standard";
 
-  const activeModel = getModelConfig(selectedModel || "llama-3-3-70b");
-  const availableModels = AVAILABLE_MODELS;
+  const [availableModels, setAvailableModels] = useState(AVAILABLE_MODELS);
+  const activeModel = availableModels.find((m) => m.id === selectedModel) || getModelConfig(selectedModel || "llama-3-3-70b");
   const effectiveMode = runtimeTier === "pro" ? (selectedMode || "pro") : "standard";
 
   const availableModes = [
@@ -260,6 +301,7 @@ export function ChatPage() {
 
   // Chat history state
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
+  const [historyMessages, setHistoryMessages] = useState<ChatMessage[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   // Chat interaction context
@@ -284,6 +326,9 @@ export function ChatPage() {
   const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
   const modeTriggerRef = useRef<HTMLButtonElement>(null);
   const [modeDropdownCoords, setModeDropdownCoords] = useState({ top: 0, left: 0 });
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const modelTriggerRef = useRef<HTMLButtonElement>(null);
+  const [modelDropdownCoords, setModelDropdownCoords] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     if (modeDropdownOpen && modeTriggerRef.current) {
@@ -291,6 +336,13 @@ export function ChatPage() {
       setModeDropdownCoords({ top: rect.bottom + 6, left: rect.left });
     }
   }, [modeDropdownOpen]);
+
+  useEffect(() => {
+    if (modelDropdownOpen && modelTriggerRef.current) {
+      const rect = modelTriggerRef.current.getBoundingClientRect();
+      setModelDropdownCoords({ top: rect.bottom + 6, left: rect.left });
+    }
+  }, [modelDropdownOpen]);
 
   useEffect(() => {
     if (!modeDropdownOpen) return;
@@ -303,6 +355,18 @@ export function ChatPage() {
     window.addEventListener('resize', updatePosition);
     return () => window.removeEventListener('resize', updatePosition);
   }, [modeDropdownOpen]);
+
+  useEffect(() => {
+    if (!modelDropdownOpen) return;
+    const updatePosition = () => {
+      if (modelTriggerRef.current) {
+        const rect = modelTriggerRef.current.getBoundingClientRect();
+        setModelDropdownCoords({ top: rect.bottom + 6, left: rect.left });
+      }
+    };
+    window.addEventListener('resize', updatePosition);
+    return () => window.removeEventListener('resize', updatePosition);
+  }, [modelDropdownOpen]);
 
   useEffect(() => {
     const syncViewportMode = () => {
@@ -344,6 +408,16 @@ export function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const upsertChatHistory = useCallback((chat: ChatHistoryItem) => {
+    setChatHistory((prev) => {
+      const idx = prev.findIndex((c) => c.id === chat.id);
+      if (idx === -1) return [chat, ...prev];
+      const next = [...prev];
+      next[idx] = { ...next[idx], ...chat };
+      return next;
+    });
+  }, []);
+
   useEffect(() => { scrollToBottom(); }, [messages]);
 
   const textPrimary = isDark ? "#f5f5f7" : "#1d1d1f";
@@ -377,6 +451,51 @@ export function ChatPage() {
     healthCheckRef.current = setInterval(performHealthCheck, 60000);
     return () => { if (healthCheckRef.current) clearInterval(healthCheckRef.current); };
   }, [performHealthCheck]);
+
+  // ── Model registry (backend authoritative) ───────────────────────────────
+  useEffect(() => {
+    if (!user || !backendOnline) return;
+    let mounted = true;
+
+    const providerColors: Record<string, string> = {
+      openai: "#22c55e",
+      anthropic: "#a855f7",
+      google: "#10b981",
+      deepseek: "#0ea5e9",
+      mistral: "#f43f5e",
+      openrouter: "#f59e0b",
+      groq: "#3b82f6",
+      nvidia: "#14b8a6",
+    };
+
+    const loadRegistry = async () => {
+      const registry = await getModelRegistry();
+      if (!mounted) return;
+      const enabled = registry.filter((m) => m.enabled);
+      if (enabled.length === 0) return;
+
+      const mapped = enabled.map((m) => {
+        const providerKey = (m.provider || "").toLowerCase();
+        return {
+          id: m.id,
+          name: m.name || m.id,
+          category: m.provider ? m.provider.toUpperCase() : "Model",
+          description: m.provider ? `${m.provider} model` : "Runtime model",
+          capabilities: "Runtime model",
+          provider: m.provider || "Unknown",
+          color: providerColors[providerKey] || "#8b5cf6",
+        };
+      });
+
+      setAvailableModels(mapped);
+    };
+
+    loadRegistry();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user, backendOnline]);
 
   // ── Load full chat state ───────────────────────────────────────────────────
   const loadFullChatState = useCallback(async (chatId: string) => {
@@ -450,24 +569,34 @@ export function ChatPage() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("profiles")
-      .select("runtime_preference,favorite_model,response_style,debate_depth")
-      .eq("id", user.id)
-      .single()
-      .then(({ data }) => {
-        if (!data) return;
-        if (data.favorite_model) setSelectedModel(data.favorite_model);
-        if (data.runtime_preference === "pro") {
+
+    const loadUserSettings = async () => {
+      try {
+        const res = await apiRequest<{ success: boolean; data: any }>("/api/v2/user/settings", { method: "GET" });
+        const settings = res?.data?.settings || {};
+
+        if (!currentChatId) {
+          const preferredModel = settings.favorite_model || settings.default_model || "llama-3-3-70b";
+          setSelectedModel(preferredModel);
+        }
+
+        const tierPref = settings.runtime_preference || settings.default_mode || "standard";
+        if (tierPref === "pro") {
           setRuntimeTier("pro");
           setIsOrchestrationExpanded(true);
         }
+
         setRuntimePreferences({
-          responseStyle: data.response_style || "balanced",
-          debateDepth: Number(data.debate_depth || 6),
+          responseStyle: settings.response_style || "balanced",
+          debateDepth: Number(settings.debate_rounds || settings.debate_depth || 6),
         });
-      });
-  }, [user]);
+      } catch (err) {
+        console.error("Failed to load user settings:", err);
+      }
+    };
+
+    loadUserSettings();
+  }, [user, currentChatId]);
 
   useEffect(() => {
     if (errorMessage) {
@@ -490,13 +619,53 @@ export function ChatPage() {
     });
   }, [currentChatId, runtimeTier, selectedMode, selectedModel, glassState.killOverride, persist]);
 
+  useEffect(() => {
+    if (!backendOnline || !user) return;
+
+    const runtimeModel = selectedModel
+      ? (MODEL_RUNTIME_MAP[selectedModel]?.model || selectedModel)
+      : null;
+
+    const metadata = {
+      selected_model: runtimeModel,
+      sub_mode: selectedMode,
+      runtime_tier: runtimeTier,
+      response_style: runtimePreferences.responseStyle,
+      debate_depth: runtimePreferences.debateDepth,
+      kill_override: glassState.killOverride,
+    };
+
+    const timeout = setTimeout(() => {
+      // 1. Save user preferences globally
+      updateUserSettings({
+        default_model: selectedModel,
+        favorite_model: selectedModel,
+        default_mode: selectedMode,
+        runtime_preference: runtimeTier,
+        response_style: runtimePreferences.responseStyle,
+        debate_depth: runtimePreferences.debateDepth,
+      }).catch((err) => console.error("Failed to persist user settings:", err));
+
+      // 2. Save metadata to current chat (if exists)
+      if (currentChatId) {
+        updateChatMetadata(currentChatId, {
+          mode: runtimeTier === "pro" ? "experimental" : "standard",
+          machine_metadata: metadata,
+        }).catch((err) => console.error("Failed to persist chat metadata:", err));
+      }
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [currentChatId, runtimeTier, selectedMode, selectedModel, runtimePreferences, glassState.killOverride, backendOnline, user]);
+
   // ── Load chat history ──────────────────────────────────────────────────────
   const loadChatHistory = useCallback(async () => {
     if (!backendOnline || !user) return;
     setHistoryLoading(true);
     try {
       const history = await getChatHistory(50, 0);
-      setChatHistory(history);
+      setChatHistory(history.chats);
+      setHistoryMessages(history.messages);
     } catch (err) {
       console.error("Failed to load chat history:", err);
     } finally {
@@ -634,6 +803,7 @@ export function ChatPage() {
     }
 
     const userText = input.trim().replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "").slice(0, 10000);
+    const derivedTitle = generateChatTitleFromPrompt(userText);
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -693,7 +863,8 @@ export function ChatPage() {
 
         const responseChatId = currentChatId || response.chat_id;
         
-        if (!currentChatId && response.chat_id) {
+        const isNewChat = !currentChatId && response.chat_id;
+        if (isNewChat) {
           setCurrentChatId(response.chat_id);
         }
 
@@ -720,9 +891,46 @@ export function ChatPage() {
         setMessages((prev) => [...prev, assistantMessage]);
         setIsTyping(false);
         removeFile();
-        
+
         if (responseChatId) {
-          await loadChatHistory();
+          const newMessages = [
+            { id: userMessage.id, chat_id: responseChatId, role: "user", content: userMessage.content, timestamp: userMessage.timestamp.toISOString() },
+            { id: assistantMessage.id, chat_id: responseChatId, role: "assistant", content: assistantMessage.content, timestamp: assistantMessage.timestamp.toISOString() },
+          ];
+          
+          setChatHistory((prev) => {
+            const idx = prev.findIndex((c) => c.id === responseChatId);
+            if (idx === -1) {
+              return [{
+                id: responseChatId,
+                name: derivedTitle,
+                mode: runtimeTier === "pro" ? "experimental" : "standard",
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                messages: newMessages
+              }, ...prev];
+            } else {
+              const next = [...prev];
+              next[idx] = { 
+                ...next[idx], 
+                updated_at: new Date().toISOString(),
+                messages: [...(next[idx].messages || []), ...newMessages] 
+              };
+              return next;
+            }
+          });
+
+          if (isNewChat) {
+            updateChatMetadata(responseChatId, {
+              title: derivedTitle,
+              mode: runtimeTier === "pro" ? "experimental" : "standard",
+              machine_metadata: {
+                selected_model: MODEL_RUNTIME_MAP[selectedModel || ""]?.model || selectedModel,
+                sub_mode: selectedMode,
+                runtime_tier: runtimeTier,
+              },
+            }).catch((err) => console.error("Failed to persist new chat title:", err));
+          }
         }
       } catch (err) {
         console.error("Backend request failed:", err);
@@ -878,10 +1086,22 @@ export function ChatPage() {
     );
   };
 
+  const getChatTitle = (chat: ChatHistoryItem) => {
+    const rawName = (chat.name || "").trim();
+    if (rawName && rawName !== "New Chat" && rawName !== "Untitled Chat") return rawName;
+    const firstUserMessage = chat.messages?.find((m) => m.role === "user")?.content;
+    return firstUserMessage ? generateChatTitleFromPrompt(firstUserMessage) : "New Chat";
+  };
+
   // ── Filtered history ──────────────────────────────────────────────────────
-  const filteredHistory = chatHistory.filter(c =>
-    !searchQuery || (c.name || "").toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredHistory = chatHistory.filter((chat) => {
+    if (!normalizedQuery) return true;
+    const titleMatch = getChatTitle(chat).toLowerCase().includes(normalizedQuery);
+    if (titleMatch) return true;
+    const messages = chat.messages || [];
+    return messages.some((m) => (m.content || "").toLowerCase().includes(normalizedQuery));
+  });
 
   // Group history by time
   const today = new Date();
@@ -1044,7 +1264,7 @@ export function ChatPage() {
                               }}
                             >
                               <span className="truncate text-[13px] font-medium opacity-90 transition-opacity group-hover:opacity-100 flex-1">
-                                {chat.name || "New Chat"}
+                                {getChatTitle(chat)}
                               </span>
                               <div
                                 className="mt-0.5"
@@ -1287,6 +1507,107 @@ export function ChatPage() {
               )}
             </div>
 
+            <div className="relative">
+              <button
+                ref={modelTriggerRef}
+                onClick={() => {
+                  setModelDropdownOpen(!modelDropdownOpen);
+                  setModeDropdownOpen(false);
+                }}
+                className="flex items-center justify-center gap-2 transition-all duration-300 pointer-events-auto"
+                style={{
+                  height: "40px",
+                  padding: "0 16px",
+                  borderRadius: "18px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  background: isDark ? "rgba(18,18,24,0.72)" : "rgba(255,255,255,0.72)",
+                  backdropFilter: "blur(24px) saturate(180%)",
+                  WebkitBackdropFilter: "blur(24px) saturate(180%)",
+                  border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
+                  boxShadow: isDark
+                    ? "0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05)"
+                    : "0 6px 20px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.7)",
+                  color: isDark ? "#f5f5f7" : "#1d1d1f",
+                }}
+              >
+                {activeModel?.name || "Select Model"}
+                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${modelDropdownOpen ? "rotate-180" : ""}`} style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)" }} />
+              </button>
+
+              {typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                  {modelDropdownOpen && (
+                    <>
+                      {isMobileModePicker && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="fixed inset-0 z-[119] bg-black/50 backdrop-blur-sm md:hidden"
+                          onClick={() => setModelDropdownOpen(false)}
+                        />
+                      )}
+                      <motion.div
+                        key="sentinel-model-dropdown"
+                        initial={isMobileModePicker ? { opacity: 0, y: 24 } : { opacity: 0, y: -6, scale: 0.97 }}
+                        animate={isMobileModePicker ? { opacity: 1, y: 0 } : { opacity: 1, y: 0, scale: 1 }}
+                        exit={isMobileModePicker ? { opacity: 0, y: 24 } : { opacity: 0, y: -6, scale: 0.97 }}
+                        transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                        className={`pointer-events-auto ${isMobileModePicker ? "fixed inset-x-0 bottom-0 z-[120] rounded-t-[28px] p-4 md:hidden" : "fixed w-64 z-[120]"}`}
+                        style={isMobileModePicker ? {
+                          background: isDark ? "rgba(18,18,24,0.96)" : "rgba(255,255,255,0.98)",
+                          borderTop: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
+                          boxShadow: "0 -20px 50px rgba(0,0,0,0.24)",
+                        } : {
+                          top: modelDropdownCoords.top,
+                          left: modelDropdownCoords.left,
+                          background: isDark ? "rgba(18,18,24,0.72)" : "rgba(255,255,255,0.72)",
+                          backdropFilter: "blur(30px) saturate(180%)",
+                          WebkitBackdropFilter: "blur(30px) saturate(180%)",
+                          border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
+                          borderRadius: "22px",
+                          padding: "8px",
+                          boxShadow: isDark
+                            ? "0 16px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05)"
+                            : "0 10px 30px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.7)",
+                        }}
+                      >
+                        {isMobileModePicker && (
+                          <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-white/15" />
+                        )}
+                        <div className="max-h-[320px] overflow-y-auto flex flex-col gap-1">
+                          {availableModels.map((model) => (
+                            <button
+                              key={model.id}
+                              onClick={() => {
+                                setSelectedModel(model.id);
+                                setModelDropdownOpen(false);
+                              }}
+                              className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl transition-colors text-left"
+                              style={{
+                                background: selectedModel === model.id
+                                  ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)")
+                                  : "transparent",
+                              }}
+                            >
+                              <div className="mt-0.5 w-4 h-4 rounded-full flex-shrink-0" style={{ background: model.color }} />
+                              <div>
+                                <div style={{ fontSize: "13px", fontWeight: 600, color: isDark ? "#fff" : "#000" }}>{model.name}</div>
+                                <div style={{ fontSize: "11px", color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)", marginTop: "1px" }}>{model.provider}</div>
+                              </div>
+                              {selectedModel === model.id && <Check className="w-3.5 h-3.5 ml-auto mt-1 text-[#3b82f6]" />}
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>,
+                document.body
+              )}
+            </div>
+
             </div>
 
         {/* RIGHT */}
@@ -1326,7 +1647,7 @@ export function ChatPage() {
         </AnimatePresence>
 
         {/* ── MESSAGES ─────────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-4 py-8" onClick={() => { setModeDropdownOpen(false); setIsOrchestrationExpanded(false); }}>
+        <div className="flex-1 overflow-y-auto px-4 py-8" onClick={() => { setModeDropdownOpen(false); setModelDropdownOpen(false); setIsOrchestrationExpanded(false); }}>
           <div className="max-w-2xl mx-auto space-y-5">
             <AnimatePresence>
               {messages.map((message) => {
@@ -1880,10 +2201,10 @@ export function ChatPage() {
       </AnimatePresence>
 
       {/* Click outside to close dropdowns */}
-      {(modeDropdownOpen || isOrchestrationExpanded) && (
+      {(modeDropdownOpen || modelDropdownOpen || isOrchestrationExpanded) && (
         <div
           className="fixed inset-0 z-10"
-          onClick={() => { setModeDropdownOpen(false); setIsOrchestrationExpanded(false); }}
+          onClick={() => { setModeDropdownOpen(false); setModelDropdownOpen(false); setIsOrchestrationExpanded(false); }}
         />
       )}
     </div>

@@ -351,9 +351,12 @@ export function adaptChatHistoryItem(raw: Record<string, unknown>): ChatHistoryI
 export function adaptChatMessage(raw: Record<string, unknown>): ChatMessage {
   return {
     id: safeString(raw.id, crypto.randomUUID()),
+    chat_id: safeString(raw.chat_id),
     role: (raw.role === "user" ? "user" : "assistant") as "user" | "assistant",
     content: safeString(raw.content),
-    timestamp: typeof raw.timestamp === "string" ? raw.timestamp : null,
+    timestamp: typeof raw.timestamp === "string"
+      ? raw.timestamp
+      : (typeof raw.created_at === "string" ? raw.created_at : null),
     reasoning_json: raw.reasoning_json ? adaptMetadata(raw.reasoning_json as Partial<OmegaMetadata>) : undefined,
   };
 }

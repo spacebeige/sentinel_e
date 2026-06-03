@@ -206,7 +206,6 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_key_env="KIMI_K2_NVIDIA_API_KEY",
     ),
 
-    # ── Claude Sonnet 4.6 (Anthropic — synthesis only) ────────
     "claude-sonnet-4.6": CognitiveModelSpec(
         name="Claude Sonnet 4.6",
         model_id="claude-sonnet-4-20250514",
@@ -219,6 +218,60 @@ COGNITIVE_MODEL_REGISTRY: Dict[str, CognitiveModelSpec] = {
         api_key_env="ANTHROPIC_API_KEY",
         supports_vision=True,
         synthesis_only=True,
+    ),
+    
+    # ── GPT-4o (OpenAI) ──────────────────────────────────────
+    "gpt-4o": CognitiveModelSpec(
+        name="GPT-4o",
+        model_id="gpt-4o",
+        provider="openai",
+        role=ModelRole.GENERAL,
+        context_window=128000,
+        max_output_tokens=4096,
+        default_temperature=0.3,
+        api_base_url="https://api.openai.com/v1/chat/completions",
+        api_key_env="OPENAI_API_KEY",
+        supports_vision=True,
+    ),
+    
+    # ── Claude 3.5 Sonnet (Anthropic) ──────────────────────────
+    "claude-3-5-sonnet": CognitiveModelSpec(
+        name="Claude 3.5 Sonnet",
+        model_id="claude-3-5-sonnet-20241022",
+        provider="anthropic",
+        role=ModelRole.GENERAL,
+        context_window=200000,
+        max_output_tokens=4096,
+        default_temperature=0.3,
+        api_base_url="https://api.anthropic.com/v1/messages",
+        api_key_env="ANTHROPIC_API_KEY",
+        supports_vision=True,
+    ),
+    
+    # ── DeepSeek V3 ──────────────────────────────────────────
+    "deepseek-chat": CognitiveModelSpec(
+        name="DeepSeek V3",
+        model_id="deepseek-chat",
+        provider="deepseek",
+        role=ModelRole.CONCEPTUAL,
+        context_window=128000,
+        max_output_tokens=4096,
+        default_temperature=0.3,
+        api_base_url="https://api.deepseek.com/v1/chat/completions",
+        api_key_env="DEEPSEEK_API_KEY",
+    ),
+
+    # ── OpenRouter (Auto fallback) ───────────────────────────
+    "openrouter-auto": CognitiveModelSpec(
+        name="OpenRouter Auto",
+        model_id="openrouter/auto",
+        provider="openrouter",
+        role=ModelRole.GENERAL,
+        context_window=128000,
+        max_output_tokens=4096,
+        default_temperature=0.3,
+        api_base_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key_env="OPENROUTER_API_KEY",
     ),
 }
 
@@ -250,6 +303,11 @@ MODEL_ALIAS_REGISTRY: Dict[str, str] = {
     "mistralai/mistral-large-3-675b-instruct-2512": "mistral-large-675b",
     "kimi-k2-thinking": "kimi-k2-thinking",
     "moonshotai/kimi-k2-thinking": "kimi-k2-thinking",
+    "gpt-4o": "gpt-4o",
+    "claude-3-5-sonnet": "claude-3-5-sonnet",
+    "deepseek-chat": "deepseek-chat",
+    "openrouter-auto": "openrouter-auto",
+    "openrouter/auto": "openrouter-auto",
 }
 
 
@@ -410,6 +468,9 @@ def _initialize_registry():
         "qwen": "QWEN_API_KEY",
         "nvidia": "NVIDIA_API_KEY",
         "anthropic": "ANTHROPIC_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "deepseek": "DEEPSEEK_API_KEY",
+        "openrouter": "OPENROUTER_API_KEY",
     }
 
     for key, spec in COGNITIVE_MODEL_REGISTRY.items():
@@ -692,6 +753,9 @@ class CognitiveModelGateway:
             "qwen": "QWEN_API_KEY",
             "nvidia": "NVIDIA_API_KEY",
             "anthropic": "ANTHROPIC_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "deepseek": "DEEPSEEK_API_KEY",
+            "openrouter": "OPENROUTER_API_KEY",
         }
         shared_env = _PROVIDER_SHARED_KEY.get(spec.provider)
         if shared_env:

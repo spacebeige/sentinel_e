@@ -107,6 +107,42 @@ export const MODELS: ModelDefinition[] = [
     capabilities: "Long-context reasoning · critique · complex analysis",
     provider: "Moonshot AI",
     color: "#14b8a6"
+  },
+  {
+    id: "gpt-4o",
+    name: "GPT-4o",
+    category: "General",
+    description: "Versatile, highly capable multimodal model.",
+    capabilities: "Advanced reasoning · coding · broad knowledge",
+    provider: "OpenAI",
+    color: "#22c55e"
+  },
+  {
+    id: "claude-3-5-sonnet",
+    name: "Claude 3.5 Sonnet",
+    category: "General",
+    description: "Fast, intelligent, and highly capable model.",
+    capabilities: "Writing · coding · reasoning",
+    provider: "Anthropic",
+    color: "#a855f7"
+  },
+  {
+    id: "deepseek-chat",
+    name: "DeepSeek V3",
+    category: "Conceptual",
+    description: "Highly capable open-weight reasoning model.",
+    capabilities: "Coding · deep analysis · efficient inference",
+    provider: "DeepSeek",
+    color: "#0ea5e9"
+  },
+  {
+    id: "openrouter-auto",
+    name: "OpenRouter Auto",
+    category: "General",
+    description: "Auto-routes to the best model via OpenRouter.",
+    capabilities: "Dynamic routing · broad model access",
+    provider: "OpenRouter",
+    color: "#f59e0b"
   }
 ];
 
@@ -276,6 +312,22 @@ export const MODEL_RUNTIME_MAP: Record<string, { provider: string, model: string
   "kimi-k2-thinking": {
     provider: "nvidia",
     model: "kimi-k2-thinking",
+  },
+  "gpt-4o": {
+    provider: "openai",
+    model: "gpt-4o",
+  },
+  "claude-3-5-sonnet": {
+    provider: "anthropic",
+    model: "claude-3-5-sonnet-20241022",
+  },
+  "deepseek-chat": {
+    provider: "deepseek",
+    model: "deepseek-chat",
+  },
+  "openrouter-auto": {
+    provider: "openrouter",
+    model: "openrouter/auto",
   }
 };
 

@@ -342,6 +342,36 @@ async def update_chat_title(
         
         return chat
 
+async def update_chat_metadata(
+    db: AsyncSession,
+    chat_id: UUID,
+    title: Optional[str] = None,
+    mode: Optional[str] = None,
+    machine_metadata: Optional[Dict[str, Any]] = None,
+) -> Optional[Chat]:
+    """Update chat metadata."""
+    async with transactional(db) as session:
+        result = await session.execute(
+            select(Chat).where(Chat.id == chat_id)
+        )
+        chat = result.scalars().first()
+        
+        if chat:
+            if title is not None:
+                chat.title = title
+            if mode is not None:
+                chat.mode = mode
+            if machine_metadata is not None:
+                if chat.machine_metadata:
+                    chat.machine_metadata.update(machine_metadata)
+                else:
+                    chat.machine_metadata = machine_metadata
+            chat.updated_at = datetime.utcnow()
+            await session.flush()
+            logger.info(f"Chat metadata updated: {chat_id}")
+        
+        return chat
+
 
 async def archive_chat(
     db: AsyncSession,
