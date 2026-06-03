@@ -1,0 +1,7 @@
+{
+  "health": 404,
+  "admin_stats": {
+    "status": 401,
+    "body": "{\"detail\":\"Missing or invalid auth token\"}"
+  }
+}

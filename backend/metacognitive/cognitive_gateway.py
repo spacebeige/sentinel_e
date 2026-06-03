@@ -932,6 +932,27 @@ class CognitiveModelGateway:
                 error=str(e),
             )
 
+        # ── Failover / Graceful Degradation ─────────────────
+        if not result.success:
+            logger.warning(f"[{model_key}] Failed ({result.error}). Attempting fast failover to 'llama31-8b'...")
+            fallback_key = "llama31-8b" if model_key != "llama31-8b" else "gemini-flash"
+            fallback_spec = COGNITIVE_MODEL_REGISTRY.get(fallback_key)
+            if fallback_spec and fallback_spec.active and fallback_spec.enabled:
+                fallback_api_key = self._resolve_api_key(fallback_spec)
+                if fallback_api_key:
+                    try:
+                        logger.info(f"Executing failover to {fallback_key}...")
+                        if fallback_spec.provider == "groq":
+                            result = await self._call_groq(fallback_spec, messages, fallback_api_key, 2048)
+                        elif fallback_spec.provider == "gemini":
+                            result = await self._call_gemini(fallback_spec, messages, fallback_api_key, 2048)
+                        # Ensure success is recorded with note
+                        if result.success:
+                            logger.info(f"Failover to {fallback_key} succeeded.")
+                            result.model_name = f"{fallback_spec.name} (Failover)"
+                    except Exception as fe:
+                        logger.error(f"Failover to {fallback_key} also failed: {fe}")
+
         result.latency_ms = (time.monotonic() - start) * 1000
 
         # PHASE 2: Guarantee text output — never return blank on success

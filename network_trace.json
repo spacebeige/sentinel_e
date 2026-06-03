@@ -1,0 +1,298 @@
+[
+  {
+    "url": "http://localhost:5173/",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/@vite/client",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/main.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/@react-refresh",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/vite/dist/client/env.mjs",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/react.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/App.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/styles/index.css",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/chunk-73THXJN7.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/chunk-2TUXWMP5.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/chunk-5KZJXT3G.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/react-router.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/routes.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/context/ChatInteractionContext.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/next-themes.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/CinematicErrorBoundary.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/Layout.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/HomePage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/ChatPage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/EnginesPage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/PricingPage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/providers/AuthProvider.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/ProtectedRoute.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/LoginPage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/SignupPage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/AuthCallbackPage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/AdminPage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/AdminRequestsPage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/ForgotPasswordPage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/ResetPasswordPage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/CompleteProfilePage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/ProfilePage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/SettingsPage.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/motion_react.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/lucide-react.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/Navbar.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/hooks/useLenis.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/config/runtime.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/hooks/useSupabaseAuth.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/lib/supabase.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/HeroSection.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/Footer.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/services/analyticsService.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/api.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/services/apiClient.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/react-dom.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/SessionAnalyticsPanel.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/CinematicOrchestratorLoader.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/CinematicDebatePanel.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/CinematicEvidencePanel.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/CrossAnalysisPanel.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/hooks/useSessionPersistence.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/services/debateManager.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/services/glassManager.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/services/evidenceManager.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/framer-motion.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/ui/IOSListGroup.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/ui/IOSToggle.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/ui/IOSContextMenu.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/chunk-O5L6KRKZ.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/chunk-YG5AX2YU.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/config/navigation.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/components/AdminModal.tsx",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/lenis.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/node_modules/.vite/deps/@supabase_supabase-js.js?v=24cfe9a0",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/services/adapter.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/services/config.ts",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/src/app/services/sessionManager.ts",
+    "method": "GET"
+  },
+  {
+    "url": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/logo.png",
+    "method": "GET"
+  },
+  {
+    "url": "http://localhost:5173/sentinel-e(1).png",
+    "method": "GET"
+  },
+  {
+    "url": "https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2",
+    "method": "GET"
+  }
+]

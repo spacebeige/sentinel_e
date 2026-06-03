@@ -631,9 +631,17 @@ async def update_user_settings_endpoint(
                 return error(f"Invalid setting key: {key}", 400)
                 
             schema = SETTINGS_SCHEMA[key]
-            
-            # Type check
-            if not isinstance(value, schema["type"]):
+            if value is None:
+                value = schema.get("default")
+                
+            try:
+                # Attempt type coercion if it's not the exact type
+                if not isinstance(value, schema["type"]):
+                    if schema["type"] is bool and isinstance(value, str):
+                        value = value.lower() in ("true", "1", "yes")
+                    else:
+                        value = schema["type"](value)
+            except (ValueError, TypeError):
                 return error(f"Invalid type for {key}. Expected {schema['type'].__name__}", 400)
                 
             # Allowed values check

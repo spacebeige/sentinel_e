@@ -182,7 +182,7 @@ async def system_statistics(
         users_result = await db.execute(select(User))
         all_users = users_result.scalars().all()
         total_users = len(all_users)
-        admin_count = sum(1 for u in all_users if u.role == "admin")
+        admin_count = sum(1 for u in all_users if getattr(u, "role", "") == "admin")
         
         # Count chats and messages
         chats_result = await db.execute(select(Chat))
@@ -210,29 +210,56 @@ async def system_statistics(
         rated_count = 0
         
         for chat in chats:
-            if chat.machine_metadata and isinstance(chat.machine_metadata, dict):
-                feedback_list = chat.machine_metadata.get("feedback", [])
-                if feedback_list:
-                    for fb in feedback_list:
-                        rating = fb.get("rating", 0)
-                        if rating > 0:
-                            total_rating += rating
-                            rated_count += 1
-                            if rating >= 4:
-                                feedback_data["ratings"]["positive"] += 1
-                            elif rating <= 2:
-                                feedback_data["ratings"]["negative"] += 1
-                            else:
-                                feedback_data["ratings"]["neutral"] += 1
+            if chat.machine_metadata:
+                metadata = chat.machine_metadata
+                if isinstance(metadata, str):
+                    import json
+                    try:
+                        metadata = json.loads(metadata)
+                    except:
+                        metadata = {}
+                if isinstance(metadata, dict):
+                    feedback_list = metadata.get("feedback", [])
+                    if isinstance(feedback_list, list):
+                        for fb in feedback_list:
+                            if isinstance(fb, dict):
+                                rating = fb.get("rating", 0)
+                                if isinstance(rating, (int, float)) and rating > 0:
+                                    total_rating += rating
+                                    rated_count += 1
+                                    if rating >= 4:
+                                        feedback_data["ratings"]["positive"] += 1
+                                    elif rating <= 2:
+                                        feedback_data["ratings"]["negative"] += 1
+                                    else:
+                                        feedback_data["ratings"]["neutral"] += 1
         
         if rated_count > 0:
             feedback_data["total_rated"] = rated_count
             feedback_data["avg_rating"] = round(total_rating / rated_count, 2)
         
         # Time-based stats
-        now = datetime.utcnow()
-        last_24h = sum(1 for c in chats if c.created_at and (now - c.created_at) < timedelta(days=1))
-        last_7d = sum(1 for c in chats if c.created_at and (now - c.created_at) < timedelta(days=7))
+        try:
+            from datetime import timezone
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            
+            last_24h = 0
+            last_7d = 0
+            
+            for c in chats:
+                if getattr(c, "created_at", None):
+                    dt = c.created_at
+                    if hasattr(dt, "replace") and dt.tzinfo:
+                        dt = dt.replace(tzinfo=None)
+                    
+                    if (now - dt) < timedelta(days=1):
+                        last_24h += 1
+                    if (now - dt) < timedelta(days=7):
+                        last_7d += 1
+        except Exception as e:
+            logger.error(f"Time calc error: {e}")
+            last_24h = 0
+            last_7d = 0
         
         return {
             "timestamp": now.isoformat(),

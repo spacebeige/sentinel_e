@@ -325,22 +325,22 @@ export function ChatPage() {
   // Mode dropdown
   const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
   const modeTriggerRef = useRef<HTMLButtonElement>(null);
-  const [modeDropdownCoords, setModeDropdownCoords] = useState({ top: 0, left: 0 });
+  const [modeDropdownCoords, setModeDropdownCoords] = useState({ bottom: 0, left: 0 });
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const modelTriggerRef = useRef<HTMLButtonElement>(null);
-  const [modelDropdownCoords, setModelDropdownCoords] = useState({ top: 0, left: 0 });
+  const [modelDropdownCoords, setModelDropdownCoords] = useState({ bottom: 0, left: 0 });
 
   useEffect(() => {
     if (modeDropdownOpen && modeTriggerRef.current) {
       const rect = modeTriggerRef.current.getBoundingClientRect();
-      setModeDropdownCoords({ top: rect.bottom + 6, left: rect.left });
+      setModeDropdownCoords({ bottom: window.innerHeight - rect.top + 8, left: rect.left });
     }
   }, [modeDropdownOpen]);
 
   useEffect(() => {
     if (modelDropdownOpen && modelTriggerRef.current) {
       const rect = modelTriggerRef.current.getBoundingClientRect();
-      setModelDropdownCoords({ top: rect.bottom + 6, left: rect.left });
+      setModelDropdownCoords({ bottom: window.innerHeight - rect.top + 8, left: rect.left });
     }
   }, [modelDropdownOpen]);
 
@@ -349,7 +349,7 @@ export function ChatPage() {
     const updatePosition = () => {
       if (modeTriggerRef.current) {
         const rect = modeTriggerRef.current.getBoundingClientRect();
-        setModeDropdownCoords({ top: rect.bottom + 6, left: rect.left });
+        setModeDropdownCoords({ bottom: window.innerHeight - rect.top + 8, left: rect.left });
       }
     };
     window.addEventListener('resize', updatePosition);
@@ -361,7 +361,7 @@ export function ChatPage() {
     const updatePosition = () => {
       if (modelTriggerRef.current) {
         const rect = modelTriggerRef.current.getBoundingClientRect();
-        setModelDropdownCoords({ top: rect.bottom + 6, left: rect.left });
+        setModelDropdownCoords({ bottom: window.innerHeight - rect.top + 8, left: rect.left });
       }
     };
     window.addEventListener('resize', updatePosition);
@@ -373,7 +373,7 @@ export function ChatPage() {
       const mobile = window.innerWidth < 768;
       setIsMobileModePicker(mobile);
       if (mobile) {
-        setModeDropdownCoords({ top: 0, left: 0 });
+        setModeDropdownCoords({ bottom: 0, left: 0 });
       }
     };
     syncViewportMode();
@@ -507,9 +507,9 @@ export function ChatPage() {
         getChatHistory(50, 0),
       ]);
 
-      setChatHistory(history);
+      setChatHistory(history?.chats || []);
 
-      const restored: Message[] = chatMessages.map((m, i) => ({
+      const restored: Message[] = (chatMessages || []).map((m: any, i: number) => ({
         id: m.id || `restored-${i}`,
         role: m.role as "user" | "assistant",
         content: m.content,
@@ -1459,7 +1459,7 @@ export function ChatPage() {
                           borderTop: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
                           boxShadow: "0 -20px 50px rgba(0,0,0,0.24)",
                         } : {
-                          top: modeDropdownCoords.top,
+                          bottom: modeDropdownCoords.bottom,
                           left: modeDropdownCoords.left,
                           background: isDark ? "rgba(18,18,24,0.72)" : "rgba(255,255,255,0.72)",
                           backdropFilter: "blur(30px) saturate(180%)",
@@ -1507,13 +1507,14 @@ export function ChatPage() {
               )}
             </div>
 
-            <div className="relative">
-              <button
-                ref={modelTriggerRef}
-                onClick={() => {
-                  setModelDropdownOpen(!modelDropdownOpen);
-                  setModeDropdownOpen(false);
-                }}
+            {runtimeTier === "pro" && (
+              <div className="relative">
+                <button
+                  ref={modelTriggerRef}
+                  onClick={() => {
+                    setModelDropdownOpen(!modelDropdownOpen);
+                    setModeDropdownOpen(false);
+                  }}
                 className="flex items-center justify-center gap-2 transition-all duration-300 pointer-events-auto"
                 style={{
                   height: "40px",
@@ -1560,7 +1561,7 @@ export function ChatPage() {
                           borderTop: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
                           boxShadow: "0 -20px 50px rgba(0,0,0,0.24)",
                         } : {
-                          top: modelDropdownCoords.top,
+                          bottom: modelDropdownCoords.bottom,
                           left: modelDropdownCoords.left,
                           background: isDark ? "rgba(18,18,24,0.72)" : "rgba(255,255,255,0.72)",
                           backdropFilter: "blur(30px) saturate(180%)",
@@ -1607,6 +1608,7 @@ export function ChatPage() {
                 document.body
               )}
             </div>
+            )}
 
             </div>
 

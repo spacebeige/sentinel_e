@@ -182,7 +182,7 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
 
             # Classify the error
             status_code = 500
-            user_message = "An internal error occurred. Please try again."
+            user_message = str(exc)
 
             if "429" in str(exc) or "rate limit" in str(exc).lower():
                 status_code = 429

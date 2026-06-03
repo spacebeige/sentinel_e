@@ -626,7 +626,7 @@ export async function getChatDetails(
   chatId: string
 ): Promise<{ chat: ChatHistoryItem; messages: ChatMessage[] }> {
   try {
-    const chatRes = await apiRequest<{ success: boolean; data: any }>(`/api/chat/${chatId}`);
+    const chatRes = await apiRequest<{ success: boolean; data: any }>(`/api/v2/chat/${chatId}`);
     if (!chatRes || !chatRes.success || !chatRes.data) throw new Error('Chat not found');
 
     const chatData = chatRes.data.chat || {};
@@ -660,7 +660,7 @@ export async function getChatMessages(
   chatId: string
 ): Promise<ChatMessage[]> {
   try {
-    const res = await apiRequest<{ success: boolean; data: any }>(`/api/chat/${chatId}/messages`);
+    const res = await apiRequest<{ success: boolean; data: any }>(`/api/v2/chat/${chatId}/messages`);
     if (!res || !res.success || !res.data) return [];
     
     const messages = Array.isArray(res.data) ? res.data : (res.data.messages || []);
