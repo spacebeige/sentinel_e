@@ -29,7 +29,8 @@ export async function trackLogin(userId: string) {
       metadata: { sessionId: currentSessionId }
     });
   } catch (e) {
-    console.warn("Analytics error", e);
+    console.debug("Analytics endpoint unavailable", e);
+    return;
   }
 }
 
@@ -42,7 +43,8 @@ export async function trackLogout(userId: string) {
       metadata: { sessionId: currentSessionId }
     });
   } catch (e) {
-    console.warn("Analytics error", e);
+    console.debug("Analytics endpoint unavailable", e);
+    return;
   }
   currentSessionId = null;
 }
@@ -56,7 +58,8 @@ export async function trackMessageSent(userId: string, mode: string, model: stri
       metadata: { mode, model, sessionId: currentSessionId }
     });
   } catch (e) {
-    console.warn("Analytics error", e);
+    console.debug("Analytics endpoint unavailable", e);
+    return;
   }
 }
 
@@ -68,7 +71,8 @@ export async function trackConversationStarted(userId: string) {
       metadata: { sessionId: currentSessionId }
     });
   } catch (e) {
-    console.warn("Analytics error", e);
+    console.debug("Analytics endpoint unavailable", e);
+    return;
   }
 }
 

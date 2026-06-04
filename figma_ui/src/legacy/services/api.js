@@ -79,6 +79,8 @@ api.interceptors.request.use(
       console.warn('Failed to prepare Supabase auth headers for request', err);
     }
     
+    console.log("[AUTH DIAGNOSTIC]", !!config.headers?.Authorization);
+    
     return config;
   },
   (error) => Promise.reject(error)
