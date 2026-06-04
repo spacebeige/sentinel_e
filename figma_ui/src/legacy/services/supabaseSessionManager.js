@@ -2,7 +2,7 @@ import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
 
 const AUTH_SNAPSHOT_KEY = 'sentinel-supabase-auth-snapshot';
 const RUNTIME_ADMIN_EMAILS = new Set(
-  String(process.env.REACT_APP_RUNTIME_ADMIN_EMAILS || 'oomkaragarkhed0710@gmail.com')
+  String(import.meta.env.VITE_RUNTIME_ADMIN_EMAILS || 'oomkaragarkhed0710@gmail.com')
     .split(',')
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean)

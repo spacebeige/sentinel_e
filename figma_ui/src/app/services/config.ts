@@ -3,9 +3,13 @@
 // Supports staging, production, and local development
 // ============================================================
 
+if (!import.meta.env.VITE_API_URL) {
+  throw new Error("VITE_API_URL is not configured");
+}
+
 const ENV = {
   /** API base URL — override via VITE_API_URL env var */
-  API_BASE: import.meta.env.VITE_API_URL || "https://sentinel-e.onrender.com",
+  API_BASE: import.meta.env.VITE_API_URL,
 
   /** Request timeout in milliseconds */
   REQUEST_TIMEOUT: Number(import.meta.env.VITE_REQUEST_TIMEOUT) || 30000,
