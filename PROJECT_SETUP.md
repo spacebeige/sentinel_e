@@ -568,7 +568,7 @@ npm start
 ```
 Compiled successfully!
 You can now view sentinel-e-ui in the browser at:
-  Local:            http://localhost:3000
+  Local:            https://sentinel-e-evo.vercel.app
   ✓ Firebase initialized successfully
 ```
 

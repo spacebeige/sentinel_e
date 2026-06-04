@@ -655,7 +655,7 @@ app.add_middleware(InputValidationMiddleware)
 # Includes https://sentinel-e.vercel.app and localhost by default.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000", "https://sentinel-e.vercel.app"] + settings.cors_origins,
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "https://sentinel-e-evo.vercel.app", "https://sentinel-e.vercel.app"] + settings.cors_origins,
     allow_origin_regex=r"https://sentinel-[a-z0-9-]+\.vercel\.app",  # Vercel preview branches
     allow_credentials=True,
     allow_methods=["*"],

@@ -91,7 +91,7 @@ class ModelInterface:
             prompt,
             system_role,
             0.2, # Temp
-            {"HTTP-Referer": "http://localhost:3000", "X-Title": "Sentinel-E"}
+            {"HTTP-Referer": "https://sentinel-e-evo.vercel.app", "X-Title": "Sentinel-E"}
         )
 
     def _sync_request(self, url, api_key, model, prompt, system_role, temperature, extra_headers=None, max_tokens=None):

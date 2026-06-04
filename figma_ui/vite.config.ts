@@ -15,10 +15,10 @@ export default defineConfig({
     alias: {
       // Alias @ to the src directory
       '@': path.resolve(__dirname, './src'),
-      '@services': path.resolve(__dirname, '../frontend/src/services'),
-      '@stores': path.resolve(__dirname, '../frontend/src/stores'),
-      '@hooks': path.resolve(__dirname, '../frontend/src/hooks'),
-      '@utils': path.resolve(__dirname, '../frontend/src/utils'),
+      '@services': path.resolve(__dirname, './src/legacy/services'),
+      '@stores': path.resolve(__dirname, './src/legacy/stores'),
+      '@hooks': path.resolve(__dirname, './src/legacy/hooks'),
+      '@utils': path.resolve(__dirname, './src/legacy/utils'),
     },
   },
 

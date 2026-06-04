@@ -78,7 +78,7 @@ https://github.com/settings/developers
 
 Recommended values:
 
-- **Homepage URL**: your frontend URL (or `http://localhost:3000` for local)
+- **Homepage URL**: your frontend URL (or `https://sentinel-e-evo.vercel.app` for local)
 - **Authorization callback URL**:  
   `https://<your-project-ref>.supabase.co/auth/v1/callback`
 
@@ -88,7 +88,7 @@ In Supabase (**Authentication** → **URL Configuration**):
 
 - Site URL: your frontend base URL
 - Redirect URLs:
-  - `http://localhost:3000/chat`
+  - `https://sentinel-e-evo.vercel.app/chat`
   - your production chat route URL
 
 ## Environment variables

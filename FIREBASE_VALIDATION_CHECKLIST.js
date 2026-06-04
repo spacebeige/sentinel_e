@@ -237,7 +237,7 @@
  *   - Verify session created BEFORE reloadHistory
  *   - Check /api/history uses correct user_id filter
  *   - Verify state guards in useStore.js don't clear data
- *   - Test /api/history endpoint directly: curl -H "Authorization: Bearer <token>" http://localhost:8000/api/history
+ *   - Test /api/history endpoint directly: curl -H "Authorization: Bearer <token>" https://sentinel-e-evo.onrender.com/api/history
  */
 
 /**

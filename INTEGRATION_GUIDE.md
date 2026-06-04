@@ -117,7 +117,7 @@ Key files to update:
 
 1. Update API client (frontend/src/services/api.js):
    
-   const API_BASE = process.env.REACT_APP_API_URL || \"http://localhost:8000/api\";
+   const API_BASE = process.env.REACT_APP_API_URL || \"https://sentinel-e-evo.onrender.com/api\";
    
    // Create session on app load
    export async function createSession(client = \"web\") {
@@ -316,16 +316,16 @@ PHASE D: TESTING (60 MIN)
 3. API testing:
 
    # Create session
-   curl -X POST http://localhost:8000/api/session \\
+   curl -X POST https://sentinel-e-evo.onrender.com/api/session \\
         -H \"Authorization: Bearer <token>\" \\
         -H \"Content-Type: application/json\"
    
    # Load history
-   curl -X GET http://localhost:8000/api/history \\
+   curl -X GET https://sentinel-e-evo.onrender.com/api/history \\
         -H \"Authorization: Bearer <token>\"
    
    # Create chat
-   curl -X POST http://localhost:8000/api/chat \\
+   curl -X POST https://sentinel-e-evo.onrender.com/api/chat \\
         -H \"Authorization: Bearer <token>\" \\
         -H \"Content-Type: application/json\" \\
         -d '{\"title\": \"Test Chat\"}'

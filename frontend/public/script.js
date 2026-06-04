@@ -246,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentMode = modeSwitch ? modeSwitch.value : 'standard';
         
         try {
-            const res = await fetch('http://localhost:8000/api/history');
+            const res = await fetch('https://sentinel-e-evo.onrender.com/api/history');
             const data = await res.json();
             historyList.innerHTML = '';
             
@@ -284,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadLog(filename) {
         try {
-            const res = await fetch(`http://localhost:8000/api/history/${filename}`);
+            const res = await fetch(`https://sentinel-e-evo.onrender.com/api/history/${filename}`);
             const data = await res.json();
             
             feed.innerHTML = ''; // Selectively clear feed for log viewing
@@ -413,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Ensure we hit the backend port (8000)
             // Since this script runs on frontend (3000), we need full URL
-            const apiUrl = `http://localhost:8000${endpoint}`;
+            const apiUrl = `https://sentinel-e-evo.onrender.com${endpoint}`;
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -610,7 +610,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('run_id', runId);
             formData.append('feedback', type);
 
-            const res = await fetch('http://localhost:8000/feedback', {
+            const res = await fetch('https://sentinel-e-evo.onrender.com/feedback', {
                 method: 'POST',
                 body: formData // Browser sets boundary
             });

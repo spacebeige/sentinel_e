@@ -31,9 +31,9 @@
 #     JWT_ALGORITHM: str = "HS256"
 #     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 #     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
-#     ALLOWED_ORIGINS: str = Field(default="http://localhost:3000", description="Comma-separated CORS origins")
-#     API_DOMAIN: str = Field(default="http://localhost:8000", description="Backend public origin for auth/session callbacks")
-#     WEBSITE_DOMAIN: str = Field(default="http://localhost:3000", description="Primary frontend origin")
+#     ALLOWED_ORIGINS: str = Field(default="https://sentinel-e-evo.vercel.app", description="Comma-separated CORS origins")
+#     API_DOMAIN: str = Field(default="https://sentinel-e-evo.onrender.com", description="Backend public origin for auth/session callbacks")
+#     WEBSITE_DOMAIN: str = Field(default="https://sentinel-e-evo.vercel.app", description="Primary frontend origin")
 #     RATE_LIMIT_REQUESTS: int = 60
 #     RATE_LIMIT_WINDOW_SECONDS: int = 60
 #     MAX_INPUT_LENGTH: int = 50000  # characters
@@ -184,8 +184,8 @@ class Settings(BaseSettings):
 
     # CORS — comma-separated list of allowed origins
     # Override in production via ALLOWED_ORIGINS env var on Render:
-    #   https://sentinel-e.vercel.app,http://localhost:3000
-    ALLOWED_ORIGINS: str = "https://sentinel-e.vercel.app,https://sentinel-igvzu7opo-spacebeiges-projects.vercel.app,http://localhost:3000,http://localhost:8000"
+    #   https://sentinel-e.vercel.app,https://sentinel-e-evo.vercel.app
+    ALLOWED_ORIGINS: str = "https://sentinel-e.vercel.app,https://sentinel-igvzu7opo-spacebeiges-projects.vercel.app,https://sentinel-e-evo.vercel.app,https://sentinel-e-evo.onrender.com"
 
     # Rate limiting
     RATE_LIMIT_REQUESTS: int = 60

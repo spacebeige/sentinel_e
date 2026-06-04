@@ -191,7 +191,7 @@ useEffect(() => {
 ### API Client (frontend/src/services/api.js)
 
 ```javascript
-const API = "http://localhost:8000/api";
+const API = "https://sentinel-e-evo.onrender.com/api";
 
 export async function loadHistory() {
     const res = await fetch(`${API}/history`, {
@@ -265,7 +265,7 @@ SELECT * FROM messages WHERE chat_id = '<chat_uuid>';  # Should see message
 
 ```bash
 # Create session
-curl -X POST http://localhost:8000/api/session \
+curl -X POST https://sentinel-e-evo.onrender.com/api/session \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json"
 
@@ -273,14 +273,14 @@ curl -X POST http://localhost:8000/api/session \
 # {success: true, data: {session_id, user_id, created_at}, error: null}
 
 # Load history
-curl -X GET http://localhost:8000/api/history \
+curl -X GET https://sentinel-e-evo.onrender.com/api/history \
   -H "Authorization: Bearer YOUR_TOKEN"
 
 # Should return:
 # {success: true, data: {chats: [...], chat_count: N}, error: null}
 
 # Create chat
-curl -X POST http://localhost:8000/api/chat \
+curl -X POST https://sentinel-e-evo.onrender.com/api/chat \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"title": "Test"}'
@@ -381,7 +381,7 @@ services:
   "env": {
     "REACT_APP_API_URL": {
       "production": "https://api.yourdomain.com",
-      "development": "http://localhost:8000"
+      "development": "https://sentinel-e-evo.onrender.com"
     }
   }
 }
