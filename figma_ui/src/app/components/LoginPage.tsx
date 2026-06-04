@@ -47,6 +47,10 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setLocalError('');
     try {
+      console.log(
+        "[PKCE BEFORE LOGIN]",
+        Object.keys(localStorage).filter(k => k.includes("supabase") || k.includes("sb-") || k.includes("verifier"))
+      );
       await signInWithGoogle({ redirectTo: `${window.location.origin}/auth/callback` });
     } catch (err: any) {
       setLocalError(err.message || 'Failed to sign in with Google');

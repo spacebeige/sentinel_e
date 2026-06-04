@@ -64,6 +64,11 @@ export default function AuthCallbackPage() {
           error_code: errorCode,
           error_description: errorDescription,
         });
+        
+        console.log(
+          "[PKCE CALLBACK]",
+          Object.keys(localStorage).filter(k => k.includes("supabase") || k.includes("sb-") || k.includes("verifier"))
+        );
         // ─────────────────────────────────────────────────────────────
 
         // If Supabase returned an error in the redirect URL, surface it.
@@ -80,24 +85,11 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // If there is a PKCE code, exchange it for a session.
+        // If there is a PKCE code, wait for the Supabase client to auto-exchange it.
+        // The client was configured with detectSessionInUrl: true, which handles
+        // PKCE exchange automatically on initialization.
         if (code) {
-          if (exchangeAttempted.current) {
-            console.log('[CALLBACK RUNTIME] Exchange already attempted (StrictMode lock). Skipping.');
-          } else {
-            exchangeAttempted.current = true;
-            setStatus('Exchanging authorization code...');
-            const exchangeResult = await supabase.auth.exchangeCodeForSession(code);
-            // ── Diagnostic ──────────────────────────────────────────────
-            console.log(
-              '[RAW EXCHANGE RESULT]',
-              JSON.stringify(exchangeResult, null, 2)
-            );
-            // ─────────────────────────────────────────────────────────────
-            if (exchangeResult?.error) {
-              throw exchangeResult.error;
-            }
-          }
+          setStatus('Waiting for session auto-exchange...');
         }
 
         // Verify the session is now established.
