@@ -40,15 +40,13 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import {
   checkHealth,
-  runStandard,
-  runExperimental,
-  submitFeedback,
-  getChatHistory,
+  sendFeedback,
+  getHistory,
   getChatMessages,
-  shareChat,
-  runOmegaKill,
-  syncConversation,
-  syncMessage,
+  createChat,
+  sendMCOQuery,
+} from "@services/api";
+import {
   type SentinelRunResponse,
   type HealthStatus,
   type ChatHistoryItem,
@@ -57,9 +55,11 @@ import {
   type OmegaReasoningTrace,
   type ConfidenceEvolution,
 } from "../api";
+import useStore from "@stores/useStore";
+import { adaptRunResponse } from "../services/adapter";
 import { OmegaInsightPanel } from "./OmegaInsightPanel";
 import { useChatInteraction } from "../context/ChatInteractionContext";
-import { useSupabaseAuth } from "../hooks/useSupabaseAuth";
+import { useSupabaseAuth } from '@hooks/useSupabaseAuth';
 import { trackMessageSent, trackConversationStarted } from '../services/analyticsService';
 import { SessionAnalyticsPanel } from "./SessionAnalyticsPanel";
 import { CinematicOrchestratorLoader } from "./CinematicOrchestratorLoader";
@@ -138,12 +138,33 @@ export function ChatPage() {
     { id: "synthesis", name: "Synthesis", color: "#10b981" },
   ];
   // State
-  const [messages, setMessages] = useState<Message[]>([{
-    id: "welcome",
-    role: "assistant",
-    content: "Hello! I'm Sentinel-E, your AI assistant powered by the Omega Cognitive Kernel. How can I help you today?",
-    timestamp: new Date(),
-  }]);
+  const storeMessages = useStore(state => state.messages) as any[];
+  const chats = useStore(state => state.chats);
+  const addMessage = useStore(state => state.addMessage);
+  
+  // Transform backend messages to Figma Message types
+  const messages: Message[] = storeMessages.map(m => ({
+    id: m.id || m.message_id || Math.random().toString(),
+    role: m.role || "assistant",
+    content: m.content || "",
+    timestamp: m.created_at ? new Date(m.created_at) : new Date(),
+    mode: m.metadata?.mode || m.mode || null,
+    confidence: m.metadata?.machine_metadata?.confidence ?? m.confidence,
+    omegaMetadata: m.metadata?.machine_metadata ?? m.omegaMetadata,
+    boundaryResult: m.metadata?.machine_metadata?.boundaries ?? m.boundaryResult,
+  }));
+
+  const setMessages = (updater: any) => {
+    // Shim for existing local state mutations (optimistic UI)
+    if (typeof updater === 'function') {
+      const updated = updater(messages);
+      const newMsg = updated[updated.length - 1];
+      if (newMsg && newMsg.id && !storeMessages.find(m => m.id === newMsg.id)) {
+        addMessage(newMsg);
+      }
+    }
+  };
+
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
@@ -155,7 +176,13 @@ export function ChatPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Chat history state
-  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
+  const chatHistory = chats.map(c => ({
+    id: c.id,
+    title: c.title,
+    mode: c.mode,
+    timestamp: c.updated_at ? new Date(c.updated_at) : new Date()
+  }));
+  const setChatHistory = () => {}; // No-op, managed by useStore
   const [historyLoading, setHistoryLoading] = useState(false);
 
   // Chat interaction context
@@ -332,14 +359,15 @@ export function ChatPage() {
     if (!backendOnline || !user) return;
     setHistoryLoading(true);
     try {
-      const history = await getChatHistory(50, 0);
-      setChatHistory(history);
+      const res = await getHistory(50, 0);
+      const data = res?.data || res || {};
+      useStore.getState().setHistory(data.chats || [], data.messages || []);
     } catch (err) {
       console.error("Failed to load chat history:", err);
     } finally {
       setHistoryLoading(false);
     }
-  }, [backendOnline]);
+  }, [backendOnline, user]);
 
   useEffect(() => {
     if (sidebarOpen && backendOnline && user) {
@@ -518,39 +546,14 @@ export function ChatPage() {
       try {
         let response: SentinelRunResponse;
 
-        if (runtimeTier === "pro" && selectedMode) {
-          response = await runExperimental(
-            userText,
-            selectedMode,
-            runtimePreferences.debateDepth,
-            currentChatId || undefined,
-            glassState.killOverride,
-            attachedFile || undefined,
-            ac.signal,
-            {
-              responseStyle: runtimePreferences.responseStyle,
-              preferences: {
-                default_mode: selectedMode,
-                default_model: selectedModel,
-              },
-            }
-          );
-        } else {
-          response = await runStandard(
-            userText,
-            selectedModel || "llama-3-3-70b",
-            currentChatId || undefined,
-            attachedFile || undefined,
-            ac.signal,
-            {
-              responseStyle: runtimePreferences.responseStyle,
-              preferences: {
-                default_mode: "standard",
-                default_model: selectedModel,
-              },
-            }
-          );
-        }
+        const rawResponse = await sendMCOQuery(userText, {
+          chatId: currentChatId || undefined,
+          mode: selectedMode || "standard",
+          selectedModel: selectedModel || "llama-3-3-70b",
+        });
+        
+        // Handle axios unwrapped response or raw response
+        response = adaptRunResponse(rawResponse?.data || rawResponse);
 
         if (ac.signal.aborted) return;
 
@@ -558,23 +561,16 @@ export function ChatPage() {
         
         if (!currentChatId && response.chat_id) {
           setCurrentChatId(response.chat_id);
-          syncConversation(response.chat_id, userText.slice(0, 50) + (userText.length > 50 ? '...' : ''), selectedMode || "standard");
-        }
+                  }
         
-        if (responseChatId) {
-          syncMessage(responseChatId, "user", userText + (attachedFile ? `\n\n[Attached: ${attachedFile.name}]` : ""));
-        }
-
+        
         if (selectedMode === "debate" && response.omega_metadata) setDebateState((p) => mergeDebateResult(p, response.omega_metadata));
         if (selectedMode === "glass" && response.omega_metadata) setGlassState((p) => mergeGlassState(p, response.omega_metadata));
         if (selectedMode === "evidence" && response.omega_metadata) setEvidenceState((p) => mergeEvidenceState(p, response.omega_metadata));
 
         const assistantContent = response.formatted_output || response.data?.priority_answer || "No response generated.";
 
-        if (responseChatId) {
-          syncMessage(responseChatId, "assistant", assistantContent);
-        }
-
+        
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",

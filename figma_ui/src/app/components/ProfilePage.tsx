@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
-import { supabase } from '../lib/supabase';
+import { useSupabaseAuth } from '@hooks/useSupabaseAuth';
+import api from '@services/api';
 import { motion } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { IOSListGroup, IOSListItem } from './ui/IOSListGroup';
@@ -22,28 +22,7 @@ export default function ProfilePage() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0 || !user) return;
-    const file = e.target.files[0];
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-    
-    try {
-      // 1. Upload to storage
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file, { upsert: true });
-      if (uploadError) throw uploadError;
-      
-      // 2. Get public URL
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
-      
-      // 3. Update profile
-      await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
-      
-      alert("Avatar updated! (Simulated state update)");
-      // Note: In real app, we'd sync this with context or fetch again
-    } catch (error) {
-      console.error('Error uploading avatar:', error);
-      alert('Error uploading avatar');
-    }
+    alert('Avatar upload is currently disabled. Please use Gravatar or your OAuth provider.');
   };
   
   // Analytics State
@@ -62,31 +41,23 @@ export default function ProfilePage() {
     if (!user) return;
 
     const fetchProfileAndStats = async () => {
-      // 1. Fetch Profile
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      const name = profile?.display_name || user.email?.split('@')[0] || 'Sentinel User';
-      setCustomName(name);
-      setTempName(name);
-
-      // 2. Fetch Conversations Count
-      const { count: conversationsCount } = await supabase
-        .from('conversations')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      // 3. Fetch Messages Count
-      const { count: messagesCount } = await supabase
-        .from('messages')
-        .select('*, conversations!inner(*)', { count: 'exact', head: true })
-        .eq('conversations.user_id', user.id);
-
-      // 4. Fetch Favorite Mode/Model from profile
-      setStats({
-        conversations: conversationsCount || 0,
-        messages: messagesCount || 0,
-        favoriteMode: profile?.favorite_mode || 'Standard',
-        favoriteModel: profile?.favorite_model || 'Sentinel Σ'
-      });
+      try {
+        const res = await api.get('/api/user');
+        if (res.data && res.data.success) {
+          const profileData = res.data.data;
+          const name = profileData.name || profileData.email?.split('@')[0] || 'Sentinel User';
+          setCustomName(name);
+          setTempName(name);
+          setStats({
+            conversations: profileData.stats?.chat_count || 0,
+            messages: profileData.stats?.message_count || 0,
+            favoriteMode: 'Standard',
+            favoriteModel: 'Sentinel Σ'
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch profile', err);
+      }
     };
 
     fetchProfileAndStats();
@@ -94,14 +65,9 @@ export default function ProfilePage() {
 
   const handleSaveName = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!user) return;
-    try {
-      await supabase.from('profiles').update({ display_name: tempName, updated_at: new Date().toISOString() }).eq('id', user.id);
-      setCustomName(tempName);
-      setIsEditingName(false);
-    } catch (error) {
-      console.error('Failed to update name', error);
-    }
+    alert('Updating profile name is not natively supported by the backend yet. Read-only.');
+    setCustomName(tempName);
+    setIsEditingName(false);
   };
 
   if (!user) return null;

@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation, Link } from 'react-router';
-import { useAuthContext } from '../providers/AuthProvider';
-import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
+import { useSupabaseAuth } from '@hooks/useSupabaseAuth';
 import { Mail, Lock, ArrowRight, Loader2, Shield, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { motion, AnimatePresence } from 'motion/react';
-import { submitAdminRequest } from '../api';
 
 export default function LoginPage() {
   const location = useLocation();
@@ -17,15 +15,14 @@ export default function LoginPage() {
   const [mounted, setMounted] = useState(false);
 
   const { theme } = useTheme();
-  const { isAuthenticated } = useAuthContext();
-  const { signInWithEmail, signInWithGoogle, signOut } = useSupabaseAuth();
+    const { session, signInWithEmail, signInWithGoogle, signOut } = useSupabaseAuth();
 
 
   useEffect(() => setMounted(true), []);
 
   const isDark = theme === "dark";
 
-  if (isAuthenticated) {
+  if (session) {
     return <Navigate to={from} replace />;
   }
 
@@ -91,23 +88,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* User / Admin Toggle */}
-        <div className="flex justify-center mb-6">
-          <div className="flex p-1 rounded-full relative" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-            <button
-              onClick={() => { setLoginMode('user'); setLocalError(''); }}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${loginMode === 'user' ? (isDark ? 'bg-[#1d1d1f] text-white shadow-md' : 'bg-white text-[#1d1d1f] shadow-md') : (isDark ? 'text-white/60 hover:text-white' : 'text-black/60 hover:text-black')}`}
-            >
-              <span className="flex items-center gap-2"><User size={16} /> User Login</span>
-            </button>
-            <button
-              onClick={() => { setLoginMode('admin'); setLocalError(''); }}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${loginMode === 'admin' ? (isDark ? 'bg-[#1d1d1f] text-white shadow-md' : 'bg-white text-[#1d1d1f] shadow-md') : (isDark ? 'text-white/60 hover:text-white' : 'text-black/60 hover:text-black')}`}
-            >
-              <span className="flex items-center gap-2"><Shield size={16} /> Admin Login</span>
-            </button>
-          </div>
-        </div>
+        
 
         <div
           className="rounded-3xl p-8 shadow-2xl relative overflow-hidden"

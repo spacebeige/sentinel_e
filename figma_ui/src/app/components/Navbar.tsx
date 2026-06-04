@@ -4,7 +4,7 @@ import { Link, useLocation } from "react-router";
 import { Menu, X, Moon, Sun, User, Settings, LogOut, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuthContext } from "../providers/AuthProvider";
-import { useSupabaseAuth } from "../hooks/useSupabaseAuth";
+import { useSupabaseAuth } from '@hooks/useSupabaseAuth';
 import { trackLogout } from "../services/analyticsService";
 import { LANDING_NAV } from "../config/navigation";
 import AdminModal from "./AdminModal";
@@ -16,7 +16,7 @@ export function Navbar() {
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
-  const { user, isAuthenticated, isAdmin, role } = useAuthContext();
+  const { user, isAuthenticated, role } = useAuthContext();
   const { signOut } = useSupabaseAuth();
   const navigate = useNavigate();
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);

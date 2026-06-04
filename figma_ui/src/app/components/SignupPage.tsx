@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
-import { useAuthContext } from '../providers/AuthProvider';
-import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
+import { useSupabaseAuth } from '@hooks/useSupabaseAuth';
 import { Mail, Lock, Loader2, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { motion } from 'motion/react';
@@ -15,8 +14,7 @@ export default function SignupPage() {
   const [mounted, setMounted] = useState(false);
 
   const { theme } = useTheme();
-  const { isAuthenticated } = useAuthContext();
-  const { signUpWithEmail, signInWithGoogle } = useSupabaseAuth();
+    const { session, signUpWithEmail, signInWithGoogle } = useSupabaseAuth();
   const navigate = useNavigate();
 
   useEffect(() => setMounted(true), []);
@@ -39,7 +37,7 @@ export default function SignupPage() {
 
     setIsSubmitting(true);
     try {
-      await signUpWithEmail(email, password, name);
+      await signUpWithEmail({ email, password, options: { data: { full_name: name, name: name } } });
       // Navigate directly in handler — no useEffect race.
       navigate('/complete-profile', { replace: true });
     } catch (err: any) {
@@ -49,11 +47,11 @@ export default function SignupPage() {
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (session) {
       // If they somehow land on signup but are already authenticated, redirect to chat
       navigate('/chat', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [session, navigate]);
 
   const handleGoogleSignIn = async () => {
     setLocalError('');

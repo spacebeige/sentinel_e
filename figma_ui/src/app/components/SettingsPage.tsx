@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
-import { supabase } from '../lib/supabase';
+import { useSupabaseAuth } from '@hooks/useSupabaseAuth';
+import api from '@services/api';
 import { motion } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { IOSListGroup, IOSListItem } from './ui/IOSListGroup';
@@ -19,11 +19,7 @@ export default function SettingsPage() {
     defaultModel: 'llama-3-3-70b',
   });
 
-  const [privacy, setPrivacy] = useState({
-    telemetryOptIn: true,
-    analyticsOptIn: true,
-    feedbackOptIn: true,
-  });
+  
 
   const [advanced, setAdvanced] = useState({
     responseStyle: 'balanced',
@@ -32,76 +28,62 @@ export default function SettingsPage() {
 
   // Privacy Actions Modals
   const handleExportData = () => {
-    if (window.confirm("Are you sure you want to export your data? This will trigger a download of your settings and history.")) {
-      alert("Data export initiated (Simulated).");
-    }
+    alert("Export Data is not yet supported by the backend.");
   };
 
   const handleDeleteAccount = () => {
-    if (window.confirm("WARNING: This will permanently delete your account, history, and all data. Are you sure?")) {
-      alert("Account deletion initiated (Simulated).");
-    }
+    alert("Account deletion is not yet supported by the backend.");
   };
 
   useEffect(() => {
     document.title = "Settings • Sentinel-E";
     if (!user) return;
-    const fetchProfile = async () => {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      if (data && !error) {
-        setPreferences({
-          defaultMode: data.runtime_preference || 'standard',
-          defaultModel: data.favorite_model || 'llama-3-3-70b',
-        });
-        setAdvanced({
-          responseStyle: data.response_style || 'balanced',
-          debateDepth: String(data.debate_depth || '6'),
-        });
-        setPrivacy({
-          telemetryOptIn: data.telemetry_opt_in ?? true,
-          analyticsOptIn: data.analytics_opt_in ?? true,
-          feedbackOptIn: data.feedback_opt_in ?? true,
-        });
-        if (data.theme_preference) {
-          setTheme(data.theme_preference);
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get('/api/user/settings');
+        if (res.data && res.data.success) {
+          const settings = res.data.data.settings;
+          setPreferences({
+            defaultMode: settings.default_mode || 'standard',
+            defaultModel: settings.default_model || 'llama-3-3-70b',
+          });
+          setAdvanced({
+            responseStyle: settings.response_style || 'balanced',
+            debateDepth: String(settings.debate_rounds || '3'),
+          });
+          if (settings.theme) {
+            setTheme(settings.theme);
+          }
         }
+      } catch (err) {
+        console.error('Failed to load settings', err);
       }
     };
-    fetchProfile();
+    fetchSettings();
   }, [user, setTheme]);
 
   const savePreferences = async (newPrefs: any) => {
     setPreferences(newPrefs);
-    if (user) {
-      await supabase.from('profiles').update({
-        runtime_preference: newPrefs.defaultMode,
-        favorite_model: newPrefs.defaultModel,
+    try {
+      await api.put('/api/user/settings', {
+        default_mode: newPrefs.defaultMode,
+        default_model: newPrefs.defaultModel,
         response_style: newPrefs.responseStyle ?? advanced.responseStyle,
-        debate_depth: Number(newPrefs.debateDepth ?? advanced.debateDepth),
-        updated_at: new Date().toISOString()
-      }).eq('id', user.id);
+        debate_rounds: Number(newPrefs.debateDepth ?? advanced.debateDepth)
+      });
+    } catch (err) {
+      console.error('Failed to save preferences', err);
     }
   };
 
-  const savePrivacy = async (newPrivacy: any) => {
-    setPrivacy(newPrivacy);
-    if (user) {
-      await supabase.from('profiles').update({
-        telemetry_opt_in: newPrivacy.telemetryOptIn,
-        analytics_opt_in: newPrivacy.analyticsOptIn,
-        feedback_opt_in: newPrivacy.feedbackOptIn,
-        updated_at: new Date().toISOString()
-      }).eq('id', user.id);
-    }
-  };
+  
 
   const handleThemeChange = async (newTheme: string) => {
     setTheme(newTheme);
-    if (user) {
-      await supabase.from('profiles').update({
-        theme_preference: newTheme,
-        updated_at: new Date().toISOString()
-      }).eq('id', user.id);
+    try {
+      await api.put('/api/user/settings', { theme: newTheme });
+    } catch (err) {
+      console.error('Failed to save theme', err);
     }
   };
 
@@ -227,42 +209,7 @@ export default function SettingsPage() {
             />
           </IOSListGroup>
 
-          {/* Privacy & Security Group */}
-          <IOSListGroup title="Privacy & Security">
-            <IOSListItem 
-              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#34C759] flex items-center justify-center"><Activity className="w-4 h-4 text-white" /></div>}
-              title="Telemetry Opt-In"
-              subtitle="Anonymous usage data to improve Sentinel-E"
-              rightContent={
-                <IOSToggle 
-                  checked={privacy.telemetryOptIn}
-                  onChange={(c) => savePrivacy({ ...privacy, telemetryOptIn: c })}
-                />
-              }
-            />
-            <IOSListItem 
-              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#00C7BE] flex items-center justify-center"><Activity className="w-4 h-4 text-white" /></div>}
-              title="Analytics Opt-In"
-              subtitle="Allow tracking of feature metrics"
-              rightContent={
-                <IOSToggle 
-                  checked={privacy.analyticsOptIn}
-                  onChange={(c) => savePrivacy({ ...privacy, analyticsOptIn: c })}
-                />
-              }
-            />
-            <IOSListItem 
-              icon={<div className="w-[28px] h-[28px] rounded-lg bg-[#5AC8FA] flex items-center justify-center"><Shield className="w-4 h-4 text-white" /></div>}
-              title="Feedback Opt-In"
-              subtitle="Allow automated quality review"
-              rightContent={
-                <IOSToggle 
-                  checked={privacy.feedbackOptIn}
-                  onChange={(c) => savePrivacy({ ...privacy, feedbackOptIn: c })}
-                />
-              }
-            />
-          </IOSListGroup>
+          
 
           {/* Data Controls */}
           <IOSListGroup title="Data Controls">

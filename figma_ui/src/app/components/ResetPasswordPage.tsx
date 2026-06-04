@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router';
 import { Lock, Loader2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { motion } from 'motion/react';
-import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
+import { useSupabaseAuth } from '@hooks/useSupabaseAuth';
 
 // ============================================================
 // ResetPasswordPage

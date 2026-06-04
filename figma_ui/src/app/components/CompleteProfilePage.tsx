@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { User, Loader2, ArrowRight } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { motion } from 'motion/react';
-import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
+import { useSupabaseAuth } from '@hooks/useSupabaseAuth';
 import { getSupabaseClient } from '../lib/supabase';
 
 // ============================================================

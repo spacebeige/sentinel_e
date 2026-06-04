@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, User, Mail, Calendar, Activity, Edit2, Shield, Crown, Sparkles, MessageSquare, Clock } from 'lucide-react';
-import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
+import { useSupabaseAuth } from '@hooks/useSupabaseAuth';
 import { supabase } from '../lib/supabase';
 import { getUserAnalytics, UserAnalytics } from '../services/analyticsService';
 

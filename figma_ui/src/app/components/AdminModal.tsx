@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Lock, Mail, Loader2, ArrowRight } from 'lucide-react';
 import { useAuthContext } from '../providers/AuthProvider';
-import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
+import { useSupabaseAuth } from '@hooks/useSupabaseAuth';
 import { submitAdminRequest } from '../api';
 import { useTheme } from 'next-themes';
 

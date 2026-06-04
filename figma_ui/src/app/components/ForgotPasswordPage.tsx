@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { Mail, Loader2, ArrowLeft } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { motion } from 'motion/react';
-import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
+import { useSupabaseAuth } from '@hooks/useSupabaseAuth';
 
 // ============================================================
 // ForgotPasswordPage
