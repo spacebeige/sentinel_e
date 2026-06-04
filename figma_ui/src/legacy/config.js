@@ -1,8 +1,8 @@
 if (!import.meta.env.VITE_API_URL) {
-  throw new Error("VITE_API_URL is not configured");
+  console.error("Configuration Error: VITE_API_URL missing");
 }
 
-export const API_BASE = import.meta.env.VITE_API_URL;
+export const API_BASE = import.meta.env.VITE_API_URL || "";
 
 // Phase 3: Log API configuration
 if (typeof window !== 'undefined') {

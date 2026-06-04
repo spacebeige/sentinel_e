@@ -4,12 +4,12 @@
 // ============================================================
 
 if (!import.meta.env.VITE_API_URL) {
-  throw new Error("VITE_API_URL is not configured");
+  console.error("Configuration Error: VITE_API_URL missing");
 }
 
 const ENV = {
   /** API base URL — override via VITE_API_URL env var */
-  API_BASE: import.meta.env.VITE_API_URL,
+  API_BASE: import.meta.env.VITE_API_URL || "",
 
   /** Request timeout in milliseconds */
   REQUEST_TIMEOUT: Number(import.meta.env.VITE_REQUEST_TIMEOUT) || 30000,
