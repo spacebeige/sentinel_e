@@ -504,4 +504,107 @@ function sanitizeError(error) {
   }
 }
 
+
+// --- Migrated from Figma UI ---
+
+export async function getRootStatus() {
+  try {
+    return await api.get("/", 2000);
+  } catch {
+    return null;
+  }
+}
+
+export async function getKernelStatus() {
+  try {
+    const raw = await api.get("/kernel-status", { retries: 0 });
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+export async function getSessionStats() {
+  try {
+    const raw = await api.get("/session-stats", { retries: 0 });
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+export async function getLearningSummary() {
+  try {
+    const raw = await api.get("/api/learning", { retries: 0 });
+    return adaptLearningSummary(raw);
+  } catch {
+    return null;
+  }
+}
+
+export async function getLearningRiskProfiles() {
+  try {
+    return await api.get("/api/learning/risk-profiles", { retries: 0 });
+  } catch {
+    return null;
+  }
+}
+
+export async function getCurrentUser() {
+  try {
+    const res = await api.get("/api/v2/user", { retries: 1 });
+    if (res && res.data) { 
+      return res.data.data || res.data; 
+    }
+    return null;
+  } catch (err) {
+    console.error('getCurrentUser error:', err);
+    return null;
+  }
+}
+
+export async function submitAdminRequest(data) {
+  try {
+    const { error } = await supabase.from('admin_requests').insert({
+      name: data.name,
+      email: data.email,
+      organization: data.organization,
+      reason: data.reason,
+      status: 'pending'
+    });
+
+    if (error) {
+      console.error("submitAdminRequest error:", error);
+      return { status: "error", message: error.message };
+    }
+    return { status: "success" };
+  } catch (err) {
+    console.error("submitAdminRequest exception:", err);
+    return { status: "error", message: "Failed to submit request" };
+  }
+}
+
+export async function getAdminRequestStatus(email) {
+  try {
+    const { data, error } = await supabase
+      .from('admin_requests')
+      .select('status')
+      .eq('email', email)
+      .order('submitted_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null; // Not found
+      console.error("getAdminRequestStatus error:", error);
+      return null;
+    }
+
+    return data?.status;
+  } catch (err) {
+    console.error("getAdminRequestStatus exception:", err);
+    return null;
+  }
+}
+
 export default api;

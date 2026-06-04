@@ -1,0 +1,783 @@
+/Users/ashwinagarkhed/sentinel_e/backend/.venv/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+2026-06-04 18:48:53,857 | SIGMA-V4 | INFO | Model 'llama33-70b' (groq): enabled and active
+2026-06-04 18:48:53,858 | SIGMA-V4 | INFO | Model 'mixtral-8x7b' (groq): enabled and active
+2026-06-04 18:48:53,858 | SIGMA-V4 | INFO | Model 'llama4-scout' (groq): enabled and active
+2026-06-04 18:48:53,858 | SIGMA-V4 | INFO | Model 'qwen-2.5-vl' (qwen): enabled and active
+2026-06-04 18:48:53,858 | SIGMA-V4 | INFO | Model 'gemini-flash' (gemini): enabled and active
+2026-06-04 18:48:53,858 | SIGMA-V4 | INFO | Model 'llama31-8b' (groq): enabled and active
+2026-06-04 18:48:53,858 | SIGMA-V4 | INFO | Model 'mistral-large-675b' (nvidia): enabled and active
+2026-06-04 18:48:53,858 | SIGMA-V4 | INFO | Model 'kimi-k2-thinking' (nvidia): enabled and active
+2026-06-04 18:48:53,858 | SIGMA-V4 | INFO | Model 'claude-sonnet-4.6' (anthropic): enabled but inactive (synthesis-only — toggle to activate)
+2026-06-04 18:48:53,923 | SIGMA-V4 | INFO | ✓ Cognitive Runtime v8.0 modules loaded
+2026-06-04 18:48:53,974 | SIGMA-V4 | INFO | ✓ Using Neon/External PostgreSQL
+2026-06-04 18:48:54,042 | SIGMA-V4 | INFO | ✓ Orchestration runtime routes registered
+2026-06-04 18:48:54,116 | SIGMA-V4 | INFO | Initializing Sentinel-E v5.0 Production System...
+2026-06-04 18:48:54,116 | SIGMA-V4 | INFO | ✅ Configuration validation passed
+2026-06-04 18:48:54,116 | SIGMA-V4 | INFO | ✅ Production configuration validated
+2026-06-04 18:48:54,116 | SIGMA-V4 | INFO | ✓ Global exception hook installed
+2026-06-04 18:48:59,845 | SIGMA-V4 | INFO | ✅ Database schema synchronized successfully
+2026-06-04 18:48:59,992 | SIGMA-V4 | WARNING | Redis connection failed (non-fatal, using in-memory fallback): Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:49:00,713 | SIGMA-V4 | WARNING | [startup] Pinecone unavailable (non-fatal): The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:49:01,411 | SIGMA-V4 | INFO | [startup] System status: {'db': True, 'pinecone': False, 'memory': True}
+2026-06-04 18:49:01,412 | SIGMA-V4 | WARNING | Firebase Admin SDK not installed. Install with: pip install firebase-admin
+2026-06-04 18:49:01,413 | SIGMA-V4 | WARNING | Firebase Admin SDK not initialized (optional — backend will work without it)
+2026-06-04 18:49:01,413 | SIGMA-V4 | INFO | Cloud model client initialized
+2026-06-04 18:49:01,413 | SIGMA-V4 | INFO | IngestionEngine running in cloud mode (no local embeddings/FAISS)
+2026-06-04 18:49:01,413 | SIGMA-V4 | INFO | IngestionEngine (RAG) initialized successfully.
+2026-06-04 18:49:01,413 | SIGMA-V4 | INFO | KnowledgeBase (Memory) initialized successfully.
+2026-06-04 18:49:01,413 | SIGMA-V4 | INFO | ✓ SentinelSigmaOrchestratorV4 initialized
+2026-06-04 18:49:01,420 | SIGMA-V4 | INFO | Meta-Cognitive Orchestrator initialized
+2026-06-04 18:49:01,422 | SIGMA-V4 | INFO | MCO Model Bridge created — all model calls route through CognitiveModelGateway
+2026-06-04 18:49:01,423 | SIGMA-V4 | INFO | Model registry: 8/9 models enabled
+2026-06-04 18:49:01,423 | SIGMA-V4 | INFO |   ✓ Llama 3.3 70B (llama33-70b) — provider=groq, vision=False
+2026-06-04 18:49:01,423 | SIGMA-V4 | INFO |   ✓ Qwen3 32B (mixtral-8x7b) — provider=groq, vision=False
+2026-06-04 18:49:01,423 | SIGMA-V4 | INFO |   ✓ Llama 4 Scout 17B (llama4-scout) — provider=groq, vision=False
+2026-06-04 18:49:01,423 | SIGMA-V4 | INFO |   ✓ Qwen 2.5 VL 7B (qwen-2.5-vl) — provider=qwen, vision=True
+2026-06-04 18:49:01,423 | SIGMA-V4 | INFO |   ✓ Gemini Flash 2.0 (gemini-flash) — provider=gemini, vision=True
+2026-06-04 18:49:01,423 | SIGMA-V4 | INFO |   ✓ Llama 3.1 8B Instant (llama31-8b) — provider=groq, vision=False
+2026-06-04 18:49:01,423 | SIGMA-V4 | INFO |   ✓ Mistral Large 3 675B (mistral-large-675b) — provider=nvidia, vision=False
+2026-06-04 18:49:01,423 | SIGMA-V4 | INFO |   ✓ Kimi K2 Thinking (kimi-k2-thinking) — provider=nvidia, vision=False
+2026-06-04 18:49:01,423 | SIGMA-V4 | INFO | Cognitive Core Engine v7.0 initialized — ensemble-only, no mode routing
+2026-06-04 18:49:01,423 | SIGMA-V4 | INFO | Multimodal Capability Auditor initialized
+2026-06-04 18:49:01,423 | SIGMA-V4 | INFO | Meta-Cognitive Orchestrator initialized
+2026-06-04 18:49:01,445 | SIGMA-V4 | INFO | ELO: no rankings file found — starting fresh
+2026-06-04 18:49:01,445 | SIGMA-V4 | INFO | Battle Platform v2 initialized — 9 models in registry, default debate tier selection: ['llama33-70b', 'mixtral-8x7b', 'llama4-scout', 'qwen-2.5-vl', 'kimi-k2-thinking', 'gemini-flash']
+2026-06-04 18:49:01,567 | SIGMA-V4 | INFO | Evidence Engine: Tavily client initialized.
+2026-06-04 18:49:01,567 | SIGMA-V4 | INFO | Evidence Engine: Serper API initialized.
+2026-06-04 18:49:01,567 | SIGMA-V4 | INFO | Omega Cognitive Kernel v4.0 initialized — Production engines active.
+2026-06-04 18:49:01,568 | SIGMA-V4 | INFO | Sentinel-E v5.0 online. All systems initialized (with optimization layer + MCO).
+2026-06-04 18:49:01,574 | SIGMA-V4 | INFO | Entering /api/mco/run
+2026-06-04 18:49:01,574 | SIGMA-V4 | INFO | /api/mco/run user authenticated=True
+2026-06-04 18:49:01,574 | SIGMA-V4 | INFO | /api/mco/run payload keys=['query', 'mode']
+2026-06-04 18:49:01,574 | SIGMA-V4 | INFO | /api/mco/run registry keys=['llama33-70b', 'mixtral-8x7b', 'llama4-scout', 'qwen-2.5-vl', 'gemini-flash', 'llama31-8b', 'mistral-large-675b', 'kimi-k2-thinking', 'claude-sonnet-4.6']
+2026-06-04 18:49:04,193 | SIGMA-V4 | WARNING | vector status pinecone=fail op=upsert error=The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:49:04,340 | SIGMA-V4 | WARNING | Context build skipped: get_context_builder() got an unexpected keyword argument 'max_tokens'
+2026-06-04 18:49:04,344 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive engine loaded = True
+2026-06-04 18:49:04,344 | SIGMA-V4 | INFO | [RETRIEVAL DEBUG] force_retrieval=False
+2026-06-04 18:49:04,346 | SIGMA-V4 | INFO | Processing query [standard]: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+hello...
+2026-06-04 18:49:04,349 | SIGMA-V4 | WARNING | Redis restore failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:49:04,350 | SIGMA-V4 | INFO | Session created: a6ebd5dc-3a30-459d-a04d-ae4943eab126 (mode=standard, model=None)
+2026-06-04 18:49:04,350 | SIGMA-V4 | WARNING | sentence-transformers not installed. Falling back to hash-based pseudo-embeddings.
+2026-06-04 18:49:04,353 | SIGMA-V4 | INFO | Retrieval mandatory: volatility=1.000 (threshold=0.35)
+2026-06-04 18:49:04,353 | SIGMA-V4 | INFO | Volatility 1.000 > threshold 0.35. Web retrieval mandatory.
+2026-06-04 18:49:04,353 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:04,354 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:04,354 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:04,354 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:04,354 | SIGMA-V4 | INFO | Retrieval confidence 0.000 < 0.4. Long-tail expansion triggered.
+2026-06-04 18:49:04,354 | SIGMA-V4 | INFO | Long-tail expansion for: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+hello (domain: general)
+2026-06-04 18:49:04,354 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:04,354 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:04,354 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:04,354 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000, 1ms
+2026-06-04 18:49:04,354 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000
+2026-06-04 18:49:04,356 | SIGMA-V4 | INFO | Single Model Focus: llama33-70b
+2026-06-04 18:49:04,356 | SIGMA-V4 | INFO | Invoking 1 models: ['llama33-70b']
+2026-06-04 18:49:04,357 | SIGMA-V4 | INFO | Token governor [llama33-70b]: prompt_est=245, ctx_window=131072, available=130527, scaled_cap=2000, governed=2000, budget_governed=False
+2026-06-04 18:49:04,531 | SIGMA-V4 | INFO | Model invocation: key=llama33-70b, provider=groq, success=True, response_len=111
+2026-06-04 18:49:04,531 | SIGMA-V4 | INFO |   Model 'Llama 3.3 70B': success=True, output_len=111, error=none
+2026-06-04 18:49:04,533 | SIGMA-V4 | INFO |   Llama 3.3 70B: T=0.086 K=0.500 S=0.000 C=1.000 D=0.914 → Final=0.164
+2026-06-04 18:49:04,536 | SIGMA-V4 | WARNING | Redis persist failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:49:04,537 | SIGMA-V4 | INFO | Query processed in 191ms. Winner: Llama 3.3 70B (score=0.164)
+2026-06-04 18:49:04,698 | SIGMA-V4 | WARNING | Failed to generate visualizations for chat a6ebd5dc-3a30-459d-a04d-ae4943eab126: 1 validation error for StructuredModelOutput
+model_name
+  Field required [type=missing, input_value={'model_id': 'Llama 3.3 7...o just chat for a bit?"}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+2026-06-04 18:49:05,748 | SIGMA-V4 | WARNING | vector status pinecone=fail op=upsert error=The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:49:06,921 | SIGMA-V4 | INFO | [10ca45cd] POST /api/mco/run → 200 (5346.1ms)
+2026-06-04 18:49:07,058 | SIGMA-V4 | INFO | HTTP Request: POST http://testserver/api/mco/run "HTTP/1.1 200 OK"
+2026-06-04 18:49:07,069 | SIGMA-V4 | INFO | Entering /api/mco/run
+2026-06-04 18:49:07,069 | SIGMA-V4 | INFO | /api/mco/run user authenticated=True
+2026-06-04 18:49:07,069 | SIGMA-V4 | INFO | /api/mco/run payload keys=['query', 'mode', 'sub_mode']
+2026-06-04 18:49:07,069 | SIGMA-V4 | INFO | /api/mco/run registry keys=['llama33-70b', 'mixtral-8x7b', 'llama4-scout', 'qwen-2.5-vl', 'gemini-flash', 'llama31-8b', 'mistral-large-675b', 'kimi-k2-thinking', 'claude-sonnet-4.6']
+2026-06-04 18:49:09,692 | SIGMA-V4 | WARNING | vector status pinecone=fail op=upsert error=The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:49:09,839 | SIGMA-V4 | WARNING | Context build skipped: get_context_builder() got an unexpected keyword argument 'max_tokens'
+2026-06-04 18:49:09,839 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive mode 'debate' active — overriding model selection 'llama33-70b'
+2026-06-04 18:49:09,839 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive engine loaded = True
+2026-06-04 18:49:09,839 | SIGMA-V4 | INFO | [RETRIEVAL DEBUG] force_retrieval=False
+2026-06-04 18:49:09,839 | SIGMA-V4 | INFO | Debate mode: delegating to CognitiveOrchestrator for chat 2cdaee40-bb56-4ab6-8039-799ae7221984
+2026-06-04 18:49:09,839 | SIGMA-V4 | INFO | Phase 1: Parallel execution for chat 2cdaee40-bb56-4ab6-8039-799ae7221984
+2026-06-04 18:49:09,840 | SIGMA-V4 | INFO | Token governor [llama33-70b]: prompt_est=343, ctx_window=131072, available=130429, scaled_cap=2000, governed=2000, budget_governed=False
+2026-06-04 18:49:09,843 | SIGMA-V4 | INFO | Token governor [mixtral-8x7b]: prompt_est=343, ctx_window=32768, available=32125, scaled_cap=1500, governed=1500, budget_governed=False
+2026-06-04 18:49:09,843 | SIGMA-V4 | INFO | Token governor [llama4-scout]: prompt_est=343, ctx_window=131072, available=130429, scaled_cap=1500, governed=1500, budget_governed=False
+2026-06-04 18:49:09,844 | SIGMA-V4 | INFO | Token governor [qwen-2.5-vl]: prompt_est=343, ctx_window=32768, available=32125, scaled_cap=1500, governed=1500, budget_governed=False
+2026-06-04 18:49:09,844 | SIGMA-V4 | INFO | Token governor [gemini-flash]: prompt_est=343, ctx_window=1048576, available=1047933, scaled_cap=2000, governed=2000, budget_governed=False
+2026-06-04 18:49:09,845 | SIGMA-V4 | INFO | Token governor [llama31-8b]: prompt_est=343, ctx_window=131072, available=130429, scaled_cap=1500, governed=1500, budget_governed=False
+2026-06-04 18:49:09,845 | SIGMA-V4 | INFO | Using shared provider key for 'Mistral Large 3 675B' (NVIDIA_API_KEY)
+2026-06-04 18:49:09,845 | SIGMA-V4 | INFO | Token governor [mistral-large-675b]: prompt_est=343, ctx_window=131072, available=130429, scaled_cap=4000, governed=4000, budget_governed=False
+2026-06-04 18:49:09,846 | SIGMA-V4 | INFO | Token governor [kimi-k2-thinking]: prompt_est=343, ctx_window=131072, available=130429, scaled_cap=4000, governed=4000, budget_governed=False
+2026-06-04 18:49:09,902 | SIGMA-V4 | ERROR | NVIDIA API error [410] for moonshotai/kimi-k2-thinking: {"type":"about:blank","title":"Gone","status":410,"detail":"The model 'moonshotai/kimi-k2-thinking' has reached its end of life on 2026-05-12T00:00:00Z and is no longer available."}
+
+2026-06-04 18:49:09,902 | SIGMA-V4 | INFO | Model invocation: key=kimi-k2-thinking, provider=nvidia, success=False, response_len=0
+2026-06-04 18:49:09,902 | SIGMA-V4 | WARNING | MCOModelBridge: kimi-k2-thinking failed — Provider error (HTTP 410)
+2026-06-04 18:49:09,902 | SIGMA-V4 | WARNING | Model kimi-k2-thinking returned error: Kimi K2 Thinking Error: Provider error (HTTP 410)
+2026-06-04 18:49:09,967 | SIGMA-V4 | ERROR | Gemini API error [400] for gemini-2.0-flash: {
+  "error": {
+    "code": 400,
+    "message": "API key not valid. Please pass a valid API key.",
+    "status": "INVALID_ARGUMENT",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "API_KEY_INVALID",
+        "domain": "googleapis.com",
+        "metadata": {
+          "service": "generativelanguage.googleapis.com"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+        "locale": "en-US",
+        
+2026-06-04 18:49:09,968 | SIGMA-V4 | INFO | Model invocation: key=gemini-flash, provider=gemini, success=False, response_len=0
+2026-06-04 18:49:09,968 | SIGMA-V4 | WARNING | MCOModelBridge: gemini-flash failed — Invalid API key
+2026-06-04 18:49:09,968 | SIGMA-V4 | WARNING | Model gemini-flash returned error: Gemini Flash 2.0 Error: Invalid API key
+2026-06-04 18:49:10,311 | SIGMA-V4 | ERROR | Qwen API error [404] for qwen/qwen-2.5-vl-7b-instruct: {"error":{"message":"No endpoints found for qwen/qwen-2.5-vl-7b-instruct.","code":404},"user_id":"user_3AgqVtqnYKYAPJ4Rik9YpZmgVgJ"}
+2026-06-04 18:49:10,311 | SIGMA-V4 | INFO | Model invocation: key=qwen-2.5-vl, provider=qwen, success=False, response_len=0
+2026-06-04 18:49:10,311 | SIGMA-V4 | WARNING | MCOModelBridge: qwen-2.5-vl failed — Model decommissioned or not found
+2026-06-04 18:49:10,311 | SIGMA-V4 | WARNING | Model qwen-2.5-vl returned error: Qwen 2.5 VL 7B Error: Model decommissioned or not found
+2026-06-04 18:49:11,642 | SIGMA-V4 | INFO | Model invocation: key=llama4-scout, provider=groq, success=True, response_len=2419
+2026-06-04 18:49:11,949 | SIGMA-V4 | INFO | Model invocation: key=llama31-8b, provider=groq, success=True, response_len=2247
+2026-06-04 18:49:12,035 | SIGMA-V4 | INFO | Model invocation: key=llama33-70b, provider=groq, success=True, response_len=2597
+2026-06-04 18:49:14,918 | SIGMA-V4 | WARNING | [Qwen3 32B] Transient error 503 on attempt 1 — retrying in 1.0s
+2026-06-04 18:49:15,948 | SIGMA-V4 | ERROR | [GROQ ERROR] model=qwen/qwen3-32b status=429 body={"error":{"message":"Rate limit reached for model `qwen/qwen3-32b` in organization `org_01kfq1eb1zfwbvh5b7bv009c71` service tier `on_demand` on tokens per minute (TPM): Limit 6000, Used 5199, Requested 1577. Please try again in 7.76s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}
+
+2026-06-04 18:49:15,949 | SIGMA-V4 | INFO | Model invocation: key=mixtral-8x7b, provider=groq, success=False, response_len=0
+2026-06-04 18:49:15,949 | SIGMA-V4 | WARNING | MCOModelBridge: mixtral-8x7b failed — Rate limit exceeded
+2026-06-04 18:49:15,949 | SIGMA-V4 | WARNING | Model mixtral-8x7b returned error: Qwen3 32B Error: Rate limit exceeded
+2026-06-04 18:50:39,895 | SIGMA-V4 | ERROR | [Mistral Large 3 675B] Server timeout (nvidia): Timeout on reading data from socket
+2026-06-04 18:50:39,898 | SIGMA-V4 | ERROR | NVIDIA API error [0] for mistralai/mistral-large-3-675b-instruct-2512: Timeout: Timeout on reading data from socket
+2026-06-04 18:50:39,898 | SIGMA-V4 | INFO | Model invocation: key=mistral-large-675b, provider=nvidia, success=False, response_len=0
+2026-06-04 18:50:39,898 | SIGMA-V4 | WARNING | MCOModelBridge: mistral-large-675b failed — Provider error (HTTP 0)
+2026-06-04 18:50:39,899 | SIGMA-V4 | WARNING | Model mistral-large-675b returned error: Mistral Large 3 675B Error: Provider error (HTTP 0)
+2026-06-04 18:50:39,900 | SIGMA-V4 | WARNING | Models failed in Phase 1: ['mixtral-8x7b', 'qwen-2.5-vl', 'gemini-flash', 'mistral-large-675b', 'kimi-k2-thinking']. Continuing with 3 successful models.
+2026-06-04 18:50:39,900 | SIGMA-V4 | WARNING | Safe mode: 3 models succeeded. Reducing to 3 debate round(s).
+2026-06-04 18:50:39,900 | SIGMA-V4 | INFO | Phase 2: Computing agreement matrix
+2026-06-04 18:50:39,904 | SIGMA-V4 | INFO | Phase 3: Running 3-round debate
+2026-06-04 18:50:39,904 | SIGMA-V4 | INFO | Adaptive budget: multiplier=1.0, total=15000, round_caps={1: 600, 2: 500, 3: 400}
+2026-06-04 18:50:39,904 | SIGMA-V4 | INFO | Debate round 1/3: per_model_cap=600, remaining=15000, active_models=7/7
+2026-06-04 18:50:39,906 | SIGMA-V4 | INFO | Debate round 2/3: per_model_cap=500, remaining=14065, active_models=4/7
+2026-06-04 18:50:39,908 | SIGMA-V4 | INFO | Token governor [llama33-70b]: prompt_est=635, ctx_window=131072, available=130137, scaled_cap=500, governed=500, budget_governed=True
+2026-06-04 18:50:39,911 | SIGMA-V4 | INFO | Token governor [mixtral-8x7b]: prompt_est=635, ctx_window=32768, available=31833, scaled_cap=500, governed=500, budget_governed=True
+2026-06-04 18:50:39,912 | SIGMA-V4 | INFO | Token governor [llama4-scout]: prompt_est=635, ctx_window=131072, available=130137, scaled_cap=500, governed=500, budget_governed=True
+2026-06-04 18:50:39,912 | SIGMA-V4 | INFO | Token governor [llama31-8b]: prompt_est=635, ctx_window=131072, available=130137, scaled_cap=500, governed=500, budget_governed=True
+2026-06-04 18:50:41,142 | SIGMA-V4 | INFO | Model invocation: key=llama31-8b, provider=groq, success=True, response_len=2871
+2026-06-04 18:50:41,859 | SIGMA-V4 | INFO | Model invocation: key=llama33-70b, provider=groq, success=True, response_len=2586
+2026-06-04 18:50:42,314 | SIGMA-V4 | INFO | Model invocation: key=llama4-scout, provider=groq, success=True, response_len=1813
+2026-06-04 18:50:43,913 | SIGMA-V4 | INFO | Model invocation: key=mixtral-8x7b, provider=groq, success=True, response_len=2479
+2026-06-04 18:50:43,915 | SIGMA-V4 | INFO | Debate round 3/3: per_model_cap=400, remaining=11430, active_models=4/7
+2026-06-04 18:50:43,916 | SIGMA-V4 | INFO | Token governor [llama33-70b]: prompt_est=635, ctx_window=131072, available=130137, scaled_cap=400, governed=400, budget_governed=True
+2026-06-04 18:50:43,916 | SIGMA-V4 | INFO | Token governor [mixtral-8x7b]: prompt_est=635, ctx_window=32768, available=31833, scaled_cap=400, governed=400, budget_governed=True
+2026-06-04 18:50:43,916 | SIGMA-V4 | INFO | Token governor [llama4-scout]: prompt_est=635, ctx_window=131072, available=130137, scaled_cap=400, governed=400, budget_governed=True
+2026-06-04 18:50:43,916 | SIGMA-V4 | INFO | Token governor [llama31-8b]: prompt_est=635, ctx_window=131072, available=130137, scaled_cap=400, governed=400, budget_governed=True
+2026-06-04 18:50:44,781 | SIGMA-V4 | INFO | Model invocation: key=llama31-8b, provider=groq, success=True, response_len=2187
+2026-06-04 18:50:45,519 | SIGMA-V4 | INFO | Model invocation: key=llama33-70b, provider=groq, success=True, response_len=2321
+2026-06-04 18:50:46,419 | SIGMA-V4 | INFO | Model invocation: key=mixtral-8x7b, provider=groq, success=True, response_len=2090
+2026-06-04 18:50:46,861 | SIGMA-V4 | INFO | Model invocation: key=llama4-scout, provider=groq, success=True, response_len=2054
+2026-06-04 18:50:46,883 | SIGMA-V4 | INFO | Phase 4: Computing ensemble metrics
+2026-06-04 18:50:46,885 | SIGMA-V4 | INFO | Phase 5: Calibrating confidence
+2026-06-04 18:50:46,885 | SIGMA-V4 | INFO | Phase 6: Building tactical map
+2026-06-04 18:50:46,885 | SIGMA-V4 | INFO | Phase 7: Updating session intelligence
+2026-06-04 18:50:46,885 | SIGMA-V4 | INFO | Phase 8: Synthesizing output
+2026-06-04 18:50:46,886 | SIGMA-V4 | INFO | Ensemble complete: 3 models, 3 rounds, confidence 0.14, latency 97050ms
+2026-06-04 18:50:48,558 | SIGMA-V4 | WARNING | vector status pinecone=fail op=upsert error=The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:50:50,176 | SIGMA-V4 | INFO | Session created: 2cdaee40-bb56-4ab6-8039-799ae7221984 (mode=standard, model=None)
+2026-06-04 18:50:50,186 | SIGMA-V4 | INFO | [4ecd132d] POST /api/mco/run → 200 (103123.7ms)
+2026-06-04 18:50:50,310 | SIGMA-V4 | INFO | HTTP Request: POST http://testserver/api/mco/run "HTTP/1.1 200 OK"
+2026-06-04 18:50:50,324 | SIGMA-V4 | INFO | Entering /api/mco/run
+2026-06-04 18:50:50,324 | SIGMA-V4 | INFO | /api/mco/run user authenticated=True
+2026-06-04 18:50:50,324 | SIGMA-V4 | INFO | /api/mco/run payload keys=['query', 'mode', 'sub_mode']
+2026-06-04 18:50:50,324 | SIGMA-V4 | INFO | /api/mco/run registry keys=['llama33-70b', 'mixtral-8x7b', 'llama4-scout', 'qwen-2.5-vl', 'gemini-flash', 'llama31-8b', 'mistral-large-675b', 'kimi-k2-thinking', 'claude-sonnet-4.6']
+2026-06-04 18:50:52,954 | SIGMA-V4 | WARNING | vector status pinecone=fail op=upsert error=The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:50:53,096 | SIGMA-V4 | WARNING | Context build skipped: get_context_builder() got an unexpected keyword argument 'max_tokens'
+2026-06-04 18:50:53,096 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive mode 'glass' active — overriding model selection 'llama33-70b'
+2026-06-04 18:50:53,096 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive engine loaded = True
+2026-06-04 18:50:53,096 | SIGMA-V4 | INFO | [RETRIEVAL DEBUG] force_retrieval=False
+2026-06-04 18:50:53,097 | SIGMA-V4 | INFO | Processing query [experimental]: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+Explain how this system wo...
+2026-06-04 18:50:53,100 | SIGMA-V4 | WARNING | Redis restore failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:50:53,100 | SIGMA-V4 | INFO | Session created: fda01ed3-099f-46e5-a961-4b01c8edcd01 (mode=experimental, model=None)
+2026-06-04 18:50:53,101 | SIGMA-V4 | INFO | Retrieval mandatory: volatility=1.000 (threshold=0.35)
+2026-06-04 18:50:53,101 | SIGMA-V4 | INFO | Volatility 1.000 > threshold 0.35. Web retrieval mandatory.
+2026-06-04 18:50:53,101 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:53,102 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:53,102 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:53,102 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:53,102 | SIGMA-V4 | INFO | Retrieval confidence 0.000 < 0.4. Long-tail expansion triggered.
+2026-06-04 18:50:53,102 | SIGMA-V4 | INFO | Long-tail expansion for: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+Explain how this system wo (domain: technology)
+2026-06-04 18:50:53,102 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:53,102 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:53,102 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:53,102 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000, 1ms
+2026-06-04 18:50:53,102 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000
+2026-06-04 18:50:53,103 | SIGMA-V4 | INFO | Simple query — reduced to 3 models
+2026-06-04 18:50:53,103 | SIGMA-V4 | INFO | Invoking 3 models: ['llama33-70b', 'mixtral-8x7b', 'llama4-scout']
+2026-06-04 18:50:53,104 | SIGMA-V4 | INFO | Pressure scaling [llama33-70b]: factor=0.85, base=2000, scaled=1700
+2026-06-04 18:50:53,104 | SIGMA-V4 | INFO | Token governor [llama33-70b]: prompt_est=273, ctx_window=131072, available=130499, scaled_cap=1700, governed=1700, budget_governed=False
+2026-06-04 18:50:53,105 | SIGMA-V4 | INFO | Pressure scaling [mixtral-8x7b]: factor=0.85, base=1500, scaled=1275
+2026-06-04 18:50:53,105 | SIGMA-V4 | INFO | Token governor [mixtral-8x7b]: prompt_est=273, ctx_window=32768, available=32195, scaled_cap=1275, governed=1275, budget_governed=False
+2026-06-04 18:50:53,106 | SIGMA-V4 | INFO | Pressure scaling [llama4-scout]: factor=0.85, base=1500, scaled=1275
+2026-06-04 18:50:53,106 | SIGMA-V4 | INFO | Token governor [llama4-scout]: prompt_est=273, ctx_window=131072, available=130499, scaled_cap=1275, governed=1275, budget_governed=False
+2026-06-04 18:50:54,351 | SIGMA-V4 | INFO | Model invocation: key=llama4-scout, provider=groq, success=True, response_len=2009
+2026-06-04 18:50:55,069 | SIGMA-V4 | INFO | Model invocation: key=llama33-70b, provider=groq, success=True, response_len=2213
+2026-06-04 18:51:06,231 | SIGMA-V4 | INFO | Model invocation: key=mixtral-8x7b, provider=groq, success=True, response_len=4306
+2026-06-04 18:51:06,232 | SIGMA-V4 | INFO |   Model 'Llama 3.3 70B': success=True, output_len=2213, error=none
+2026-06-04 18:51:06,232 | SIGMA-V4 | INFO |   Model 'Qwen3 32B': success=True, output_len=4306, error=none
+2026-06-04 18:51:06,232 | SIGMA-V4 | INFO |   Model 'Llama 4 Scout 17B': success=True, output_len=2009, error=none
+2026-06-04 18:51:06,240 | SIGMA-V4 | INFO |   Llama 3.3 70B: T=0.008 K=0.500 S=0.223 C=1.000 D=0.992 → Final=0.162
+2026-06-04 18:51:06,240 | SIGMA-V4 | INFO |   Qwen3 32B: T=-0.056 K=0.500 S=0.287 C=1.000 D=1.056 → Final=0.143
+2026-06-04 18:51:06,240 | SIGMA-V4 | INFO |   Llama 4 Scout 17B: T=-0.131 K=0.500 S=0.160 C=1.000 D=1.131 → Final=0.090
+2026-06-04 18:51:06,245 | SIGMA-V4 | WARNING | Redis persist failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:51:06,245 | SIGMA-V4 | INFO | Query processed in 13149ms. Winner: Llama 3.3 70B (score=0.162)
+2026-06-04 18:51:06,246 | SIGMA-V4 | WARNING | Failed to generate visualizations for chat fda01ed3-099f-46e5-a961-4b01c8edcd01: 1 validation error for StructuredModelOutput
+model_name
+  Field required [type=missing, input_value={'model_id': 'Llama 3.3 7...nteraction experience."}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+2026-06-04 18:51:07,758 | SIGMA-V4 | WARNING | vector status pinecone=fail op=upsert error=The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:51:08,930 | SIGMA-V4 | INFO | [994fe743] POST /api/mco/run → 200 (18612.7ms)
+2026-06-04 18:51:09,066 | SIGMA-V4 | INFO | HTTP Request: POST http://testserver/api/mco/run "HTTP/1.1 200 OK"
+2026-06-04 18:51:09,070 | SIGMA-V4 | INFO | Entering /api/mco/run
+2026-06-04 18:51:09,070 | SIGMA-V4 | INFO | /api/mco/run user authenticated=True
+2026-06-04 18:51:09,070 | SIGMA-V4 | INFO | /api/mco/run payload keys=['query', 'mode', 'sub_mode']
+2026-06-04 18:51:09,071 | SIGMA-V4 | INFO | /api/mco/run registry keys=['llama33-70b', 'mixtral-8x7b', 'llama4-scout', 'qwen-2.5-vl', 'gemini-flash', 'llama31-8b', 'mistral-large-675b', 'kimi-k2-thinking', 'claude-sonnet-4.6']
+2026-06-04 18:51:11,779 | SIGMA-V4 | WARNING | vector status pinecone=fail op=upsert error=The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:51:11,929 | SIGMA-V4 | WARNING | Context build skipped: get_context_builder() got an unexpected keyword argument 'max_tokens'
+2026-06-04 18:51:11,930 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive mode 'evidence' active — overriding model selection 'llama33-70b'
+2026-06-04 18:51:11,930 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive engine loaded = True
+2026-06-04 18:51:11,930 | SIGMA-V4 | INFO | [RETRIEVAL DEBUG] force_retrieval=False
+2026-06-04 18:51:11,930 | SIGMA-V4 | INFO | Processing query [experimental]: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+What is the evidence for d...
+2026-06-04 18:51:11,932 | SIGMA-V4 | WARNING | Redis restore failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:51:11,932 | SIGMA-V4 | INFO | Session created: 496157c1-17f7-402e-a73b-747ecd6deaad (mode=experimental, model=None)
+2026-06-04 18:51:11,932 | SIGMA-V4 | INFO | Retrieval mandatory: volatility=1.000 (threshold=0.35)
+2026-06-04 18:51:11,932 | SIGMA-V4 | INFO | Volatility 1.000 > threshold 0.35. Web retrieval mandatory.
+2026-06-04 18:51:11,932 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:11,932 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:11,933 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:11,933 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:11,933 | SIGMA-V4 | INFO | Retrieval confidence 0.000 < 0.4. Long-tail expansion triggered.
+2026-06-04 18:51:11,933 | SIGMA-V4 | INFO | Long-tail expansion for: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+What is the evidence for d (domain: general)
+2026-06-04 18:51:11,933 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:11,933 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:11,933 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:11,933 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000, 0ms
+2026-06-04 18:51:11,933 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000
+2026-06-04 18:51:11,933 | SIGMA-V4 | INFO | Simple query — reduced to 3 models
+2026-06-04 18:51:11,935 | SIGMA-V4 | INFO | Invoking 3 models: ['llama33-70b', 'mixtral-8x7b', 'llama4-scout']
+2026-06-04 18:51:11,935 | SIGMA-V4 | INFO | Pressure scaling [llama33-70b]: factor=0.85, base=2000, scaled=1700
+2026-06-04 18:51:11,935 | SIGMA-V4 | INFO | Token governor [llama33-70b]: prompt_est=270, ctx_window=131072, available=130502, scaled_cap=1700, governed=1700, budget_governed=False
+2026-06-04 18:51:11,936 | SIGMA-V4 | INFO | Pressure scaling [mixtral-8x7b]: factor=0.85, base=1500, scaled=1275
+2026-06-04 18:51:11,936 | SIGMA-V4 | INFO | Token governor [mixtral-8x7b]: prompt_est=270, ctx_window=32768, available=32198, scaled_cap=1275, governed=1275, budget_governed=False
+2026-06-04 18:51:11,936 | SIGMA-V4 | INFO | Pressure scaling [llama4-scout]: factor=0.85, base=1500, scaled=1275
+2026-06-04 18:51:11,936 | SIGMA-V4 | INFO | Token governor [llama4-scout]: prompt_est=270, ctx_window=131072, available=130502, scaled_cap=1275, governed=1275, budget_governed=False
+2026-06-04 18:51:13,400 | SIGMA-V4 | INFO | Model invocation: key=llama33-70b, provider=groq, success=True, response_len=2426
+2026-06-04 18:51:14,422 | SIGMA-V4 | INFO | Model invocation: key=llama4-scout, provider=groq, success=True, response_len=3031
+2026-06-04 18:51:16,991 | SIGMA-V4 | WARNING | [Qwen3 32B] Transient error 503 on attempt 1 — retrying in 1.0s
+2026-06-04 18:51:24,561 | SIGMA-V4 | INFO | Model invocation: key=mixtral-8x7b, provider=groq, success=True, response_len=4893
+2026-06-04 18:51:24,563 | SIGMA-V4 | INFO |   Model 'Llama 3.3 70B': success=True, output_len=2426, error=none
+2026-06-04 18:51:24,563 | SIGMA-V4 | INFO |   Model 'Qwen3 32B': success=True, output_len=4893, error=none
+2026-06-04 18:51:24,563 | SIGMA-V4 | INFO |   Model 'Llama 4 Scout 17B': success=True, output_len=3031, error=none
+2026-06-04 18:51:24,572 | SIGMA-V4 | INFO |   Llama 3.3 70B: T=-0.054 K=0.500 S=0.182 C=1.000 D=1.054 → Final=0.128
+2026-06-04 18:51:24,572 | SIGMA-V4 | INFO |   Qwen3 32B: T=-0.057 K=0.500 S=0.215 C=1.000 D=1.057 → Final=0.131
+2026-06-04 18:51:24,572 | SIGMA-V4 | INFO |   Llama 4 Scout 17B: T=-0.058 K=0.500 S=0.155 C=1.000 D=1.058 → Final=0.122
+2026-06-04 18:51:24,579 | SIGMA-V4 | WARNING | Redis persist failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:51:24,579 | SIGMA-V4 | INFO | Unresolved question scheduled for daemon refinement
+2026-06-04 18:51:24,579 | SIGMA-V4 | INFO | Query processed in 12650ms. Winner: Qwen3 32B (score=0.131)
+2026-06-04 18:51:24,580 | SIGMA-V4 | WARNING | Failed to generate visualizations for chat 496157c1-17f7-402e-a73b-747ecd6deaad: 1 validation error for StructuredModelOutput
+model_name
+  Field required [type=missing, input_value={'model_id': 'Llama 3.3 7...ext about dark matter?"}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+2026-06-04 18:51:24,581 | SIGMA-V4 | INFO | Evidence Engine: Tavily client initialized.
+2026-06-04 18:51:24,581 | SIGMA-V4 | INFO | Evidence Engine: Serper API initialized.
+2026-06-04 18:51:25,803 | SIGMA-V4 | INFO | Evidence search complete: 5 sources, 0 contradictions, confidence=0.8656
+2026-06-04 18:51:27,264 | SIGMA-V4 | WARNING | vector status pinecone=fail op=upsert error=The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:51:28,515 | SIGMA-V4 | INFO | [e0f7eb24] POST /api/mco/run → 200 (19446.5ms)
+2026-06-04 18:51:28,643 | SIGMA-V4 | INFO | HTTP Request: POST http://testserver/api/mco/run "HTTP/1.1 200 OK"
+2026-06-04 18:51:28,649 | SIGMA-V4 | INFO | Entering /api/mco/run
+2026-06-04 18:51:28,649 | SIGMA-V4 | INFO | /api/mco/run user authenticated=True
+2026-06-04 18:51:28,649 | SIGMA-V4 | INFO | /api/mco/run payload keys=['query', 'mode', 'sub_mode']
+2026-06-04 18:51:28,649 | SIGMA-V4 | INFO | /api/mco/run registry keys=['llama33-70b', 'mixtral-8x7b', 'llama4-scout', 'qwen-2.5-vl', 'gemini-flash', 'llama31-8b', 'mistral-large-675b', 'kimi-k2-thinking', 'claude-sonnet-4.6']
+2026-06-04 18:51:31,599 | SIGMA-V4 | WARNING | vector status pinecone=fail op=upsert error=The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:51:31,775 | SIGMA-V4 | WARNING | Context build skipped: get_context_builder() got an unexpected keyword argument 'max_tokens'
+2026-06-04 18:51:31,775 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive mode 'synthesis' active — overriding model selection 'llama33-70b'
+2026-06-04 18:51:31,776 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive engine loaded = True
+2026-06-04 18:51:31,776 | SIGMA-V4 | INFO | [RETRIEVAL DEBUG] force_retrieval=False
+2026-06-04 18:51:31,776 | SIGMA-V4 | INFO | Processing query [experimental]: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+Summarize the theories of ...
+2026-06-04 18:51:31,778 | SIGMA-V4 | WARNING | Redis restore failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:51:31,779 | SIGMA-V4 | INFO | Session created: 27d1013c-e731-4e50-ae23-6e4bbb8ac769 (mode=experimental, model=None)
+2026-06-04 18:51:31,779 | SIGMA-V4 | INFO | Retrieval mandatory: volatility=1.000 (threshold=0.35)
+2026-06-04 18:51:31,779 | SIGMA-V4 | INFO | Volatility 1.000 > threshold 0.35. Web retrieval mandatory.
+2026-06-04 18:51:31,779 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:31,779 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:31,779 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:31,780 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:31,780 | SIGMA-V4 | INFO | Retrieval confidence 0.000 < 0.4. Long-tail expansion triggered.
+2026-06-04 18:51:31,780 | SIGMA-V4 | INFO | Long-tail expansion for: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+Summarize the theories of  (domain: general)
+2026-06-04 18:51:31,780 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:31,780 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:31,780 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:51:31,780 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000, 1ms
+2026-06-04 18:51:31,780 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000
+2026-06-04 18:51:31,780 | SIGMA-V4 | INFO | Simple query — reduced to 3 models
+2026-06-04 18:51:31,780 | SIGMA-V4 | INFO | Invoking 3 models: ['llama33-70b', 'mixtral-8x7b', 'llama4-scout']
+2026-06-04 18:51:31,781 | SIGMA-V4 | INFO | Pressure scaling [llama33-70b]: factor=0.85, base=2000, scaled=1700
+2026-06-04 18:51:31,781 | SIGMA-V4 | INFO | Token governor [llama33-70b]: prompt_est=339, ctx_window=131072, available=130433, scaled_cap=1700, governed=1700, budget_governed=False
+2026-06-04 18:51:31,782 | SIGMA-V4 | INFO | Pressure scaling [mixtral-8x7b]: factor=0.85, base=1500, scaled=1275
+2026-06-04 18:51:31,782 | SIGMA-V4 | INFO | Token governor [mixtral-8x7b]: prompt_est=339, ctx_window=32768, available=32129, scaled_cap=1275, governed=1275, budget_governed=False
+2026-06-04 18:51:31,782 | SIGMA-V4 | INFO | Pressure scaling [llama4-scout]: factor=0.85, base=1500, scaled=1275
+2026-06-04 18:51:31,782 | SIGMA-V4 | INFO | Token governor [llama4-scout]: prompt_est=339, ctx_window=131072, available=130433, scaled_cap=1275, governed=1275, budget_governed=False
+2026-06-04 18:51:34,027 | SIGMA-V4 | INFO | Model invocation: key=llama33-70b, provider=groq, success=True, response_len=3473
+2026-06-04 18:51:34,978 | SIGMA-V4 | INFO | Model invocation: key=llama4-scout, provider=groq, success=True, response_len=4298
+2026-06-04 18:51:56,785 | SIGMA-V4 | ERROR | [Qwen3 32B] Server timeout (groq): Timeout on reading data from socket
+2026-06-04 18:51:56,787 | SIGMA-V4 | ERROR | [GROQ ERROR] model=qwen/qwen3-32b status=0 body=Timeout: Timeout on reading data from socket
+2026-06-04 18:51:56,787 | SIGMA-V4 | INFO | Model invocation: key=mixtral-8x7b, provider=groq, success=False, response_len=0
+2026-06-04 18:51:56,788 | SIGMA-V4 | INFO |   Model 'Llama 3.3 70B': success=True, output_len=3473, error=none
+2026-06-04 18:51:56,788 | SIGMA-V4 | INFO |   Model 'Qwen3 32B': success=False, output_len=0, error=Provider error (HTTP 0)
+2026-06-04 18:51:56,788 | SIGMA-V4 | INFO |   Model 'Llama 4 Scout 17B': success=True, output_len=4298, error=none
+2026-06-04 18:51:56,795 | SIGMA-V4 | INFO |   Llama 3.3 70B: T=-0.003 K=0.500 S=0.436 C=1.000 D=1.003 → Final=0.189
+2026-06-04 18:51:56,795 | SIGMA-V4 | INFO |   Qwen3 32B: T=0.000 K=0.000 S=0.000 C=0.000 D=1.000 → Final=0.000
+2026-06-04 18:51:56,795 | SIGMA-V4 | INFO |   Llama 4 Scout 17B: T=-0.169 K=0.500 S=0.442 C=1.000 D=1.169 → Final=0.115
+2026-06-04 18:51:56,805 | SIGMA-V4 | WARNING | Redis persist failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:51:56,805 | SIGMA-V4 | INFO | Query processed in 25030ms. Winner: Llama 3.3 70B (score=0.189)
+2026-06-04 18:51:56,806 | SIGMA-V4 | WARNING | Failed to generate visualizations for chat 27d1013c-e731-4e50-ae23-6e4bbb8ac769: 1 validation error for StructuredModelOutput
+model_name
+  Field required [type=missing, input_value={'model_id': 'Llama 3.3 7... Theory (pp. 790-794).'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+2026-06-04 18:51:58,355 | SIGMA-V4 | WARNING | vector status pinecone=fail op=upsert error=The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:51:59,635 | SIGMA-V4 | INFO | [06396bbc] POST /api/mco/run → 200 (30988.1ms)
+2026-06-04 18:51:59,782 | SIGMA-V4 | INFO | HTTP Request: POST http://testserver/api/mco/run "HTTP/1.1 200 OK"
+2026-06-04 18:51:59,788 | SIGMA-V4 | INFO | Entering /api/mco/run
+2026-06-04 18:51:59,788 | SIGMA-V4 | INFO | /api/mco/run user authenticated=True
+2026-06-04 18:51:59,788 | SIGMA-V4 | INFO | /api/mco/run payload keys=['query', 'force_retrieval']
+2026-06-04 18:51:59,788 | SIGMA-V4 | INFO | /api/mco/run registry keys=['llama33-70b', 'mixtral-8x7b', 'llama4-scout', 'qwen-2.5-vl', 'gemini-flash', 'llama31-8b', 'mistral-large-675b', 'kimi-k2-thinking', 'claude-sonnet-4.6']
+2026-06-04 18:52:02,853 | SIGMA-V4 | WARNING | vector status pinecone=fail op=upsert error=The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:52:03,020 | SIGMA-V4 | WARNING | Context build skipped: get_context_builder() got an unexpected keyword argument 'max_tokens'
+2026-06-04 18:52:03,020 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive engine loaded = True
+2026-06-04 18:52:03,020 | SIGMA-V4 | INFO | [RETRIEVAL DEBUG] force_retrieval=True
+2026-06-04 18:52:03,021 | SIGMA-V4 | INFO | Processing query [standard]: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+When is Monaco GP 2026?...
+2026-06-04 18:52:03,025 | SIGMA-V4 | WARNING | Redis restore failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:52:03,026 | SIGMA-V4 | INFO | Session created: 9c15b5fa-9407-43ab-87b7-510d9175fe4d (mode=standard, model=None)
+2026-06-04 18:52:03,026 | SIGMA-V4 | INFO | Retrieval mandatory: volatility=1.000 (threshold=0.35)
+2026-06-04 18:52:03,027 | SIGMA-V4 | INFO | Volatility 1.000 > threshold 0.35. Web retrieval mandatory.
+2026-06-04 18:52:03,029 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:52:03,029 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:52:03,029 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:52:03,029 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:52:03,029 | SIGMA-V4 | INFO | Retrieval confidence 0.000 < 0.4. Long-tail expansion triggered.
+2026-06-04 18:52:03,029 | SIGMA-V4 | INFO | Long-tail expansion for: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+When is Monaco GP 2026? (domain: general)
+2026-06-04 18:52:03,029 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:52:03,029 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:52:03,030 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:52:03,030 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000, 3ms
+2026-06-04 18:52:03,030 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000
+2026-06-04 18:52:03,031 | SIGMA-V4 | INFO | Single Model Focus: llama33-70b
+2026-06-04 18:52:03,031 | SIGMA-V4 | INFO | Invoking 1 models: ['llama33-70b']
+2026-06-04 18:52:03,032 | SIGMA-V4 | INFO | Pressure scaling [llama33-70b]: factor=0.85, base=2000, scaled=1700
+2026-06-04 18:52:03,032 | SIGMA-V4 | INFO | Token governor [llama33-70b]: prompt_est=258, ctx_window=131072, available=130514, scaled_cap=1700, governed=1700, budget_governed=False
+2026-06-04 18:52:03,780 | SIGMA-V4 | INFO | Model invocation: key=llama33-70b, provider=groq, success=True, response_len=595
+2026-06-04 18:52:03,780 | SIGMA-V4 | INFO |   Model 'Llama 3.3 70B': success=True, output_len=595, error=none
+2026-06-04 18:52:03,782 | SIGMA-V4 | INFO |   Llama 3.3 70B: T=-0.005 K=0.500 S=0.110 C=1.000 D=1.005 → Final=0.139
+2026-06-04 18:52:03,784 | SIGMA-V4 | WARNING | Redis persist failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:52:03,785 | SIGMA-V4 | INFO | Unresolved question scheduled for daemon refinement
+2026-06-04 18:52:03,785 | SIGMA-V4 | INFO | Query processed in 764ms. Winner: Llama 3.3 70B (score=0.139)
+2026-06-04 18:52:03,785 | SIGMA-V4 | WARNING | Failed to generate visualizations for chat 9c15b5fa-9407-43ab-87b7-510d9175fe4d: 1 validation error for StructuredModelOutput
+model_name
+  Field required [type=missing, input_value={'model_id': 'Llama 3.3 7...e dates are confirmed?"}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+2026-06-04 18:52:04,901 | SIGMA-V4 | WARNING | vector status pinecone=fail op=upsert error=The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK.
+2026-06-04 18:52:05,810 | SIGMA-V4 | INFO | [89a0f82f] POST /api/mco/run → 200 (6025.0ms)
+2026-06-04 18:52:05,951 | SIGMA-V4 | INFO | HTTP Request: POST http://testserver/api/mco/run "HTTP/1.1 200 OK"
+2026-06-04 18:52:05,953 | SIGMA-V4 | INFO | Shutting down Sentinel-E v5.0...
+
+==================================================
+TEST: Standard Mode
+==================================================
+Payload: {"query": "hello", "mode": "standard"}
+routing_debug:
+{
+  "mode": "standard",
+  "sub_mode": null,
+  "effective_sub_mode": null,
+  "selected_model": "llama33-70b",
+  "execution_path": "single_model",
+  "force_retrieval": false
+}
+
+==================================================
+TEST: Debate Mode
+==================================================
+Payload: {"query": "Compare AGI timelines from optimistic and skeptical viewpoints.", "mode": "experimental", "sub_mode": "debate"}
+ERROR: routing_debug not found in response
+{
+  "chat_id": "2cdaee40-bb56-4ab6-8039-799ae7221984",
+  "session_id": "2cdaee40-bb56-4ab6-8039-799ae7221984",
+  "mode": "debate",
+  "sub_mode": "debate",
+  "formatted_output": "Let's dive into a balanced comparison of AGI timelines from both optimistic and skeptical viewpoints.\n\nThe development of Artificial General Intelligence (AGI) is a complex and multifaceted endeavor,\n\n**Optimistic Viewpoint**: Proponents of an optimistic timeline point to the exponential growth in computing power, th
+
+==================================================
+TEST: Glass Mode
+==================================================
+Payload: {"query": "Explain how this system works internally.", "mode": "experimental", "sub_mode": "glass"}
+routing_debug:
+{
+  "mode": "experimental",
+  "sub_mode": "glass",
+  "effective_sub_mode": "glass",
+  "selected_model": null,
+  "execution_path": "cognitive_core",
+  "force_retrieval": false
+}
+
+==================================================
+TEST: Evidence Mode
+==================================================
+Payload: {"query": "What is the evidence for dark matter?", "mode": "experimental", "sub_mode": "evidence"}
+routing_debug:
+{
+  "mode": "experimental",
+  "sub_mode": "evidence",
+  "effective_sub_mode": "evidence",
+  "selected_model": null,
+  "execution_path": "cognitive_core",
+  "force_retrieval": false
+}
+
+==================================================
+TEST: Synthesis Mode
+==================================================
+Payload: {"query": "Summarize the theories of quantum gravity.", "mode": "experimental", "sub_mode": "synthesis"}
+routing_debug:
+{
+  "mode": "experimental",
+  "sub_mode": "synthesis",
+  "effective_sub_mode": "synthesis",
+  "selected_model": null,
+  "execution_path": "cognitive_core",
+  "force_retrieval": false
+}
+
+==================================================
+TEST: Retrieval
+==================================================
+Payload: {"query": "When is Monaco GP 2026?", "force_retrieval": true}
+routing_debug:
+{
+  "mode": "standard",
+  "sub_mode": null,
+  "effective_sub_mode": null,
+  "selected_model": "llama33-70b",
+  "execution_path": "single_model",
+  "force_retrieval": true
+}
+ailed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:42,617 | SIGMA-V4 | INFO | Retrieval confidence 0.000 < 0.4. Long-tail expansion triggered.
+2026-06-04 18:49:42,617 | SIGMA-V4 | INFO | Long-tail expansion for: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+What is the evidence for d (domain: general)
+2026-06-04 18:49:42,617 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:42,617 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:42,617 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:42,617 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000, 1ms
+2026-06-04 18:49:42,617 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000
+2026-06-04 18:49:42,618 | SIGMA-V4 | INFO | Simple query — reduced to 3 models
+2026-06-04 18:49:42,618 | SIGMA-V4 | INFO | Invoking 3 models: ['llama33-70b', 'mixtral-8x7b', 'llama4-scout']
+2026-06-04 18:49:42,618 | SIGMA-V4 | INFO | Token governor [llama33-70b]: prompt_est=270, ctx_window=131072, available=130502, scaled_cap=2000, governed=2000, budget_governed=False
+2026-06-04 18:49:42,619 | SIGMA-V4 | INFO | Token governor [mixtral-8x7b]: prompt_est=270, ctx_window=32768, available=32198, scaled_cap=1500, governed=1500, budget_governed=False
+2026-06-04 18:49:42,619 | SIGMA-V4 | INFO | Token governor [llama4-scout]: prompt_est=270, ctx_window=131072, available=130502, scaled_cap=1500, governed=1500, budget_governed=False
+2026-06-04 18:49:44,207 | SIGMA-V4 | INFO | Model invocation: key=llama33-70b, provider=groq, success=True, response_len=3033
+2026-06-04 18:49:44,553 | SIGMA-V4 | INFO | Model invocation: key=llama4-scout, provider=groq, success=True, response_len=3472
+2026-06-04 18:49:48,469 | SIGMA-V4 | INFO | Model invocation: key=mixtral-8x7b, provider=groq, success=True, response_len=4749
+2026-06-04 18:49:48,469 | SIGMA-V4 | INFO |   Model 'Llama 3.3 70B': success=True, output_len=3033, error=none
+2026-06-04 18:49:48,469 | SIGMA-V4 | INFO |   Model 'Qwen3 32B': success=True, output_len=4749, error=none
+2026-06-04 18:49:48,469 | SIGMA-V4 | INFO |   Model 'Llama 4 Scout 17B': success=True, output_len=3472, error=none
+2026-06-04 18:49:48,480 | SIGMA-V4 | INFO |   Llama 3.3 70B: T=-0.125 K=0.500 S=0.180 C=1.000 D=1.125 → Final=0.096
+2026-06-04 18:49:48,480 | SIGMA-V4 | INFO |   Qwen3 32B: T=0.157 K=0.500 S=0.231 C=1.000 D=0.843 → Final=0.230
+2026-06-04 18:49:48,480 | SIGMA-V4 | INFO |   Llama 4 Scout 17B: T=0.102 K=0.500 S=0.170 C=1.000 D=0.898 → Final=0.196
+2026-06-04 18:49:48,487 | SIGMA-V4 | WARNING | Redis persist failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:49:48,487 | SIGMA-V4 | INFO | Unresolved question scheduled for daemon refinement
+2026-06-04 18:49:48,487 | SIGMA-V4 | INFO | Query processed in 5874ms. Winner: Qwen3 32B (score=0.230)
+2026-06-04 18:49:48,487 | SIGMA-V4 | WARNING | Failed to generate visualizations for chat 5098f886-34c0-440e-8468-35cf8d8961a9: 1 validation error for StructuredModelOutput
+model_name
+  Field required [type=missing, input_value={'model_id': 'Llama 3.3 7...operties and behavior."}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+2026-06-04 18:49:48,489 | SIGMA-V4 | INFO | Evidence Engine: Tavily client initialized.
+2026-06-04 18:49:48,489 | SIGMA-V4 | INFO | Evidence Engine: Serper API initialized.
+2026-06-04 18:49:49,738 | SIGMA-V4 | INFO | Evidence search complete: 5 sources, 0 contradictions, confidence=0.8656
+2026-06-04 18:49:50,164 | SIGMA-V4 | WARNING | add_message full write failed ((raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "updated_at" of relation "messages" violates not-null constraint
+DETAIL:  Failing row contains (8de9a2ad-dc06-4cc7-83fb-cbd70f01be20, 5098f886-34c0-440e-8468-35cf8d8961a9, 00000000-0000-0000-0000-000000000000, assistant, <think>
+Okay, the user is asking about the evidence for dark mat..., {"mode": "experimental", "sub_mode": "evidence", "confidence": 0..., null, null, f, 2026-06-04 13:19:49.746408, null, null).
+[SQL: INSERT INTO messages (id, chat_id, user_id, role, content, reasoning_json, image_b64, metadata_json, is_deleted, created_at) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::JSONB, $7::VARCHAR, $8::JSONB, $9::BOOLEAN, $10::TIMESTAMP WITHOUT TIME ZONE)]
+[parameters: (UUID('8de9a2ad-dc06-4cc7-83fb-cbd70f01be20'), UUID('5098f886-34c0-440e-8468-35cf8d8961a9'), '00000000-0000-0000-0000-000000000000', 'assistant', '<think>\nOkay, the user is asking about the evidence for dark matter. Let me start by recalling the main pieces of evidence. First, there\'s the gala ... (4514 characters truncated) ... ce hinges on indirect evidence. While the case is strong, the scientific community continues to explore alternatives and search for direct detection.', '{"mode": "experimental", "sub_mode": "evidence", "confidence": 0.2302, "winning_model": "Qwen3 32B", "model_count": 3, "latency_ms": 5874.0, "drift_s ... (119034 characters truncated) ... : {"Llama 3.3 70B": 0.0957, "Qwen3 32B": 0.2302, "Llama 4 Scout 17B": 0.1962}}, "drift_score": 0.0, "volatility_score": 1.0, "refinement_cycles": 0}}', None, 'null', False, datetime.datetime(2026, 6, 4, 13, 19, 49, 746408))]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)), retrying minimal write
+2026-06-04 18:49:50,909 | SIGMA-V4 | ERROR | add_message minimal fallback failed for chat 5098f886-34c0-440e-8468-35cf8d8961a9: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "updated_at" of relation "messages" violates not-null constraint
+DETAIL:  Failing row contains (c49b5770-9d69-40f6-bfb7-d33450059210, 5098f886-34c0-440e-8468-35cf8d8961a9, 00000000-0000-0000-0000-000000000000, assistant, <think>
+Okay, the user is asking about the evidence for dark mat..., null, null, null, f, 2026-06-04 13:19:50.65583, null, null).
+[SQL: INSERT INTO messages (id, chat_id, user_id, role, content, reasoning_json, image_b64, metadata_json, is_deleted, created_at) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::JSONB, $7::VARCHAR, $8::JSONB, $9::BOOLEAN, $10::TIMESTAMP WITHOUT TIME ZONE)]
+[parameters: (UUID('c49b5770-9d69-40f6-bfb7-d33450059210'), UUID('5098f886-34c0-440e-8468-35cf8d8961a9'), '00000000-0000-0000-0000-000000000000', 'assistant', '<think>\nOkay, the user is asking about the evidence for dark matter. Let me start by recalling the main pieces of evidence. First, there\'s the gala ... (3755 characters truncated) ... on budget show this is insufficient.\n\n- **Lack of Direct Detection**  \n  - Despite experiments like XENON and LUX, dark matter particles (e.g., WI', 'null', None, 'null', False, datetime.datetime(2026, 6, 4, 13, 19, 50, 655830))]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)
+2026-06-04 18:49:53,218 | SIGMA-V4 | INFO | [fb92677a] POST /api/mco/run → 200 (14101.9ms)
+2026-06-04 18:49:53,387 | SIGMA-V4 | INFO | HTTP Request: POST http://testserver/api/mco/run "HTTP/1.1 200 OK"
+2026-06-04 18:49:53,392 | SIGMA-V4 | INFO | Entering /api/mco/run
+2026-06-04 18:49:53,392 | SIGMA-V4 | INFO | /api/mco/run user authenticated=True
+2026-06-04 18:49:53,392 | SIGMA-V4 | INFO | /api/mco/run payload keys=['query', 'mode', 'sub_mode']
+2026-06-04 18:49:53,392 | SIGMA-V4 | INFO | /api/mco/run registry keys=['llama33-70b', 'mixtral-8x7b', 'llama4-scout', 'qwen-2.5-vl', 'gemini-flash', 'llama31-8b', 'mistral-large-675b', 'kimi-k2-thinking', 'claude-sonnet-4.6']
+2026-06-04 18:49:55,316 | SIGMA-V4 | WARNING | add_message full write failed ((raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "updated_at" of relation "messages" violates not-null constraint
+DETAIL:  Failing row contains (bb191dbf-a7e9-422d-9d33-4961d47800a9, 73e58ece-2444-40cb-a847-4069bf504ca9, 00000000-0000-0000-0000-000000000000, user, Summarize the theories of quantum gravity., null, null, null, f, 2026-06-04 13:19:55.100389, null, null).
+[SQL: INSERT INTO messages (id, chat_id, user_id, role, content, reasoning_json, image_b64, metadata_json, is_deleted, created_at) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::JSONB, $7::VARCHAR, $8::JSONB, $9::BOOLEAN, $10::TIMESTAMP WITHOUT TIME ZONE)]
+[parameters: (UUID('bb191dbf-a7e9-422d-9d33-4961d47800a9'), UUID('73e58ece-2444-40cb-a847-4069bf504ca9'), '00000000-0000-0000-0000-000000000000', 'user', 'Summarize the theories of quantum gravity.', 'null', None, 'null', False, datetime.datetime(2026, 6, 4, 13, 19, 55, 100389))]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)), retrying minimal write
+2026-06-04 18:49:56,069 | SIGMA-V4 | ERROR | add_message minimal fallback failed for chat 73e58ece-2444-40cb-a847-4069bf504ca9: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "updated_at" of relation "messages" violates not-null constraint
+DETAIL:  Failing row contains (d7911e9a-e4ca-4fc6-b1f3-85622c051244, 73e58ece-2444-40cb-a847-4069bf504ca9, 00000000-0000-0000-0000-000000000000, user, Summarize the theories of quantum gravity., null, null, null, f, 2026-06-04 13:19:55.813893, null, null).
+[SQL: INSERT INTO messages (id, chat_id, user_id, role, content, reasoning_json, image_b64, metadata_json, is_deleted, created_at) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::JSONB, $7::VARCHAR, $8::JSONB, $9::BOOLEAN, $10::TIMESTAMP WITHOUT TIME ZONE)]
+[parameters: (UUID('d7911e9a-e4ca-4fc6-b1f3-85622c051244'), UUID('73e58ece-2444-40cb-a847-4069bf504ca9'), '00000000-0000-0000-0000-000000000000', 'user', 'Summarize the theories of quantum gravity.', 'null', None, 'null', False, datetime.datetime(2026, 6, 4, 13, 19, 55, 813893))]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)
+2026-06-04 18:49:56,831 | SIGMA-V4 | WARNING | Context build skipped: get_context_builder() got an unexpected keyword argument 'max_tokens'
+2026-06-04 18:49:56,831 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive mode 'synthesis' active — overriding model selection 'llama33-70b'
+2026-06-04 18:49:56,831 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive engine loaded = True
+2026-06-04 18:49:56,831 | SIGMA-V4 | INFO | [RETRIEVAL DEBUG] force_retrieval=False
+2026-06-04 18:49:56,832 | SIGMA-V4 | INFO | Processing query [experimental]: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+Summarize the theories of ...
+2026-06-04 18:49:56,834 | SIGMA-V4 | WARNING | Redis restore failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:49:56,834 | SIGMA-V4 | INFO | Session created: 73e58ece-2444-40cb-a847-4069bf504ca9 (mode=experimental, model=None)
+2026-06-04 18:49:56,835 | SIGMA-V4 | INFO | Retrieval mandatory: volatility=1.000 (threshold=0.35)
+2026-06-04 18:49:56,835 | SIGMA-V4 | INFO | Volatility 1.000 > threshold 0.35. Web retrieval mandatory.
+2026-06-04 18:49:56,835 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:56,835 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:56,835 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:56,835 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:56,835 | SIGMA-V4 | INFO | Retrieval confidence 0.000 < 0.4. Long-tail expansion triggered.
+2026-06-04 18:49:56,835 | SIGMA-V4 | INFO | Long-tail expansion for: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+Summarize the theories of  (domain: general)
+2026-06-04 18:49:56,835 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:56,836 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:56,836 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:49:56,836 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000, 1ms
+2026-06-04 18:49:56,836 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000
+2026-06-04 18:49:56,836 | SIGMA-V4 | INFO | Simple query — reduced to 3 models
+2026-06-04 18:49:56,837 | SIGMA-V4 | INFO | Invoking 3 models: ['llama33-70b', 'mixtral-8x7b', 'llama4-scout']
+2026-06-04 18:49:56,837 | SIGMA-V4 | INFO | Token governor [llama33-70b]: prompt_est=339, ctx_window=131072, available=130433, scaled_cap=2000, governed=2000, budget_governed=False
+2026-06-04 18:49:56,838 | SIGMA-V4 | INFO | Token governor [mixtral-8x7b]: prompt_est=339, ctx_window=32768, available=32129, scaled_cap=1500, governed=1500, budget_governed=False
+2026-06-04 18:49:56,838 | SIGMA-V4 | INFO | Token governor [llama4-scout]: prompt_est=339, ctx_window=131072, available=130433, scaled_cap=1500, governed=1500, budget_governed=False
+2026-06-04 18:49:59,364 | SIGMA-V4 | INFO | Model invocation: key=llama33-70b, provider=groq, success=True, response_len=3722
+2026-06-04 18:50:00,892 | SIGMA-V4 | INFO | Model invocation: key=llama4-scout, provider=groq, success=True, response_len=3993
+2026-06-04 18:50:04,751 | SIGMA-V4 | INFO | Model invocation: key=mixtral-8x7b, provider=groq, success=True, response_len=6656
+2026-06-04 18:50:04,753 | SIGMA-V4 | INFO |   Model 'Llama 3.3 70B': success=True, output_len=3722, error=none
+2026-06-04 18:50:04,753 | SIGMA-V4 | INFO |   Model 'Qwen3 32B': success=True, output_len=6656, error=none
+2026-06-04 18:50:04,753 | SIGMA-V4 | INFO |   Model 'Llama 4 Scout 17B': success=True, output_len=3993, error=none
+2026-06-04 18:50:04,766 | SIGMA-V4 | INFO |   Llama 3.3 70B: T=0.106 K=0.500 S=0.439 C=1.000 D=0.894 → Final=0.238
+2026-06-04 18:50:04,767 | SIGMA-V4 | INFO |   Qwen3 32B: T=-0.119 K=0.500 S=0.334 C=1.000 D=1.119 → Final=0.121
+2026-06-04 18:50:04,767 | SIGMA-V4 | INFO |   Llama 4 Scout 17B: T=0.169 K=0.500 S=0.475 C=1.000 D=0.832 → Final=0.272
+2026-06-04 18:50:04,776 | SIGMA-V4 | WARNING | Redis persist failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:50:04,776 | SIGMA-V4 | INFO | Query processed in 7945ms. Winner: Llama 4 Scout 17B (score=0.272)
+2026-06-04 18:50:04,780 | SIGMA-V4 | WARNING | Failed to generate visualizations for chat 73e58ece-2444-40cb-a847-4069bf504ca9: 1 validation error for StructuredModelOutput
+model_name
+  Field required [type=missing, input_value={'model_id': 'Llama 3.3 7...Gravity (pp. 790-794).'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+2026-06-04 18:50:05,178 | SIGMA-V4 | WARNING | add_message full write failed ((raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "updated_at" of relation "messages" violates not-null constraint
+DETAIL:  Failing row contains (63ad6c30-df18-4741-84d9-a9ebb3bc7de4, 73e58ece-2444-40cb-a847-4069bf504ca9, 00000000-0000-0000-0000-000000000000, assistant, **Quantum Gravity Theories: A Balanced Summary**
+
+The quest for ..., {"mode": "experimental", "sub_mode": "synthesis", "confidence": ..., null, null, f, 2026-06-04 13:20:04.78882, null, null).
+[SQL: INSERT INTO messages (id, chat_id, user_id, role, content, reasoning_json, image_b64, metadata_json, is_deleted, created_at) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::JSONB, $7::VARCHAR, $8::JSONB, $9::BOOLEAN, $10::TIMESTAMP WITHOUT TIME ZONE)]
+[parameters: (UUID('63ad6c30-df18-4741-84d9-a9ebb3bc7de4'), UUID('73e58ece-2444-40cb-a847-4069bf504ca9'), '00000000-0000-0000-0000-000000000000', 'assistant', '**Quantum Gravity Theories: A Balanced Summary**\n\nThe quest for a unified theory of quantum gravity aims to merge two major areas of physics: gener ... (3753 characters truncated) ... g, F. (2012). Quantum gravity and the functional renormalization group. Springer.\n\n[5] Connes, A. (1994). Non-commutative geometry. Academic Press.', '{"mode": "experimental", "sub_mode": "synthesis", "confidence": 0.2722, "winning_model": "Llama 4 Scout 17B", "model_count": 3, "latency_ms": 7944.9, ... (65021 characters truncated) ... 413}, {"source": "draft", "target": "final", "type": "refined_into", "weight": 1.0}]}, "winning_model": "Llama 4 Scout 17B", "claude_active": false}}', None, 'null', False, datetime.datetime(2026, 6, 4, 13, 20, 4, 788820))]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)), retrying minimal write
+2026-06-04 18:50:06,051 | SIGMA-V4 | ERROR | add_message minimal fallback failed for chat 73e58ece-2444-40cb-a847-4069bf504ca9: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "updated_at" of relation "messages" violates not-null constraint
+DETAIL:  Failing row contains (6ef11ace-bc2c-42e3-93d4-608ab9f66a09, 73e58ece-2444-40cb-a847-4069bf504ca9, 00000000-0000-0000-0000-000000000000, assistant, **Quantum Gravity Theories: A Balanced Summary**
+
+The quest for ..., null, null, null, f, 2026-06-04 13:20:05.747299, null, null).
+[SQL: INSERT INTO messages (id, chat_id, user_id, role, content, reasoning_json, image_b64, metadata_json, is_deleted, created_at) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::JSONB, $7::VARCHAR, $8::JSONB, $9::BOOLEAN, $10::TIMESTAMP WITHOUT TIME ZONE)]
+[parameters: (UUID('6ef11ace-bc2c-42e3-93d4-608ab9f66a09'), UUID('73e58ece-2444-40cb-a847-4069bf504ca9'), '00000000-0000-0000-0000-000000000000', 'assistant', '**Quantum Gravity Theories: A Balanced Summary**\n\nThe quest for a unified theory of quantum gravity aims to merge two major areas of physics: gener ... (3753 characters truncated) ... g, F. (2012). Quantum gravity and the functional renormalization group. Springer.\n\n[5] Connes, A. (1994). Non-commutative geometry. Academic Press.', 'null', None, 'null', False, datetime.datetime(2026, 6, 4, 13, 20, 5, 747299))]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)
+2026-06-04 18:50:08,059 | SIGMA-V4 | INFO | [0fe3b7cb] POST /api/mco/run → 200 (14668.6ms)
+2026-06-04 18:50:08,244 | SIGMA-V4 | INFO | HTTP Request: POST http://testserver/api/mco/run "HTTP/1.1 200 OK"
+2026-06-04 18:50:08,252 | SIGMA-V4 | INFO | Entering /api/mco/run
+2026-06-04 18:50:08,252 | SIGMA-V4 | INFO | /api/mco/run user authenticated=True
+2026-06-04 18:50:08,252 | SIGMA-V4 | INFO | /api/mco/run payload keys=['query', 'force_retrieval']
+2026-06-04 18:50:08,252 | SIGMA-V4 | INFO | /api/mco/run registry keys=['llama33-70b', 'mixtral-8x7b', 'llama4-scout', 'qwen-2.5-vl', 'gemini-flash', 'llama31-8b', 'mistral-large-675b', 'kimi-k2-thinking', 'claude-sonnet-4.6']
+2026-06-04 18:50:10,303 | SIGMA-V4 | WARNING | add_message full write failed ((raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "updated_at" of relation "messages" violates not-null constraint
+DETAIL:  Failing row contains (4ee11fe3-2a3d-4ab8-80d1-9a31ccee3e30, f23272fa-60fe-4515-919d-39979ce40625, 00000000-0000-0000-0000-000000000000, user, When is Monaco GP 2026?, null, null, null, f, 2026-06-04 13:20:10.064388, null, null).
+[SQL: INSERT INTO messages (id, chat_id, user_id, role, content, reasoning_json, image_b64, metadata_json, is_deleted, created_at) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::JSONB, $7::VARCHAR, $8::JSONB, $9::BOOLEAN, $10::TIMESTAMP WITHOUT TIME ZONE)]
+[parameters: (UUID('4ee11fe3-2a3d-4ab8-80d1-9a31ccee3e30'), UUID('f23272fa-60fe-4515-919d-39979ce40625'), '00000000-0000-0000-0000-000000000000', 'user', 'When is Monaco GP 2026?', 'null', None, 'null', False, datetime.datetime(2026, 6, 4, 13, 20, 10, 64388))]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)), retrying minimal write
+2026-06-04 18:50:11,114 | SIGMA-V4 | ERROR | add_message minimal fallback failed for chat f23272fa-60fe-4515-919d-39979ce40625: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "updated_at" of relation "messages" violates not-null constraint
+DETAIL:  Failing row contains (95fac765-248f-4e18-83d2-017a1f9ef49f, f23272fa-60fe-4515-919d-39979ce40625, 00000000-0000-0000-0000-000000000000, user, When is Monaco GP 2026?, null, null, null, f, 2026-06-04 13:20:10.833454, null, null).
+[SQL: INSERT INTO messages (id, chat_id, user_id, role, content, reasoning_json, image_b64, metadata_json, is_deleted, created_at) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::JSONB, $7::VARCHAR, $8::JSONB, $9::BOOLEAN, $10::TIMESTAMP WITHOUT TIME ZONE)]
+[parameters: (UUID('95fac765-248f-4e18-83d2-017a1f9ef49f'), UUID('f23272fa-60fe-4515-919d-39979ce40625'), '00000000-0000-0000-0000-000000000000', 'user', 'When is Monaco GP 2026?', 'null', None, 'null', False, datetime.datetime(2026, 6, 4, 13, 20, 10, 833454))]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)
+2026-06-04 18:50:11,810 | SIGMA-V4 | WARNING | Context build skipped: get_context_builder() got an unexpected keyword argument 'max_tokens'
+2026-06-04 18:50:11,811 | SIGMA-V4 | INFO | [ROUTING DEBUG] Cognitive engine loaded = True
+2026-06-04 18:50:11,811 | SIGMA-V4 | INFO | [RETRIEVAL DEBUG] force_retrieval=True
+2026-06-04 18:50:11,811 | SIGMA-V4 | INFO | Processing query [standard]: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+When is Monaco GP 2026?...
+2026-06-04 18:50:11,813 | SIGMA-V4 | WARNING | Redis restore failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:50:11,814 | SIGMA-V4 | INFO | Session created: f23272fa-60fe-4515-919d-39979ce40625 (mode=standard, model=None)
+2026-06-04 18:50:11,814 | SIGMA-V4 | INFO | Retrieval mandatory: volatility=1.000 (threshold=0.35)
+2026-06-04 18:50:11,814 | SIGMA-V4 | INFO | Volatility 1.000 > threshold 0.35. Web retrieval mandatory.
+2026-06-04 18:50:11,814 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:11,815 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:11,815 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:11,815 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:11,815 | SIGMA-V4 | INFO | Retrieval confidence 0.000 < 0.4. Long-tail expansion triggered.
+2026-06-04 18:50:11,815 | SIGMA-V4 | INFO | Long-tail expansion for: [USER RUNTIME PREFERENCES]
+Response style: balanced.
+
+When is Monaco GP 2026? (domain: general)
+2026-06-04 18:50:11,815 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:11,815 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:11,815 | SIGMA-V4 | ERROR | Web search failed: 'Settings' object has no attribute 'RAG_TAVILY_MAX_RESULTS'
+2026-06-04 18:50:11,815 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000, 1ms
+2026-06-04 18:50:11,815 | SIGMA-V4 | INFO | Retrieval complete: 0 blocks, confidence=0.000
+2026-06-04 18:50:11,816 | SIGMA-V4 | INFO | Single Model Focus: llama33-70b
+2026-06-04 18:50:11,816 | SIGMA-V4 | INFO | Invoking 1 models: ['llama33-70b']
+2026-06-04 18:50:11,816 | SIGMA-V4 | INFO | Token governor [llama33-70b]: prompt_est=258, ctx_window=131072, available=130514, scaled_cap=2000, governed=2000, budget_governed=False
+2026-06-04 18:50:12,806 | SIGMA-V4 | INFO | Model invocation: key=llama33-70b, provider=groq, success=True, response_len=991
+2026-06-04 18:50:12,807 | SIGMA-V4 | INFO |   Model 'Llama 3.3 70B': success=True, output_len=991, error=none
+2026-06-04 18:50:12,809 | SIGMA-V4 | INFO |   Llama 3.3 70B: T=-0.045 K=0.500 S=0.158 C=1.000 D=1.045 → Final=0.128
+2026-06-04 18:50:12,813 | SIGMA-V4 | WARNING | Redis persist failed: Error 8 connecting to daring-quagga-24419.upstash.io:6379. nodename nor servname provided, or not known.
+2026-06-04 18:50:12,813 | SIGMA-V4 | INFO | Unresolved question scheduled for daemon refinement
+2026-06-04 18:50:12,813 | SIGMA-V4 | INFO | Query processed in 1002ms. Winner: Llama 3.3 70B (score=0.128)
+2026-06-04 18:50:12,813 | SIGMA-V4 | WARNING | Failed to generate visualizations for chat f23272fa-60fe-4515-919d-39979ce40625: 1 validation error for StructuredModelOutput
+model_name
+  Field required [type=missing, input_value={'model_id': 'Llama 3.3 7...tching the Grand Prix?"}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+2026-06-04 18:50:13,013 | SIGMA-V4 | WARNING | add_message full write failed ((raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "updated_at" of relation "messages" violates not-null constraint
+DETAIL:  Failing row contains (0f977a2a-8853-40a1-ac43-ad656e13c30f, f23272fa-60fe-4515-919d-39979ce40625, 00000000-0000-0000-0000-000000000000, assistant, The Monaco Grand Prix is one of the most iconic races in the For..., {"mode": "standard", "sub_mode": null, "confidence": 0.1283, "la..., null, null, f, 2026-06-04 13:20:12.814558, null, null).
+[SQL: INSERT INTO messages (id, chat_id, user_id, role, content, reasoning_json, image_b64, metadata_json, is_deleted, created_at) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::JSONB, $7::VARCHAR, $8::JSONB, $9::BOOLEAN, $10::TIMESTAMP WITHOUT TIME ZONE)]
+[parameters: (UUID('0f977a2a-8853-40a1-ac43-ad656e13c30f'), UUID('f23272fa-60fe-4515-919d-39979ce40625'), '00000000-0000-0000-0000-000000000000', 'assistant', "The Monaco Grand Prix is one of the most iconic races in the Formula 1 calendar. As for the 2026 edition, I'd be happy to help you with that. However ... (697 characters truncated) ... , schedules, and other important details. Would you like some more information on how to plan your trip to Monaco or tips on watching the Grand Prix?", '{"mode": "standard", "sub_mode": null, "confidence": 0.1283, "winning_model": "Llama 3.3 70B", "model_count": 1, "latency_ms": 1001.8, "drift_score": ... (2784 characters truncated) ... important details. Would you like some more information on how to plan your trip to Monaco or tips on watching the Grand Prix?", "model_scores": {}}}', None, 'null', False, datetime.datetime(2026, 6, 4, 13, 20, 12, 814558))]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)), retrying minimal write
+2026-06-04 18:50:13,762 | SIGMA-V4 | ERROR | add_message minimal fallback failed for chat f23272fa-60fe-4515-919d-39979ce40625: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(sqlalchemy.dialects.postgresql.asyncpg.IntegrityError) <class 'asyncpg.exceptions.NotNullViolationError'>: null value in column "updated_at" of relation "messages" violates not-null constraint
+DETAIL:  Failing row contains (5a14712f-2112-41d3-9466-efc48b4aa22b, f23272fa-60fe-4515-919d-39979ce40625, 00000000-0000-0000-0000-000000000000, assistant, The Monaco Grand Prix is one of the most iconic races in the For..., null, null, null, f, 2026-06-04 13:20:13.501665, null, null).
+[SQL: INSERT INTO messages (id, chat_id, user_id, role, content, reasoning_json, image_b64, metadata_json, is_deleted, created_at) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::JSONB, $7::VARCHAR, $8::JSONB, $9::BOOLEAN, $10::TIMESTAMP WITHOUT TIME ZONE)]
+[parameters: (UUID('5a14712f-2112-41d3-9466-efc48b4aa22b'), UUID('f23272fa-60fe-4515-919d-39979ce40625'), '00000000-0000-0000-0000-000000000000', 'assistant', "The Monaco Grand Prix is one of the most iconic races in the Formula 1 calendar. As for the 2026 edition, I'd be happy to help you with that. However ... (697 characters truncated) ... , schedules, and other important details. Would you like some more information on how to plan your trip to Monaco or tips on watching the Grand Prix?", 'null', None, 'null', False, datetime.datetime(2026, 6, 4, 13, 20, 13, 501665))]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)
+2026-06-04 18:50:15,279 | SIGMA-V4 | INFO | [12dc9764] POST /api/mco/run → 200 (7032.2ms)
+2026-06-04 18:50:15,439 | SIGMA-V4 | INFO | HTTP Request: POST http://testserver/api/mco/run "HTTP/1.1 200 OK"
+2026-06-04 18:50:15,442 | SIGMA-V4 | INFO | Shutting down Sentinel-E v5.0...
+
+==================================================
+TEST: Standard Mode
+==================================================
+Payload: {"query": "hello", "mode": "standard"}
+routing_debug:
+{
+  "mode": "standard",
+  "sub_mode": null,
+  "effective_sub_mode": null,
+  "selected_model": "llama33-70b",
+  "execution_path": "single_model",
+  "force_retrieval": false
+}
+
+==================================================
+TEST: Debate Mode
+==================================================
+Payload: {"query": "Compare AGI timelines from optimistic and skeptical viewpoints.", "mode": "experimental", "sub_mode": "debate"}
+ERROR: routing_debug not found in response
+{
+  "chat_id": "61b1bebc-ee62-4ac8-9b27-338fc13a6003",
+  "session_id": "61b1bebc-ee62-4ac8-9b27-338fc13a6003",
+  "mode": "debate",
+  "sub_mode": "debate",
+  "formatted_output": "As I reflect on the debate so far, I'd like to revisit the AGI timelines from both optimistic and skeptical viewpoints. It's essential to acknowledge that these perspectives are not mutually exclusive\n\n**Optimistic View**:\n- Rapid advancements in machine learning (e.g., transformer architectures, large language models
+
+==================================================
+TEST: Glass Mode
+==================================================
+Payload: {"query": "Explain how this system works internally.", "mode": "experimental", "sub_mode": "glass"}
+routing_debug:
+{
+  "mode": "experimental",
+  "sub_mode": "glass",
+  "effective_sub_mode": "glass",
+  "selected_model": null,
+  "execution_path": "cognitive_core",
+  "force_retrieval": false
+}
+
+==================================================
+TEST: Evidence Mode
+==================================================
+Payload: {"query": "What is the evidence for dark matter?", "mode": "experimental", "sub_mode": "evidence"}
+routing_debug:
+{
+  "mode": "experimental",
+  "sub_mode": "evidence",
+  "effective_sub_mode": "evidence",
+  "selected_model": null,
+  "execution_path": "cognitive_core",
+  "force_retrieval": false
+}
+
+==================================================
+TEST: Synthesis Mode
+==================================================
+Payload: {"query": "Summarize the theories of quantum gravity.", "mode": "experimental", "sub_mode": "synthesis"}
+routing_debug:
+{
+  "mode": "experimental",
+  "sub_mode": "synthesis",
+  "effective_sub_mode": "synthesis",
+  "selected_model": null,
+  "execution_path": "cognitive_core",
+  "force_retrieval": false
+}
+
+==================================================
+TEST: Retrieval
+==================================================
+Payload: {"query": "When is Monaco GP 2026?", "force_retrieval": true}
+routing_debug:
+{
+  "mode": "standard",
+  "sub_mode": null,
+  "effective_sub_mode": null,
+  "selected_model": "llama33-70b",
+  "execution_path": "single_model",
+  "force_retrieval": true
+}

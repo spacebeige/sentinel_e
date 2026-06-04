@@ -55,7 +55,9 @@ class Message(Base):
     reasoning_json = Column(JSONB, nullable=True)
     image_b64 = Column(Text, nullable=True)
     metadata_json = Column(JSONB, nullable=True)
+    is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class UserMemory(Base):
     """User-specific learned facts and knowledge."""

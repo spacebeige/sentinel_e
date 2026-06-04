@@ -21,6 +21,7 @@ import logging
 import traceback
 from typing import Dict, Optional, Any
 from uuid import UUID
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
 from fastapi.responses import JSONResponse
@@ -55,6 +56,8 @@ router = APIRouter(prefix="/api/mco", tags=["Meta-Cognitive Orchestrator"])
 _orchestrator: Optional[MetaCognitiveOrchestrator] = None
 _daemon: Optional[BackgroundDaemon] = None
 _cognitive_engine = None  # CognitiveCoreEngine for debate mode
+
+ENABLE_ROUTING_DEBUG = os.getenv("ENABLE_ROUTING_DEBUG", "false").lower() == "true"
 
 try:
     from core.orchestration_run import create_orchestration_run, CognitivePhase
@@ -788,16 +791,23 @@ async def _mco_run_impl(
     # ══════════════════════════════════════════════════════════
     effective_sub_mode = sub_mode
     if effective_sub_mode in ("debate", "pro") and query_complexity == "trivial":
-        logger.info(f"Trivial query in debate mode — skipping debate for chat {chat.id}")
+        if ENABLE_ROUTING_DEBUG:
+            logger.info(f"[ROUTING DEBUG] Trivial query in debate mode — skipping debate for chat {chat.id}")
         effective_sub_mode = None  # Fall through to standard MCO pipeline
 
-    # If user selected a specific model, never route to debate engine
-    if selected_model and effective_sub_mode in ("debate", "pro"):
-        logger.info(f"Single model '{selected_model}' selected — skipping debate")
-        effective_sub_mode = None
+    # Phase 10 logic correction: Cognitive mode should override model selection, not the other way around.
+    if selected_model and effective_sub_mode in ("debate", "glass", "evidence", "synthesis", "pro"):
+        if ENABLE_ROUTING_DEBUG:
+            logger.info(f"[ROUTING DEBUG] Cognitive mode '{effective_sub_mode}' active — overriding model selection '{selected_model}'")
+        selected_model = None
+
+    if ENABLE_ROUTING_DEBUG:
+        logger.info(f"[ROUTING DEBUG] Cognitive engine loaded = {_cognitive_engine is not None}")
+        logger.info(f"[RETRIEVAL DEBUG] force_retrieval={force_retrieval}")
 
     predicted_execution_path = (
         "ensemble" if effective_sub_mode in ("debate", "pro") else
+        "cognitive_core" if effective_sub_mode in ("glass", "evidence", "synthesis") else
         "fast_standard" if query_complexity == "trivial" and not selected_model and not image_b64 else
         "single_model" if selected_model else
         "standard_mco"
@@ -884,9 +894,7 @@ async def _mco_run_impl(
             )
             await update_chat_metadata(
                 db, chat.id,
-                priority_answer=formatted_output,
-                machine_metadata=omega_metadata,
-                rounds=ensemble_response.debate_result.total_rounds,
+                machine_metadata=omega_metadata
             )
 
             omega_metadata = payload.get("omega_metadata", {})
@@ -1034,6 +1042,15 @@ async def _mco_run_impl(
                 )
                 # Sanitize before returning
                 debate_result = _sanitize_mco_response(debate_result)
+                if ENABLE_ROUTING_DEBUG:
+                    debate_result["routing_debug"] = {
+                        "mode": mode,
+                        "sub_mode": sub_mode,
+                        "effective_sub_mode": effective_sub_mode,
+                        "selected_model": selected_model,
+                        "execution_path": predicted_execution_path,
+                        "force_retrieval": force_retrieval
+                    }
                 return debate_result
                 
             elif effective_sub_mode == "pro":
@@ -1683,6 +1700,16 @@ async def _mco_run_impl(
 
     result["omega_metadata"] = omega_metadata
     result["data"] = {"priority_answer": response.aggregated_answer}
+    
+    if ENABLE_ROUTING_DEBUG:
+        result["routing_debug"] = {
+            "mode": mode,
+            "sub_mode": sub_mode,
+            "effective_sub_mode": effective_sub_mode,
+            "selected_model": selected_model,
+            "execution_path": predicted_execution_path,
+            "force_retrieval": force_retrieval
+        }
     result["session_state"] = omega_metadata["session_state"]
     result["boundary_result"] = {
         "severity_score": 0,
