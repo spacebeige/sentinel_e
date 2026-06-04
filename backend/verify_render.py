@@ -13,13 +13,13 @@ token = jwt.encode({
 
 headers = {"Authorization": "Bearer " + token}
 
-health = requests.get("https://sentinel-e.onrender.com/health").json()
+health = requests.get("https://sentinel-e-evo.onrender.com/health").json()
 print("HEALTH:", health.get("status"), "version=" + str(health.get("version")))
 
-hist = requests.get("https://sentinel-e.onrender.com/api/v2/history", headers=headers)
+hist = requests.get("https://sentinel-e-evo.onrender.com/api/v2/history", headers=headers)
 print("HISTORY:", hist.status_code)
 
-mco = requests.post("https://sentinel-e.onrender.com/api/mco/run", headers=headers,
+mco = requests.post("https://sentinel-e-evo.onrender.com/api/mco/run", headers=headers,
                     json={"query": "hello", "selected_model": "llama31-8b"})
 print("MCO:", mco.status_code)
 
