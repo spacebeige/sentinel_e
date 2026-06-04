@@ -141,6 +141,7 @@ export function ChatPage() {
   const storeMessages = useStore(state => state.messages) as any[];
   const chats = useStore(state => state.chats);
   const addMessage = useStore(state => state.addMessage);
+  const hasHydrated = useStore(state => state.hasHydrated);
   
   // Transform backend messages to Figma Message types
   const messages: Message[] = storeMessages.map(m => ({
@@ -154,14 +155,23 @@ export function ChatPage() {
     boundaryResult: m.metadata?.machine_metadata?.boundaries ?? m.boundaryResult,
   }));
 
+  const setGlobalMessages = useStore(state => state.setMessages);
+  
   const setMessages = (updater: any) => {
     // Shim for existing local state mutations (optimistic UI)
     if (typeof updater === 'function') {
       const updated = updater(messages);
+      // If the updater returned just a welcome message, overwrite everything
+      if (updated.length === 1 && updated[0].id === "welcome") {
+        setGlobalMessages(updated);
+        return;
+      }
       const newMsg = updated[updated.length - 1];
       if (newMsg && newMsg.id && !storeMessages.find(m => m.id === newMsg.id)) {
         addMessage(newMsg);
       }
+    } else if (Array.isArray(updater)) {
+      setGlobalMessages(updater);
     }
   };
 
@@ -240,6 +250,23 @@ export function ChatPage() {
   const [debateState, setDebateState] = useState<DebateState>(createDebateState(6));
   const [glassState, setGlassState] = useState<GlassState>(createGlassState());
   const [evidenceState, setEvidenceState] = useState<EvidenceState>(createEvidenceState());
+
+  // ── Welcome Message Injection ──────────────────────────────────────────────
+  const hasInjectedWelcome = useRef(false);
+  useEffect(() => {
+    if (hasHydrated && !currentChatId && storeMessages.length === 0 && !hasInjectedWelcome.current) {
+      hasInjectedWelcome.current = true;
+      setMessages((prev: any[]) => {
+        if (prev.length > 0) return prev;
+        return [{
+          id: "welcome",
+          role: "assistant",
+          content: "Sentinel-E EVO Online...\n\nHow can I assist you today?",
+          timestamp: new Date()
+        }];
+      });
+    }
+  }, [hasHydrated, currentChatId, storeMessages.length, setMessages]);
 
   // ── Dark mode sync ─────────────────────────────────────────────────────────
   const { theme, setTheme } = useTheme();
@@ -552,8 +579,11 @@ export function ChatPage() {
           selectedModel: selectedModel || "llama-3-3-70b",
         });
         
-        // Handle axios unwrapped response or raw response
-        response = adaptRunResponse(rawResponse?.data || rawResponse);
+        // Handle axios unwrapped response or raw response.
+        // Fix: api.js already unwraps axios, so rawResponse is the actual JSON.
+        // Do not use rawResponse?.data, because that refers to the nested {"priority_answer": ...} 
+        // object and causes adaptRunResponse to strip all top-level keys like chat_id and omega_metadata.
+        response = adaptRunResponse(rawResponse);
 
         if (ac.signal.aborted) return;
 
