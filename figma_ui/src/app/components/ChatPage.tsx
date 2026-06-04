@@ -178,6 +178,7 @@ export function ChatPage() {
 
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
   const [healthData, setHealthData] = useState<HealthStatus | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -187,14 +188,21 @@ export function ChatPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Chat history state
-  const chatHistory = chats.map(c => ({
-    id: c.id,
-    title: c.title,
-    mode: c.mode,
-    timestamp: c.updated_at ? new Date(c.updated_at) : new Date()
+  const chatHistory = chats.map((c: any) => ({
+    id: c.id || c.chat_id,
+    title: c.title || c.name || c.chat_title || "Untitled Chat",
+    mode: c.mode || "standard",
+    timestamp: c.updated_at ? new Date(c.updated_at) : (c.created_at ? new Date(c.created_at) : new Date())
   }));
   const setChatHistory = () => {}; // No-op, managed by useStore
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Runtime Diagnostics
+  useEffect(() => {
+    console.log("[STORE CHATS]", chats);
+    console.log("[HISTORY RESPONSE]", chatHistory);
+    console.log("[CURRENT CHAT ID]", currentChatId);
+  }, [chats, chatHistory, currentChatId]);
 
   // Chat interaction context
   const { isHistoryOpen, toggleHistory, newChatTriggered, /* removed (runtimeTier === "pro") */ } = useChatInteraction();
@@ -576,6 +584,14 @@ export function ChatPage() {
 
         const rawResponse = await sendMCOQuery(userText, {
           chatId: currentChatId || undefined,
+          mode: selectedMode || "standard",
+          selectedModel: selectedModel || "llama-3-3-70b",
+          force_retrieval: isWebSearchEnabled,
+        });
+        
+        console.log("[SEND PAYLOAD]", {
+          userText,
+          chatId: currentChatId,
           mode: selectedMode || "standard",
           selectedModel: selectedModel || "llama-3-3-70b",
           force_retrieval: isWebSearchEnabled,
