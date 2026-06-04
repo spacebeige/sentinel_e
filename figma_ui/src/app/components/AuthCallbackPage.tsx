@@ -12,7 +12,7 @@ import { supabase } from '../lib/supabase';
 //
 // Flow:
 //   1. Read 'code' from URL (PKCE flow)
-//   2. If code present → exchangeCodeForSession
+//   2. If code present → await auto-exchange
 //   3. Check for error params in URL
 //   4. getSession() to confirm session established
 //   5. session exists → navigate('/chat')
@@ -64,11 +64,6 @@ export default function AuthCallbackPage() {
           error_code: errorCode,
           error_description: errorDescription,
         });
-        
-        console.log(
-          "[PKCE CALLBACK]",
-          Object.keys(localStorage).filter(k => k.includes("supabase") || k.includes("sb-") || k.includes("verifier"))
-        );
         // ─────────────────────────────────────────────────────────────
 
         // If Supabase returned an error in the redirect URL, surface it.
