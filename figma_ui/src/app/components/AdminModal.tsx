@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Lock, Mail, Loader2, ArrowRight } from 'lucide-react';
 import { useAuthContext } from '../providers/AuthProvider';
 import { useSupabaseAuth } from '@hooks/useSupabaseAuth';
-import { submitAdminRequest } from '../api';
+import { submitAdminRequest } from '@services/api';
 import { useTheme } from 'next-themes';
 
 interface AdminModalProps {
@@ -94,7 +94,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl p-6 shadow-2xl relative"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-6 shadow-2xl relative"
             style={{
               background: isDark ? "#1d1d1f" : "#ffffff",
               border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(0,0,0,0.1)",

@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Sparkles, ArrowRight, Check } from "lucide-react";
 import { Link } from "react-router";
-import { getLearningSummary, type LearningSummary } from "../api";
+import { getLearningSummary } from "@services/api";
+import { type LearningSummary } from "../types";
 
 const models = [
   {

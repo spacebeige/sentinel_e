@@ -26,7 +26,7 @@ import type {
   CrossAnalysisModelProfile,
   LearningSummary,
   SessionStats,
-} from "../api";
+} from "../types";
 
 // ============================================================
 // SAFE DEFAULTS

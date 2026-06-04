@@ -9,11 +9,8 @@ import {
   Layers,
   Scan,
 } from "lucide-react";
-import {
-  runCrossAnalysis,
-  type CrossAnalysisResult,
-  type CrossAnalysisModelProfile,
-} from "../api";
+import { runCrossAnalysis } from "@services/api";
+import type { CrossAnalysisResult, CrossAnalysisModelProfile } from "../types";
 
 interface CrossAnalysisTriggerProps {
   chatId: string | null;

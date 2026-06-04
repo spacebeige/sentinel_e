@@ -54,8 +54,9 @@ import {
   type OmegaBoundaryResult,
   type OmegaReasoningTrace,
   type ConfidenceEvolution,
-} from "../api";
+} from "../types";
 import useStore from "@stores/useStore";
+
 import { adaptRunResponse } from "../services/adapter";
 import { OmegaInsightPanel } from "./OmegaInsightPanel";
 import { useChatInteraction } from "../context/ChatInteractionContext";
@@ -66,7 +67,7 @@ import { CinematicOrchestratorLoader } from "./CinematicOrchestratorLoader";
 import { CinematicDebatePanel } from "./CinematicDebatePanel";
 import { CinematicEvidencePanel } from "./CinematicEvidencePanel";
 import { CrossAnalysisTrigger } from "./CrossAnalysisPanel";
-import { useSessionPersistence } from "../hooks/useSessionPersistence";
+
 import {
   type DebateState,
   createDebateState,
@@ -244,7 +245,7 @@ export function ChatPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   // Session persistence
-  const { restore, persist, reset: resetSession } = useSessionPersistence();
+  const restore = () => ({}); const persist = () => {}; const resetSession = () => {};
 
   // Mode state managers
   const [debateState, setDebateState] = useState<DebateState>(createDebateState(6));
@@ -577,6 +578,7 @@ export function ChatPage() {
           chatId: currentChatId || undefined,
           mode: selectedMode || "standard",
           selectedModel: selectedModel || "llama-3-3-70b",
+          force_retrieval: isWebSearchEnabled,
         });
         
         // Handle axios unwrapped response or raw response.

@@ -21,6 +21,7 @@ export interface AdminAnalytics {
 let currentSessionId: string | null = null;
 
 export async function trackLogin(userId: string) {
+  return; // DISABLED
   currentSessionId = `session_${Date.now()}`;
   try {
     await postJson('/api/v2/analytics/events', {
@@ -35,6 +36,7 @@ export async function trackLogin(userId: string) {
 }
 
 export async function trackLogout(userId: string) {
+  return; // DISABLED
   if (!currentSessionId) return;
   try {
     await postJson('/api/v2/analytics/events', {
@@ -50,6 +52,7 @@ export async function trackLogout(userId: string) {
 }
 
 export async function trackMessageSent(userId: string, mode: string, model: string, conversationId?: string) {
+  return; // DISABLED
   try {
     await postJson('/api/v2/analytics/events', {
       user_id: userId,

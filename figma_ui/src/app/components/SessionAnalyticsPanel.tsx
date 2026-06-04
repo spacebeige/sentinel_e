@@ -16,7 +16,8 @@ import {
   Loader2,
   WifiOff,
 } from "lucide-react";
-import { getSessionDescriptive, type SessionDescriptive } from "../api";
+import { getSessionDescriptive } from "@services/api";
+import { type SessionDescriptive } from "../types";
 
 interface SessionAnalyticsPanelProps {
   chatId: string | null;

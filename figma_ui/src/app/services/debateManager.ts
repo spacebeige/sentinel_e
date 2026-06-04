@@ -2,7 +2,7 @@
 // Debate Manager — tracks multi-round debate state
 // ============================================================
 
-import type { DebateResult, OmegaMetadata } from "../api";
+import type { DebateResult, OmegaMetadata } from "../types";
 
 export interface DebatePosition {
   model: string;

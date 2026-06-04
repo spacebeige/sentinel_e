@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '../providers/AuthProvider';
 import { Shield, Activity, Users, Database, MessageSquare, Clock, Cpu, BarChart3 } from 'lucide-react';
 import { getAdminAnalytics, AdminAnalytics } from '../services/analyticsService';
-import { getAdminRequestStatus } from '../api';
+import { getAdminRequestStatus } from '@services/api';
 import { Navigate, Link } from 'react-router';
 
 const AdminPage: React.FC = () => {

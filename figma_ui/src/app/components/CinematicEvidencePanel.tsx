@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileSearch, ChevronDown, Link as LinkIcon, AlertTriangle } from 'lucide-react';
-import type { OmegaMetadata } from '../api';
+import type { OmegaMetadata } from '../types';
 
 interface CinematicEvidencePanelProps {
   metadata?: OmegaMetadata;

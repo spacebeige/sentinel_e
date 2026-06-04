@@ -2,7 +2,7 @@
 // Evidence Manager — source tracking + contradiction analysis
 // ============================================================
 
-import type { OmegaMetadata, EvidenceResult, EvidenceSource } from "../api";
+import type { OmegaMetadata, EvidenceResult, EvidenceSource } from "../types";
 
 export interface EvidenceState {
   /** All sources collected across messages */

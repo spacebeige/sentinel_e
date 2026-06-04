@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Swords, ChevronDown, ChevronRight, Trophy, BarChart2 } from 'lucide-react';
-import type { OmegaMetadata } from '../api';
+import type { OmegaMetadata } from '../types';
 
 interface CinematicDebatePanelProps {
   metadata?: OmegaMetadata;

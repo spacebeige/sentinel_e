@@ -2,7 +2,7 @@
 // Glass Manager — tracks confidence pipeline + behavioral metrics
 // ============================================================
 
-import type { OmegaMetadata, ConfidenceEvolution, BehavioralRiskProfile, StressResult } from "../api";
+import type { OmegaMetadata, ConfidenceEvolution, BehavioralRiskProfile, StressResult } from "../types";
 
 export interface GlassState {
   /** Kill override disables adaptive learning and shows raw inference */
