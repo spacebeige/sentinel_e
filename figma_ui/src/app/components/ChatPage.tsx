@@ -39,11 +39,9 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  checkHealth,
   sendFeedback,
   getHistory,
   getChatMessages,
-  createChat,
   sendMCOQuery,
 } from "@services/api";
 import {
@@ -178,7 +176,6 @@ export function ChatPage() {
 
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
   const [healthData, setHealthData] = useState<HealthStatus | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -187,21 +184,27 @@ export function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Chat history state
-  const chatHistory = chats.map((c: any) => ({
-    id: c.id || c.chat_id,
-    title: c.title || c.name || c.chat_title || "Untitled Chat",
-    mode: c.mode || "standard",
-    timestamp: c.updated_at ? new Date(c.updated_at) : (c.created_at ? new Date(c.created_at) : new Date())
-  }));
-  const setChatHistory = () => {}; // No-op, managed by useStore
+  // Chat history — normalise backend shapes to a single consistent object.
+  // Expose updated_at / created_at so groupedHistory date comparisons work.
+  const chatHistory = chats.map((c: any) => {
+    const ts = c.updated_at || c.created_at || null;
+    return {
+      id:         c.id || c.chat_id,
+      title:      c.title || c.name || c.chat_title || "Untitled Chat",
+      mode:       c.mode || "standard",
+      updated_at: ts,
+      created_at: ts,
+    };
+  });
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Runtime Diagnostics
+  // Runtime Diagnostics — gate behind DEV to avoid production noise
   useEffect(() => {
-    console.log("[STORE CHATS]", chats);
-    console.log("[SIDEBAR COUNT]", chatHistory.length);
-    console.log("[CURRENT CHAT ID]", currentChatId);
+    if (import.meta.env.DEV) {
+      console.log("[STORE CHATS]", chats);
+      console.log("[SIDEBAR COUNT]", chatHistory.length);
+      console.log("[CURRENT CHAT ID]", currentChatId);
+    }
   }, [chats, chatHistory.length, currentChatId]);
 
   // Chat interaction context
@@ -301,20 +304,24 @@ export function ChatPage() {
   const inputBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.95)";
 
   // ── Health check ───────────────────────────────────────────────────────────
+  // NOTE: we probe /health (not /) because Vercel rewrites / → index.html
+  // which makes the request fail with NETWORK_ERROR before it reaches the backend.
   const performHealthCheck = useCallback(async () => {
-    const health = await checkHealth();
-    if (health) {
-      setBackendOnline(true);
-      setHealthData(health);
-    } else {
+    try {
+      const res = await fetch("/health", { method: "GET", credentials: "omit" });
+      if (res.ok) {
+        setBackendOnline(true);
+      } else {
+        setBackendOnline(false);
+      }
+    } catch {
       setBackendOnline(false);
-      setHealthData(null);
     }
   }, []);
 
   useEffect(() => {
     performHealthCheck();
-    healthCheckRef.current = setInterval(performHealthCheck, 15000);
+    healthCheckRef.current = setInterval(performHealthCheck, 30000);
     return () => { if (healthCheckRef.current) clearInterval(healthCheckRef.current); };
   }, [performHealthCheck]);
 
@@ -392,26 +399,33 @@ export function ChatPage() {
 
   // ── Load chat history ──────────────────────────────────────────────────────
   const loadChatHistory = useCallback(async () => {
-    if (!backendOnline || !user) return;
+    if (!user) return;
     setHistoryLoading(true);
-    console.log("[HISTORY REQUEST] Initiating fetch...");
+    console.log("[HISTORY REQUEST] user authenticated, fetching...");
     try {
+      // api.js response interceptor already unwraps the success envelope,
+      // so `res` is already { chats: [...], messages: [...] }
       const res = await getHistory(50, 0);
-      const data = res?.data || res || {};
+      const data: { chats?: any[]; messages?: any[] } = (res && typeof res === 'object') ? (res as any) : {};
       console.log("[HISTORY RESPONSE]", data);
-      useStore.getState().setHistory(data.chats || [], data.messages || []);
+      const chatsArr = Array.isArray(data.chats) ? data.chats : [];
+      const msgsArr  = Array.isArray(data.messages) ? data.messages : [];
+      console.log("[STORE CHATS update]", chatsArr.length, "chats");
+      useStore.getState().setHistory(chatsArr, msgsArr);
     } catch (err) {
-      console.error("Failed to load chat history:", err);
+      console.error("[HISTORY REQUEST] failed:", err);
     } finally {
       setHistoryLoading(false);
     }
-  }, [backendOnline, user]);
+  }, [user]);
 
+  // Load history whenever user is authenticated — don't wait for backendOnline
+  // (backendOnline depends on /health which itself is async; this avoids a deadlock)
   useEffect(() => {
-    if (sidebarOpen && backendOnline && user) {
+    if (user) {
       loadChatHistory();
     }
-  }, [sidebarOpen, backendOnline, user, loadChatHistory]);
+  }, [user, loadChatHistory]);
 
   // ── Restore chat ───────────────────────────────────────────────────────────
   const restoreChat = async (chatItem: ChatHistoryItem) => {
@@ -584,19 +598,14 @@ export function ChatPage() {
       try {
         let response: SentinelRunResponse;
 
-        console.log("[SEND PAYLOAD]", {
-          query: userText,
+        const mcoPayload = {
           chatId: currentChatId || undefined,
           mode: selectedMode || "standard",
           selectedModel: selectedModel || "llama-3-3-70b",
-          force_retrieval: isWebSearchEnabled,
-        });
-        const rawResponse = await sendMCOQuery(userText, {
-          chatId: currentChatId || undefined,
-          mode: selectedMode || "standard",
-          selectedModel: selectedModel || "llama-3-3-70b",
-          force_retrieval: isWebSearchEnabled,
-        });
+          force_retrieval: false,
+        };
+        console.log("[SEND PAYLOAD]", { query: userText, ...mcoPayload });
+        const rawResponse = await sendMCOQuery(userText, mcoPayload);
         
         // Handle axios unwrapped response or raw response.
         // Fix: api.js already unwraps axios, so rawResponse is the actual JSON.
@@ -792,7 +801,7 @@ export function ChatPage() {
 
   // ── Filtered history ──────────────────────────────────────────────────────
   const filteredHistory = chatHistory.filter(c =>
-    !searchQuery || (c.name || "").toLowerCase().includes(searchQuery.toLowerCase())
+    !searchQuery || (c.title || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Group history by time
@@ -800,11 +809,13 @@ export function ChatPage() {
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
+  const getDate = (c: typeof chatHistory[0]) => c.updated_at ? new Date(c.updated_at) : today;
+
   const groupedHistory = {
-    today: filteredHistory.filter(c => new Date(c.updated_at || c.created_at).toDateString() === today.toDateString()),
-    yesterday: filteredHistory.filter(c => new Date(c.updated_at || c.created_at).toDateString() === yesterday.toDateString()),
-    older: filteredHistory.filter(c => {
-      const d = new Date(c.updated_at || c.created_at);
+    today:     filteredHistory.filter(c => getDate(c).toDateString() === today.toDateString()),
+    yesterday: filteredHistory.filter(c => getDate(c).toDateString() === yesterday.toDateString()),
+    older:     filteredHistory.filter(c => {
+      const d = getDate(c);
       return d.toDateString() !== today.toDateString() && d.toDateString() !== yesterday.toDateString();
     }),
   };
@@ -956,13 +967,13 @@ export function ChatPage() {
                               }}
                             >
                               <div className="truncate" style={{ fontSize: "13px", fontWeight: 500, color: textPrimary }}>
-                                {chat.name || "Untitled Chat"}
+                                {chat.title || "Untitled Chat"}
                               </div>
                               <div
                                 className="mt-0.5"
                                 style={{ fontSize: "10px", color: textSecondary }}
                               >
-                                {new Date(chat.updated_at || chat.created_at).toLocaleDateString()}
+                                {chat.updated_at ? new Date(chat.updated_at).toLocaleDateString() : ""}
                               </div>
                             </button>
                           ))}
