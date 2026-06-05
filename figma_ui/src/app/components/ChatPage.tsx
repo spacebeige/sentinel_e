@@ -200,9 +200,9 @@ export function ChatPage() {
   // Runtime Diagnostics
   useEffect(() => {
     console.log("[STORE CHATS]", chats);
-    console.log("[HISTORY RESPONSE]", chatHistory);
+    console.log("[SIDEBAR COUNT]", chatHistory.length);
     console.log("[CURRENT CHAT ID]", currentChatId);
-  }, [chats, chatHistory, currentChatId]);
+  }, [chats, chatHistory.length, currentChatId]);
 
   // Chat interaction context
   const { isHistoryOpen, toggleHistory, newChatTriggered, /* removed (runtimeTier === "pro") */ } = useChatInteraction();
@@ -394,9 +394,11 @@ export function ChatPage() {
   const loadChatHistory = useCallback(async () => {
     if (!backendOnline || !user) return;
     setHistoryLoading(true);
+    console.log("[HISTORY REQUEST] Initiating fetch...");
     try {
       const res = await getHistory(50, 0);
       const data = res?.data || res || {};
+      console.log("[HISTORY RESPONSE]", data);
       useStore.getState().setHistory(data.chats || [], data.messages || []);
     } catch (err) {
       console.error("Failed to load chat history:", err);
@@ -582,16 +584,15 @@ export function ChatPage() {
       try {
         let response: SentinelRunResponse;
 
-        const rawResponse = await sendMCOQuery(userText, {
+        console.log("[SEND PAYLOAD]", {
+          query: userText,
           chatId: currentChatId || undefined,
           mode: selectedMode || "standard",
           selectedModel: selectedModel || "llama-3-3-70b",
           force_retrieval: isWebSearchEnabled,
         });
-        
-        console.log("[SEND PAYLOAD]", {
-          userText,
-          chatId: currentChatId,
+        const rawResponse = await sendMCOQuery(userText, {
+          chatId: currentChatId || undefined,
           mode: selectedMode || "standard",
           selectedModel: selectedModel || "llama-3-3-70b",
           force_retrieval: isWebSearchEnabled,
