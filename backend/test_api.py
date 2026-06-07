@@ -18,10 +18,23 @@ def run_tests():
     test_user_id = "52c702e1-abca-4dc2-be37-959dace4fe03"
     test_email = "test1@sentinel.com"
     
+    from gateway.auth_v2 import get_current_user
+    async def override_get_current_user():
+        return {
+            "id": test_user_id,
+            "user_id": test_user_id,
+            "email": test_email,
+            "name": "Test User",
+            "role": "authenticated",
+            "provider": "supabase",
+            "authenticated": True,
+            "is_guest": False,
+        }
+    
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
     headers = {
-        "X-Debug-User": test_user_id,
-        "X-Debug-Email": test_email,
-        "X-Auth-Provider": "supabase"
+        "Authorization": "Bearer mocked-token-for-test"
     }
 
     # Create session
@@ -79,10 +92,23 @@ def run_tests():
 
     print("\n--- TEST 8: USER ISOLATION ---")
     test_user_id_2 = "b4e8d350-f966-4a9f-863a-cc5eb1f86820"
+    
+    async def override_get_current_user_2():
+        return {
+            "id": test_user_id_2,
+            "user_id": test_user_id_2,
+            "email": "test2@sentinel.com",
+            "name": "Test User 2",
+            "role": "authenticated",
+            "provider": "supabase",
+            "authenticated": True,
+            "is_guest": False,
+        }
+        
+    app.dependency_overrides[get_current_user] = override_get_current_user_2
+    
     headers2 = {
-        "X-Debug-User": test_user_id_2,
-        "X-Debug-Email": "test2@sentinel.com",
-        "X-Auth-Provider": "supabase"
+        "Authorization": "Bearer mocked-token-2-for-test"
     }
     
     iso_res = client.get("/api/v2/conversations", headers=headers2)

@@ -108,73 +108,6 @@ async def verify_supabase_token(token: str) -> Optional[Dict[str, Any]]:
 
 
 # ─────────────────────────────────────────────────────────────
-# DEV-ONLY HEADER FALLBACK
-# ─────────────────────────────────────────────────────────────
-
-_DEBUG_USER_SANITIZER = re.compile(r"[^a-zA-Z0-9._:@-]")
-
-
-def _sanitize_debug_user_id(raw_user_id: Optional[str]) -> Optional[str]:
-    if not raw_user_id:
-        return None
-    cleaned = _DEBUG_USER_SANITIZER.sub("", str(raw_user_id).strip())
-    return cleaned[:200] if cleaned else None
-
-
-def resolve_temp_user_from_headers(headers: Optional[Dict[str, str]] = None) -> Optional[Dict[str, Any]]:
-    """
-    Build a deterministic user from X-Debug-User headers.
-
-    ONLY available in non-production environments.
-    In production, this path is never reached — a 401 is returned instead.
-
-    The frontend api.js sends X-Debug-User/X-Debug-Email from the Supabase
-    session claims as a secondary identification path when SUPABASE_JWT_SECRET
-    is not configured on the backend (local dev without secret).
-    """
-    safe_headers = headers or {}
-    debug_user = _sanitize_debug_user_id(
-        safe_headers.get("x-debug-user") or safe_headers.get("x-user-id")
-    )
-    if not debug_user:
-        return None
-
-    email = (
-        safe_headers.get("x-debug-email")
-        or safe_headers.get("x-user-email")
-        or f"{debug_user}@sentinel.local"
-    )
-    name = (
-        safe_headers.get("x-debug-name")
-        or safe_headers.get("x-user-name")
-        or email.split("@")[0]
-        or "User"
-    )
-    provider = safe_headers.get("x-auth-provider") or "supabase"
-    role = "admin" if str(email).strip().lower() in _RUNTIME_ADMIN_EMAILS else "authenticated"
-
-    return {
-        "id": debug_user,
-        "user_id": debug_user,
-        "email": email,
-        "name": name,
-        "role": role,
-        "provider": provider,
-        "authenticated": True,
-        "is_guest": False,
-    }
-
-
-def resolve_temp_user_from_request(request: Request) -> Optional[Dict[str, Any]]:
-    header_map = {}
-    try:
-        header_map = {k.lower(): v for k, v in request.headers.items()}
-    except Exception:
-        header_map = {}
-    return resolve_temp_user_from_headers(header_map)
-
-
-# ─────────────────────────────────────────────────────────────
 # DEPENDENCY: CURRENT USER
 # ─────────────────────────────────────────────────────────────
 
@@ -219,13 +152,6 @@ async def get_current_user(
                 }
 
         logger.warning("[Auth] Bearer token present but Supabase verification failed")
-
-    # ── 2. Dev-only header fallback (non-production only) ─────
-    if not _IS_PRODUCTION:
-        temp_user = resolve_temp_user_from_request(request)
-        if temp_user:
-            logger.info(f"[Auth][DEV] Header fallback used for user_id={temp_user.get('user_id')}")
-            return temp_user
 
     logger.warning("[Auth] No valid auth token — returning 401")
     raise HTTPException(status_code=401, detail="Missing or invalid auth token")

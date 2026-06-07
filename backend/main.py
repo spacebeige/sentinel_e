@@ -1321,7 +1321,7 @@ async def _run_sentinel_core(
     
         # ── Optimization: Behavioral Routing Hint ─────────────────
         profile_hint = "balanced"
-        if BehavioralMemoryManager and user_id and user_id != "anonymous":
+        if BehavioralMemoryManager and user_id:
             try:
                 profile = await BehavioralMemoryManager.get_profile(db, user_id)
                 profile_hint = profile.get("adaptive_preference", {}).get("preferred_reasoning_depth", "balanced")

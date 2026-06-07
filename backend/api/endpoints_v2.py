@@ -118,13 +118,7 @@ async def create_user_session(
     try:
         _, user_id, db = payload
         
-        # PATCH 6: Log debug header if present
-        try:
-            debug_user = request.headers.get("x-debug-user") if hasattr(request, "headers") else None
-            if debug_user:
-                logger.info(f"HEADER_DEBUG_USER: {debug_user} vs EXTRACTED_USER_ID: {user_id}")
-        except Exception:
-            pass
+        # (Debug header logging removed to strictly enforce auth)
         
         session = await create_session(
             db,

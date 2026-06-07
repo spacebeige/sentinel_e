@@ -535,7 +535,6 @@ from fastapi import Depends, Header, HTTPException, Request
 from gateway.auth_v2 import (
     extract_token_from_header,
     get_current_user as supabase_get_current_user,
-    resolve_temp_user_from_request,
     verify_supabase_token,
 )
 from gateway.admin_access import enrich_runtime_admin_role, is_runtime_admin_email
@@ -579,9 +578,7 @@ async def get_user_id(
         auth_header = authorization or request.headers.get("Authorization")
         token = extract_token_from_header(auth_header)
         if not token:
-            # Try dev-only header fallback
-            temp_user = resolve_temp_user_from_request(request)
-            return temp_user.get("user_id") if temp_user else None
+            return None
 
         claims = await verify_supabase_token(token)
         return claims.get("sub") if claims else None

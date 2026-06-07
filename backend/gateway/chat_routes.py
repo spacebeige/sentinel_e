@@ -259,7 +259,7 @@ async def chat_with_model(
             reasoning_json=assistant_reasoning
         )
 
-        if BehavioralMemoryManager and user_id and user_id != "anonymous":
+        if BehavioralMemoryManager and user_id:
             background_tasks.add_task(
                 BehavioralMemoryManager.update_profile_async,
                 db=db,
