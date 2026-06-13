@@ -823,46 +823,6 @@ async def root():
         "version": "5.0.0",
     }
 
-@app.get("/db-trace")
-async def db_trace():
-    import os
-    from database.connection_v2 import DATABASE_URL_ENV, DATABASE_URL, get_db
-    from sqlalchemy import text
-    
-    # Censor the password from the URL
-    safe_url = "Not Set"
-    if DATABASE_URL:
-        import re
-        safe_url = re.sub(r":([^:@]+)@", ":***@", DATABASE_URL)
-        
-    db_env_raw = os.environ.get("DATABASE_URL", "")
-    pg_env_raw = os.environ.get("POSTGRES_URL", "")
-    sp_env_raw = os.environ.get("SUPABASE_URL", "")
-    
-    try:
-        from database.connection_v2 import async_session_factory
-        async with async_session_factory() as session:
-            result = await session.execute(text("SELECT current_database();"))
-            db_name = result.scalar()
-            
-            # test schema
-            try:
-                col_res = await session.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name = 'chats';"))
-                cols = [row[0] for row in col_res.fetchall()]
-            except Exception as e:
-                cols = str(e)
-    except Exception as e:
-        db_name = str(e)
-        cols = []
-        
-    return {
-        "DATABASE_URL_ENV_VAR_EXISTS": bool(db_env_raw),
-        "POSTGRES_URL_ENV_VAR_EXISTS": bool(pg_env_raw),
-        "SUPABASE_URL_ENV_VAR_EXISTS": bool(sp_env_raw),
-        "sqlalchemy_url_used": safe_url,
-        "current_database": db_name,
-        "chat_columns": cols
-    }
 
 @app.get("/health")
 async def health_check():
