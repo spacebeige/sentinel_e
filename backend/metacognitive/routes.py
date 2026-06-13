@@ -21,6 +21,7 @@ import logging
 import traceback
 from typing import Dict, Optional, Any
 from uuid import UUID
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
 from fastapi.responses import JSONResponse
@@ -525,6 +526,11 @@ async def mco_run(
             "Please retry your request."
         )
         safe_payload = {
+            "chat_id": (
+                payload.get("chat_id")
+                if isinstance(payload, dict) and payload.get("chat_id")
+                else str(uuid.uuid4())
+            ),
             "mode": payload.get("mode", "standard") if isinstance(payload, dict) else "standard",
             "sub_mode": payload.get("sub_mode") if isinstance(payload, dict) else None,
             "formatted_output": fallback_text,
