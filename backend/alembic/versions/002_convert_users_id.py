@@ -16,13 +16,16 @@ branch_labels = None
 depends_on = None
 
 def upgrade():
-    # 1. Drop foreign keys that reference users.id
-    op.drop_constraint('fk_chats_user_id', 'chats', type_='foreignkey')
-    op.drop_constraint('fk_messages_user_id', 'messages', type_='foreignkey')
-    op.drop_constraint('sessions_user_id_fkey', 'sessions', type_='foreignkey')
-    op.drop_constraint('memory_user_id_fkey', 'memory', type_='foreignkey')
-    op.drop_constraint('user_settings_user_id_fkey', 'user_settings', type_='foreignkey')
-    op.drop_constraint('embeddings_user_id_fkey', 'embeddings', type_='foreignkey')
+    # 1. Drop foreign keys that reference users.id safely
+    op.execute('ALTER TABLE chats DROP CONSTRAINT IF EXISTS chats_user_id_fkey')
+    op.execute('ALTER TABLE chats DROP CONSTRAINT IF EXISTS fk_chats_user_id')
+    op.execute('ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_user_id_fkey')
+    op.execute('ALTER TABLE messages DROP CONSTRAINT IF EXISTS fk_messages_user_id')
+    op.execute('ALTER TABLE sessions DROP CONSTRAINT IF EXISTS sessions_user_id_fkey')
+    op.execute('ALTER TABLE memory DROP CONSTRAINT IF EXISTS memory_user_id_fkey')
+    op.execute('ALTER TABLE user_settings DROP CONSTRAINT IF EXISTS user_settings_user_id_fkey')
+    op.execute('ALTER TABLE embeddings DROP CONSTRAINT IF EXISTS embeddings_user_id_fkey')
+    op.execute('ALTER TABLE analytics_events DROP CONSTRAINT IF EXISTS analytics_events_user_id_fkey')
     # Note: context_windows was created without an explicit foreign key in cb896e9e1284
 
     # 2. Alter users.id from UUID to VARCHAR
@@ -36,6 +39,7 @@ def upgrade():
     op.execute('ALTER TABLE memory ALTER COLUMN user_id TYPE VARCHAR USING user_id::VARCHAR')
     op.execute('ALTER TABLE user_settings ALTER COLUMN user_id TYPE VARCHAR USING user_id::VARCHAR')
     op.execute('ALTER TABLE embeddings ALTER COLUMN user_id TYPE VARCHAR USING user_id::VARCHAR')
+    op.execute('ALTER TABLE analytics_events ALTER COLUMN user_id TYPE VARCHAR USING user_id::VARCHAR')
 
     # 4. Recreate foreign keys
     op.create_foreign_key('fk_chats_user_id', 'chats', 'users', ['user_id'], ['id'], ondelete='CASCADE')
@@ -44,6 +48,7 @@ def upgrade():
     op.create_foreign_key('memory_user_id_fkey', 'memory', 'users', ['user_id'], ['id'], ondelete='CASCADE')
     op.create_foreign_key('user_settings_user_id_fkey', 'user_settings', 'users', ['user_id'], ['id'], ondelete='CASCADE')
     op.create_foreign_key('embeddings_user_id_fkey', 'embeddings', 'users', ['user_id'], ['id'], ondelete='CASCADE')
+    op.create_foreign_key('analytics_events_user_id_fkey', 'analytics_events', 'users', ['user_id'], ['id'], ondelete='CASCADE')
 
 def downgrade():
     # Reverse the process: convert back to UUID

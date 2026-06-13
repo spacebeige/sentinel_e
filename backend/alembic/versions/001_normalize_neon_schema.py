@@ -16,6 +16,10 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
 
+revision = '001_normalize_neon_schema'
+down_revision = '9f1d8c2a4b11'
+branch_labels = None
+depends_on = None
 
 def upgrade():
     """Apply schema normalization."""
