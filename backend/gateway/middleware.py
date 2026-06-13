@@ -194,6 +194,9 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                 status_code = 404
                 user_message = "The requested resource was not found."
 
+            import traceback
+            tb_str = traceback.format_exc()
+            
             return JSONResponse(
                 status_code=200,
                 content={
@@ -201,6 +204,7 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                     "data": {},
                     "detail": user_message,
                     "request_id": request_id,
+                    "traceback": tb_str,
                 },
             )
 
