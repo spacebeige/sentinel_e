@@ -36,7 +36,7 @@ def success(
     data: Any,
     code: int = 200,
     message: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> JSONResponse:
     """
     Build success response.
     
@@ -46,7 +46,7 @@ def success(
         message: Optional success message
     
     Returns:
-        {success: true, data: {...}, error: null}
+        JSONResponse with {success: true, data: {...}, error: null}
     """
     # Never allow null data
     if data is None:
@@ -61,14 +61,14 @@ def success(
     if message:
         response["message"] = message
     
-    return response, code
+    return JSONResponse(content=response, status_code=code)
 
 
 def error(
     message: str,
     code: int = 400,
     details: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+) -> JSONResponse:
     """
     Build error response.
     
@@ -78,7 +78,7 @@ def error(
         details: Optional error details (not sensitive)
     
     Returns:
-        {success: false, data: {}, error: {...}}
+        JSONResponse with {success: false, data: {}, error: {...}}
     """
     error_obj = {
         "message": message,
@@ -94,7 +94,7 @@ def error(
         "error": error_obj,
     }
     
-    return response, code
+    return JSONResponse(content=response, status_code=code)
 
 
 # ─────────────────────────────────────────────────────────────
