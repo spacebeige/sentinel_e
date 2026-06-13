@@ -51,7 +51,7 @@ async def transactional(db: AsyncSession, isolation="SERIALIZABLE"):
     """
     try:
         # Set isolation level
-        await db.connection(lambda c: c.connection.set_isolation_level(isolation))
+        await db.connection(execution_options={"isolation_level": isolation})
         
         yield db
         await db.commit()
