@@ -540,6 +540,8 @@ async def mco_run(
             "omega_metadata": {
                 "fallback": True,
                 "error": "runtime_error",
+                "exc_msg": str(exc),
+                "traceback": traceback.format_exc(),
             },
         }
         return JSONResponse(status_code=200, content=safe_payload)
