@@ -36,6 +36,7 @@ class Chat(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(String, index=True, nullable=False)
     title = Column(String, nullable=False) 
+    chat_name = Column(String, nullable=False)
     mode = Column(String, nullable=False) 
     
     is_archived = Column(Boolean, default=False, nullable=False)
@@ -48,9 +49,6 @@ class Chat(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    @property
-    def chat_name(self) -> str:
-        return self.title
 
     @property
     def session_id(self):

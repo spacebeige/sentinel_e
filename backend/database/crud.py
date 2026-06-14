@@ -122,6 +122,7 @@ async def create_chat(
 ) -> Chat:
     kwargs = {
         "title": chat_name,
+        "chat_name": chat_name,
         "mode": mode,
         "user_id": user_id,
     }
