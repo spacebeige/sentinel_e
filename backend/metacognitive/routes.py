@@ -20,6 +20,7 @@ Routes:
 import logging
 import traceback
 from typing import Dict, Optional, Any
+import uuid
 from uuid import UUID
 import os
 
@@ -537,6 +538,7 @@ async def mco_run(
             "Please retry your request."
         )
         safe_payload = {
+            "chat_id": (payload.get("chat_id") if isinstance(payload, dict) else None) or str(uuid.uuid4()),
             "mode": payload.get("mode", "standard") if isinstance(payload, dict) else "standard",
             "sub_mode": payload.get("sub_mode") if isinstance(payload, dict) else None,
             "formatted_output": fallback_text,
